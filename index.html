@@ -92,7 +92,13 @@ canvas{display:block;touch-action:manipulation}
 
 .grid2{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}
 .leftcol{display:grid;gap:14px;min-width:0}
-#info{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);max-height:calc(100vh - 24px);overflow:auto}
+#info{position:sticky;top:calc(env(safe-area-inset-top,0px) + 64px);max-height:calc(100vh - 76px);overflow:auto}
+.minibar{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--led-bg);padding:calc(env(safe-area-inset-top,0px) + 6px) 16px 6px;box-shadow:0 2px 10px rgb(0 0 0 / .25)}
+.minibar-in{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.mclock{font-size:26px}
+.mband{font-family:var(--f-led);color:var(--led-g);font-size:12px;line-height:1.25;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.minibar .play{min-width:0;padding:6px 12px}
+.mspeed{border:1px solid var(--led-dim);background:transparent;color:var(--led);border-radius:7px;padding:5px 10px;font-family:var(--f-mono);font-size:13px}
 @media (max-width:980px){#info{position:static;max-height:none}}
 .ttctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ttctl select{background:var(--paper);border:1px solid var(--line2);border-radius:6px;padding:4px 6px}
@@ -299,6 +305,14 @@ canvas{display:block;touch-action:manipulation}
       <button class="jump" data-t="1430">終電前</button>
     </div>
   </header>
+  <div class="minibar" id="minibar" hidden>
+    <div class="minibar-in">
+      <span class="led mclock" id="mclock">07:00</span>
+      <span class="mband" id="mband"></span>
+      <button class="play" id="mplay">❚❚ 一時停止</button>
+      <button class="mspeed" id="mspeed" aria-label="速さを切り替え">×60</button>
+    </div>
+  </div>
 
   <div class="scrubrow"><span>4:30</span><input type="range" id="scrub" min="270" max="1560" step="1" aria-label="時刻"><span>26:00</span></div>
 
@@ -1558,12 +1572,16 @@ $('#presets').addEventListener('click',e=>{const b=e.target.closest('button');if
 
 /* ---------- controls ---------- */
 const playBtn=$('#play');
-function setPlay(v){playing=v;playBtn.textContent=v?'❚❚ 一時停止':'▶ 運転開始';}
+function setPlay(v){playing=v;playBtn.textContent=v?'❚❚ 一時停止':'▶ 運転開始';$('#mplay').textContent=v?'❚❚ 一時停止':'▶ 運転開始';}
+$('#mplay').addEventListener('click',()=>setPlay(!playing));
 playBtn.addEventListener('click',()=>setPlay(!playing));
 function markSeg(el,v){el.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.v)===v)));}
-$('#speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;speed=Number(b.dataset.v);markSeg($('#speed'),speed);try{localStorage.setItem('dia-speed',speed);}catch(er){}});
+function setSpeed(v){speed=v;markSeg($('#speed'),speed);const b=document.querySelector(`#speed button[data-v="${v}"]`);$('#mspeed').textContent=b?b.textContent:'×'+v*60;try{localStorage.setItem('dia-speed',speed);}catch(er){}}
+$('#speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setSpeed(Number(b.dataset.v));});
+$('#mspeed').addEventListener('click',()=>{const L=[...document.querySelectorAll('#speed button')].map(b=>Number(b.dataset.v));setSpeed(L[(L.indexOf(speed)+1)%L.length]);});
+try{new IntersectionObserver(es=>{$('#minibar').hidden=es[0].isIntersecting;}).observe(document.querySelector('.top'));}catch(e){}
 $('#span').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;diaSpan=Number(b.dataset.v);markSeg($('#span'),diaSpan);drawDia();});
-markSeg($('#speed'),speed);markSeg($('#span'),diaSpan);
+markSeg($('#speed'),speed);markSeg($('#span'),diaSpan);{const b=document.querySelector(`#speed button[data-v="${speed}"]`);if(b)$('#mspeed').textContent=b.textContent;}
 document.querySelectorAll('.jump').forEach(b=>b.addEventListener('click',()=>{T=Number(b.dataset.t);refreshPanels(true);}));
 const scrub=$('#scrub');scrub.addEventListener('input',()=>{T=Number(scrub.value);refreshPanels(true);drawDia();});
 document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))return;if(e.code==='Space'){e.preventDefault();setPlay(!playing);}});
@@ -1587,7 +1605,7 @@ new ResizeObserver(()=>resize()).observe(document.querySelector('.app'));
 let lastTs=0,acc=0;
 function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
   if(playing&&D){T+=speed*dt;if(T>END){T=START+30;}}
-  $('#clock').textContent=fmt(T);{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
+  $('#clock').textContent=fmt(T);if(!$('#minibar').hidden){$('#mclock').textContent=fmt(T);const mb=band(T)+'・'+condLabel();if($('#mband').textContent!==mb)$('#mband').textContent=mb;}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
   drawMap();acc+=dt;if(acc>0.15||!playing&&acc>0.3){acc=0;drawDia();refreshPanels(false);}
   requestAnimationFrame(frame);}
