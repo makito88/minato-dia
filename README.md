@@ -17,3 +17,6 @@
 ## GitHub Pages で公開する
 リポジトリの Settings → Pages → Branch を `main` / `(root)` にして保存すると、
 `https://<ユーザー名>.github.io/<リポジトリ名>/` で遊べます。
+
+## 更新履歴
+- 2026-10-14：Claude から直接コミットできるか確認（テスト）
