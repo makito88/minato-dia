@@ -1,0 +1,1318 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html,body{margin:0}body{font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>みなと川電鉄 ダイヤ工房</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=DotGothic16&family=JetBrains+Mono:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: 運行管理盤 — clock & controls on top, wide route map, diagram + info side by side, editor & results below */
+:root{
+  --paper:#edf0ea; --panel:#f8f9f5; --ink:#1c2826; --muted:#5b6a66; --line:#d3d9d2; --line2:#bfc8c0;
+  --land:#e3e8dc; --land2:#d4dcca; --hill:#c8d1bc; --water:#b4d0dc; --block:#d2d6cc; --track:#38423f;
+  --accent:#0b6b64; --accent-ink:#ffffff;
+  --t-local:#5f6b74; --t-rapid:#e27612; --t-exp:#cf2440; --t-tour:#7a48b5; --t-dead:#9aa39f;
+  --ok:#2c9a58; --warn:#d99a00; --bad:#b0102c;
+  --led-bg:#141a17; --led:#ffb02e; --led-dim:#5a4520; --led-g:#5fe07a;
+  --night:#0d1830; --glow:#ffd77a;
+  --p0:#2a78d6; --p1:#eb6834; --p2:#1baf7a; --p3:#eda100; --p4:#e87ba4;
+  --f-disp:"Dela Gothic One","Zen Kaku Gothic New",system-ui,sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-led:"DotGothic16","Zen Kaku Gothic New",monospace;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#111715; --panel:#18201d; --ink:#e5ebe7; --muted:#93a29d; --line:#29332f; --line2:#38443f;
+  --land:#18211e; --land2:#1d2823; --hill:#24302a; --water:#15303a; --block:#232d29; --track:#a3b0ab;
+  --accent:#3fb8ac; --accent-ink:#0b1513;
+  --t-local:#a9b4bc; --t-rapid:#ff9b3d; --t-exp:#ff5068; --t-tour:#b388ec; --t-dead:#66706c;
+  --ok:#4cc77b; --warn:#f2bd2c; --bad:#ff4d63;
+  --led-bg:#0a0e0c; --led:#ffb02e; --led-dim:#4a3a1c; --led-g:#5fe07a;
+  --night:#000611; --glow:#ffd77a; --p0:#3987e5; --p1:#d95926; --p2:#199e70; --p3:#c98500; --p4:#d55181; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --paper:#111715; --panel:#18201d; --ink:#e5ebe7; --muted:#93a29d; --line:#29332f; --line2:#38443f;
+  --land:#18211e; --land2:#1d2823; --hill:#24302a; --water:#15303a; --block:#232d29; --track:#a3b0ab;
+  --accent:#3fb8ac; --accent-ink:#0b1513;
+  --t-local:#a9b4bc; --t-rapid:#ff9b3d; --t-exp:#ff5068; --t-tour:#b388ec; --t-dead:#66706c;
+  --ok:#4cc77b; --warn:#f2bd2c; --bad:#ff4d63;
+  --led-bg:#0a0e0c; --led:#ffb02e; --led-dim:#4a3a1c; --led-g:#5fe07a;
+  --night:#000611; --glow:#ffd77a; --p0:#3987e5; --p1:#d95926; --p2:#199e70; --p3:#c98500; --p4:#d55181; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
+.app{max-width:1400px;margin:0 auto;padding-inline:16px;padding-block:14px 40px;display:grid;gap:14px}
+h1,h2,h3{margin:0;text-wrap:balance}
+h2{font-size:15px;font-weight:700;letter-spacing:.02em}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.brand{display:flex;gap:12px;align-items:center;min-width:0}
+.mark{width:44px;height:44px;flex:none}
+.brand h1{font-family:var(--f-disp);font-weight:400;font-size:22px;letter-spacing:.04em;line-height:1.15}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+.clockbox{display:flex;align-items:center;gap:10px;background:var(--led-bg);border-radius:8px;padding:6px 14px 6px 12px}
+.led{font-family:var(--f-led);color:var(--led);font-size:34px;line-height:1;letter-spacing:.06em;font-variant-numeric:tabular-nums;text-shadow:0 0 8px color-mix(in srgb,var(--led) 45%,transparent)}
+.band{font-family:var(--f-led);color:var(--led-g);font-size:13px;line-height:1.2;writing-mode:horizontal-tb;min-width:4.5em}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;padding:6px 10px;font-size:12.5px;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.play{border:0;background:var(--accent);color:var(--accent-ink);border-radius:7px;padding:6px 14px;font-weight:700;min-width:84px}
+.jump{border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:5px 9px;font-size:12px}
+
+.scrubrow{display:flex;gap:10px;align-items:center}
+.scrubrow input{flex:1;min-width:0;accent-color:var(--accent)}
+.scrubrow span{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.kpi{background:var(--panel);padding:8px 12px;min-width:0}
+.kpi b{display:block;font-family:var(--f-mono);font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi span{font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+.kpi b.neg{color:var(--bad)} .kpi b.pos{color:var(--ok)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.cardhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sub{color:var(--muted);font-size:12px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.mapcard{padding:0;overflow:hidden}
+.mapcard .scroll{border-radius:10px 10px 0 0}
+canvas{display:block;touch-action:manipulation}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);align-items:center}
+.legend i{display:inline-block;width:18px;height:6px;border-radius:2px;vertical-align:middle;margin-right:5px}
+.legend .dot{width:8px;height:8px;border-radius:50%}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}
+.leftcol{display:grid;gap:14px;min-width:0}
+#info{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);max-height:calc(100vh - 24px);overflow:auto}
+@media (max-width:980px){#info{position:static;max-height:none}}
+.ttctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ttctl select{background:var(--paper);border:1px solid var(--line2);border-radius:6px;padding:4px 6px}
+.seg button:disabled{opacity:.35;cursor:default}
+.tthead{text-align:center;border:1px solid var(--line2);border-bottom:0;border-radius:8px 8px 0 0;padding:6px 8px;background:var(--paper);font-weight:700;line-height:1.35}
+.tthead small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.ttwrap{border:1px solid var(--line2);border-radius:0 0 8px 8px;overflow:hidden}
+.ttable{width:100%;border-collapse:collapse;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.ttable th{width:2.6em;background:color-mix(in srgb,var(--accent) 16%,var(--panel));color:var(--ink);font-weight:700;font-size:13px;text-align:center;border-bottom:1px solid var(--line2);border-right:1px solid var(--line2);padding:2px 0;vertical-align:top}
+.ttable td{border-bottom:1px solid var(--line);padding:1px 4px;line-height:1.9}
+.ttable tr.nowh th{background:var(--accent);color:var(--accent-ink)}
+.ttable tr.nowh td{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.mn{border:0;background:transparent;font:inherit;font-size:15px;font-weight:700;padding:0 3px;margin:0 1px;border-radius:4px;position:relative;line-height:1.5}
+.mn.L{color:var(--ink)} .mn.R{color:var(--t-rapid)} .mn.E{color:var(--t-exp)} .mn.X{color:var(--t-tour)}
+.mn sup{font-family:var(--f-body);font-size:9.5px;font-weight:700;color:var(--ok);margin-left:1px;top:-.6em}
+.mn.orig{text-decoration:underline;text-underline-offset:3px}
+.mn.past{opacity:.38}
+.mn.next{outline:1.5px dashed var(--accent);outline-offset:0}
+.mn.sel{background:var(--accent);color:var(--accent-ink)!important}
+.mn.sel sup{color:var(--accent-ink)}
+.mn:hover{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.ttlegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin-top:8px}
+.ttlegend b{font-family:var(--f-mono)}
+.strip{margin:8px 0 4px}
+.strip svg{width:100%;height:auto;display:block;overflow:visible}
+.where{font-size:13px;padding:8px 10px;border-radius:7px;background:var(--paper);border:1px solid var(--line);margin:6px 0}
+.where b{font-size:15px}
+.ratio{font-family:var(--f-mono);font-size:22px;font-weight:700}
+.grid3{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px}
+@media (max-width:980px){.grid2,.grid3{grid-template-columns:minmax(0,1fr)}}
+
+/* info panel */
+.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:4px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap}
+.chip.L{background:var(--t-local)} .chip.R{background:var(--t-rapid)} .chip.E{background:var(--t-exp)} .chip.X{background:var(--t-tour)}
+:root[data-theme="dark"] .chip, :root:not([data-theme="light"]) .chip{color:#fff}
+.trhead{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;margin-bottom:6px}
+.trhead .num{font-family:var(--f-mono);font-weight:700;font-size:20px}
+.trhead .dest{font-weight:700;font-size:16px}
+.status{font-size:13px;margin-bottom:8px}
+.meter{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:4px 0 2px}
+.meter > div{height:100%;border-radius:4px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:12.5px;margin:8px 0}
+.facts dt{color:var(--muted)} .facts dd{margin:0;font-variant-numeric:tabular-nums}
+.tt{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.tt th{font-weight:500;color:var(--muted);text-align:left;font-size:11.5px;border-bottom:1px solid var(--line);padding:3px 4px}
+.tt td{padding:3px 4px;border-bottom:1px solid var(--line)}
+.tt td.t{font-family:var(--f-mono);font-size:12px}
+.tt tr.now td{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.tt tr.pass td{color:var(--muted)}
+.tt td.r{text-align:right}
+.board{background:var(--led-bg);border-radius:8px;padding:8px 10px;font-family:var(--f-led);color:var(--led);font-size:14px;margin-top:8px}
+.board h4{margin:0 0 4px;font-weight:400;color:var(--led-g);font-size:12.5px}
+.board .row{display:grid;grid-template-columns:3.4em 4.6em 1fr;gap:6px;line-height:1.55}
+.board .row .ty.L{color:#e9e9e9} .board .row .ty.R{color:#ff9b3d} .board .row .ty.E{color:#ff5a6e} .board .row .ty.X{color:#c79bff}
+.board .none{color:var(--led-dim)}
+.board + .board{margin-top:6px}
+
+/* editor */
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{border:1px solid var(--line2);background:var(--paper);border-radius:6px;padding:4px 10px;font-size:12.5px}
+.presets button:hover{border-color:var(--accent)}
+.pt{width:100%;border-collapse:collapse;font-size:13px}
+.pt th{font-weight:500;color:var(--muted);text-align:left;font-size:11.5px;padding:4px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.pt td{padding:4px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+.pt select,.pt input{background:var(--paper);border:1px solid var(--line2);border-radius:5px;padding:3px 4px;font-size:12.5px;max-width:100%}
+.pt input[type=number]{width:4.2em}
+.pt input[type=text]{width:4.4em;font-family:var(--f-mono)}
+.pt .swatch{width:6px;height:22px;border-radius:2px}
+.pt .cnt{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+.del{border:0;background:transparent;color:var(--muted);font-size:16px;padding:0 6px;line-height:1}
+.del:hover{color:var(--bad)}
+.add{margin-top:8px;border:1px dashed var(--line2);background:transparent;border-radius:7px;padding:6px 12px;width:100%;color:var(--accent);font-weight:700}
+.tablewrap{overflow-x:auto}
+
+/* score */
+.score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;font-variant-numeric:tabular-nums}
+.score div{border-bottom:1px solid var(--line);padding-bottom:4px;min-width:0}
+.score span{display:block;font-size:11.5px;color:var(--muted)}
+.score b{font-family:var(--f-mono);font-size:16px}
+.score .big{grid-column:1/-1;display:flex;justify-content:space-between;align-items:baseline;gap:8px;border-bottom:2px solid var(--ink)}
+.score .big b{font-size:24px}
+.pos{color:var(--ok)} .neg{color:var(--bad)}
+.hints{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:6px;font-size:12.5px}
+.hints li{padding:6px 10px;border-radius:6px;background:var(--paper);border-left:3px solid var(--warn)}
+.hints li.good{border-left-color:var(--ok)}
+
+/* stations & log */
+.stt{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.stt th{font-weight:500;color:var(--muted);font-size:11.5px;text-align:right;padding:3px 6px;border-bottom:1px solid var(--line)}
+.stt th:first-child,.stt td:first-child{text-align:left}
+.stt td{padding:3px 6px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--f-mono);font-size:12px}
+.stt td:first-child{font-family:var(--f-body);font-size:13px}
+.stt tr{cursor:pointer}
+.stt tr:hover td{background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.stt tr.sel td{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.wbar{display:inline-block;height:6px;border-radius:3px;background:var(--warn);vertical-align:middle;margin-left:6px}
+.log{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:12.5px}
+.log li{display:grid;grid-template-columns:3.6em 1fr;gap:6px}
+.log time{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.log .k{display:inline-block;font-size:10.5px;border-radius:3px;padding:0 5px;margin-right:4px;border:1px solid var(--line2);color:var(--muted)}
+.log .k.taihi{border-color:var(--t-exp);color:var(--t-exp)}
+.log .k.kokan{border-color:var(--t-tour);color:var(--t-tour)}
+.log .k.depot{border-color:var(--accent);color:var(--accent)}
+.log .k.conn{border-color:var(--t-rapid);color:var(--t-rapid)}
+.pcard .pgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+@media (max-width:860px){.pcard .pgrid{grid-template-columns:minmax(0,1fr)}}
+.pchart{position:relative}
+.pchart svg{width:100%;height:auto;display:block}
+.ptip{position:absolute;pointer-events:none;background:var(--ink);color:var(--panel);border-radius:6px;padding:6px 9px;font-size:12px;line-height:1.5;white-space:nowrap;transform:translate(-50%,-100%);z-index:2;font-variant-numeric:tabular-nums}
+.ptip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.plegend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;margin:2px 0 6px}
+.plegend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.ptab{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.ptab td,.ptab th{padding:4px 4px;border-bottom:1px solid var(--line);text-align:right}
+.ptab th{font-weight:500;color:var(--muted);font-size:11.5px}
+.ptab td:first-child,.ptab th:first-child{text-align:left}
+.ptab td:first-child i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.ptab td{font-family:var(--f-mono);font-size:12px} .ptab td:first-child{font-family:var(--f-body);font-size:13px}
+.pnote{font-size:13px;margin:8px 0 0;padding:8px 10px;background:var(--paper);border-radius:7px}
+.eki{margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.eki h3{font-size:13.5px;margin-bottom:4px}
+.mix{display:flex;height:10px;border-radius:3px;overflow:hidden;gap:1px;background:var(--line);min-width:60px}
+.mix span{display:block;height:100%}
+.cond{display:grid;gap:8px}
+.condrow{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.condsel{display:flex;flex-wrap:wrap;gap:6px 12px}
+.condsel label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.condsel select{background:var(--paper);border:1px solid var(--line2);border-radius:6px;padding:4px 6px;color:var(--ink);font-size:13px}
+.impact{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;font-variant-numeric:tabular-nums}
+.impact b{color:var(--ink);font-family:var(--f-mono);font-size:14px}
+.impact .up{color:var(--ok)} .impact .dn{color:var(--bad)}
+.sect,.odt{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:12px}
+.sect{width:100%;min-width:640px}
+.sect th{font-weight:500;color:var(--muted);font-size:11.5px;padding:4px 4px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line)}
+.sect th.ln{text-align:left;color:var(--ink);font-weight:700}
+.sect td{padding:5px 4px;text-align:center;border-bottom:1px solid var(--line);border-left:2px solid var(--panel)}
+.sect td b{display:block;font-family:var(--f-mono);font-size:15px}
+.sect td small{color:var(--muted);font-size:10.5px;white-space:nowrap}
+.sect td.dir{border-left:0;text-align:left;white-space:nowrap;font-size:12px;color:var(--muted)}
+.sect tr.gap td{border:0;height:8px;padding:0}
+.odt{min-width:560px}
+.odt th{font-weight:500;color:var(--muted);font-size:11.5px;padding:3px 4px;white-space:nowrap}
+.odt thead th{padding:4px 2px;vertical-align:bottom;font-size:11px;line-height:1.2;white-space:normal;width:48px}
+.odt tbody th{text-align:right}
+.odt td{width:48px;min-width:48px;height:26px;text-align:center;font-family:var(--f-mono);font-size:11.5px;border:1px solid var(--panel)}
+.odt td.self{color:var(--line2)}
+.odt td.tot,.odt th.tot{font-weight:700;color:var(--ink)}
+.odt tr.tot td{font-weight:700}
+.odbars{display:grid;grid-template-columns:4.5em 1fr 3.8em;gap:3px 8px;font-size:12px;align-items:center;font-variant-numeric:tabular-nums}
+.odbars .bar{height:8px;border-radius:0 3px 3px 0;background:var(--p0);min-width:1px}
+.odbars .bar.to{background:var(--p2)}
+.odbars span:nth-child(3n){text-align:right;font-family:var(--f-mono);font-size:11.5px}
+.odh{font-size:12px;color:var(--muted);margin:10px 0 4px}
+.help{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="21" fill="var(--accent)"/><path d="M8 27 Q22 9 36 27" fill="none" stroke="var(--accent-ink)" stroke-width="3"/><path d="M8 31 H36" stroke="var(--accent-ink)" stroke-width="3"/><circle cx="22" cy="17" r="3" fill="var(--accent-ink)"/></svg>
+      <div><h1>みなと川電鉄 ダイヤ工房</h1><p>ダイヤを組むと、そのとおりに列車が走ります</p></div>
+    </div>
+    <div class="clockbox" aria-live="off"><div class="led" id="clock">07:00</div><div class="band" id="band">朝ラッシュ</div></div>
+    <div class="ctrl">
+      <button class="play" id="play">❚❚ 一時停止</button>
+      <div class="seg" id="speed" role="group" aria-label="速さ">
+        <button data-v="0.5">×30</button><button data-v="1">×60</button><button data-v="3">×180</button><button data-v="10">×600</button>
+      </div>
+      <button class="jump" data-t="330">始発</button>
+      <button class="jump" data-t="460">朝ラッシュ</button>
+      <button class="jump" data-t="720">昼</button>
+      <button class="jump" data-t="1090">夕方</button>
+      <button class="jump" data-t="1430">終電前</button>
+    </div>
+  </header>
+
+  <div class="scrubrow"><span>4:30</span><input type="range" id="scrub" min="270" max="1560" step="1" aria-label="時刻"><span>26:00</span></div>
+
+  <section class="card cond" aria-label="運行日の条件">
+    <div class="condrow">
+      <h2>この日の条件</h2>
+      <div class="condsel" id="condsel"></div>
+    </div>
+    <div class="condrow">
+      <div class="presets" id="scen">
+        <button data-c="wd,sun,aut,mid,none">いつもの平日</button>
+        <button data-c="wd,rain,spr,mid,none">雨の月曜</button>
+        <button data-c="wd,snow,win,mid,none">大雪の朝</button>
+        <button data-c="sat,sun,sum,mid,hanabi">夏の花火大会</button>
+        <button data-c="hol,sun,aut,boom,onsen">秋の温泉まつり</button>
+        <button data-c="sat,cld,win,mid,live">冬のコンサート</button>
+        <button data-c="wd,cld,win,slump,none">不景気の冬</button>
+        <button data-c="rand">おまかせ</button>
+      </div>
+    </div>
+    <div class="impact" id="impact"></div>
+  </section>
+
+  <section class="kpis" aria-label="現在の状況">
+    <div class="kpi"><b id="k-run">0</b><span>運転中の列車</span></div>
+    <div class="kpi"><b id="k-sets">0</b><span>出庫中の編成</span></div>
+    <div class="kpi"><b id="k-onb">0</b><span>いま乗っている人</span></div>
+    <div class="kpi"><b id="k-wait">0</b><span>駅で待っている人</span></div>
+    <div class="kpi"><b id="k-riders">0</b><span>きょうの利用者</span></div>
+    <div class="kpi"><b id="k-rev">¥0</b><span>きょうの運賃収入</span></div>
+    <div class="kpi"><b id="k-ab">0</b><span>待ちきれず帰った人</span></div>
+  </section>
+
+  <section class="card mapcard">
+    <div class="scroll" id="mapwrap"><canvas id="map" aria-label="路線図。列車が走っています"></canvas></div>
+    <div class="legend">
+      <span><i style="background:var(--t-local)"></i>普通</span>
+      <span><i style="background:var(--t-rapid)"></i>快速</span>
+      <span><i style="background:var(--t-exp)"></i>特急</span>
+      <span><i style="background:var(--t-tour)"></i>観光特急</span>
+      <span><i style="background:var(--t-dead)"></i>回送</span>
+      <span style="margin-left:6px">混雑</span>
+      <span><i class="dot" style="background:var(--ok)"></i>〜80%</span>
+      <span><i class="dot" style="background:var(--warn)"></i>〜150%</span>
+      <span><i class="dot" style="background:var(--bad)"></i>150%〜</span>
+      <span style="margin-left:auto">列車・駅をタップすると詳細</span>
+    </div>
+  </section>
+
+  <div class="grid2">
+    <div class="leftcol">
+    <section class="card">
+      <div class="cardhead">
+        <div><h2>ダイヤグラム</h2><div class="sub">横が時刻、縦が駅。赤い縦線がいまの時刻です</div></div>
+        <div class="seg" id="span" role="group" aria-label="表示幅">
+          <button data-v="120">2時間</button><button data-v="240">4時間</button><button data-v="1290">全日</button>
+        </div>
+      </div>
+      <div class="scroll" id="diawrap"><canvas id="dia" aria-label="ダイヤグラム"></canvas></div>
+    </section>
+    <section class="card" id="ttcard">
+      <div class="cardhead">
+        <div><h2>駅時刻表</h2><div class="sub">時刻をタップすると、その列車がいまどこにいるか表示します</div></div>
+        <div class="ttctl"><select id="ttst" aria-label="駅"></select><div class="seg" id="ttdir" role="group" aria-label="方面"><button data-v="d">下り</button><button data-v="u">上り</button></div></div>
+      </div>
+      <div class="tthead" id="tthead"></div>
+      <div class="ttwrap"><table class="ttable" id="ttable"></table></div>
+      <div class="ttlegend" id="ttlegend"></div>
+    </section>
+    </div>
+    <aside class="card" id="info" aria-live="polite"></aside>
+  </div>
+
+  <div class="grid3">
+    <section class="card">
+      <div class="cardhead">
+        <div><h2>運行パターン</h2><div class="sub">種別・区間・時間帯・間隔を決めると、待避や交換を考えたダイヤが自動で組まれます</div></div>
+      </div>
+      <div class="presets" id="presets">
+        <button data-p="std">標準ダイヤ</button>
+        <button data-p="rush">朝ラッシュ強化</button>
+        <button data-p="tour">行楽シーズン</button>
+        <button data-p="min">最小限</button>
+      </div>
+      <div class="tablewrap" style="margin-top:10px">
+        <table class="pt"><thead><tr><th></th><th>種別</th><th>区間（始発駅から往復）</th><th>始発</th><th>最終</th><th>間隔(分)</th><th>両数</th><th>本数</th><th></th></tr></thead><tbody id="ptbody"></tbody></table>
+      </div>
+      <button class="add" id="addp">＋ パターンを追加（時間帯を区切って増発）</button>
+      <p class="help">列車は朝、中央車庫か港留置線から出庫し、終点で折り返して往復します。最後の仕業を終えると入庫します。編成は同じ車種・両数どうしで使い回されます。</p>
+    </section>
+    <section class="card">
+      <div class="cardhead"><div><h2>このダイヤの1日の成績</h2><div class="sub">変更するとすぐ再計算されます</div></div></div>
+      <div class="score" id="score"></div>
+      <ul class="hints" id="hints"></ul>
+    </section>
+  </div>
+
+  <section class="card pcard">
+    <div class="cardhead">
+      <div><h2>利用目的と時間帯</h2><div class="sub">どの時間に、どんな目的の人が、どれだけ駅を使っているか</div></div>
+      <div class="ttctl"><select id="pst" aria-label="駅"></select>
+        <div class="seg" id="pmode" role="group" aria-label="集計"><button data-v="ba">乗降</button><button data-v="b">乗車</button><button data-v="a">降車</button></div></div>
+    </div>
+    <div class="pgrid">
+      <div>
+        <div class="plegend" id="plegend"></div>
+        <div class="pchart" id="pchart"></div>
+        <div class="sub">横軸は時台。濃い棒は終わった時間帯、薄い棒はこの先の見込みです</div>
+        <div class="eki"><h3 id="ekih">駅ナカ・駅周辺の利用</h3><div class="pchart" id="ekichart"></div></div>
+      </div>
+      <div>
+        <table class="ptab" id="ptab"></table>
+        <p class="pnote" id="pnote"></p>
+        <table class="ptab" id="ekitab" style="margin-top:10px"></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="flowcard">
+    <div class="cardhead">
+      <div><h2>区間ごとの乗車率</h2><div class="sub">乗客ひとりひとりの「乗った駅→降りる駅」を積み上げて、各区間を通る人数と輸送力（定員×本数）を比べます</div></div>
+      <div class="ttctl"><div class="seg" id="fhour" role="group" aria-label="時間帯"><button data-v="-1" aria-label="前の時間帯">‹</button><button data-v="now" id="fhlabel">いまの時間帯</button><button data-v="1" aria-label="次の時間帯">›</button><button data-v="day">1日</button></div></div>
+    </div>
+    <div class="tablewrap"><table class="sect" id="sect"></table></div>
+    <p class="pnote" id="secnote"></p>
+    <div class="cardhead" style="margin-top:14px">
+      <div><h2>駅間の流れ（OD表）</h2><div class="sub">行が乗った駅、列が降りた駅。乗換をはさんでも最初の駅と最後の駅で数えます</div></div>
+      <div class="ttctl"><select id="odp" aria-label="目的"><option value="-1">全目的</option><option value="0">通勤・通学</option><option value="1">ビジネス</option><option value="2">観光・レジャー</option><option value="3">私用・買い物</option></select></div>
+    </div>
+    <div class="tablewrap"><table class="odt" id="odt"></table></div>
+  </section>
+
+  <div class="grid3">
+    <section class="card">
+      <div class="cardhead"><div><h2>駅の様子</h2><div class="sub">いまの時刻までの累計。行をタップすると発車標を表示</div></div></div>
+      <div class="tablewrap"><table class="stt"><thead><tr><th>駅</th><th>待っている人</th><th>乗った人</th><th>降りた人</th><th>乗換</th><th>目的の内訳</th></tr></thead><tbody id="sttbody"></tbody></table></div>
+    </section>
+    <section class="card">
+      <div class="cardhead"><div><h2>運転記録</h2><div class="sub">待避・接続・交換・出入庫</div></div></div>
+      <ol class="log" id="log"></ol>
+    </section>
+  </div>
+</div>
+
+<script>
+/* ======================= CORE (no DOM) ======================= */
+const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
+const ST={
+  C:{name:'中央',km:0,x:112,y:322,wait:true,term:true,plats:4},
+  S:{name:'桜町',km:3.2,x:232,y:330},
+  U:{name:'大学前',km:6.4,x:356,y:322,wait:true,taihi:true},
+  M:{name:'緑ヶ丘',km:9.6,x:480,y:305,wait:true,taihi:true},
+  K:{name:'川辺',km:13.2,bkm:0,x:606,y:296,wait:true,taihi:true,junction:true},
+  N:{name:'新田',km:17.3,x:760,y:312},
+  P:{name:'港',km:21.5,x:904,y:330,wait:true,term:true,plats:2},
+  F:{name:'森下',bkm:3.6,x:652,y:216,wait:true,exch:true},
+  T:{name:'峠',bkm:7.8,x:706,y:148,wait:true,exch:true},
+  O:{name:'温泉',bkm:12.9,x:822,y:80,wait:true,term:true,plats:2},
+};
+const MAIN=['C','S','U','M','K','N','P'], BR=['K','F','T','O'];
+const ALL=['C','S','U','M','K','N','P','F','T','O'];
+const isMain=s=>MAIN.includes(s), isBr=s=>BR.includes(s);
+const segIsBranch=(a,b)=>isBr(a)&&isBr(b)&&!(isMain(a)&&isMain(b));
+const segDist=(a,b)=>segIsBranch(a,b)?Math.abs(ST[a].bkm-ST[b].bkm):Math.abs(ST[a].km-ST[b].km);
+function treeKm(a,b){
+  if(isMain(a)&&isMain(b)) return Math.abs(ST[a].km-ST[b].km);
+  if(isBr(a)&&isBr(b)) return Math.abs(ST[a].bkm-ST[b].bkm);
+  const m=isMain(a)?a:b, br=isMain(a)?b:a; return Math.abs(ST[m].km-ST.K.km)+ST[br].bkm;
+}
+const arm=s=>s==='K'?null:(['C','S','U','M'].includes(s)?'W':(['N','P'].includes(s)?'E':'B'));
+const SEGS=[];const SEGK={};
+[[MAIN,'本線'],[BR,'温泉支線']].forEach(([L,ln])=>{for(let i=0;i<L.length-1;i++){const id=SEGS.length;SEGS.push({a:L[i],b:L[i+1],line:ln});SEGK[L[i]+'>'+L[i+1]]=[id,0];SEGK[L[i+1]+'>'+L[i]]=[id,1];}});
+const POP={C:0.6,S:1.0,U:0.6,M:1.2,K:0.9,N:1.0,P:1.1,F:0.35,T:0.15,O:0.3};
+
+const TYPES={
+  L:{name:'普通',short:'普',prio:1,vmax:80,dwell:0.5,turn:7,cls:'commuter',stops:ALL,code:1,sur:0},
+  R:{name:'快速',short:'快',prio:2,vmax:100,dwell:0.5,turn:7,cls:'commuter',stops:['C','U','K','P','F','T','O'],code:3,sur:0},
+  X:{name:'観光特急',short:'観',prio:3,vmax:100,dwell:1.5,turn:14,cls:'tourist',stops:['C','K','T','O','P'],code:7,sur:700},
+  E:{name:'特急',short:'特',prio:4,vmax:120,dwell:1,turn:9,cls:'express',stops:['C','K','P','O'],code:5,sur:450},
+};
+const CLS={commuter:{name:'通勤車',cap:140,maxF:2.0,cars:[4,6,8,10]},express:{name:'特急車',cap:64,maxF:1.5,cars:[4,6,8]},tourist:{name:'観光車',cap:48,maxF:1.3,cars:[2,3,4]}};
+const ROUTES={
+  CP:{name:'中央 ⇄ 港',seq:MAIN,origin:'C'},
+  PC:{name:'港 ⇄ 中央',seq:[...MAIN].reverse(),origin:'P'},
+  CO:{name:'中央 ⇄ 温泉',seq:['C','S','U','M','K','F','T','O'],origin:'C'},
+};
+const DEPOTNAME={C:'中央車庫',P:'港留置線'};
+const CARKM=240, CARDAY=20000;
+const g=(t,mu,sd)=>Math.exp(-0.5*((t-mu)/sd)**2);
+const PURP=['通勤・通学','ビジネス','観光・レジャー','私用・買い物'];
+const OFFICE={C:1,K:0.5,P:0.7,U:0.3};
+const SI={};ALL.forEach((x,i)=>SI[x]=i);const NSt=ALL.length;
+const COND_DEF={day:'wd',wx:'sun',season:'aut',econ:'mid',ev:'none'};
+const CONDS={
+ day:{label:'曜日',opts:{wd:{n:'平日',m:[1,1,1,1]},sat:{n:'土曜',m:[0.38,0.3,1.7,1.45]},hol:{n:'日曜・祝日',m:[0.22,0.12,2.0,1.35]}}},
+ wx:{label:'天気',opts:{sun:{n:'晴れ',m:[1,1,1.12,1.05]},cld:{n:'くもり',m:[1,1,0.95,1]},rain:{n:'雨',m:[1.08,0.97,0.55,0.8],sp:0.95,dw:0.15,eki:1.12},snow:{n:'大雪',m:[0.85,0.6,0.35,0.45],sp:0.72,dw:0.35,eki:1.05}}},
+ season:{label:'季節',opts:{spr:{n:'春',m:[1,1,1.15,1.05]},sum:{n:'夏',m:[0.95,0.95,1.1,1]},aut:{n:'秋',m:[1,1,1.15,1]},win:{n:'冬',m:[1,1,0.9,1.05]}}},
+ econ:{label:'景気',opts:{boom:{n:'好景気',m:[1.04,1.25,1.15,1.12],eki:1.15},mid:{n:'ふつう',m:[1,1,1,1]},slump:{n:'不景気',m:[0.96,0.75,0.85,0.9],eki:0.85}}},
+ ev:{label:'イベント',opts:{none:{n:'なし'},hanabi:{n:'港の花火大会'},onsen:{n:'温泉まつり'},live:{n:'中央アリーナのコンサート'},campus:{n:'大学オープンキャンパス'}}},
+};
+let COND={...COND_DEF},CX=null,SVF=null;
+function setCond(c){COND={...COND_DEF,...c};const m=[1,1,1,1];let sp=1,dw=0,eki=1;
+  for(const k in CONDS){const o=CONDS[k].opts[COND[k]];if(!o)continue;if(o.m)for(let p=0;p<4;p++)m[p]*=o.m[p];if(o.sp)sp*=o.sp;if(o.dw)dw+=o.dw;if(o.eki)eki*=o.eki;}
+  const st={};const se=COND.season;
+  if(se==='sum'){st.P=1.5;st.O=0.8;}if(se==='win'){st.O=1.45;st.P=0.7;st.T=0.6;}if(se==='aut'){st.T=1.7;st.O=1.15;}
+  CX={m,sp,dw,eki,st,evw:(COND.wx==='rain'?0.45:COND.wx==='snow'?0.3:1)*(COND.day==='wd'?0.75:1),uni:se==='sum'?0.3:se==='spr'?0.6:1};}
+setCond(COND_DEF);
+function rateParts(s,d,t,noSvc){
+  const o=[0,0,0,0];if(s===d||t<300||t>1475) return o;
+  const ps=POP[s],pd=POP[d];
+  const day=t<360?(t-300)/60:(t>1380?Math.max(0,(1475-t)/95):1);
+  o[3]=0.16*ps*pd*day*(0.6+0.6*g(t,690,150));
+  if(d==='C') o[0]+=32*ps*g(t,480,42)+5*ps*g(t,500,110);
+  if(s==='C') o[0]+=24*pd*g(t,1115,65)+5*pd*g(t,1120,150);
+  if(d==='U') o[0]+=9*ps*g(t,505,28)*CX.uni;
+  if(s==='U') o[0]+=5*pd*g(t,1010,85)*CX.uni;
+  if(OFFICE[s]&&OFFICE[d]) o[1]+=5.5*OFFICE[s]*OFFICE[d]*(g(t,600,70)+0.9*g(t,870,80)+0.5*g(t,1050,60));
+  if(d==='C'&&!OFFICE[s]) o[1]+=0.5*ps*g(t,560,90);
+  let tr=0;
+  if(s==='C'&&d==='O') tr+=15*g(t,600,70);
+  if(s==='O'&&d==='C') tr+=13*g(t,960,75);
+  if(s==='C'&&d==='P') tr+=8*g(t,660,95);
+  if(s==='P'&&d==='C') tr+=7*g(t,1020,95);
+  if(s==='C'&&d==='T') tr+=2.5*g(t,580,50);
+  if(s==='T'&&d==='C') tr+=2.2*g(t,930,60);
+  if(s==='C') tr+=1.4*pd*g(t,1230,80);
+  if(d==='O'&&s!=='C') tr+=0.8*ps*g(t,640,80);
+  if(COND.season==='spr'){if(d==='S')tr+=3*ps*g(t,720,110);if(s==='S')tr+=3*pd*g(t,900,110);}
+  o[2]+=tr*(CX.st[s]||1)*(CX.st[d]||1);
+  if(d==='C'&&s!=='C') o[3]+=1.8*ps*g(t,780,120);
+  if(s==='C'&&d!=='C') o[3]+=1.2*pd*g(t,1000,110);
+  for(let p=0;p<4;p++)o[p]*=CX.m[p];
+  const ev=COND.ev;
+  if(ev==='hanabi'){const w=CX.evw;if(d==='P')o[2]+=w*(9*ps*g(t,1050,45)+(s==='C'?12*g(t,1060,50):0));if(s==='P')o[2]+=w*(10*pd*g(t,1290,22)+(d==='C'?14*g(t,1295,25):0));}
+  else if(ev==='onsen'){const w=CX.evw;if(d==='O')o[2]+=w*(6*ps*g(t,660,70)+(s==='C'?20*g(t,630,60):0));if(s==='O')o[2]+=w*(6*pd*g(t,1000,70)+(d==='C'?18*g(t,990,60):0));}
+  else if(ev==='live'){const w=COND.day==='wd'?0.8:1;if(d==='C')o[2]+=w*7*ps*g(t,1020,40);if(s==='C')o[2]+=w*9*pd*g(t,1275,18);}
+  else if(ev==='campus'){const w=CX.evw;if(d==='U')o[3]+=w*5*ps*g(t,570,40);if(s==='U')o[3]+=w*4*pd*g(t,930,60);}
+  if(SVF&&!noSvc){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=SVF[b+p];}
+  return o;
+}
+const ELAS=[0.35,1.0,0.8,0.9],REF_WAIT=1.5;
+function computeService(trips){
+  const N=NSt,cnt=new Float32Array(N*N*30),tm=new Float32Array(N*N*30).fill(1e9);
+  for(const tr of trips){const idx=[];tr.seq.forEach((x,i)=>{if(tr.stop[i])idx.push(i);});
+    for(let a=0;a<idx.length-1;a++){const i=idx[a],h=Math.min(29,tr.dep[i]/60|0),si=SI[tr.seq[i]];
+      for(let b=a+1;b<idx.length;b++){const j=idx[b],k=(si*N+SI[tr.seq[j]])*30+h;cnt[k]++;const v=tr.arr[j]-tr.dep[i];if(v<tm[k])tm[k]=v;}}}
+  const gt=(si,di,h)=>{const k=(si*N+di)*30+h;let c=cnt[k],t=tm[k];
+    if(c===0){c=((h>0?cnt[k-1]:0)+(h<29?cnt[k+1]:0))*0.3;t=Math.min(h>0?tm[k-1]:1e9,h<29?tm[k+1]:1e9);}return [c,t];};
+  const G=(c,t)=>t>=1e8||c<=0.05?1e9:t+1.5*Math.min(45,30/c);
+  const out=new Float32Array(N*N*30*4).fill(1),K=SI.K,svc=new Float32Array(N*N*30);
+  for(let si=0;si<N;si++)for(let di=0;di<N;di++){if(si===di)continue;const s=ALL[si],d=ALL[di];
+    const canX=s!=='K'&&d!=='K'&&arm(s)!==arm(d)&&(arm(s)==='B'||arm(d)==='B');const km=treeKm(s,d);
+    const ref=km/40*60+1.5*REF_WAIT+(canX&&(arm(s)==='E'||arm(d)==='E')?8:0);
+    for(let h=4;h<30;h++){const [c,t]=gt(si,di,h);let best=G(c,t);
+      if(canX){const [c1,t1]=gt(si,K,h),[c2,t2]=gt(K,di,Math.min(29,h+(t1>40?1:0)));const x=G(c1,t1)+(c2>0.05?t2+1.5*Math.min(30,30/c2)+3:1e9);if(x<best)best=x;}
+      if(best>=1e8)best=km/34*60*1.6+1.5*45;
+      const r=ref/best,k=(si*N+di)*30+h;svc[k]=r;
+      for(let p=0;p<4;p++)out[k*4+p]=Math.max(0.12,Math.min(1.6,Math.pow(r,ELAS[p])));}}
+  return out;}
+function demandTotals(){const pot=[0,0,0,0],act=[0,0,0,0];
+  for(let h=5;h<25;h++){const t=h*60+30;for(const a of ALL)for(const b of ALL){if(a===b)continue;const x=rateParts(a,b,t,true),y=rateParts(a,b,t);for(let p=0;p<4;p++){pot[p]+=x[p]*60;act[p]+=y[p]*60;}}}
+  return {pot,act};}
+function rate(s,d,t){const o=rateParts(s,d,t);return o[0]+o[1]+o[2]+o[3];}
+const CW={C:1.0,S:0.25,U:0.4,M:0.3,K:0.5,N:0.25,P:0.6,F:0.15,T:0.2,O:0.7};
+const SPEND={C:850,S:450,U:380,M:450,K:600,N:450,P:1300,F:400,T:700,O:1600};
+const PROP=h=>[h>=17?0.2:0.07,0.22,0.42,0.3];
+const fare=(s,d)=>Math.round((150+20*treeKm(s,d))/10)*10;
+function runT(a,b,ty,sa,sb){const v=segIsBranch(a,b)?Math.min(ty.vmax,65):ty.vmax;return segDist(a,b)/(v*CX.sp)*60+(sa?0.55:0)+(sb?0.55:0);}
+
+function scheduleTrip(tr,reg){
+  const seq=tr.seq,n=seq.length,ty=TYPES[tr.type];
+  const stop=seq.map((s,i)=>i===0||i===n-1||ty.stops.includes(s));
+  const arr=new Array(n),dep=new Array(n);
+  arr[0]=tr.want;dep[0]=tr.want;
+  const w=[0];for(let i=1;i<n-1;i++) if(ST[seq[i]].wait) w.push(i); w.push(n-1);
+  tr.op=new Array(n).fill(false);
+  let nominal=0;for(let k=0;k<n-1;k++){nominal+=runT(seq[k],seq[k+1],ty,stop[k],stop[k+1]);if(k+1<n-1&&stop[k+1])nominal+=ty.dwell+CX.dw;}
+  tr.nominal=nominal;
+  for(let b=0;b<w.length-1;b++){
+    const bi=w[b],bj=w[b+1];
+    const base=bi===0?tr.want:arr[bi]+(stop[bi]?ty.dwell+CX.dw:0);
+    let start=base;const branch=segIsBranch(seq[bi],seq[bi+1]);
+    let ta=[],td=[];
+    for(let it=0;it<90;it++){
+      ta=[];td=[];td[bi]=start;let cur=start;
+      for(let k=bi;k<bj;k++){
+        ta[k+1]=cur+runT(seq[k],seq[k+1],ty,stop[k]||(k===bi&&start>base+0.01),stop[k+1]);
+        td[k+1]=ta[k+1]+(stop[k+1]?ty.dwell+CX.dw:0);cur=td[k+1];
+      }
+      let shift=0;
+      if(branch){
+        const key='B'+[seq[bi],seq[bj]].sort().join('');const e0=start,x0=ta[bj];
+        for(const iv of reg[key]||[]){if(!(iv.x+HWS<=e0||x0+HWS<=iv.e)) shift=Math.max(shift,iv.x+HWS-e0);}
+      }else{
+        for(let k=bi;k<bj;k++){
+          const key=seq[k]+'>'+seq[k+1];const e0=td[k],x0=(k+1===bj)?ta[bj]:td[k+1];
+          for(const iv of reg[key]||[]){
+            const ahead=iv.e<=e0-HW&&iv.x<=x0-HW, behind=iv.e>=e0+HW&&iv.x>=x0+HW;
+            if(!ahead&&!behind) shift=Math.max(shift,iv.e+HW-e0,iv.x+HW-x0);
+          }
+        }
+      }
+      if(shift<=1e-6) break; start+=shift+0.05;
+    }
+    dep[bi]=start; if(start>base+0.05&&!stop[bi]) tr.op[bi]=true;
+    for(let k=bi+1;k<=bj;k++){arr[k]=ta[k];dep[k]=td[k];}
+  }
+  dep[n-1]=arr[n-1];
+  for(let b=0;b<w.length-1;b++){
+    const bi=w[b],bj=w[b+1];
+    if(segIsBranch(seq[bi],seq[bi+1])){const key='B'+[seq[bi],seq[bj]].sort().join('');(reg[key]||(reg[key]=[])).push({e:dep[bi],x:arr[bj]});}
+    else for(let k=bi;k<bj;k++){const key=seq[k]+'>'+seq[k+1];(reg[key]||(reg[key]=[])).push({e:dep[k],x:(k+1===bj)?arr[bj]:dep[k+1]});}
+  }
+  tr.arr=arr;tr.dep=dep;tr.stop=stop;
+  tr.down=seq[n-1]==='P'||seq[n-1]==='O';
+  tr.delay=arr[n-1]-dep[0]-nominal;
+}
+function onSiding(tr,i){const n=tr.seq.length;if(i<=0||i>=n-1||!ST[tr.seq[i]].taihi)return false;return tr.dep[i]-tr.arr[i]>(tr.stop[i]?TYPES[tr.type].dwell+CX.dw:0)+0.4;}
+
+function buildAll(patterns){
+  const reg={},trips=[],outs=[];
+  patterns.forEach(p=>{if(!(p.int>=3)||!(p.to>p.from))return;for(let t=p.from;t<p.to-0.01&&outs.length<900;t+=p.int)outs.push({type:p.type,route:p.route,cars:p.cars,want:t,pid:p.id,leg:'out',seq:ROUTES[p.route].seq});});
+  for(const pr of [4,3,2,1]){
+    const o=outs.filter(x=>TYPES[x.type].prio===pr).sort((a,b)=>a.want-b.want);
+    const pend=o.slice();
+    while(pend.length){const t=pend.shift();scheduleTrip(t,reg);trips.push(t);
+      if(t.leg==='out'){const r={type:t.type,route:t.route,cars:t.cars,want:t.arr[t.arr.length-1]+TYPES[t.type].turn,pid:t.pid,leg:'ret',seq:[...t.seq].reverse(),pair:t};t.ret=r;
+        let lo=0,hi=pend.length;while(lo<hi){const m=(lo+hi)>>1;if(pend[m].want<=r.want)lo=m+1;else hi=m;}pend.splice(lo,0,r);}}
+  }
+  trips.sort((a,b)=>a.dep[0]-b.dep[0]);
+  const ctr={};
+  trips.forEach((t,ix)=>{t.ix=ix;const k=t.type+(t.down?'d':'u');ctr[k]=(ctr[k]||0)+1;t.num=TYPES[t.type].code*1000+(t.down?ctr[k]*2-1:ctr[k]*2);
+    const c=CLS[TYPES[t.type].cls];t.cap=t.cars*c.cap;t.capMax=t.cap*c.maxF;
+    t.mpts=[];t.bpts=[];t.seq.forEach((s,i)=>{if(isMain(s)){t.mpts.push([t.arr[i],ST[s].km],[t.dep[i],ST[s].km]);}if(isBr(s)){t.bpts.push([t.arr[i],ST[s].bkm],[t.dep[i],ST[s].bkm]);}});
+    if(t.bpts.length<4)t.bpts=[];});
+  // vehicle assignment
+  const sets=[],pools={},clsCount={};
+  trips.filter(t=>t.leg==='out').forEach(o=>{
+    const cls=TYPES[o.type].cls,home=ROUTES[o.route].origin,key=home+'|'+cls+'|'+o.cars;
+    const pool=pools[key]||(pools[key]=[]);
+    let best=-1;for(let i=0;i<pool.length;i++){if(pool[i].free+6<=o.dep[0]&&(best<0||pool[i].free<pool[best].free))best=i;}
+    let set;if(best>=0)set=pool[best];else{clsCount[cls]=(clsCount[cls]||0)+1;set={id:sets.length,cls,cars:o.cars,home,trips:[],free:0,no:clsCount[cls]};set.plat=set.id;sets.push(set);pool.push(set);}
+    set.trips.push(o,o.ret);o.set=set;o.ret.set=set;set.free=o.ret.arr[o.ret.arr.length-1];
+  });
+  sets.forEach(s=>{s.first=s.trips[0].dep[0];s.last=s.trips[s.trips.length-1].arr.at(-1);s.label=CLS[s.cls].name+String(s.no).padStart(2,'0')+'編成';});
+  SVF=null;SVF=computeService(trips);
+  const sim=simulate(trips);
+  const events=makeEvents(trips,sets);
+  const summary=summarize(trips,sets,sim,events);
+  return {trips,sets,sim,events,summary};
+}
+
+function simulate(trips){
+  const W={},Wx={},last={},stat={};
+  ALL.forEach(s=>{W[s]={};Wx[s]={};ALL.forEach(d=>{W[s][d]=0;Wx[s][d]=0;});last[s]=START;stat[s]={t:[],b:[],a:[],x:[],w:[],cb:0,ca:0,cx:0,hb:[0,1,2,3].map(()=>new Array(30).fill(0)),ha:[0,1,2,3].map(()=>new Array(30).fill(0)),nk:new Array(30).fill(0),ny:new Array(30).fill(0)};});
+  const N=NSt,OD=new Float32Array(N*N*30*4),SECL=new Float32Array(SEGS.length*2*30),SECC=new Float32Array(SEGS.length*2*30),SECN=new Float32Array(SEGS.length*2*30);
+  const evs=[];
+  trips.forEach(tr=>{const n=tr.seq.length;tr.onb={};tr.onbO={};tr.fromAfter=new Array(n).fill(null);tr.toAfter=new Array(n).fill(null);tr.onbP={};tr.mixAfter=new Array(n).fill(null);tr.load=0;tr.loadAfter=new Array(n).fill(0);tr.bAt=new Array(n).fill(0);tr.aAt=new Array(n).fill(0);tr.maxRatio=0;tr.maxAt=0;
+    tr.seq.forEach((s,i)=>{if(!tr.stop[i])return;if(i>0)evs.push({t:tr.arr[i],k:0,tr,i});if(i<n-1)evs.push({t:tr.dep[i],k:1,tr,i});});});
+  evs.sort((a,b)=>a.t-b.t||a.k-b.k);
+  let rev=0,riders=0,left=0,aband=0;const G={t:[],rev:[],riders:[],left:[],aband:[]};
+  const abH=new Array(30).fill(0),leftH=new Array(30).fill(0),loadH=Array.from({length:30},()=>[0,0]);
+  function adv(s,t){let t0=last[s];while(t0<t-1e-9){const t1=Math.min(t,t0+5),dt=t1-t0,tm=(t0+t1)/2;
+      for(const d of ALL){if(d===s)continue;const lam=rate(s,d,tm),w0=W[s][d],eq=lam*TAU,w1=eq+(w0-eq)*Math.exp(-dt/TAU);const lost=Math.max(0,lam*dt-(w1-w0));aband+=lost;abH[Math.min(29,Math.floor(tm/60))]+=lost;W[s][d]=w1;}
+      t0=t1;}last[s]=Math.max(last[s],t);}
+  const wsum=s=>{let x=0;for(const d of ALL)x+=W[s][d]+Wx[s][d];return x;};
+  for(const ev of evs){
+    const tr=ev.tr,i=ev.i,s=tr.seq[i],st=stat[s];adv(s,ev.t);
+    if(ev.k===0){const bucket=tr.onb[s];let tot=0;
+      if(bucket){const hh=Math.min(29,Math.floor(ev.t/60)),bp=tr.onbP[s]||{};for(const d in bucket){const c=bucket[d];tot+=c;if(d===s){st.ca+=c;const v=bp[d];if(v)for(let p=0;p<4;p++)st.ha[p][hh]+=v[p];}else{Wx[s][d]+=c;st.cx+=c;}}delete tr.onb[s];delete tr.onbP[s];delete tr.onbO[s];}
+      tr.load=Math.max(0,tr.load-tot);tr.aAt[i]=tot;
+    }else{
+      const fut=new Set();for(let j=i+1;j<tr.seq.length;j++)if(tr.stop[j])fut.add(tr.seq[j]);
+      const capLeft=Math.max(0,tr.capMax-tr.load);const dem=[];let D=0;
+      for(const d of ALL){if(d===s)continue;let tgt=null;if(fut.has(d))tgt=d;else if(s!=='K'&&fut.has('K')&&d!=='K'&&arm(d)!==arm(s))tgt='K';
+        if(!tgt)continue;const w=W[s][d],x=Wx[s][d];if(w+x<=0)continue;dem.push({d,tgt,w,x});D+=w+x;}
+      let boarded=0;
+      if(D>0){const f=Math.min(1,capLeft/D);
+        const hh=Math.min(29,Math.floor(ev.t/60));
+        for(const q of dem){const bw=q.w*f,bx=q.x*f;W[s][q.d]-=bw;Wx[s][q.d]-=bx;const b=tr.onb[q.tgt]||(tr.onb[q.tgt]={});b[q.d]=(b[q.d]||0)+bw+bx;
+          const pr=rateParts(s,q.d,ev.t);let ps=pr[0]+pr[1]+pr[2]+pr[3];if(ps<=0){pr[3]=1;ps=1;}
+          const bpp=tr.onbP[q.tgt]||(tr.onbP[q.tgt]={});const vv=bpp[q.d]||(bpp[q.d]=[0,0,0,0]);for(let p=0;p<4;p++){vv[p]+=(bw+bx)*pr[p]/ps;st.hb[p][hh]+=bw*pr[p]/ps;OD[((SI[s]*N+SI[q.d])*30+hh)*4+p]+=bw*pr[p]/ps;}
+          const oo=tr.onbO[q.tgt]||(tr.onbO[q.tgt]=new Float32Array(N));oo[SI[s]]+=bw+bx;
+          rev+=bw*fare(s,q.d)+(bw+bx)*TYPES[tr.type].sur;riders+=bw;st.cb+=bw;boarded+=bw+bx;}
+        const lb=D*(1-f);left+=lb;leftH[Math.min(29,Math.floor(ev.t/60))]+=lb;}
+      tr.load+=boarded;tr.bAt[i]=boarded;tr.loadAfter[i]=tr.load;{const m=[0,0,0,0];for(const k in tr.onbP)for(const d in tr.onbP[k]){const v=tr.onbP[k][d];for(let p=0;p<4;p++)m[p]+=v[p];}tr.mixAfter[i]=m;}
+      {const fa=new Float32Array(N),ta=new Float32Array(N);for(const k in tr.onbO){const v=tr.onbO[k];for(let x=0;x<N;x++)fa[x]+=v[x];}for(const k in tr.onb){const v=tr.onb[k];for(const d in v)ta[SI[d]]+=v[d];}tr.fromAfter[i]=fa;tr.toAfter[i]=ta;
+        const hh2=Math.min(29,Math.floor(ev.t/60));let j=i+1;while(j<tr.seq.length-1&&!tr.stop[j])j++;for(let k=i;k<j;k++){const sg=SEGK[tr.seq[k]+'>'+tr.seq[k+1]];const ix=(sg[0]*2+sg[1])*30+hh2;SECL[ix]+=tr.load;SECC[ix]+=tr.cap;SECN[ix]++;}}
+      const r=tr.load/tr.cap;if(r>tr.maxRatio){tr.maxRatio=r;tr.maxAt=i;}
+      const h=Math.min(29,Math.floor(ev.t/60));loadH[h][0]+=r;loadH[h][1]++;
+    }
+    st.t.push(ev.t);st.b.push(st.cb);st.a.push(st.ca);st.x.push(st.cx);st.w.push(wsum(s));
+    G.t.push(ev.t);G.rev.push(rev);G.riders.push(riders);G.left.push(left);G.aband.push(aband);
+  }
+  ALL.forEach(s=>adv(s,1500));
+  // station-area commerce (駅ナカ)
+  let ekiYen=0;ALL.forEach(s=>{const st=stat[s];for(let h=4;h<27;h++){const pr=PROP(h%24);let v=0;for(let p=0;p<4;p++)v+=(st.hb[p][h]+st.ha[p][h])*pr[p];
+    v=CX.eki*(CW[s]*v+CW[s]*55*POP[s]*(g(h+0.5,12.5,1.3)+0.8*g(h+0.5,18.7,1.4))*(h>=6&&h<23?1:0));st.nk[h]=v;st.ny[h]=v*SPEND[s];ekiYen+=v*SPEND[s];}});
+  trips.forEach(tr=>{for(let i=1;i<tr.seq.length;i++)if(!tr.stop[i])tr.loadAfter[i]=tr.loadAfter[i-1];tr.loadAfter[tr.seq.length-1]=0;for(let i=1;i<tr.seq.length;i++){if(!tr.mixAfter[i])tr.mixAfter[i]=tr.mixAfter[i-1];if(!tr.fromAfter[i]){tr.fromAfter[i]=tr.fromAfter[i-1];tr.toAfter[i]=tr.toAfter[i-1];}}});
+  // running cost timeline
+  const C={t:[],v:[]};const segs=[];trips.forEach(tr=>{for(let k=0;k<tr.seq.length-1;k++)segs.push([tr.arr[k+1],segDist(tr.seq[k],tr.seq[k+1])*tr.cars*CARKM]);});
+  segs.sort((a,b)=>a[0]-b[0]);let cc=0;segs.forEach(([t,v])=>{cc+=v;C.t.push(t);C.v.push(cc);});
+  return {G,stat,C,OD,SECL,SECC,SECN,totals:{rev,riders,left,aband:aband,run:cc,ekiYen},abH,leftH,loadH};
+}
+
+function makeEvents(trips,sets){
+  const ev=[];const nm=t=>TYPES[t.type].name+' '+t.num;
+  sets.forEach(s=>{ev.push({t:s.first-8,k:'depot',txt:`${DEPOTNAME[s.home]}から ${s.label}（${s.cars}両）が出庫`});ev.push({t:s.last+3,k:'depot',txt:`${s.label} が${DEPOTNAME[s.home]}に入庫`});});
+  const byDir={};trips.forEach(t=>{(byDir[t.down?'d':'u']||(byDir[t.down?'d':'u']=[])).push(t);});
+  let taihi=0,conn=0,kokan=0;
+  trips.forEach(tr=>{tr.seq.forEach((s,i)=>{if(!onSiding(tr,i))return;
+    for(const o of byDir[tr.down?'d':'u']){if(o===tr||TYPES[o.type].prio<=TYPES[tr.type].prio)continue;const j=o.seq.indexOf(s);if(j<0)continue;
+      if(o.arr[j]>=tr.arr[i]-0.1&&o.arr[j]<=tr.dep[i]+0.1){
+        if(o.stop[j]&&o.dep[j]>o.arr[j]){conn++;ev.push({t:o.arr[j],k:'conn',txt:`${ST[s].name} ${nm(tr)} と ${nm(o)} が緩急接続`});}
+        else{taihi++;ev.push({t:o.arr[j],k:'taihi',txt:`${ST[s].name} ${nm(tr)} が ${nm(o)} の通過を待避`});}
+      }}});});
+  const brT=trips.filter(t=>t.seq.includes('O'));
+  for(const X of ['F','T'])for(let a=0;a<brT.length;a++)for(let b=a+1;b<brT.length;b++){const A=brT[a],B=brT[b];if(A.down===B.down)continue;const i=A.seq.indexOf(X),j=B.seq.indexOf(X);
+    const s0=Math.max(A.arr[i],B.arr[j]),s1=Math.min(A.dep[i],B.dep[j]);if(s1>s0-0.2){kokan++;ev.push({t:s0,k:'kokan',txt:`${ST[X].name} ${nm(A)} と ${nm(B)} が列車交換`});}}
+  const firstBy={},lastBy={};trips.forEach(t=>{const k=t.seq[0]+t.seq.at(-1);if(!firstBy[k]||t.dep[0]<firstBy[k].dep[0])firstBy[k]=t;if(!lastBy[k]||t.dep[0]>lastBy[k].dep[0])lastBy[k]=t;});
+  Object.values(firstBy).forEach(t=>ev.push({t:t.dep[0],k:'first',txt:`始発 ${nm(t)} ${ST[t.seq[0]].name}発 ${ST[t.seq.at(-1)].name}行`}));
+  Object.values(lastBy).forEach(t=>ev.push({t:t.dep[0],k:'first',txt:`最終 ${nm(t)} ${ST[t.seq[0]].name}発 ${ST[t.seq.at(-1)].name}行`}));
+  ev.sort((a,b)=>a.t-b.t);ev.counts={taihi,conn,kokan};return ev;
+}
+
+function summarize(trips,sets,sim,events){
+  const fixed=sets.reduce((a,s)=>a+s.cars*CARDAY,0);
+  let peak=null;trips.forEach(t=>{if(!peak||t.maxRatio>peak.maxRatio)peak=t;});
+  const byCls={};sets.forEach(s=>{byCls[s.cls]=(byCls[s.cls]||0)+1;});
+  const tot=sim.totals;
+  const dm=demandTotals();const keep=COND;setCond(COND_DEF);const SV=SVF;SVF=null;const ref=demandTotals();setCond(keep);SVF=SV;
+  let secMax=null,secMin=null;for(let sg=0;sg<SEGS.length;sg++)for(let dr=0;dr<2;dr++)for(let h=5;h<25;h++){const ix=(sg*2+dr)*30+h,L=sim.SECL[ix],C=sim.SECC[ix];if(C<=0||L<150)continue;const r=L/C;
+    if(!secMax||r>secMax.r)secMax={sg,dr,h,r,L,C,n:sim.SECN[ix]};if(h>=10&&h<16&&sim.SECN[ix]>=2&&(!secMin||r<secMin.r))secMin={sg,dr,h,r,L,C,n:sim.SECN[ix]};}
+  return {trips:trips.length,sets:sets.length,byCls,riders:tot.riders,rev:tot.rev,run:tot.run,fixed,eki:tot.ekiYen*0.12,ekiSales:tot.ekiYen,profit:tot.rev+tot.ekiYen*0.12-tot.run-fixed,peak,left:tot.left,aband:tot.aband,counts:events.counts,
+    abH:sim.abH,leftH:sim.leftH,loadH:sim.loadH,dm,ref:ref.pot,secMax,secMin};
+}
+/* ======================= /CORE ======================= */
+</script>
+<script>
+const $=s=>document.querySelector(s);
+const fmt=t=>{t=Math.floor(t+1e-6);const h=Math.floor(t/60)%24,m=((t%60)+60)%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');};
+const fmtN=n=>Math.round(n).toLocaleString('ja-JP');
+const yen=n=>(n<0?'−':'')+'¥'+Math.round(Math.abs(n)).toLocaleString('ja-JP');
+const man=n=>(n<0?'−':'')+(Math.abs(n)/10000).toFixed(Math.abs(n)>=1e7?0:1)+'万円';
+const parseT=s=>{const mt=String(s).trim().replace('：',':').match(/^(\d{1,2}):?(\d{2})$/);if(!mt)return NaN;let t=Number(mt[1])*60+Number(mt[2]);if(t<180)t+=1440;return Math.min(t,1530);};
+const toInput=t=>{t=Math.round(t);return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');};
+function bsearch(arr,T){let lo=0,hi=arr.length-1,r=-1;while(lo<=hi){const m=(lo+hi)>>1;if(arr[m]<=T){r=m;lo=m+1;}else hi=m-1;}return r;}
+
+/* ---------- state ---------- */
+let pid=1;
+const PRESETS={
+  std:[
+    {type:'L',route:'CP',from:'05:00',to:'24:00',int:12,cars:6},
+    {type:'L',route:'PC',from:'06:20',to:'09:00',int:12,cars:8},
+    {type:'L',route:'CP',from:'17:06',to:'20:00',int:12,cars:8},
+    {type:'R',route:'CP',from:'07:03',to:'21:00',int:20,cars:8},
+    {type:'E',route:'CP',from:'07:15',to:'22:00',int:30,cars:6},
+    {type:'X',route:'CO',from:'09:10',to:'15:30',int:60,cars:4},
+    {type:'L',route:'CO',from:'05:40',to:'23:30',int:30,cars:4},
+  ],
+  rush:[
+    {type:'L',route:'CP',from:'05:00',to:'24:00',int:12,cars:8},
+    {type:'L',route:'PC',from:'06:00',to:'09:00',int:6,cars:10},
+    {type:'R',route:'PC',from:'06:40',to:'08:40',int:12,cars:10},
+    {type:'L',route:'CP',from:'17:00',to:'20:30',int:8,cars:10},
+    {type:'R',route:'CP',from:'09:03',to:'21:00',int:20,cars:8},
+    {type:'E',route:'CP',from:'07:15',to:'22:00',int:30,cars:8},
+    {type:'X',route:'CO',from:'09:10',to:'15:30',int:60,cars:4},
+    {type:'L',route:'CO',from:'05:40',to:'23:30',int:30,cars:4},
+  ],
+  tour:[
+    {type:'L',route:'CP',from:'05:00',to:'24:00',int:12,cars:6},
+    {type:'L',route:'PC',from:'06:20',to:'09:00',int:12,cars:8},
+    {type:'R',route:'CP',from:'07:03',to:'21:00',int:20,cars:8},
+    {type:'E',route:'CP',from:'07:15',to:'22:00',int:30,cars:6},
+    {type:'X',route:'CO',from:'08:30',to:'16:30',int:30,cars:4},
+    {type:'R',route:'CO',from:'09:20',to:'16:00',int:60,cars:6},
+    {type:'L',route:'CO',from:'05:40',to:'23:30',int:30,cars:4},
+  ],
+  min:[
+    {type:'L',route:'CP',from:'05:30',to:'23:30',int:20,cars:6},
+    {type:'L',route:'CO',from:'06:00',to:'22:00',int:60,cars:4},
+    {type:'E',route:'CP',from:'08:00',to:'20:00',int:60,cars:4},
+  ],
+};
+const mkPat=p=>({id:pid++,type:p.type,route:p.route,from:parseT(p.from),to:parseT(p.to),int:p.int,cars:p.cars});
+let PAT=PRESETS.std.map(mkPat);
+try{const s=JSON.parse(localStorage.getItem('dia-patterns')||'null');if(Array.isArray(s)&&s.length){PAT=s.map(p=>({...p,id:pid++}));}}catch(e){}
+let D=null,T=440,playing=true,speed=1,diaSpan=240,sel={kind:'station',st:'C'};
+try{const v=Number(localStorage.getItem('dia-speed'));if(v)speed=v;}catch(e){}
+try{const c=JSON.parse(localStorage.getItem('dia-cond')||'null');if(c&&typeof c==='object')setCond(c);}catch(e){}
+function save(){try{localStorage.setItem('dia-patterns',JSON.stringify(PAT.map(({id,...r})=>r)));}catch(e){}}
+function rebuild(){
+  const keepSet=sel.kind==='set'?sel.set.id:null;
+  D=buildAll(PAT);
+  if(sel.kind==='set'||sel.kind==='trip'){sel={kind:'station',st:'C'};}
+  ttKey='';pKey='';flKey='';renderScore();renderImpact();renderEditorCounts();refreshPanels(true);
+}
+let rbTimer=null;function rebuildSoon(){clearTimeout(rbTimer);rbTimer=setTimeout(()=>{save();rebuild();},250);}
+
+/* ---------- theme ---------- */
+let TH={};
+function readTheme(){const cs=getComputedStyle(document.documentElement);const v=n=>cs.getPropertyValue(n).trim();
+  TH={paper:v('--paper'),panel:v('--panel'),ink:v('--ink'),muted:v('--muted'),line:v('--line'),line2:v('--line2'),land:v('--land'),land2:v('--land2'),hill:v('--hill'),water:v('--water'),block:v('--block'),track:v('--track'),accent:v('--accent'),
+  L:v('--t-local'),R:v('--t-rapid'),E:v('--t-exp'),X:v('--t-tour'),dead:v('--t-dead'),ok:v('--ok'),warn:v('--warn'),bad:v('--bad'),night:v('--night'),glow:v('--glow'),led:v('--led')};}
+readTheme();
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',readTheme);}catch(e){}
+new MutationObserver(readTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+/* ---------- geometry ---------- */
+const NM={},NS={},NB={},NBS={};
+function unit(dx,dy){const l=Math.hypot(dx,dy)||1;return {x:dx/l,y:dy/l};}
+for(let i=0;i<MAIN.length-1;i++){const a=ST[MAIN[i]],b=ST[MAIN[i+1]];const d=unit(b.x-a.x,b.y-a.y);const n={x:-d.y,y:d.x,tx:d.x,ty:d.y};NM[MAIN[i]+MAIN[i+1]]=n;NM[MAIN[i+1]+MAIN[i]]=n;}
+MAIN.forEach((s,i)=>{const ns=[];if(i>0)ns.push(NM[MAIN[i-1]+s]);if(i<MAIN.length-1)ns.push(NM[s+MAIN[i+1]]);const x=ns.reduce((a,n)=>a+n.x,0),y=ns.reduce((a,n)=>a+n.y,0);const u=unit(x,y);NS[s]={x:u.x,y:u.y,tx:-u.y,ty:u.x};});
+for(let i=0;i<BR.length-1;i++){const a=ST[BR[i]],b=ST[BR[i+1]];const d=unit(b.x-a.x,b.y-a.y);const n={x:-d.y,y:d.x,tx:d.x,ty:d.y};NB[BR[i]+BR[i+1]]=n;NB[BR[i+1]+BR[i]]=n;}
+BR.forEach((s,i)=>{if(i===0)return;const ns=[NB[BR[i-1]+s]];if(i<BR.length-1)ns.push(NB[s+BR[i+1]]);const x=ns.reduce((a,n)=>a+n.x,0),y=ns.reduce((a,n)=>a+n.y,0);const u=unit(x,y);NBS[s]={x:u.x,y:u.y,tx:-u.y,ty:u.x};});
+const stN=s=>isMain(s)?NS[s]:NBS[s];
+const anchorPt=(s,off,along=0)=>{const n=stN(s);return {x:ST[s].x+n.x*off+n.tx*along,y:ST[s].y+n.y*off+n.ty*along};};
+const segPt=(a,b,f,off)=>{const n=segIsBranch(a,b)?NB[a+b]:NM[a+b];return {x:ST[a].x+(ST[b].x-ST[a].x)*f+n.x*off,y:ST[a].y+(ST[b].y-ST[a].y)*f+n.y*off};};
+const LANE_C=[-19,-7,7,19];
+function stOff(tr,i){const s=tr.seq[i],p=tr.set?tr.set.plat:0;
+  if(s==='C')return LANE_C[p%4];if(s==='P')return [-7,7][p%2];if(s==='O')return [-6,6][tr.num%2];if(s==='T'||s==='F')return tr.down?6:-6;
+  const b=tr.down?7:-7;return (ST[s].taihi&&onSiding(tr,i))?b*2.5:b;}
+function bl(f){if(f>=0.2)return 0;const u=f/0.2;return 1-u*u*(3-2*u);}
+function segPos(tr,i,f){
+  const a=tr.seq[i],b=tr.seq[i+1],br=segIsBranch(a,b),n=br?NB[a+b]:NM[a+b],lo=br?0:(tr.down?7:-7);
+  const A=anchorPt(a,stOff(tr,i)),B=anchorPt(b,stOff(tr,i+1));
+  const ax=ST[a].x+n.x*lo,ay=ST[a].y+n.y*lo,bx=ST[b].x+n.x*lo,by=ST[b].y+n.y*lo;
+  const wa=bl(f),wb=bl(1-f);
+  return {x:ax+(bx-ax)*f+(A.x-ax)*wa+(B.x-bx)*wb,y:ay+(by-ay)*f+(A.y-ay)*wa+(B.y-by)*wb};
+}
+function ease(f,sa,sb){if(sa&&sb)return f*0.35+0.65*(f*f*(3-2*f));if(sa)return f*0.45+0.55*f*f;if(sb)return f*0.45+0.55*(1-(1-f)*(1-f));return f;}
+function tripState(tr,T){
+  const n=tr.seq.length;let i=0;while(i<n-1&&tr.arr[i+1]<=T)i++;
+  if(T<tr.dep[i]||i===n-1){const p=anchorPt(tr.seq[i],stOff(tr,i));const nn=stN(tr.seq[i]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),at:i,moving:false,load:i===0?0:tr.loadAfter[i-1]};}
+  const raw=(T-tr.dep[i])/(tr.arr[i+1]-tr.dep[i]);const sa=tr.dep[i]>tr.arr[i]||i===0,sb=tr.stop[i+1]||tr.op[i+1];const f=ease(Math.min(1,Math.max(0,raw)),sa,sb);
+  const p=segPos(tr,i,f),q=segPos(tr,i,Math.min(1,f+0.02)),r0=segPos(tr,i,Math.max(0,f-0.02));
+  return {x:p.x,y:p.y,ang:Math.atan2(q.y-r0.y,q.x-r0.x),at:i,moving:true,f:raw,load:tr.loadAfter[i]};
+}
+const DEPOT={C:{yard:{x:18,y:372,w:66,h:34},exit:[{x:50,y:389},{x:86,y:389},{x:100,y:350}]},P:{yard:{x:936,y:262,w:58,h:30},exit:[{x:965,y:277},{x:938,y:277},{x:922,y:316}]}};
+function alongPath(pts,f){let L=0;const seg=[];for(let i=0;i<pts.length-1;i++){const l=Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y);seg.push(l);L+=l;}
+  let d=f*L;for(let i=0;i<seg.length;i++){if(d<=seg[i]||i===seg.length-1){const u=seg[i]?Math.min(1,d/seg[i]):0;return {x:pts[i].x+(pts[i+1].x-pts[i].x)*u,y:pts[i].y+(pts[i+1].y-pts[i].y)*u,ang:Math.atan2(pts[i+1].y-pts[i].y,pts[i+1].x-pts[i].x)};}d-=seg[i];}}
+function setState(s,T){
+  if(T<s.first-8||T>s.last+9)return null;
+  const tr0=s.trips[0],trL=s.trips[s.trips.length-1];
+  if(T<s.first-1){const end=anchorPt(tr0.seq[0],stOff(tr0,0));const f=(T-(s.first-8))/7;const p=alongPath([...DEPOT[s.home].exit,end],f*f*(3-2*f));return {...p,dead:true,trip:tr0,load:0};}
+  if(T>trL.arr.at(-1)+3){const n=trL.seq.length;const st=anchorPt(trL.seq[n-1],stOff(trL,n-1));const f=(T-(trL.arr.at(-1)+3))/6;const p=alongPath([st,...[...DEPOT[s.home].exit].reverse()],f*f*(3-2*f));return {...p,dead:true,trip:trL,load:0};}
+  for(let k=0;k<s.trips.length;k++){const tr=s.trips[k];
+    if(T<tr.dep[0]){const p=anchorPt(tr.seq[0],stOff(tr,0));const nn=stN(tr.seq[0]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),trip:tr,load:0,waiting:true};}
+    if(T<=tr.arr.at(-1)+(k===s.trips.length-1?3:0)){return {...tripState(tr,T),trip:tr};}
+    if(k<s.trips.length-1&&T<s.trips[k+1].dep[0]&&T>tr.arr.at(-1)){const nx=s.trips[k+1];const p=anchorPt(nx.seq[0],stOff(nx,0));const nn=stN(nx.seq[0]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),trip:nx,load:0,waiting:true,turn:true};}
+  }
+  return null;
+}
+const crowdCol=r=>r<0.8?TH.ok:(r<1.5?TH.warn:TH.bad);
+function darkness(t){const m=((t%1440)+1440)%1440;if(m<350)return 1;if(m<395)return 1-(m-350)/45;if(m<1040)return 0;if(m<1085)return (m-1040)/45;return 1;}
+function band(t){const m=t%1440;if(t>=1440||m<300)return '深夜';if(m<420)return '早朝';if(m<570)return '朝ラッシュ';if(m<960)return '日中';if(m<1170)return '夕ラッシュ';if(m<1380)return '夜';return '深夜';}
+
+/* ---------- map drawing ---------- */
+const map=$('#map'),mctx=map.getContext('2d');let MS=1,MW=0,MH=0;
+function rng(seed){return ()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};}
+const BLOCKS=[];(()=>{const r=rng(7);
+  const zone=(x0,y0,x1,y1,n,sz)=>{for(let i=0;i<n;i++){const w=sz*(0.6+r()*0.8),h=sz*(0.5+r()*0.7);BLOCKS.push({x:x0+r()*(x1-x0-w),y:y0+r()*(y1-y0-h),w,h,lit:r()});}};
+  zone(16,228,200,292,40,13);zone(110,350,215,412,16,11);zone(200,350,300,404,10,9);zone(195,262,280,302,8,9);
+  zone(430,240,520,282,9,9);zone(440,330,540,384,8,9);zone(700,338,820,392,9,9);zone(720,250,800,288,6,9);zone(860,350,940,372,5,8);zone(780,96,840,120,5,7);})();
+const TREES=[];(()=>{const r=rng(31);for(let i=0;i<46;i++)TREES.push({x:612+r()*120,y:160+r()*90,r:3+r()*3});for(let i=0;i<20;i++)TREES.push({x:300+r()*120,y:372+r()*36,r:2.5+r()*2.5});})();
+function drawTerrain(c){
+  c.fillStyle=TH.land;c.fillRect(-20,-20,1040,460);
+  // hills
+  c.fillStyle=TH.hill;
+  [[600,140,560,0,700,0],[650,120,740,-10,820,110],[720,60,860,-20,960,120],[860,150,940,0,1010,170],[540,90,600,-10,680,60]].forEach(([x1,y1,x2,y2,x3,y3])=>{c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.lineTo(x3,y3);c.closePath();c.fill();});
+  c.fillStyle=TH.land2;c.beginPath();c.ellipse(670,205,85,55,-0.5,0,Math.PI*2);c.fill();
+  c.beginPath();c.ellipse(360,392,70,22,0,0,Math.PI*2);c.fill();
+  // sea
+  c.fillStyle=TH.water;c.beginPath();c.moveTo(790,430);c.quadraticCurveTo(840,388,905,392);c.quadraticCurveTo(965,396,1020,350);c.lineTo(1020,430);c.closePath();c.fill();
+  // river
+  c.strokeStyle=TH.water;c.lineWidth=11;c.lineCap='round';c.beginPath();c.moveTo(528,-10);c.bezierCurveTo(515,110,585,190,548,290);c.bezierCurveTo(528,350,520,390,560,440);c.stroke();
+  c.lineWidth=4;c.beginPath();c.moveTo(760,30);c.bezierCurveTo(700,90,640,160,560,215);c.stroke();
+  // blocks
+  c.fillStyle=TH.block;BLOCKS.forEach(b=>c.fillRect(b.x,b.y,b.w,b.h));
+  c.fillStyle=TH.land2;TREES.forEach(t=>{c.beginPath();c.arc(t.x,t.y,t.r,0,Math.PI*2);c.fill();});
+  // university
+  c.fillStyle=TH.block;c.fillRect(322,250,64,30);c.strokeStyle=TH.line2;c.lineWidth=1;c.strokeRect(322,250,64,30);
+  c.fillStyle=TH.muted;c.font='11px "Zen Kaku Gothic New",sans-serif';c.textAlign='center';c.fillText('みなと川大学',354,269);
+  c.font='10px "Zen Kaku Gothic New",sans-serif';c.fillText('みなと川',560,420);c.fillText('中央市街',90,224);
+  c.textAlign='left';c.fillText('みなと湾',935,412);c.fillText('ひのき山',880,40);
+  c.font='18px sans-serif';c.fillStyle=TH.muted;c.textAlign='center';c.fillText('♨',852,74);c.fillText('⚓',870,382);
+}
+function strokePts(c,pts){c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.stroke();}
+function drawTracks(c){
+  c.strokeStyle=TH.track;c.lineCap='round';c.lineJoin='round';
+  // platforms
+  c.fillStyle=TH.paper;
+  const plat=(s,hw,hl,frame)=>{const n=stN(s);c.save();c.translate(ST[s].x,ST[s].y);c.rotate(Math.atan2(n.ty,n.tx));c.beginPath();c.roundRect(-hl,-hw,hl*2,hw*2,3);c.fill();c.strokeStyle=TH.line2;c.lineWidth=1;c.stroke();c.restore();};
+  ['S','N'].forEach(s=>plat(s,12,16));['U','M','K'].forEach(s=>plat(s,22,20));plat('C',25,26);plat('P',13,18);plat('F',11,12);plat('T',11,13);plat('O',11,15);
+  c.strokeStyle=TH.track;c.lineWidth=2.4;
+  // main with terminal connections
+  [7,-7].forEach(off=>{const pts=[];MAIN.forEach(s=>{if(s==='C')pts.push(segPt('C','S',0.32,off));else if(s==='P')pts.push(segPt('N','P',0.8,off));else pts.push(anchorPt(s,off));});strokePts(c,pts);});
+  // C lanes
+  LANE_C.forEach(off=>{const a=anchorPt('C',off,-30),b=anchorPt('C',off,6),e=segPt('C','S',0.32,off<0?-7:7);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.quadraticCurveTo(b.x+22,b.y,e.x,e.y);c.stroke();});
+  [-7,7].forEach(off=>{const a=segPt('N','P',0.8,off),b=anchorPt('P',off,0),e=anchorPt('P',off,20);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
+  // sidings
+  [['U','S','M'],['M','U','K'],['K','M','N']].forEach(([s,p,q])=>[7,-7].forEach(off=>{const a=segPt(p,s,0.72,off),b=anchorPt(s,off*2.5,-16),d=anchorPt(s,off*2.5,16),e=segPt(s,q,0.28,off);c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo(b.x-10,b.y,b.x,b.y);c.lineTo(d.x,d.y);c.quadraticCurveTo(d.x+10,d.y,e.x,e.y);c.stroke();}));
+  // branch
+  const bk=segPt('K','F',0.25,0);c.beginPath();c.moveTo(ST.K.x+NS.K.x*7,ST.K.y+NS.K.y*7);c.quadraticCurveTo(ST.K.x+14,ST.K.y-12,bk.x,bk.y);c.stroke();
+  const bk2=anchorPt('K',-7,8);c.beginPath();c.moveTo(bk2.x,bk2.y);c.quadraticCurveTo(ST.K.x+16,ST.K.y-14,bk.x,bk.y);c.stroke();
+  const f1=segPt('K','F',0.7,0),f2=segPt('F','T',0.3,0);strokePts(c,[bk,f1]);
+  [6,-6].forEach(off=>{const b=anchorPt('F',off,-8),d=anchorPt('F',off,8);c.beginPath();c.moveTo(f1.x,f1.y);c.lineTo(b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(f2.x,f2.y);c.stroke();});
+  strokePts(c,[f2,segPt('F','T',0.75,0)]);
+  [6,-6].forEach(off=>{const a=segPt('F','T',0.75,0),b=anchorPt('T',off,-10),d=anchorPt('T',off,10),e=segPt('T','O',0.22,0);c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo(b.x-6*NBS.T.tx,b.y-6*NBS.T.ty,b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(e.x,e.y);c.stroke();});
+  const o1=segPt('T','O',0.22,0),o2=segPt('T','O',0.8,0);strokePts(c,[o1,o2]);
+  [6,-6].forEach(off=>{const b=anchorPt('O',off,0),e=anchorPt('O',off,14);c.beginPath();c.moveTo(o2.x,o2.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
+  // depots
+  c.lineWidth=1.6;
+  Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;c.fillStyle=TH.paper;c.beginPath();c.roundRect(y.x-4,y.y-4,y.w+8,y.h+8,4);c.fill();c.strokeStyle=TH.line2;c.lineWidth=1;c.stroke();c.strokeStyle=TH.track;c.lineWidth=1.6;
+    for(let i=0;i<4;i++){const yy=y.y+4+i*(y.h-8)/3;c.beginPath();c.moveTo(y.x,yy);c.lineTo(y.x+y.w,yy);c.stroke();}
+    strokePts(c,d.exit);});
+}
+function drawTrainShape(c,x,y,ang,cars,col,dk){
+  const len=8+cars*3.1;c.save();c.translate(x,y);c.rotate(ang);
+  if(dk>0.3){c.shadowColor=TH.glow;c.shadowBlur=8*dk;}
+  c.fillStyle=col;c.beginPath();c.roundRect(-len/2,-3.3,len,6.6,3);c.fill();c.shadowBlur=0;
+  c.strokeStyle=TH.land;c.lineWidth=0.8;const cl=len/cars;for(let i=1;i<cars;i++){c.beginPath();c.moveTo(-len/2+cl*i,-3.3);c.lineTo(-len/2+cl*i,3.3);c.stroke();}
+  if(dk>0.3){c.fillStyle=TH.glow;c.globalAlpha=0.75*dk;c.fillRect(-len/2+1.5,-0.9,len-3,1.8);c.globalAlpha=1;}
+  c.restore();
+}
+let VIS=[];
+function drawMap(){
+  if(!D)return;const c=mctx;const dpr=window.devicePixelRatio||1;
+  c.setTransform(1,0,0,1,0,0);c.fillStyle=TH.land;c.fillRect(0,0,map.width,map.height);
+  c.setTransform(MS*dpr,0,0,MS*dpr,0,0);
+  drawTerrain(c);drawTracks(c);
+  const dk=darkness(T);
+  if(dk>0){c.fillStyle=TH.night;c.globalAlpha=0.42*dk;c.fillRect(-20,-20,1040,460);c.globalAlpha=1;
+    c.fillStyle=TH.glow;BLOCKS.forEach(b=>{if(b.lit<0.55*dk){c.globalAlpha=0.7;c.fillRect(b.x+b.w*0.3,b.y+b.h*0.3,1.6,1.6);c.fillRect(b.x+b.w*0.65,b.y+b.h*0.6,1.6,1.6);}});c.globalAlpha=1;}
+  if(COND.wx==='rain'||COND.wx==='snow'){const now=performance.now()/1000,sn=COND.wx==='snow';
+    c.fillStyle=sn?'#ffffff':TH.muted;c.globalAlpha=sn?0.16:0.06;c.fillRect(-20,-20,1040,460);c.globalAlpha=sn?0.9:0.5;c.lineWidth=1;c.strokeStyle=sn?TH.muted:TH.water;c.fillStyle='#ffffff';
+    for(let i=0;i<(sn?110:150);i++){const y=((i*71.3)%430+now*(sn?20:240))%440-10;let x=((i*137.5)%1000+(sn?Math.sin(now*0.8+i)*8:-y*0.25)+1000)%1000;
+      c.beginPath();if(sn){c.arc(x,y,1.6,0,6.3);c.fill();c.lineWidth=0.4;c.stroke();}else{c.moveTo(x,y);c.lineTo(x-3,y+10);c.stroke();}}c.globalAlpha=1;}
+  if(COND.ev!=='none'){const vs=EVPOS[COND.ev],st=ST[vs];const txt=CONDS.ev.opts[COND.ev].n;c.font='700 11px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(txt).width+12;
+    let bx=Math.min(996-w,Math.max(4,st.x-w/2)),by=st.y-(vs==='O'?46:46);c.fillStyle=TH.X;c.beginPath();c.roundRect(bx,by,w,17,8);c.fill();c.fillStyle='#ffffff';c.textAlign='left';c.fillText(txt,bx+6,by+12.5);
+    if(COND.ev==='hanabi'&&T>=1170&&T<=1250){const now=performance.now()/1000;const cols=[TH.E,TH.glow,TH.X,TH.R];for(let k=0;k<3;k++){const ph=(now*0.7+k*0.33)%1,cx=880+k*42,cy=360-k*18-ph*14,r=6+ph*26;c.strokeStyle=cols[(k+Math.floor(now))%4];c.globalAlpha=1-ph;c.lineWidth=1.6;
+      for(let a=0;a<12;a++){const an=a/12*6.283;c.beginPath();c.moveTo(cx+Math.cos(an)*r*0.5,cy+Math.sin(an)*r*0.5);c.lineTo(cx+Math.cos(an)*r,cy+Math.sin(an)*r);c.stroke();}}c.globalAlpha=1;}}
+  // station names
+  c.textAlign='center';c.fillStyle=TH.ink;
+  ALL.forEach(s=>{const st=ST[s];let lx=st.x,ly=st.y+(st.taihi?40:s==='C'?44:30);
+    if(s==='F'){lx=st.x-34;ly=st.y+4;}if(s==='T'){lx=st.x-36;ly=st.y+4;}if(s==='O'){lx=st.x-16;ly=st.y-20;}if(s==='K'){lx=st.x-6;}
+    const isSel=sel.kind==='station'&&sel.st===s;
+    c.font=`${st.term?700:500} ${st.term?14:12.5}px "Zen Kaku Gothic New",sans-serif`;
+    if(isSel){const w=c.measureText(st.name).width+12;c.fillStyle=TH.accent;c.beginPath();c.roundRect(lx-w/2,ly-13,w,18,4);c.fill();c.fillStyle=TH.panel;}
+    else c.fillStyle=TH.ink;
+    c.fillText(st.name,lx,ly);
+    // waiting crowd indicator
+    const w=waitingAt(s,T);if(w>20){const r=Math.min(14,2+Math.sqrt(w)/3.2);c.fillStyle=TH.warn;c.globalAlpha=0.5;c.beginPath();c.arc(lx+(c.measureText(st.name).width/2)+4+r,ly-4,r,0,Math.PI*2);c.fill();c.globalAlpha=1;}
+  });
+  // depots count
+  const inDepot={C:0,P:0},total={C:0,P:0};
+  VIS=[];
+  D.sets.forEach(s=>{total[s.home]++;const st=setState(s,T);if(!st){inDepot[s.home]++;return;}VIS.push({s,st});});
+  c.font='600 11px "Zen Kaku Gothic New",sans-serif';c.textAlign='left';
+  Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;const n=inDepot[k];
+    for(let i=0;i<Math.min(n,16);i++){const lane=i%4,col=Math.floor(i/4);const yy=y.y+4+lane*(y.h-8)/3;c.fillStyle=TH.dead;c.fillRect(y.x+4+col*15,yy-2.4,12,4.8);}
+    c.fillStyle=TH.ink;if(k==='C'){c.fillText(DEPOTNAME[k],y.x-4,y.y-22);c.fillText(`${n}/${total[k]}編成`,y.x-4,y.y-9);}else c.fillText(`${DEPOTNAME[k]} ${n}/${total[k]}編成`,y.x-24,y.y-10);});
+  // trains
+  VIS.forEach(({s,st})=>{const tr=st.trip;const col=st.dead?TH.dead:TH[tr.type];drawTrainShape(c,st.x,st.y,st.ang,s.cars,col,dk);
+    const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);c.arc(st.x+n.x*9*side,st.y+n.y*9*side,2.8,0,Math.PI*2);c.fill();}});
+  // selection
+  const ss=selSet();if(ss){const v=VIS.find(v=>v.s===ss);if(v){const tr=v.st.trip;c.strokeStyle=TH.accent;c.lineWidth=2;c.beginPath();c.arc(v.st.x,v.st.y,14,0,Math.PI*2);c.stroke();
+    const want=sel.kind==='trip'?sel.trip:null;const txt=v.st.dead?'回送':(want&&want!==tr?`${want.num}は${fmt(want.dep[0])}発・この編成で運転`:`${TYPES[tr.type].name} ${tr.num}　${fmtN(v.st.load||0)}人・${Math.round((v.st.load||0)/tr.cap*100)}%`);c.font='700 12px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(txt).width+14;let bx=v.st.x-w/2,by=v.st.y-38;bx=Math.max(4,Math.min(996-w,bx));if(by<4)by=v.st.y+18;
+    c.fillStyle=TH.ink;c.beginPath();c.roundRect(bx,by,w,20,5);c.fill();c.fillStyle=TH.panel;c.textAlign='left';c.fillText(txt,bx+7,by+14.5);}}
+}
+function waitingAt(s,T){const st=D.sim.stat[s];const j=bsearch(st.t,T);const t0=j<0?START:st.t[j],w0=j<0?0:st.w[j];let lam=0;for(const d of ALL)lam+=rate(s,d,T);const eq=lam*TAU;return Math.max(0,eq+(w0-eq)*Math.exp(-(T-t0)/TAU));}
+function selSet(){if(sel.kind==='set')return sel.set;if(sel.kind==='trip')return sel.trip.set;return null;}
+
+/* ---------- diagram ---------- */
+const dia=$('#dia'),dctx=dia.getContext('2d');let DW=0,DH=420,DL=58,DIA={};
+function diaGeom(){const top=22,bottom=26,gap=24;const avail=DH-top-bottom-gap;const mh=avail*0.63,bh=avail-mh;
+  let v0,v1;if(diaSpan>=1290){v0=START;v1=END;}else{v0=T-diaSpan*0.35;v1=v0+diaSpan;if(v0<START){v0=START;v1=START+diaSpan;}if(v1>END){v1=END;v0=END-diaSpan;}}
+  DIA={top,mh,bh,btop:top+mh+gap,v0,v1,x:t=>DL+(t-v0)/(v1-v0)*(DW-DL-12),ym:k=>top+k/21.5*mh,yb:k=>top+mh+gap+k/12.9*bh};return DIA;}
+function drawDia(){
+  if(!D)return;const c=dctx,dpr=window.devicePixelRatio||1;c.setTransform(dpr,0,0,dpr,0,0);
+  c.fillStyle=TH.panel;c.fillRect(0,0,DW,DH);const G=diaGeom();
+  // night & rush shading
+  const shade=(a,b,col,al)=>{const x0=Math.max(DL,G.x(a)),x1=Math.min(DW-12,G.x(b));if(x1>x0){c.fillStyle=col;c.globalAlpha=al;c.fillRect(x0,G.top-8,x1-x0,G.btop+G.bh-G.top+12);c.globalAlpha=1;}};
+  shade(START,360,TH.night,0.08);shade(1080,END,TH.night,0.08);shade(420,570,TH.warn,0.07);shade(1020,1170,TH.warn,0.07);
+  // grid
+  const span=G.v1-G.v0,step=span>600?60:(span>200?10:5);
+  c.lineWidth=1;c.font='11px "JetBrains Mono",monospace';c.textAlign='center';
+  for(let t=Math.ceil(G.v0/step)*step;t<=G.v1;t+=step){const x=G.x(t);const hour=t%60===0;c.strokeStyle=hour?TH.line2:TH.line;c.globalAlpha=hour?1:0.7;c.beginPath();c.moveTo(x,G.top-6);c.lineTo(x,G.btop+G.bh+4);c.stroke();c.globalAlpha=1;
+    if(hour||(span<=200&&t%30===0)){c.fillStyle=TH.muted;c.fillText(hour?String(Math.floor(t/60)%24):fmt(t),x,G.top-9);c.fillText(hour?String(Math.floor(t/60)%24):'',x,G.btop+G.bh+18);}}
+  c.textAlign='right';c.font='12px "Zen Kaku Gothic New",sans-serif';
+  MAIN.forEach(s=>{const y=G.ym(ST[s].km);c.strokeStyle=ST[s].wait?TH.line2:TH.line;c.beginPath();c.moveTo(DL,y);c.lineTo(DW-12,y);c.stroke();c.fillStyle=ST[s].wait?TH.ink:TH.muted;c.font=`${ST[s].wait?700:400} 12px "Zen Kaku Gothic New",sans-serif`;c.fillText(ST[s].name,DL-6,y+4);});
+  BR.forEach(s=>{const y=G.yb(ST[s].bkm);c.strokeStyle=ST[s].wait?TH.line2:TH.line;c.beginPath();c.moveTo(DL,y);c.lineTo(DW-12,y);c.stroke();c.fillStyle=ST[s].wait?TH.ink:TH.muted;c.font=`${ST[s].wait?700:400} 12px "Zen Kaku Gothic New",sans-serif`;c.fillText(ST[s].name,DL-6,y+4);});
+  c.save();c.font='10.5px "Zen Kaku Gothic New",sans-serif';c.fillStyle=TH.muted;c.textAlign='left';c.fillText('本線',DL+4,G.top+G.mh-4);c.fillText('温泉支線（単線）',DL+4,G.btop+G.bh-4);c.restore();
+  c.save();c.beginPath();c.rect(DL,0,DW-DL-12,DH);c.clip();
+  const ss=selSet();
+  const W={L:1,R:1.4,E:1.8,X:1.8};
+  D.trips.forEach(tr=>{if(tr.arr.at(-1)<G.v0||tr.dep[0]>G.v1)return;const isS=ss&&tr.set===ss;const isT=sel.kind==='trip'&&sel.trip===tr;
+    c.strokeStyle=TH[tr.type];c.lineWidth=(W[tr.type])*(isS?1.6:1)*(isT?1.4:1)*(span>600?0.75:1);c.globalAlpha=ss&&!isS?0.38:(tr.type==='L'?0.85:1);
+    if(tr.mpts.length){c.beginPath();tr.mpts.forEach(([t,k],i)=>{const x=G.x(t),y=G.ym(k);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();}
+    if(tr.bpts.length){c.beginPath();tr.bpts.forEach(([t,k],i)=>{const x=G.x(t),y=G.yb(k);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();}
+  });
+  c.globalAlpha=1;
+  // set turnaround links for selected
+  if(ss){c.setLineDash([3,3]);c.strokeStyle=TH.accent;c.lineWidth=1.2;for(let k=0;k<ss.trips.length-1;k++){const a=ss.trips[k],b=ss.trips[k+1];const s=a.seq.at(-1);const y=isMain(s)?G.ym(ST[s].km):G.yb(ST[s].bkm);c.beginPath();c.moveTo(G.x(a.arr.at(-1)),y);c.lineTo(G.x(b.dep[0]),y);c.stroke();}c.setLineDash([]);}
+  // now
+  const xn=G.x(T);c.strokeStyle=TH.E;c.lineWidth=1.5;c.beginPath();c.moveTo(xn,G.top-6);c.lineTo(xn,G.btop+G.bh+4);c.stroke();
+  // current dots
+  D.trips.forEach(tr=>{if(T<tr.dep[0]||T>tr.arr.at(-1))return;const pt=(pts,yf)=>{if(!pts.length)return;if(T<pts[0][0]||T>pts.at(-1)[0])return;for(let i=0;i<pts.length-1;i++){if(T>=pts[i][0]&&T<=pts[i+1][0]){const u=pts[i+1][0]>pts[i][0]?(T-pts[i][0])/(pts[i+1][0]-pts[i][0]):0;const k=pts[i][1]+(pts[i+1][1]-pts[i][1])*u;c.fillStyle=TH[tr.type];c.beginPath();c.arc(xn,yf(k),3.6,0,Math.PI*2);c.fill();c.strokeStyle=TH.panel;c.lineWidth=1.2;c.stroke();return;}}};
+    pt(tr.mpts,G.ym);pt(tr.bpts,G.yb);});
+  c.restore();
+  c.fillStyle=TH.E;c.font='700 11px "JetBrains Mono",monospace';c.textAlign='center';if(xn>=DL&&xn<=DW-12){c.fillText(fmt(T),Math.min(DW-30,Math.max(DL+20,xn)),G.btop-8);}
+}
+function diaHit(px,py){const G=DIA;const t=G.v0+(px-DL)/(DW-DL-12)*(G.v1-G.v0);let best=null,bd=8;
+  D.trips.forEach(tr=>{[[tr.mpts,G.ym],[tr.bpts,G.yb]].forEach(([pts,yf])=>{for(let i=0;i<pts.length-1;i++){const [t0,k0]=pts[i],[t1,k1]=pts[i+1];const x0=G.x(t0),x1=G.x(t1),y0=yf(k0),y1=yf(k1);
+    const dx=x1-x0,dy=y1-y0,l2=dx*dx+dy*dy;let u=l2?((px-x0)*dx+(py-y0)*dy)/l2:0;u=Math.max(0,Math.min(1,u));const d=Math.hypot(px-(x0+u*dx),py-(y0+u*dy));if(d<bd){bd=d;best=tr;}}});});return best;}
+
+/* ---------- panels ---------- */
+const chip=ty=>`<span class="chip ${ty}">${TYPES[ty].name}</span>`;
+function curTrip(){if(sel.kind==='trip')return sel.trip;if(sel.kind==='set'){const st=setState(sel.set,T);if(st)return st.trip;const s=sel.set;return s.trips.find(t=>t.arr.at(-1)>=T)||s.trips[s.trips.length-1];}return null;}
+function trainStatus(tr,T){const n=tr.seq.length;
+  if(T<tr.dep[0])return {txt:`${ST[tr.seq[0]].name} ${fmt(tr.dep[0])} 発車予定`,row:0,load:0};
+  if(T>=tr.arr[n-1])return {txt:`${ST[tr.seq[n-1]].name}に到着済み（${fmt(tr.arr[n-1])}着）`,row:n-1,load:0};
+  let i=0;while(i<n-1&&tr.arr[i+1]<=T)i++;
+  if(T<tr.dep[i]){const sd=onSiding(tr,i);return {txt:sd?`${ST[tr.seq[i]].name}で待避中（${fmt(tr.dep[i])}発）`:(tr.op[i]?`${ST[tr.seq[i]].name}で運転停車中`:`${ST[tr.seq[i]].name}に停車中`),row:i,load:tr.loadAfter[i-1]||0};}
+  let nx=i+1;while(nx<n-1&&!tr.stop[nx])nx++;
+  return {txt:`${ST[tr.seq[i]].name} → ${ST[tr.seq[i+1]].name} 走行中　次は ${ST[tr.seq[nx]].name}（${fmt(tr.arr[nx])}着）`,row:i+0.5,load:tr.loadAfter[i]};}
+function setWhere(tr){
+  const set=tr.set,st=setState(set,T);
+  if(T>=tr.dep[0]&&T<=tr.arr.at(-1))return '';
+  let t;
+  if(!st)t=`編成（${set.label}）はいま<b>${DEPOTNAME[set.home]}</b>で待機しています。`;
+  else if(st.dead)t=`編成（${set.label}）はいま車庫との間を<b>回送中</b>です。`;
+  else if(st.trip===tr)t=`編成（${set.label}）は<b>${ST[tr.seq[0]].name}駅</b>のホームで発車を待っています。`;
+  else{const o=st.trip,os=trainStatus(o,T);t=`編成（${set.label}）はいま<b>${TYPES[o.type].name} ${o.num}（${ST[o.seq.at(-1)].name}行）</b>として運転中。${os.txt}`;}
+  return `<div class="where">${T<tr.dep[0]?`この列車は<b>${fmt(tr.dep[0])}</b>に${ST[tr.seq[0]].name}を発車します。`:'この列車は運転を終えました。'}<br>${t}</div>`;}
+function strip(tr){
+  const n=tr.seq.length,km=[0];for(let i=1;i<n;i++)km.push(km[i-1]+treeKm(tr.seq[i-1],tr.seq[i]));const L=km[n-1];
+  const X=k=>16+k/L*308;let pos=null;
+  if(T>=tr.dep[0]&&T<=tr.arr[n-1]){let i=0;while(i<n-1&&tr.arr[i+1]<=T)i++;
+    if(T<tr.dep[i]||i===n-1)pos=km[i];else{const f=(T-tr.dep[i])/(tr.arr[i+1]-tr.dep[i]);pos=km[i]+(km[i+1]-km[i])*f;}}
+  else if(T<tr.dep[0])pos=null;
+  const col=`var(--t-${{L:'local',R:'rapid',E:'exp',X:'tour'}[tr.type]})`;
+  let g=`<line x1="16" y1="32" x2="324" y2="32" stroke="var(--line2)" stroke-width="4" stroke-linecap="round"/>`;
+  if(pos!=null)g+=`<line x1="16" y1="32" x2="${X(pos)}" y2="32" stroke="${col}" stroke-width="4" stroke-linecap="round" opacity=".55"/>`;
+  tr.seq.forEach((s,i)=>{const x=X(km[i]),st=tr.stop[i];const up=i%2===1;
+    g+=`<circle cx="${x}" cy="32" r="${st?4.5:2.5}" fill="${st?'var(--panel)':'var(--line2)'}" stroke="${st?'var(--ink)':'none'}" stroke-width="1.5"/>`;
+    g+=`<text x="${x}" y="${up?16:54}" text-anchor="middle" font-size="11" fill="${st?'var(--ink)':'var(--muted)'}" font-family="Zen Kaku Gothic New,sans-serif">${ST[s].name}</text>`;});
+  if(pos!=null){const x=X(pos);g+=`<rect x="${x-11}" y="25" width="22" height="14" rx="4" fill="${col}"/><text x="${x}" y="36" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="Zen Kaku Gothic New,sans-serif">${TYPES[tr.type].short}</text>`;}
+  return `<div class="strip"><svg viewBox="0 0 340 62" role="img" aria-label="走行位置">${g}</svg></div>`;}
+function renderTrain(tr){
+  const s=trainStatus(tr,T);const r=s.load/tr.cap;const set=tr.set;const n=tr.seq.length;const running=T>=tr.dep[0]&&T<tr.arr[n-1];
+  let rows='';tr.seq.forEach((st,i)=>{const pass=!tr.stop[i]&&!tr.op[i];const cur=running&&Math.floor(s.row)===i;
+    const a=i===0?'':(pass?'レ':fmt(tr.arr[i])),d=i===n-1?'':(pass?'レ':fmt(tr.dep[i]));
+    const sd=onSiding(tr,i)?' <span class="sub">待避</span>':(tr.op[i]?' <span class="sub">運停</span>':'');
+    rows+=`<tr class="${cur?'now':''} ${pass?'pass':''}"><td>${ST[st].name}${sd}</td><td class="t">${a}</td><td class="t">${d}</td><td class="r">${pass||i===n-1?'':fmtN(tr.loadAfter[i])}</td></tr>`;});
+  const cls=CLS[TYPES[tr.type].cls];
+  return `<div class="trhead">${chip(tr.type)}<span class="num">${tr.num}</span><span class="dest">${ST[tr.seq.at(-1)].name}行</span><span class="sub">${fmt(tr.dep[0])} ${ST[tr.seq[0]].name}発</span></div>
+  <div class="status">${s.txt}</div>
+  ${strip(tr)}
+  ${setWhere(tr)}
+  ${running?`<div style="display:flex;gap:18px;align-items:baseline;flex-wrap:wrap"><div><div class="sub">いまの乗車人数</div><span class="ratio">${fmtN(s.load)}人</span></div><div><div class="sub">乗車率（定員比）</div><span class="ratio" style="color:${crowdCol(r)}">${Math.round(r*100)}%</span></div></div>
+  <div class="meter"><div style="width:${Math.min(100,r/cls.maxF*100)}%;background:${crowdCol(r)}"></div></div>`:''}
+  ${running?(()=>{let i=0;while(i<n-1&&tr.arr[i+1]<=T)i++;const mx=(T<tr.dep[i]?tr.mixAfter[i-1]:tr.mixAfter[i])||[0,0,0,0];const t=mx.reduce((a,b)=>a+b,0);return t>0.5?`<div class="sub" style="margin-top:8px">乗っている人の目的</div>${mixBar(mx,300)}<div class="plegend" style="margin-top:4px">${PURP.map((nm,p)=>mx[p]/t>0.02?`<span><i style="background:${PC[p]}"></i>${nm} ${Math.round(mx[p]/t*100)}%</span>`:'').join('')}</div>`:'';})():''}${running?trainOD(tr):''}
+  <dl class="facts"><dt>編成</dt><dd>${set.label}・${set.cars}両（${DEPOTNAME[set.home]}）</dd><dt>定員</dt><dd>${fmtN(tr.cap)}人（最大${fmtN(tr.capMax)}人）</dd>
+  <dt>最混雑</dt><dd>${Math.round(tr.maxRatio*100)}%（${ST[tr.seq[tr.maxAt]].name}発車時）</dd><dt>待ち時間</dt><dd>${tr.delay>0.5?`待避・待ち合わせで +${Math.round(tr.delay)}分`:'なし'}</dd>
+  <dt>この編成</dt><dd>${fmt(set.first)}出庫 → ${set.trips.length}本に乗務 → ${fmt(set.last)}入庫</dd></dl>
+  <table class="tt"><thead><tr><th>駅</th><th>着</th><th>発</th><th style="text-align:right">発車時の乗車</th></tr></thead><tbody>${rows}</tbody></table>`;}
+/* ---------- station timetable ---------- */
+const TT={st:'C',dir:'d'};
+const hasDir=(s,d)=>d==='d'?!(s==='P'||s==='O'):s!=='C';
+const dirName=(s,d)=>d==='u'?'上り　中央方面':(isBr(s)&&s!=='K'?'下り　温泉方面':(s==='K'?'下り　港・温泉方面':'下り　港・温泉方面'));
+function ttStation(s){TT.st=s;if(!hasDir(s,TT.dir))TT.dir=TT.dir==='d'?'u':'d';$('#ttst').value=s;ttKey='';}
+let ttKey='';
+function renderTT(force){
+  const s=TT.st,down=TT.dir==='d';const selIx=sel.kind==='trip'?sel.trip.ix:-1;
+  const key=[s,TT.dir,Math.floor(T),selIx,D.trips.length,D.trips[0]?.dep[0]].join('|');if(key===ttKey&&!force)return;ttKey=key;
+  document.querySelectorAll('#ttdir button').forEach(b=>{b.disabled=!hasDir(s,b.dataset.v);b.setAttribute('aria-pressed',String(b.dataset.v===TT.dir));});
+  $('#tthead').innerHTML=`${ST[s].name}駅　時刻表<small>${dirName(s,TT.dir)}</small>`;
+  const list=[];D.trips.forEach(tr=>{const i=tr.seq.indexOf(s);if(i<0||i===tr.seq.length-1||!tr.stop[i]||tr.down!==down)return;list.push({tr,i,t:tr.dep[i]});});
+  list.sort((a,b)=>a.t-b.t);
+  const nextIx=list.findIndex(x=>x.t>=T);
+  const byH={};list.forEach((x,k)=>{const h=Math.floor(x.t/60);(byH[h]||(byH[h]=[])).push({...x,k});});
+  const showMark=down&&isMain(s);let rows='';
+  for(let h=5;h<=25;h++){const items=byH[h]||[];if(h===25&&!items.length)continue;
+    rows+=`<tr class="${Math.floor(T/60)===h?'nowh':''}"><th>${h%24}</th><td>${items.map(x=>{const tr=x.tr;const m=String(Math.floor(x.t%60)).padStart(2,'0');
+      const mark=showMark&&tr.seq.at(-1)==='O'?'<sup>温</sup>':'';const cl=['mn',tr.type,x.i===0&&!ST[s].term?'orig':'',x.t<T?'past':'',x.k===nextIx?'next':'',tr.ix===selIx?'sel':''].join(' ');
+      return `<button class="${cl}" data-ix="${tr.ix}" title="${TYPES[tr.type].name} ${tr.num} ${ST[tr.seq.at(-1)].name}行 ${fmt(x.t)}発">${m}${mark}</button>`;}).join('')}</td></tr>`;}
+  $('#ttable').innerHTML=rows;
+  const cnt=t=>list.filter(x=>x.tr.type===t).length;
+  $('#ttlegend').innerHTML=`<span>黒<b>普通</b></span><span style="color:var(--t-rapid)">橙<b>快速</b></span><span style="color:var(--t-exp)">赤<b>特急</b></span><span style="color:var(--t-tour)">紫<b>観光特急</b></span>${showMark?'<span><sup style="color:var(--ok);font-weight:700">温</sup> 温泉行（無印は港行）</span>':''}${ST[s].term?'':'<span><u>下線</u> 当駅始発</span>'}<span>点線 次の発車</span><span>この方面 1日${list.length}本</span>`;
+}
+$('#ttable').addEventListener('click',e=>{const b=e.target.closest('.mn');if(!b)return;const tr=D.trips[Number(b.dataset.ix)];if(!tr)return;sel={kind:'trip',trip:tr};refreshPanels(true);drawDia();
+  if(innerWidth<=980)$('#info').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});});
+$('#ttdir').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.disabled)return;TT.dir=b.dataset.v;renderTT(true);});
+$('#ttst').innerHTML=ALL.map(s=>`<option value="${s}">${ST[s].name}</option>`).join('');
+$('#ttst').addEventListener('change',e=>{ttStation(e.target.value);renderTT(true);});
+function departures(s,dirDown,k){const out=[];for(const tr of D.trips){const i=tr.seq.indexOf(s);if(i<0||i===tr.seq.length-1||!tr.stop[i])continue;if(tr.down!==dirDown)continue;if(tr.dep[i]<T)continue;out.push({tr,t:tr.dep[i]});}
+  out.sort((a,b)=>a.t-b.t);return out.slice(0,k);}
+function renderStation(s){
+  const st=D.sim.stat[s];const j=bsearch(st.t,T);const b=j<0?0:st.b[j],a=j<0?0:st.a[j],x=j<0?0:st.x[j];const w=waitingAt(s,T);
+  const board=(down,title)=>{const deps=departures(s,down,4);if(!deps.length&&((down&&(s==='P'||s==='O'))||(!down&&s==='C')))return '';
+    return `<div class="board"><h4>${title}</h4>${deps.length?deps.map(d=>`<div class="row"><span>${fmt(d.t)}</span><span class="ty ${d.tr.type}">${TYPES[d.tr.type].name}</span><span>${ST[d.tr.seq.at(-1)].name}　${d.tr.cars}両</span></div>`).join(''):'<div class="none">本日の運転は終了しました</div>'}</div>`;};
+  const down=isBr(s)&&s!=='K'?'温泉方面':'港・温泉方面',up='中央方面';
+  return `<div class="trhead"><span class="dest" style="font-size:20px">${ST[s].name}駅</span><span class="sub">${ST[s].term?'ターミナル':ST[s].taihi?'待避線あり':ST[s].exch?'交換駅（単線）':'各駅停車のみ停車'}${s==='K'?'・温泉支線の分岐駅':''}</span></div>
+  <dl class="facts"><dt>待っている人</dt><dd><b>${fmtN(w)}人</b></dd><dt>きょう乗った人</dt><dd>${fmtN(b)}人</dd><dt>きょう降りた人</dt><dd>${fmtN(a)}人</dd>${x>1?`<dt>乗り換えた人</dt><dd>${fmtN(x)}人</dd>`:''}</dl>
+  ${board(true,down)}${board(false,up)}
+  <div class="odh">この駅で降りた人は、どこから来たか</div>${odBars(odSide(SI[s],false),'')}<div class="odh">この駅から乗った人は、どこへ行くか</div>${odBars(odSide(SI[s],true),'to')}`;}
+let lastInfo='';
+function refreshPanels(force){
+  if(!D)return;
+  let html='';const tr=curTrip();
+  if(tr)html=renderTrain(tr);else if(sel.kind==='station')html=renderStation(sel.st);
+  if(html!==lastInfo||force){$('#info').innerHTML=html;lastInfo=html;}
+  renderTT(force);renderPurpose(force);renderFlow(force);
+  // kpis
+  const G=D.sim.G;const j=bsearch(G.t,T);
+  let run=0,onb=0;D.trips.forEach(t=>{if(T>=t.dep[0]&&T<t.arr.at(-1)){run++;let i=0;while(i<t.seq.length-1&&t.arr[i+1]<=T)i++;onb+=T<t.dep[i]?(t.loadAfter[i-1]||0):t.loadAfter[i];}});
+  let outSets=0;D.sets.forEach(s=>{if(T>=s.first-8&&T<=s.last+9)outSets++;});
+  let wait=0;ALL.forEach(s=>wait+=waitingAt(s,T));
+  $('#k-run').textContent=run;$('#k-sets').textContent=`${outSets} / ${D.sets.length}`;$('#k-onb').textContent=fmtN(onb);$('#k-wait').textContent=fmtN(wait);
+  $('#k-riders').textContent=fmtN(j<0?0:G.riders[j]);$('#k-rev').textContent=yen(j<0?0:G.rev[j]);$('#k-ab').textContent=fmtN(j<0?0:G.aband[j]);
+  // station table
+  let maxW=1;const ws={};ALL.forEach(s=>{ws[s]=waitingAt(s,T);maxW=Math.max(maxW,ws[s]);});
+  $('#sttbody').innerHTML=ALL.map(s=>{const st=D.sim.stat[s];const k=bsearch(st.t,T);return `<tr data-st="${s}" class="${sel.kind==='station'&&sel.st===s?'sel':''}"><td>${ST[s].name}</td><td>${fmtN(ws[s])}<span class="wbar" style="width:${Math.round(ws[s]/maxW*40)}px"></span></td><td>${fmtN(k<0?0:st.b[k])}</td><td>${fmtN(k<0?0:st.a[k])}</td><td>${fmtN(k<0?0:st.x[k])}</td><td>${mixBar([0,1,2,3].map(p=>upto(h=>st.hb[p][h]+st.ha[p][h],T)),70)}</td></tr>`;}).join('');
+  // log
+  const ev=D.events;const e=bsearch(ev.map(x=>x.t),T);const lab={taihi:'待避',conn:'接続',kokan:'交換',depot:'車庫',first:'運転'};
+  const items=[];for(let i=e;i>=0&&items.length<9;i--){const x=ev[i];items.push(`<li><time>${fmt(x.t)}</time><span><span class="k ${x.k}">${lab[x.k]}</span>${x.txt}</span></li>`);}
+  $('#log').innerHTML=items.join('')||'<li><time></time><span class="sub">まだ記録はありません。始発を待っています</span></li>';
+}
+$('#sttbody').addEventListener('click',e=>{const tr=e.target.closest('tr');if(!tr)return;sel={kind:'station',st:tr.dataset.st};ttStation(tr.dataset.st);psStation(tr.dataset.st);refreshPanels(true);});
+
+
+/* ---------- purposes ---------- */
+const PC=['var(--p0)','var(--p1)','var(--p2)','var(--p3)'];
+const PS={st:'ALL',mode:'ba'};let pKey='',pBins=null;
+function binsFor(st){if(!pBins||pBins.D!==D){pBins={D,c:{}};}if(pBins.c[st])return pBins.c[st];
+  const list=st==='ALL'?ALL:[st];const z=()=>[0,1,2,3].map(()=>new Array(30).fill(0));const r={hb:z(),ha:z(),nk:new Array(30).fill(0),ny:new Array(30).fill(0)};
+  list.forEach(s=>{const x=D.sim.stat[s];for(let h=0;h<30;h++){for(let p=0;p<4;p++){r.hb[p][h]+=x.hb[p][h];r.ha[p][h]+=x.ha[p][h];}r.nk[h]+=x.nk[h];r.ny[h]+=x.ny[h];}});
+  return pBins.c[st]=r;}
+const valP=(B,p,h,mode)=>(mode!=='a'?B.hb[p][h]:0)+(mode!=='b'?B.ha[p][h]:0);
+function upto(arrFn,T){const h0=Math.floor(T/60),fr=(T-h0*60)/60;let v=0;for(let h=0;h<h0&&h<30;h++)v+=arrFn(h);if(h0<30)v+=arrFn(h0)*fr;return v;}
+function niceMax(v){if(v<=0)return 10;const e=Math.pow(10,Math.floor(Math.log10(v)));const m=v/e;return (m<=1.5?1.5:m<=2?2:m<=3?3:m<=5?5:m<=7.5?7.5:10)*e;}
+function barChart(el,H0,series,colors,fmtTip,unit){
+  const W0=Math.max(300,Math.min(1000,el.clientWidth||640)),L=46,R=8,TP=14,BT=22,hs=[];for(let h=5;h<=24;h++)hs.push(h);
+  const tot=h=>series.reduce((a,sr)=>a+sr(h),0);const mx=niceMax(Math.max(1,...hs.map(tot)));
+  const bw=(W0-L-R)/hs.length,barW=Math.min(22,bw*0.7),Y=v=>TP+(H0-TP-BT)*(1-v/mx);
+  const hNow=Math.floor(T/60);let g='';
+  for(let k=0;k<=3;k++){const v=mx*k/3,y=Y(v);g+=`<line x1="${L}" x2="${W0-R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="JetBrains Mono,monospace">${v>=1000?(v/1000).toFixed(v%1000?1:0)+'千':Math.round(v)}</text>`;}
+  hs.forEach((h,ix)=>{const x=L+ix*bw+(bw-barW)/2;let acc=0;const op=h<hNow?1:(h===hNow?1:0.38);
+    const vals=series.map(sr=>sr(h));let top=-1;vals.forEach((v,i)=>{if(v>mx*0.004)top=i;});
+    vals.forEach((v,i)=>{if(v<=mx*0.004)return;const y0=Y(acc),y1=Y(acc+v);acc+=v;const hgt=Math.max(0.5,y0-y1-(i===top?0:2));
+      if(i===top){const r=Math.min(4,hgt,barW/2);g+=`<path d="M${x},${y0} V${y1+r} Q${x},${y1} ${x+r},${y1} H${x+barW-r} Q${x+barW},${y1} ${x+barW},${y1+r} V${y0} Z" fill="${colors[i]}" opacity="${op}"/>`;}
+      else g+=`<rect x="${x}" y="${y1+2}" width="${barW}" height="${Math.max(0.5,y0-y1-2)}" fill="${colors[i]}" opacity="${op}"/>`;});
+    if(h===hNow){g+=`<text x="${x+barW/2}" y="${Math.max(10,Y(acc)-5)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="var(--ink)" font-family="Zen Kaku Gothic New,sans-serif">いま</text>`;}
+    if(ix%2===0||hs.length<14)g+=`<text x="${x+barW/2}" y="${H0-6}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="JetBrains Mono,monospace">${h%24}</text>`;
+    g+=`<rect x="${L+ix*bw}" y="${TP}" width="${bw}" height="${H0-TP-BT}" fill="transparent" data-h="${h}"/>`;});
+  g+=`<line x1="${L}" x2="${W0-R}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line2)" stroke-width="1"/>`;
+  el.innerHTML=`<svg viewBox="0 0 ${W0} ${H0}" role="img" aria-label="時間帯別の${unit}">${g}</svg><div class="ptip" hidden></div>`;
+  const svg=el.querySelector('svg'),tip=el.querySelector('.ptip');
+  const show=e=>{const r=e.target.closest('[data-h]');if(!r){tip.hidden=true;return;}const h=Number(r.dataset.h);tip.innerHTML=fmtTip(h);tip.hidden=false;
+    const bb=el.getBoundingClientRect(),rb=r.getBoundingClientRect();let x=rb.left+rb.width/2-bb.left;x=Math.max(90,Math.min(bb.width-90,x));tip.style.left=x+'px';tip.style.top=(rb.top-bb.top+8)+'px';};
+  svg.addEventListener('pointermove',show);svg.addEventListener('pointerdown',show);svg.addEventListener('pointerleave',()=>tip.hidden=true);
+}
+function renderPurpose(force){
+  const key=[PS.st,PS.mode,Math.floor(T/60),Math.floor(T/5),D.trips.length,D.summary.riders|0].join('|');if(key===pKey&&!force)return;pKey=key;
+  document.querySelectorAll('#pmode button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===PS.mode)));
+  const B=binsFor(PS.st),m=PS.mode,nm=PS.st==='ALL'?'全駅':ST[PS.st].name+'駅';
+  const lab=m==='ba'?'乗降人数':m==='b'?'乗車人数':'降車人数';
+  $('#plegend').innerHTML=PURP.map((n,p)=>`<span><i style="background:${PC[p]}"></i>${n}</span>`).join('');
+  barChart($('#pchart'),220,[0,1,2,3].map(p=>h=>valP(B,p,h,m)),PC,h=>{const v=[0,1,2,3].map(p=>valP(B,p,h,m));const t=v.reduce((a,b)=>a+b,0);
+    return `<b>${h%24}時台 ${nm} ${lab}</b><br>`+v.map((x,p)=>`<i style="background:${PC[p]}"></i>${PURP[p]} ${fmtN(x)}人（${t?Math.round(x/t*100):0}%）`).join('<br>')+`<br>合計 ${fmtN(t)}人${h>Math.floor(T/60)?'（見込み）':''}`;},lab);
+  const now=[0,1,2,3].map(p=>upto(h=>valP(B,p,h,m),T)),day=[0,1,2,3].map(p=>{let v=0;for(let h=0;h<30;h++)v+=valP(B,p,h,m);return v;});
+  const tn=now.reduce((a,b)=>a+b,0),td=day.reduce((a,b)=>a+b,0);
+  $('#ptab').innerHTML=`<thead><tr><th>${nm}　${lab}</th><th>いままで</th><th>割合</th><th>1日の見込み</th></tr></thead><tbody>`+
+    PURP.map((n,p)=>`<tr><td><i style="background:${PC[p]}"></i>${n}</td><td>${fmtN(now[p])}</td><td>${tn?Math.round(now[p]/tn*100):0}%</td><td>${fmtN(day[p])}</td></tr>`).join('')+
+    `<tr><td><b>合計</b></td><td><b>${fmtN(tn)}</b></td><td></td><td><b>${fmtN(td)}</b></td></tr></tbody>`;
+  // note: busiest hour per purpose + current hour mix
+  const peakH=p=>{let bh=5;for(let h=5;h<=25;h++)if(valP(B,p,h,m)>valP(B,p,bh,m))bh=h;return bh;};
+  const hN=Math.floor(T/60),cur=[0,1,2,3].map(p=>valP(B,p,hN,m)),ct=cur.reduce((a,b)=>a+b,0);let top=0;cur.forEach((v,p)=>{if(v>cur[top])top=p;});
+  const topDay=day.indexOf(Math.max(...day));
+  $('#pnote').innerHTML=(ct>5?`いまの${hN%24}時台は<b>${PURP[top]}</b>が${Math.round(cur[top]/ct*100)}%。`:`いまの時間帯はほとんど利用がありません。`)+
+    `${nm}でいちばん多いのは<b>${PURP[topDay]}</b>（1日の${td?Math.round(day[topDay]/td*100):0}%）。ピークは `+[0,1,2,3].filter(p=>day[p]>td*0.03).map(p=>`${PURP[p]} ${peakH(p)%24}時台`).join('、')+'。';
+  // eki
+  $('#ekih').textContent=`駅ナカ・駅周辺の利用（${nm}）`;
+  barChart($('#ekichart'),130,[h=>B.nk[h]],['var(--p4)'],h=>`<b>${h%24}時台 ${nm}</b><br>駅ナカ・周辺の利用 ${fmtN(B.nk[h])}人<br>売上 ${yen(B.ny[h])}`,'駅ナカ利用者');
+  const kn=upto(h=>B.nk[h],T),yn=upto(h=>B.ny[h],T);let kd=0,yd=0;for(let h=0;h<30;h++){kd+=B.nk[h];yd+=B.ny[h];}
+  $('#ekitab').innerHTML=`<thead><tr><th>駅ナカ・周辺</th><th>いままで</th><th>1日の見込み</th></tr></thead><tbody><tr><td><i style="background:var(--p4)"></i>利用した人</td><td>${fmtN(kn)}</td><td>${fmtN(kd)}</td></tr><tr><td>売上</td><td>${man(yn)}</td><td>${man(yd)}</td></tr><tr><td>鉄道会社の収入（12%）</td><td>${man(yn*0.12)}</td><td>${man(yd*0.12)}</td></tr></tbody>`;
+}
+function mixBar(v,w){const t=v.reduce((a,b)=>a+b,0);if(t<=0.5)return '<span class="sub">—</span>';return `<div class="mix" style="width:${w}px" title="${PURP.map((n,p)=>n+' '+Math.round(v[p]/t*100)+'%').join(' / ')}">${v.map((x,p)=>x/t>0.01?`<span style="width:${x/t*100}%;background:${PC[p]}"></span>`:'').join('')}</div>`;}
+$('#pst').innerHTML='<option value="ALL">全駅</option>'+ALL.map(s=>`<option value="${s}">${ST[s].name}</option>`).join('');
+$('#pst').addEventListener('change',e=>{PS.st=e.target.value;renderPurpose(true);});
+$('#pmode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;PS.mode=b.dataset.v;renderPurpose(true);});
+function psStation(s){PS.st=s;$('#pst').value=s;pKey='';}
+
+
+/* ---------- conditions ---------- */
+const EVINFO={none:'',hanabi:'（港・19:30から。終わった後の21時台に帰る人が集中）',onsen:'（温泉・午前に来て夕方に帰る）',live:'（中央・18時開演、21時過ぎに終演）',campus:'（大学前・午前に来場）'};
+const EVPOS={hanabi:'P',onsen:'O',live:'C',campus:'U'};
+function saveCond(){try{localStorage.setItem('dia-cond',JSON.stringify(COND));}catch(e){}}
+const condLabel=()=>`${CONDS.day.opts[COND.day].n}・${CONDS.wx.opts[COND.wx].n}`;
+function renderCondUI(){
+  $('#condsel').innerHTML=Object.entries(CONDS).map(([k,c])=>`<label for="c-${k}">${c.label}<select id="c-${k}" data-k="${k}">${Object.entries(c.opts).map(([v,o])=>`<option value="${v}" ${COND[k]===v?'selected':''}>${o.n}</option>`).join('')}</select></label>`).join('');}
+$('#condsel').addEventListener('change',e=>{const k=e.target.dataset.k;if(!k)return;setCond({...COND,[k]:e.target.value});saveCond();rebuildSoon();});
+$('#scen').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let c;
+  if(b.dataset.c==='rand'){c={};for(const k in CONDS){const ks=Object.keys(CONDS[k].opts);c[k]=ks[Math.floor(Math.random()*ks.length)];}if(Math.random()<0.4)c.ev='none';if(c.wx==='snow'&&c.season!=='win')c.wx='rain';}
+  else{const [day,wx,season,econ,ev]=b.dataset.c.split(',');c={day,wx,season,econ,ev};}
+  setCond(c);saveCond();renderCondUI();rebuildSoon();});
+function renderImpact(){const S=D.summary;const sum=a=>a.reduce((x,y)=>x+y,0);
+  const pot=sum(S.dm.pot),ref=sum(S.ref),act=sum(S.dm.act);const pct=x=>Math.round(x*100)+'%';
+  const cls=v=>v>1.02?'up':v<0.98?'dn':'';
+  const per=PURP.map((n,p)=>`${n} ${pct(S.dm.pot[p]/Math.max(1,S.ref[p]))}`).join('・');
+  const sp=CX.sp<1?`<span>列車の速度 <b class="dn">−${Math.round((1-CX.sp)*100)}%</b>　停車時間 <b class="dn">+${Math.round(CX.dw*60)}秒</b></span>`:'';
+  const ev=COND.ev!=='none'?`<span>イベント <b>${CONDS.ev.opts[COND.ev].n}</b>${EVINFO[COND.ev]}</span>`:'';
+  $('#impact').innerHTML=`<span>出かける人（いつもの平日比） <b class="${cls(pot/ref)}">${pct(pot/ref)}</b>　${per}</span><span>ダイヤの便利さ（本数・速さ） <b class="${cls(act/pot)}">×${(act/pot).toFixed(2)}</b></span><span>鉄道を使いたい人 <b>${fmtN(act)}人</b></span>${sp}${ev}`;}
+
+/* ---------- OD & sections ---------- */
+const FL={h:null,day:false,p:-1};let flKey='';
+function flHour(){return Math.max(5,Math.min(25,FL.h??Math.floor(T/60)));}
+function renderFlow(force){
+  const h=flHour();const key=[h,FL.day,FL.p,FL.h,D.trips.length,D.summary.riders|0].join('|');if(key===flKey&&!force)return;flKey=key;
+  $('#fhlabel').textContent=FL.h==null?`いま ${h%24}時台`:`${h%24}時台`;
+  document.querySelectorAll('#fhour button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v==='day'?FL.day:(b.dataset.v==='now'&&!FL.day))));
+  const sim=D.sim;const hs=FL.day?[...Array(21)].map((_,i)=>i+5):[h];
+  const get=(sg,dr)=>{let L=0,C=0,n=0;for(const hh of hs){const ix=(sg*2+dr)*30+hh;L+=sim.SECL[ix];C+=sim.SECC[ix];n+=sim.SECN[ix];}return {L,C,n};};
+  let html='';
+  [['本線'],['温泉支線']].forEach(([ln],li)=>{const segs=SEGS.map((x,i)=>({...x,i})).filter(x=>x.line===ln);
+    html+=`${li?'<tr class="gap"><td colspan="7"></td></tr>':''}<tr><th class="ln">${ln}</th>${segs.map(x=>`<th>${ST[x.a].name}–${ST[x.b].name}</th>`).join('')}</tr>`;
+    [[0,ln==='本線'?'下り 港へ':'下り 温泉へ'],[1,'上り 中央へ']].forEach(([dr,dn])=>{html+=`<tr><td class="dir">${dn}</td>${segs.map(x=>{const v=get(x.i,dr);if(v.C<=0)return '<td><small>運転なし</small></td>';
+      const r=v.L/v.C,col=r<0.8?'var(--ok)':r<1.5?'var(--warn)':'var(--bad)',a=Math.round(10+Math.min(1,r/1.8)*40);
+      return `<td style="background:color-mix(in srgb,${col} ${a}%,transparent)" title="${ST[x.a].name}–${ST[x.b].name} ${dn}：${fmtN(v.L)}人 / 輸送力${fmtN(v.C)}人（${v.n}本）"><b>${Math.round(r*100)}%</b><small>${fmtN(v.L)}人・${v.n}本</small></td>`;}).join('')}</tr>`;});});
+  $('#sect').innerHTML=html;
+  let mx=null;SEGS.forEach((x,i)=>[0,1].forEach(dr=>{const v=get(i,dr);if(v.C>0&&v.L>50){const r=v.L/v.C;if(!mx||r>mx.r)mx={x,dr,r,v};}}));
+  $('#secnote').innerHTML=mx?`${FL.day?'1日を通して':`${h%24}時台に`}いちばん混むのは<b>${ST[mx.x.a].name}–${ST[mx.x.b].name}の${mx.dr?'上り':'下り'}</b>（平均${Math.round(mx.r*100)}%、${fmtN(mx.v.L)}人が通過）。${mx.r>1.3?'ここを走る列車の両数を増やすか、この時間帯に増発すると混雑が和らぎます。':mx.r<0.4?'どの区間もゆとりがあります。本数や両数を減らすと経費を抑えられます。':'混雑はほどほどです。'}`:'この時間帯は列車が走っていません。';
+  const N=NSt,OD=sim.OD,M=[];let mxv=1,tot=0;const rt=new Array(N).fill(0),ct=new Array(N).fill(0);
+  for(let a=0;a<N;a++){M.push([]);for(let b=0;b<N;b++){let v=0;if(a!==b)for(const hh of hs){const k=((a*N+b)*30+hh)*4;v+=FL.p<0?OD[k]+OD[k+1]+OD[k+2]+OD[k+3]:OD[k+FL.p];}M[a].push(v);rt[a]+=v;ct[b]+=v;tot+=v;if(v>mxv)mxv=v;}}
+  const colr=FL.p<0?'var(--p0)':PC[FL.p],kf=v=>v<0.5?'':v>=1000?(v/1000).toFixed(1)+'k':String(Math.round(v));
+  let od=`<thead><tr><th></th>${ALL.map(x=>`<th>${ST[x].name}</th>`).join('')}<th class="tot">計</th></tr></thead><tbody>`;
+  ALL.forEach((x,a)=>{od+=`<tr><th>${ST[x].name}</th>${ALL.map((y,b)=>{if(a===b)return '<td class="self">·</td>';const v=M[a][b],f=v/mxv;
+    return `<td style="background:color-mix(in srgb,${colr} ${Math.round(f*85)}%,transparent);${f>0.55?'color:#fff;':''}" title="${ST[x].name}→${ST[y].name}：${fmtN(v)}人">${kf(v)}</td>`;}).join('')}<td class="tot">${kf(rt[a])}</td></tr>`;});
+  od+=`<tr class="tot"><th class="tot">計</th>${ct.map(v=>`<td>${kf(v)}</td>`).join('')}<td>${kf(tot)}</td></tr></tbody>`;
+  $('#odt').innerHTML=od;
+}
+$('#fhour').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const v=b.dataset.v;
+  if(v==='day')FL.day=!FL.day;else if(v==='now'){FL.day=false;FL.h=null;}else{FL.day=false;FL.h=Math.max(5,Math.min(25,flHour()+Number(v)));}renderFlow(true);});
+$('#odp').addEventListener('change',e=>{FL.p=Number(e.target.value);renderFlow(true);});
+function odSide(si,out){const N=NSt,OD=D.sim.OD,res=[];for(let o=0;o<N;o++){if(o===si)continue;const a=out?si:o,b=out?o:si;
+  res.push([ALL[o],upto(h=>{const k=((a*N+b)*30+h)*4;return OD[k]+OD[k+1]+OD[k+2]+OD[k+3];},T)]);}res.sort((x,y)=>y[1]-x[1]);return res;}
+function odBars(list,cls){const tot=list.reduce((a,x)=>a+x[1],0);if(tot<1)return '<div class="sub">まだいません</div>';const mx=list[0][1];
+  return `<div class="odbars">${list.slice(0,5).map(([st,v])=>`<span>${ST[st].name}</span><div class="bar ${cls}" style="width:${Math.max(1,v/mx*100)}%"></div><span>${Math.round(v/tot*100)}%</span>`).join('')}</div>`;}
+function trainOD(tr){let i=0;const n=tr.seq.length;while(i<n-1&&tr.arr[i+1]<=T)i++;const k=T<tr.dep[i]?i-1:i;if(k<0)return '';
+  const fa=tr.fromAfter[k],ta=tr.toAfter[k];if(!fa)return '';const L=a=>ALL.map((x,j)=>[x,a[j]]).filter(x=>x[1]>0.5).sort((x,y)=>y[1]-x[1]);
+  const f=L(fa),t=L(ta);if(!f.length)return '';
+  return `<div class="odh">乗っている人が乗った駅</div>${odBars(f,'')}<div class="odh">乗っている人の行き先（乗換先を含む）</div>${odBars(t,'to')}`;}
+
+/* ---------- score ---------- */
+function renderScore(){
+  const S=D.summary;const p=S.peak;
+  const cls=Object.entries(S.byCls).map(([k,v])=>`${CLS[k].name}${v}`).join('・');
+  $('#score').innerHTML=`<div class="big"><span>1日の収支</span><b class="${S.profit>=0?'pos':'neg'}">${man(S.profit)}</b></div>
+  <div><span>この日の外出（平日比）</span><b>${Math.round(S.dm.pot.reduce((a,b)=>a+b,0)/S.ref.reduce((a,b)=>a+b,0)*100)}%</b><span>${condLabel()}</span></div><div><span>ダイヤの便利さ</span><b>×${(S.dm.act.reduce((a,b)=>a+b,0)/S.dm.pot.reduce((a,b)=>a+b,0)).toFixed(2)}</b><span>本数と速さで利用が変わります</span></div>
+  <div><span>運転本数</span><b>${S.trips}本</b></div><div><span>使う編成</span><b>${S.sets}編成</b><span>${cls}</span></div>
+  <div><span>1日の利用者</span><b>${fmtN(S.riders)}人</b></div><div><span>運賃・料金収入</span><b>${man(S.rev)}</b></div>
+  <div><span>運転経費（車両キロ）</span><b>${man(S.run)}</b></div><div><span>車両経費</span><b>${man(S.fixed)}</b></div><div><span>駅ナカ・周辺の売上</span><b>${man(S.ekiSales)}</b></div><div><span>駅ナカ収入（売上の12%）</span><b>${man(S.eki)}</b></div>
+  <div><span>いちばん混んだ列車</span><b class="${p&&p.maxRatio>1.5?'neg':''}">${p?Math.round(p.maxRatio*100):0}%</b><span>${p?`${TYPES[p.type].name}${p.num} ${fmt(p.dep[p.maxAt])} ${ST[p.seq[p.maxAt]].name}発`:''}</span></div>
+  <div><span>待ちきれず帰った人</span><b class="${S.aband>3000?'neg':''}">${fmtN(S.aband)}人</b></div>
+  <div><span>積み残し（延べ）</span><b>${fmtN(S.left)}人</b></div><div><span>待避・接続・交換</span><b>${S.counts.taihi}・${S.counts.conn}・${S.counts.kokan}回</b></div>`;
+  const hints=[];
+  const abH=S.abH;let hm=0;abH.forEach((v,h)=>{if(v>abH[hm])hm=h;});
+  if(abH[hm]>400)hints.push(`${hm%24}時台に${fmtN(abH[hm])}人が待ちきれずに帰りました。この時間帯の本数を増やしてみましょう。`);
+  if(p&&p.maxRatio>1.7)hints.push(`${TYPES[p.type].name}${p.num}（${fmt(p.dep[0])}発）は${Math.round(p.maxRatio*100)}%のすし詰めです。両数を増やすか、前後に増発を。`);
+  const lh=S.loadH;const mid=[11,12,13,14].map(h=>lh[h][1]?lh[h][0]/lh[h][1]:0);const avg=mid.reduce((a,b)=>a+b,0)/4;
+  if(avg<0.18&&S.trips>40)hints.push(`日中（11〜15時）の平均混雑率は${Math.round(avg*100)}%。間隔を広げるか両数を減らすと経費が下がります。`);
+  const lt=S.leftH;let lm=0;lt.forEach((v,h)=>{if(v>lt[lm])lm=h;});if(lt[lm]>2000&&lm!==hm)hints.push(`${lm%24}時台は満員で乗れない人が延べ${fmtN(lt[lm])}人。`);
+  if(S.secMax&&S.secMax.r>1.3){const m=S.secMax,x=SEGS[m.sg];hints.unshift(`いちばん混む区間は${m.h%24}時台の${ST[x.a].name}–${ST[x.b].name}${m.dr?'上り':'下り'}（平均${Math.round(m.r*100)}%）。この区間を通る列車を増やしましょう。`);}
+  if(S.secMin&&S.secMin.r<0.15){const m=S.secMin,x=SEGS[m.sg];hints.push(`${m.h%24}時台の${ST[x.a].name}–${ST[x.b].name}${m.dr?'上り':'下り'}は平均${Math.round(m.r*100)}%しか乗っていません（${m.n}本）。`);}
+  if(!hints.length)hints.push(S.profit>0?'<span>黒字で混雑も控えめ。いいダイヤです。特急を増やして料金収入を狙うのも手です。</span>':'混雑は落ち着いています。収支を良くするには、空いている時間帯の本数を見直しましょう。');
+  $('#hints').innerHTML=hints.slice(0,3).map((h,i)=>`<li class="${!S.aband||hints.length===1&&S.profit>0?'good':''}">${h}</li>`).join('');
+}
+
+/* ---------- editor ---------- */
+function carsFor(ty){return CLS[TYPES[ty].cls].cars;}
+function renderEditor(){
+  $('#ptbody').innerHTML=PAT.map(p=>`<tr data-id="${p.id}">
+  <td><div class="swatch" style="background:var(--t-${{L:'local',R:'rapid',E:'exp',X:'tour'}[p.type]})"></div></td>
+  <td><select id="p${p.id}-type" data-f="type" aria-label="種別">${Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${k===p.type?'selected':''}>${t.name}</option>`).join('')}</select></td>
+  <td><select id="p${p.id}-route" data-f="route" aria-label="区間">${Object.entries(ROUTES).map(([k,r])=>`<option value="${k}" ${k===p.route?'selected':''}>${r.name}</option>`).join('')}</select></td>
+  <td><input id="p${p.id}-from" data-f="from" type="text" inputmode="numeric" placeholder="05:00" value="${toInput(p.from)}" aria-label="始発"></td>
+  <td><input id="p${p.id}-to" data-f="to" type="text" inputmode="numeric" placeholder="24:00" value="${toInput(p.to)}" aria-label="最終"></td>
+  <td><input id="p${p.id}-int" data-f="int" type="number" min="4" max="120" step="1" value="${p.int}" aria-label="間隔"></td>
+  <td><select id="p${p.id}-cars" data-f="cars" aria-label="両数">${carsFor(p.type).map(c=>`<option ${c===p.cars?'selected':''}>${c}</option>`).join('')}</select></td>
+  <td class="cnt" id="p${p.id}-cnt"></td>
+  <td><button class="del" aria-label="このパターンを削除">×</button></td></tr>`).join('');
+  renderEditorCounts();
+}
+function renderEditorCounts(){PAT.forEach(p=>{const el=document.getElementById(`p${p.id}-cnt`);if(!el)return;const n=p.int>=3&&p.to>p.from?Math.ceil((p.to-p.from)/p.int):0;el.textContent=`往復${n}`;});}
+$('#ptbody').addEventListener('change',e=>{const tr=e.target.closest('tr');if(!tr)return;const p=PAT.find(x=>x.id==tr.dataset.id);const f=e.target.dataset.f;if(!p||!f)return;
+  const v=e.target.value;
+  if(f==='type'){p.type=v;const cs=carsFor(v);if(!cs.includes(p.cars))p.cars=cs[Math.min(cs.length-1,Math.floor(cs.length/2))];renderEditor();}
+  else if(f==='route')p.route=v;else if(f==='from'||f==='to'){const t=parseT(v);if(Number.isFinite(t))p[f]=t;e.target.value=toInput(p[f]);}
+  else if(f==='int'){p.int=Math.max(4,Math.min(120,Math.round(Number(v)||10)));e.target.value=p.int;}else if(f==='cars')p.cars=Number(v);
+  renderEditorCounts();rebuildSoon();});
+$('#ptbody').addEventListener('click',e=>{if(!e.target.classList.contains('del'))return;const tr=e.target.closest('tr');PAT=PAT.filter(x=>x.id!=tr.dataset.id);renderEditor();rebuildSoon();});
+$('#addp').addEventListener('click',()=>{PAT.push(mkPat({type:'L',route:'CP',from:'07:00',to:'09:00',int:10,cars:8}));renderEditor();rebuildSoon();});
+$('#presets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;PAT=PRESETS[b.dataset.p].map(mkPat);renderEditor();save();rebuild();});
+
+/* ---------- controls ---------- */
+const playBtn=$('#play');
+function setPlay(v){playing=v;playBtn.textContent=v?'❚❚ 一時停止':'▶ 運転開始';}
+playBtn.addEventListener('click',()=>setPlay(!playing));
+function markSeg(el,v){el.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.v)===v)));}
+$('#speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;speed=Number(b.dataset.v);markSeg($('#speed'),speed);try{localStorage.setItem('dia-speed',speed);}catch(er){}});
+$('#span').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;diaSpan=Number(b.dataset.v);markSeg($('#span'),diaSpan);drawDia();});
+markSeg($('#speed'),speed);markSeg($('#span'),diaSpan);
+document.querySelectorAll('.jump').forEach(b=>b.addEventListener('click',()=>{T=Number(b.dataset.t);refreshPanels(true);}));
+const scrub=$('#scrub');scrub.addEventListener('input',()=>{T=Number(scrub.value);refreshPanels(true);drawDia();});
+document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))return;if(e.code==='Space'){e.preventDefault();setPlay(!playing);}});
+
+map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.clientX-r.left)/MS,y=(e.clientY-r.top)/MS;
+  let best=null,bd=16;VIS.forEach(v=>{const d=Math.hypot(v.st.x-x,v.st.y-y);if(d<bd){bd=d;best=v;}});
+  if(best){sel={kind:'set',set:best.s};}
+  else{let bs=null,sd=30;ALL.forEach(s=>{const d=Math.hypot(ST[s].x-x,ST[s].y-y);if(d<sd){sd=d;bs=s;}});if(bs){sel={kind:'station',st:bs};ttStation(bs);psStation(bs);}}
+  refreshPanels(true);drawDia();});
+dia.addEventListener('click',e=>{const r=dia.getBoundingClientRect();const tr=diaHit(e.clientX-r.left,e.clientY-r.top);if(tr){sel={kind:'trip',trip:tr};refreshPanels(true);drawDia();}});
+
+/* ---------- sizing ---------- */
+function resize(){const dpr=window.devicePixelRatio||1;
+  const mw=Math.max($('#mapwrap').clientWidth,760);MW=mw;MH=Math.round(mw*0.42);MS=mw/1000;map.style.width=mw+'px';map.style.height=MH+'px';map.width=Math.round(mw*dpr);map.height=Math.round(MH*dpr);
+  const dw=Math.max($('#diawrap').clientWidth,620);DW=dw;DH=420;dia.style.width=dw+'px';dia.style.height=DH+'px';dia.width=Math.round(dw*dpr);dia.height=Math.round(DH*dpr);
+  drawMap();drawDia();if(D){pKey='';renderPurpose(true);}}
+new ResizeObserver(()=>resize()).observe(document.querySelector('.app'));
+
+/* ---------- loop ---------- */
+let lastTs=0,acc=0;
+function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
+  if(playing&&D){T+=speed*dt;if(T>END){T=START+30;}}
+  $('#clock').textContent=fmt(T);{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
+  if(document.activeElement!==scrub)scrub.value=Math.round(T);
+  drawMap();acc+=dt;if(acc>0.15||!playing&&acc>0.3){acc=0;drawDia();refreshPanels(false);}
+  requestAnimationFrame(frame);}
+function start(data){if(data&&typeof data.T==='number')T=data.T;renderCondUI();renderEditor();rebuild();resize();setPlay(true);requestAnimationFrame(frame);}
+try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+</script>
+
+</body>
+</html>
