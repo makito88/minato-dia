@@ -1369,7 +1369,7 @@ function renderEvStrip(){const key=ACTIVE_EV.map(e=>e.id+evState(e)).join('|')+(
 $('#evstrip').addEventListener('click',e=>{const b=e.target.closest('button');if(b)selectEvent(b.dataset.ev);});
 function selectEvent(id){sel={kind:'event',id};stripKey='';refreshPanels(true);drawDia();if(innerWidth<=980)$('#info').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
-function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '';const st=evState(ev),snap=trafficSnapshot(T);
+function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '<p class="sub">集計しています…</p>';const st=evState(ev),snap=trafficSnapshot(T);
   const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
   const ops=(ev.ops||[]).map(o=>`<dt>停車時間</dt><dd>${ST[o.st].name}駅で +${Math.round(o.dwell*60)}秒（${fmt(o.from)}〜${fmt(o.to)}・ホームの混雑）</dd>`).join('');
   const sec=im.sec?`<dt>いちばん混む区間</dt><dd>${ST[SEGS[im.sec.sg].a].name}–${ST[SEGS[im.sec.sg].b].name} ${im.sec.dr?'上り':'下り'}・${im.sec.h%24}時台 平均${Math.round(im.sec.r*100)}%</dd>`:'';
@@ -1380,8 +1380,9 @@ function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '';con
   <div class="odh">人の流れ（いつ・どこからどこへ）</div><ul class="flowlist">${flows}</ul>
   <div class="odh">交通への影響</div>
   <dl class="facts"><dt>増える利用</dt><dd>約${fmtN(im.extra)}人（見込み）</dd>${scale}${ops}
-  <dt>${ST[ev.place].name}駅の乗降</dt><dd>${Math.floor(im.w0/60)%24}〜${Math.floor(im.w1/60)%24}時台で${fmtN(im.onoff)}人（1日 ${fmtN(im.dayOn)}人）</dd>${sec}${tr}
   <dt>いまの${ST[ev.place].name}駅</dt><dd>${fmtN(snap.stations[ev.place].waiting)}人が待っています</dd></dl>
+  <div class="odh">期間中の会場周辺（ほかの利用者も含む）</div>
+  <dl class="facts"><dt>${ST[ev.place].name}駅の乗降</dt><dd>${Math.floor(im.w0/60)%24}〜${Math.floor(im.w1/60)%24}時台で${fmtN(im.onoff)}人（1日 ${fmtN(im.dayOn)}人）</dd>${sec}${tr}</dl>
   <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="linkbtn" data-act="station" data-st="${ev.place}">${ST[ev.place].name}駅を見る</button>${im.tr?`<button class="linkbtn" data-act="trip" data-ix="${im.tr.ix}">${im.tr.num}を見る</button>`:''}</div>
   <p class="srcnote">「増える利用」はイベントのデータから計算した見込みです。乗降人数・乗車率はこのダイヤでのシミュレーション結果で、実測値ではありません。</p>`;}
 $('#info').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;
