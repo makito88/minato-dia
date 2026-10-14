@@ -1545,13 +1545,14 @@ const SND=(()=>{
       else{b0=0.99765*b0+w*0.099046;b1=0.963*b1+w*0.2965164;b2=0.57*b2+w*1.0526913;d[i]=(b0+b1+b2+w*0.1848)*0.18;}}
     // ループのつなぎ目で音が切れないよう、両端を少し重ねる
     const f=Math.floor(ctx.sampleRate*0.05);for(let i=0;i<f;i++){const a=i/f;d[i]=d[i]*a+d[n-f+i]*(1-a);}return b;}
-  function voice(ctx,buf,bus,{type='lowpass',freq=800,q=0.7,lfo=0,lfoDepth=0,ffo=0,ffoDepth=0}){
+  function voice(ctx,buf,bus,{type='lowpass',freq=800,q=0.7,lfo=0,lfoDepth=0,ffo=0,ffoDepth=0,lfos=null}){
     const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;src.loopStart=0.05;src.loopEnd=buf.duration;
     const flt=ctx.createBiquadFilter();flt.type=type;flt.frequency.value=freq;flt.Q.value=q;
     const g=ctx.createGain();g.gain.value=0;const mod=ctx.createGain();mod.gain.value=1;
     src.connect(flt);flt.connect(mod);mod.connect(g);g.connect(bus);
     const extra=[];
     if(lfo){const o=ctx.createOscillator();o.frequency.value=lfo;const og=ctx.createGain();og.gain.value=lfoDepth;o.connect(og);og.connect(mod.gain);mod.gain.value=1-lfoDepth;o.start();extra.push(o);}
+    if(lfos){let sum=0;for(const [r,dp] of lfos){const o=ctx.createOscillator();o.frequency.value=r;const og=ctx.createGain();og.gain.value=dp;o.connect(og);og.connect(mod.gain);o.start();extra.push(o);sum+=dp;}mod.gain.value=1-sum;}
     if(ffo){const o=ctx.createOscillator();o.frequency.value=ffo;const og=ctx.createGain();og.gain.value=ffoDepth;o.connect(og);og.connect(flt.frequency);o.start();extra.push(o);}
     src.start(0,Math.random()*3);return {src,flt,g,extra};}
   function build(){
@@ -1564,15 +1565,27 @@ const SND=(()=>{
       train:voice(ctx,brown,bus,{type:'lowpass',freq:180,q:0.5}),            // 列車：低いゴーという響き
       rail: voice(ctx,pink,bus,{type:'bandpass',freq:700,q:0.6,lfo:0.9,lfoDepth:0.35}), // 列車：かすかなレールの擦れ（ゆるい揺らぎ）
       sea:  voice(ctx,pink,bus,{type:'lowpass',freq:650,q:0.4,lfo:0.085,lfoDepth:0.7}), // 港：寄せては返す波
-      river:voice(ctx,pink,bus,{type:'bandpass',freq:1800,q:0.45,lfo:0.23,lfoDepth:0.15}), // 川：せせらぎ
-      city: voice(ctx,brown,bus,{type:'lowpass',freq:320,q:0.4,lfo:0.03,lfoDepth:0.2}), // 街：遠いざわめき
+      stream:voice(ctx,pink,bus,{type:'bandpass',freq:1800,q:0.45,lfo:0.23,lfoDepth:0.15}), // 森下：沢・小さな滝
+      city: voice(ctx,pink,bus,{type:'bandpass',freq:520,q:0.6,lfos:[[0.031,0.18],[0.071,0.12]]}), // 中央：遠い街のざわめき（スマホのスピーカーでも聞こえる高さ）
+      town: voice(ctx,pink,bus,{type:'bandpass',freq:850,q:1.1,lfos:[[0.13,0.16],[0.29,0.12],[0.47,0.08]]}), // 川辺：住宅街の遠い人の声（カフェ・公園）
       wind: voice(ctx,pink,bus,{type:'bandpass',freq:420,q:0.9,lfo:0.06,lfoDepth:0.55,ffo:0.045,ffoDepth:160}), // 森・峠：風
       rain: voice(ctx,pink,bus,{type:'highpass',freq:1400,q:0.3,lfo:0.11,lfoDepth:0.12})}; // 雨
   }
-  const VOICES=['train','rail','sea','river','city','wind','rain'];
+  // 住宅街のまれな小さな音（カップの音・すずめ）。実時間で最低25秒あけ、近くにいるときだけ
+  function clink(level){const c=S.ctx,now=c.currentTime,g=c.createGain();g.gain.value=0;g.connect(S.nodes.bus);
+    for(const [f,a] of [[2650,1],[4120,0.5],[5900,0.25]]){const o=c.createOscillator();o.type='sine';o.frequency.value=f*(0.98+Math.random()*0.04);const og=c.createGain();og.gain.value=a;o.connect(og);og.connect(g);o.start(now);o.stop(now+1.2);}
+    g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(level,now+0.006);g.gain.setTargetAtTime(0,now+0.01,0.12);}
+  function chirp(level){const c=S.ctx,now=c.currentTime;const n=2+Math.floor(Math.random()*2);
+    for(let i=0;i<n;i++){const t0=now+i*0.16,o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(4300,t0);o.frequency.exponentialRampToValueAtTime(3300,t0+0.07);
+      g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(level,t0+0.015);g.gain.setTargetAtTime(0,t0+0.03,0.025);o.connect(g);g.connect(S.nodes.bus);o.start(t0);o.stop(t0+0.3);}}
+  function shots(t){const now=performance.now();if(!S.nextShot)S.nextShot=now+15000;if(now<S.nextShot)return;
+    S.nextShot=now+25000+Math.random()*35000;const w=t.town/CAP.town;if(w<0.25)return;
+    const m=((T%1440)+1440)%1440,day=m>=360&&m<1080;S.shotCount=(S.shotCount||0)+1;
+    if(day&&Math.random()<0.5)chirp(0.012*w);else clink(0.01*w);}
+  const VOICES=['train','rail','sea','stream','city','town','wind','rain'];
   // 各音の最大音量（重ねても大きくなりすぎない配分）
-  const CAP={train:0.55,rail:0.07,sea:0.30,river:0.16,city:0.20,wind:0.20,rain:0.22};
-  const ANCH={sea:[[904,330],[880,400],[960,400]],river:[[548,290],[560,215],[530,150],[555,380]],city:[[112,322],[356,322]],wind:[[652,216],[706,148],[822,80]]};
+  const CAP={train:0.55,rail:0.07,sea:0.30,stream:0.16,city:0.26,town:0.12,wind:0.20,rain:0.22};
+  const ANCH={sea:[[904,330],[880,400],[960,400]],stream:[[652,216],[628,178],[684,182]],city:[[112,322],[356,322]],town:[[606,296],[480,305],[232,330]],wind:[[652,216],[706,148],[822,80]]};
   const near=(p,list,r)=>{let m=1e9;for(const [x,y] of list)m=Math.min(m,Math.hypot(p.x-x,p.y-y));return Math.max(0,1-m/r);};
   function listenerPos(){
     const set=sel.kind==='set'?sel.set:sel.kind==='trip'?sel.trip.set:null;
@@ -1590,8 +1603,10 @@ const SND=(()=>{
     t.train=tr;t.rail=tr;
     const dk=darkness(T);
     t.sea=0.15+0.85*near(L,ANCH.sea,300);
-    t.river=near(L,ANCH.river,170);
+    t.stream=near(L,ANCH.stream,85);   // 川辺の住宅街まで届かないよう、森の中だけ
     t.city=(0.12+0.88*near(L,ANCH.city,300))*(1-0.55*dk);
+    const m=((T%1440)+1440)%1440;                       // 住宅街：昼はカフェ、放課後(15〜18時)は公園で少しにぎやか、夜は静か
+    t.town=near(L,ANCH.town,150)*(m<420?0.15:m<900?0.7:m<1080?1:m<1260?0.55:0.15);
     t.wind=0.18+0.82*near(L,ANCH.wind,260);
     t.rain=COND.wx==='rain'?1:0;
     if(COND.wx==='rain'){t.wind*=1.15;}
@@ -1605,7 +1620,7 @@ const SND=(()=>{
   function tick(ts){ // 1秒に4回だけ計算
     if(!S.on||!S.ctx||ts-S.lastTick<250)return;S.lastTick=ts;
     const L=listenerPos();S.listener=L;
-    if(audible()){apply(targets(L),2.5);setMaster(masterLevel(),1.2);}
+    if(audible()){const t=targets(L);apply(t,2.5);setMaster(masterLevel(),1.2);shots(t);}
     updateUI();}
   async function start(){if(!S.supported)return false;
     try{if(!S.ctx)build();if(S.ctx.state!=='running')await S.ctx.resume();}catch(e){S.supported=false;updateUI();return false;}
@@ -1634,7 +1649,7 @@ const SND=(()=>{
   document.addEventListener('pointerdown',resumeOnce,true);document.addEventListener('keydown',resumeOnce,true);
   return {S,tick,start,stop,onPlay,setVol,updateUI,listenerPos,
     debug:()=>({on:S.on,state:S.ctx?S.ctx.state:'none',built:S.built,master:S.nodes?S.nodes.master.gain.value:0,
-      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},listener:S.listener})};
+      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
 })();
 const toggleSnd=()=>{if(SND.S.on)SND.stop();else SND.start();};
 $('#snd').addEventListener('click',toggleSnd);$('#msnd').addEventListener('click',toggleSnd);
