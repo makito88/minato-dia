@@ -98,6 +98,14 @@ canvas{display:block;touch-action:manipulation}
 .mclock{font-size:26px}
 .mband{font-family:var(--f-led);color:var(--led-g);font-size:12px;line-height:1.25;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .minibar .play{min-width:0;padding:6px 12px}
+.sndbox{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;flex-basis:100%}
+.sndbtn{border:1px solid var(--line2);background:var(--panel);border-radius:999px;padding:5px 14px;font-size:12.5px;color:var(--muted)}
+.sndbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.sndbtn:disabled{opacity:.5;cursor:default}
+.sndvol{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.sndvol input{width:120px;accent-color:var(--accent)}
+.sndwhere{font-size:12px;color:var(--muted)}
+.msnd[aria-pressed="true"]{border-color:var(--led);font-weight:700}
 .mspeed{border:1px solid var(--led-dim);background:transparent;color:var(--led);border-radius:7px;padding:5px 10px;font-family:var(--f-mono);font-size:13px}
 @media (max-width:980px){#info{position:static;max-height:none}}
 .ttctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -304,6 +312,11 @@ canvas{display:block;touch-action:manipulation}
       <button class="jump" data-t="1090">夕方</button>
       <button class="jump" data-t="1430">終電前</button>
     </div>
+    <div class="sndbox" id="sndbox">
+      <button class="sndbtn" id="snd" aria-pressed="false">♪ 音 OFF</button>
+      <label class="sndvol" for="vol"><span>音量</span><input type="range" id="vol" min="0" max="100" step="1" value="40"></label>
+      <span class="sndwhere" id="sndwhere"></span>
+    </div>
   </header>
   <div class="minibar" id="minibar" hidden>
     <div class="minibar-in">
@@ -311,6 +324,7 @@ canvas{display:block;touch-action:manipulation}
       <span class="mband" id="mband"></span>
       <button class="play" id="mplay">❚❚ 一時停止</button>
       <button class="mspeed" id="mspeed" aria-label="速さを切り替え">×60</button>
+      <button class="mspeed msnd" id="msnd" aria-pressed="false" aria-label="音のON/OFF">♪ OFF</button>
     </div>
   </div>
 
@@ -1515,8 +1529,120 @@ $('#info').addEventListener('click',e=>{const b=e.target.closest('[data-act]');i
   else if(b.dataset.act==='trip'){const t=D.trips[Number(b.dataset.ix)];if(t)sel={kind:'trip',trip:t};}
   refreshPanels(true);drawDia();});
 
+
+/* ---------- 環境音エンジン（独立。音を鳴らせない環境でもゲーム本体には影響しない） ----------
+   音はすべて合成（音声ファイルなし）。音量の変化は現実の時間で数秒かけて行う。 */
+const SND=(()=>{
+  const AC=window.AudioContext||window.webkitAudioContext;
+  const S={supported:!!AC,on:false,vol:40,ctx:null,nodes:null,built:0,listener:null,lastTick:0,hidden:false,stopTimer:null};
+  try{const v=JSON.parse(localStorage.getItem('dia-sound')||'null');if(v){S.vol=Math.max(0,Math.min(100,Number(v.vol)||0));S.savedOn=!!v.on;}}catch(e){}
+  const persist=()=>{try{localStorage.setItem('dia-sound',JSON.stringify({on:S.on,vol:S.vol}));}catch(e){}};
+  const masterLevel=()=>0.55*Math.pow(S.vol/100,1.6);   // 音量つまみ→実際の音量（小さい側を細かく）
+  // 雑音の元データ（1本だけ作り、全ての音で使い回す）
+  function noiseBuffer(ctx,kind){const n=ctx.sampleRate*4,b=ctx.createBuffer(1,n,ctx.sampleRate),d=b.getChannelData(0);let last=0,b0=0,b1=0,b2=0;
+    for(let i=0;i<n;i++){const w=Math.random()*2-1;
+      if(kind==='brown'){last=(last+0.02*w)/1.02;d[i]=last*3.5;}
+      else{b0=0.99765*b0+w*0.099046;b1=0.963*b1+w*0.2965164;b2=0.57*b2+w*1.0526913;d[i]=(b0+b1+b2+w*0.1848)*0.18;}}
+    // ループのつなぎ目で音が切れないよう、両端を少し重ねる
+    const f=Math.floor(ctx.sampleRate*0.05);for(let i=0;i<f;i++){const a=i/f;d[i]=d[i]*a+d[n-f+i]*(1-a);}return b;}
+  function voice(ctx,buf,bus,{type='lowpass',freq=800,q=0.7,lfo=0,lfoDepth=0,ffo=0,ffoDepth=0}){
+    const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;src.loopStart=0.05;src.loopEnd=buf.duration;
+    const flt=ctx.createBiquadFilter();flt.type=type;flt.frequency.value=freq;flt.Q.value=q;
+    const g=ctx.createGain();g.gain.value=0;const mod=ctx.createGain();mod.gain.value=1;
+    src.connect(flt);flt.connect(mod);mod.connect(g);g.connect(bus);
+    const extra=[];
+    if(lfo){const o=ctx.createOscillator();o.frequency.value=lfo;const og=ctx.createGain();og.gain.value=lfoDepth;o.connect(og);og.connect(mod.gain);mod.gain.value=1-lfoDepth;o.start();extra.push(o);}
+    if(ffo){const o=ctx.createOscillator();o.frequency.value=ffo;const og=ctx.createGain();og.gain.value=ffoDepth;o.connect(og);og.connect(flt.frequency);o.start();extra.push(o);}
+    src.start(0,Math.random()*3);return {src,flt,g,extra};}
+  function build(){
+    const ctx=new AC();S.ctx=ctx;S.built++;
+    const pink=noiseBuffer(ctx,'pink'),brown=noiseBuffer(ctx,'brown');
+    const master=ctx.createGain();master.gain.value=0;
+    const comp=ctx.createDynamicsCompressor();comp.threshold.value=-26;comp.knee.value=12;comp.ratio.value=6;comp.attack.value=0.05;comp.release.value=0.6;
+    const bus=ctx.createGain();bus.gain.value=1;bus.connect(master);master.connect(comp);comp.connect(ctx.destination);
+    S.nodes={master,bus,
+      train:voice(ctx,brown,bus,{type:'lowpass',freq:180,q:0.5}),            // 列車：低いゴーという響き
+      rail: voice(ctx,pink,bus,{type:'bandpass',freq:700,q:0.6,lfo:0.9,lfoDepth:0.35}), // 列車：かすかなレールの擦れ（ゆるい揺らぎ）
+      sea:  voice(ctx,pink,bus,{type:'lowpass',freq:650,q:0.4,lfo:0.085,lfoDepth:0.7}), // 港：寄せては返す波
+      river:voice(ctx,pink,bus,{type:'bandpass',freq:1800,q:0.45,lfo:0.23,lfoDepth:0.15}), // 川：せせらぎ
+      city: voice(ctx,brown,bus,{type:'lowpass',freq:320,q:0.4,lfo:0.03,lfoDepth:0.2}), // 街：遠いざわめき
+      wind: voice(ctx,pink,bus,{type:'bandpass',freq:420,q:0.9,lfo:0.06,lfoDepth:0.55,ffo:0.045,ffoDepth:160}), // 森・峠：風
+      rain: voice(ctx,pink,bus,{type:'highpass',freq:1400,q:0.3,lfo:0.11,lfoDepth:0.12})}; // 雨
+  }
+  const VOICES=['train','rail','sea','river','city','wind','rain'];
+  // 各音の最大音量（重ねても大きくなりすぎない配分）
+  const CAP={train:0.55,rail:0.07,sea:0.30,river:0.16,city:0.20,wind:0.20,rain:0.22};
+  const ANCH={sea:[[904,330],[880,400],[960,400]],river:[[548,290],[560,215],[530,150],[555,380]],city:[[112,322],[356,322]],wind:[[652,216],[706,148],[822,80]]};
+  const near=(p,list,r)=>{let m=1e9;for(const [x,y] of list)m=Math.min(m,Math.hypot(p.x-x,p.y-y));return Math.max(0,1-m/r);};
+  function listenerPos(){
+    const set=sel.kind==='set'?sel.set:sel.kind==='trip'?sel.trip.set:null;
+    if(set){const num=sel.kind==='trip'?sel.trip.num:null;const st=setState(set,T);
+      if(st)return {x:st.x,y:st.y,label:`列車 ${num||st.trip.num}`,kind:'train'};
+      const y=DEPOT[set.home].yard;return {x:y.x+y.w/2,y:y.y+y.h/2,label:`列車 ${num||set.label}（${DEPOTNAME[set.home]}）`,kind:'train'};}
+    if(sel.kind==='station')return {x:ST[sel.st].x,y:ST[sel.st].y,label:`${ST[sel.st].name}駅`,kind:'station'};
+    const w=$('#mapwrap');const cx=((w?.scrollLeft||0)+(w?.clientWidth||1000)/2)/(MS||1);return {x:Math.min(1000,cx),y:240,label:'地図の中央',kind:'center'};}
+  function targets(L){
+    const t={};
+    // 列車：近い列車ほど大きく。停車中は小さく、回送も少し
+    let tr=0;for(const v of VIS){const d=Math.hypot(v.st.x-L.x,v.st.y-L.y);const k=Math.exp(-d/40);tr+=k*(v.st.moving?1:0.25)*(0.6+0.05*v.s.cars);}
+    tr=1-Math.exp(-1.2*tr);  // 何本重なっても上限に近づくだけ
+    if(L.kind==='center')tr*=0.55;  // 地図の中央＝上空から眺めている位置なので、列車は遠め
+    t.train=tr;t.rail=tr;
+    const dk=darkness(T);
+    t.sea=0.15+0.85*near(L,ANCH.sea,300);
+    t.river=near(L,ANCH.river,170);
+    t.city=(0.12+0.88*near(L,ANCH.city,300))*(1-0.55*dk);
+    t.wind=0.18+0.82*near(L,ANCH.wind,260);
+    t.rain=COND.wx==='rain'?1:0;
+    if(COND.wx==='rain'){t.wind*=1.15;}
+    for(const k of VOICES)t[k]=Math.min(1,t[k])*CAP[k];
+    return t;}
+  function apply(t,tau){const now=S.ctx.currentTime;for(const k of VOICES){const g=S.nodes[k].g.gain;const cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(t[k],now,tau);}
+    // 列車が近いほど高い音も少し通す（遠いとこもった音）
+    const f=S.nodes.train.flt.frequency;f.cancelScheduledValues(now);f.setValueAtTime(f.value,now);f.setTargetAtTime(110+170*Math.min(1,t.train/CAP.train),now,tau);}
+  function setMaster(level,tau){if(!S.ctx)return;const now=S.ctx.currentTime,g=S.nodes.master.gain;const cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(level,now,tau);}
+  const audible=()=>S.on&&playing&&!S.hidden;
+  function tick(ts){ // 1秒に4回だけ計算
+    if(!S.on||!S.ctx||ts-S.lastTick<250)return;S.lastTick=ts;
+    const L=listenerPos();S.listener=L;
+    if(audible()){apply(targets(L),2.5);setMaster(masterLevel(),1.2);}
+    updateUI();}
+  async function start(){if(!S.supported)return false;
+    try{if(!S.ctx)build();if(S.ctx.state!=='running')await S.ctx.resume();}catch(e){S.supported=false;updateUI();return false;}
+    clearTimeout(S.stopTimer);S.on=true;persist();
+    const L=listenerPos();S.listener=L;apply(targets(L),0.01);  // 各音の配分は先に決め、全体を3秒かけて上げる
+    if(audible())setMaster(masterLevel(),1.0);updateUI();return true;}
+  function quiet(thenSuspend){ // 穏やかに小さくしてから止める
+    if(!S.ctx)return;setMaster(0,0.6);clearTimeout(S.stopTimer);
+    if(thenSuspend)S.stopTimer=setTimeout(()=>{if(S.ctx&&!audible())S.ctx.suspend().catch(()=>{});},3200);}
+  function stop(){S.on=false;persist();quiet(true);updateUI();}
+  async function wake(){if(!S.on||!S.ctx)return;clearTimeout(S.stopTimer);try{if(S.ctx.state!=='running')await S.ctx.resume();}catch(e){}
+    if(audible()){apply(targets(listenerPos()),0.01);setMaster(masterLevel(),1.0);}}
+  function onPlay(v){if(!S.on)return;if(v)wake();else quiet(true);}
+  function setVol(v){S.vol=v;persist();if(audible())setMaster(masterLevel(),0.4);updateUI();}
+  function updateUI(){const b=$('#snd'),m=$('#msnd');if(!b)return;
+    b.disabled=!S.supported;m.disabled=!S.supported;
+    b.textContent=!S.supported?'♪ 音を鳴らせません':S.on?'♪ 音 ON':'♪ 音 OFF';b.setAttribute('aria-pressed',String(S.on));
+    m.textContent=S.on?'♪ ON':'♪ OFF';m.setAttribute('aria-pressed',String(S.on));
+    $('#vol').value=S.vol;
+    const w=S.on&&S.listener?`聞いている場所：${S.listener.label}${playing?'':'（一時停止中は静か）'}`:(S.savedOn&&!S.on&&S.supported?'前回は音がONでした。画面のどこかに触れると再開します':'');
+    if($('#sndwhere').textContent!==w)$('#sndwhere').textContent=w;}
+  document.addEventListener('visibilitychange',()=>{S.hidden=document.hidden;if(!S.on)return;if(S.hidden)quiet(true);else wake();});
+  // 前回ONだった場合：最初の操作で再開（ブラウザの決まりで、操作前には鳴らせない）
+  const resumeOnce=e=>{if(S.savedOn&&!S.on&&!(e.target&&e.target.closest&&e.target.closest('#snd,#msnd')))start();S.savedOn=false;updateUI();
+    document.removeEventListener('pointerdown',resumeOnce,true);document.removeEventListener('keydown',resumeOnce,true);};
+  document.addEventListener('pointerdown',resumeOnce,true);document.addEventListener('keydown',resumeOnce,true);
+  return {S,tick,start,stop,onPlay,setVol,updateUI,listenerPos,
+    debug:()=>({on:S.on,state:S.ctx?S.ctx.state:'none',built:S.built,master:S.nodes?S.nodes.master.gain.value:0,
+      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},listener:S.listener})};
+})();
+const toggleSnd=()=>{if(SND.S.on)SND.stop();else SND.start();};
+$('#snd').addEventListener('click',toggleSnd);$('#msnd').addEventListener('click',toggleSnd);
+$('#vol').addEventListener('input',e=>SND.setVol(Number(e.target.value)));
+SND.updateUI();
+
 /* ---------- 拡張用の入口（開発者ツールのコンソールから使えます） ---------- */
-window.minatoDia={events:EVENT_DATA,snapshot:()=>trafficSnapshot(T),
+window.minatoDia={events:EVENT_DATA,snapshot:()=>trafficSnapshot(T),sound:SND.debug,
   addEvent(def,enable=true){registerEvent(def);if(enable&&!COND.evs.includes(def.id))setCond({...COND,evs:[...COND.evs,def.id]});saveCond();renderEventChips();rebuild();return def.id;}};
 
 /* ---------- score ---------- */
@@ -1572,7 +1698,7 @@ $('#presets').addEventListener('click',e=>{const b=e.target.closest('button');if
 
 /* ---------- controls ---------- */
 const playBtn=$('#play');
-function setPlay(v){playing=v;playBtn.textContent=v?'❚❚ 一時停止':'▶ 運転開始';$('#mplay').textContent=v?'❚❚ 一時停止':'▶ 運転開始';}
+function setPlay(v){const was=playing;playing=v;if(was!==v&&typeof SND!=='undefined')SND.onPlay(v);playBtn.textContent=v?'❚❚ 一時停止':'▶ 運転開始';$('#mplay').textContent=v?'❚❚ 一時停止':'▶ 運転開始';}
 $('#mplay').addEventListener('click',()=>setPlay(!playing));
 playBtn.addEventListener('click',()=>setPlay(!playing));
 function markSeg(el,v){el.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.v)===v)));}
@@ -1607,7 +1733,7 @@ function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
   if(playing&&D){T+=speed*dt;if(T>END){T=START+30;}}
   $('#clock').textContent=fmt(T);if(!$('#minibar').hidden){$('#mclock').textContent=fmt(T);const mb=band(T)+'・'+condLabel();if($('#mband').textContent!==mb)$('#mband').textContent=mb;}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
-  drawMap();acc+=dt;if(acc>0.15||!playing&&acc>0.3){acc=0;drawDia();refreshPanels(false);}
+  drawMap();if(SND.S.on)SND.tick(ts);acc+=dt;if(acc>0.15||!playing&&acc>0.3){acc=0;drawDia();refreshPanels(false);}
   requestAnimationFrame(frame);}
 function start(data){if(data&&typeof data.T==='number')T=data.T;renderCondUI();renderLegend();renderEditor();rebuild();resize();setPlay(true);requestAnimationFrame(frame);}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
