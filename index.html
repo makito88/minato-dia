@@ -246,6 +246,36 @@ canvas{display:block;touch-action:manipulation}
 .odbars .bar.to{background:var(--p2)}
 .odbars span:nth-child(3n){text-align:right;font-family:var(--f-mono);font-size:11.5px}
 .odh{font-size:12px;color:var(--muted);margin:10px 0 4px}
+.maptool{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.layers{display:flex;flex-wrap:wrap;gap:6px}
+.layers button,.evchips button{border:1px solid var(--line2);background:var(--paper);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--muted)}
+.layers button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.evchips{display:flex;flex-wrap:wrap;gap:6px}
+.evchips button[aria-pressed="true"]{background:var(--t-tour);border-color:var(--t-tour);color:#fff;font-weight:700}
+.evchips b,.evstrip b.ic{font-family:var(--f-body);display:inline-block;width:1.3em;text-align:center}
+.evlab{font-size:12.5px;color:var(--muted)}
+.legend .heatbar{display:inline-flex;gap:2px;align-items:center}
+.legend .heatbar i{width:20px;height:6px;margin:0}
+.legend .nodata{display:inline-block;width:18px;border-top:2px dashed var(--t-dead);vertical-align:middle;margin-right:5px}
+.legend .ring{display:inline-block;width:12px;height:12px;border-radius:50%;background:color-mix(in srgb,var(--p0) 30%,transparent);border:1.5px solid var(--p0);vertical-align:middle;margin-right:5px}
+.evstrip{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px}
+.evstrip:empty{display:none}
+.evstrip button{display:flex;align-items:center;gap:6px;border:1px solid var(--line2);background:var(--paper);border-radius:8px;padding:4px 10px 4px 6px;font-size:12.5px;text-align:left}
+.evstrip button.during{border-color:var(--t-tour);background:color-mix(in srgb,var(--t-tour) 12%,var(--paper))}
+.evstrip button.after{opacity:.6}
+.evstrip b.ic{width:22px;height:22px;line-height:22px;border-radius:50%;background:var(--t-tour);color:#fff;font-size:12px}
+.evstrip .st{font-size:11px;color:var(--muted)}
+.evhead{display:flex;gap:10px;align-items:center;margin-bottom:6px}
+.evhead .ic{width:36px;height:36px;border-radius:50%;background:var(--t-tour);color:#fff;display:grid;place-items:center;font-size:18px;flex:none}
+.evhead h3{font-size:17px;line-height:1.3}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:1px 9px;border:1px solid var(--line2);color:var(--muted)}
+.pill.during{background:var(--t-tour);border-color:var(--t-tour);color:#fff}
+.flowlist{margin:4px 0 0;padding:0;list-style:none;display:grid;gap:3px;font-size:12.5px}
+.flowlist li{display:flex;gap:8px;justify-content:space-between;border-bottom:1px solid var(--line);padding:2px 0}
+.flowlist li span:last-child{font-family:var(--f-mono);font-size:12px;color:var(--muted);white-space:nowrap}
+.srcnote{font-size:11.5px;color:var(--muted);margin-top:8px}
+.linkbtn{border:1px solid var(--line2);background:var(--paper);border-radius:6px;padding:4px 10px;font-size:12.5px;margin-top:8px}
+.log .k.event{border-color:var(--t-tour);color:var(--t-tour);background:color-mix(in srgb,var(--t-tour) 10%,transparent)}
 .help{font-size:12.5px;color:var(--muted);margin:6px 0 0}
 @media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
 </style>
@@ -279,16 +309,18 @@ canvas{display:block;touch-action:manipulation}
     </div>
     <div class="condrow">
       <div class="presets" id="scen">
-        <button data-c="wd,sun,aut,mid,none">いつもの平日</button>
-        <button data-c="wd,rain,spr,mid,none">雨の月曜</button>
-        <button data-c="wd,snow,win,mid,none">大雪の朝</button>
+        <button data-c="wd,sun,aut,mid,">いつもの平日</button>
+        <button data-c="wd,rain,spr,mid,">雨の月曜</button>
+        <button data-c="wd,snow,win,mid,">大雪の朝</button>
         <button data-c="sat,sun,sum,mid,hanabi">夏の花火大会</button>
         <button data-c="hol,sun,aut,boom,onsen">秋の温泉まつり</button>
         <button data-c="sat,cld,win,mid,live">冬のコンサート</button>
-        <button data-c="wd,cld,win,slump,none">不景気の冬</button>
+        <button data-c="wd,cld,win,slump,">不景気の冬</button>
+        <button data-c="sat,sun,sum,mid,ship+matsuri">観光船と夏祭り</button>
         <button data-c="rand">おまかせ</button>
       </div>
     </div>
+    <div class="condrow"><span class="evlab">イベント（複数選べます）</span><div class="evchips" id="evchips" role="group" aria-label="この日のイベント"></div></div>
     <div class="impact" id="impact"></div>
   </section>
 
@@ -303,19 +335,15 @@ canvas{display:block;touch-action:manipulation}
   </section>
 
   <section class="card mapcard">
-    <div class="scroll" id="mapwrap"><canvas id="map" aria-label="路線図。列車が走っています"></canvas></div>
-    <div class="legend">
-      <span><i style="background:var(--t-local)"></i>普通</span>
-      <span><i style="background:var(--t-rapid)"></i>快速</span>
-      <span><i style="background:var(--t-exp)"></i>特急</span>
-      <span><i style="background:var(--t-tour)"></i>観光特急</span>
-      <span><i style="background:var(--t-dead)"></i>回送</span>
-      <span style="margin-left:6px">混雑</span>
-      <span><i class="dot" style="background:var(--ok)"></i>〜80%</span>
-      <span><i class="dot" style="background:var(--warn)"></i>〜150%</span>
-      <span><i class="dot" style="background:var(--bad)"></i>150%〜</span>
-      <span style="margin-left:auto">列車・駅をタップすると詳細</span>
+    <div class="maptool">
+      <div class="layers" id="layers" role="group" aria-label="地図に表示するもの">
+        <button data-l="trains">列車</button><button data-l="stations">駅の利用</button><button data-l="heat">混雑ヒートマップ</button><button data-l="events">イベント</button>
+      </div>
+      <span class="sub" id="mapnote"></span>
     </div>
+    <div class="scroll" id="mapwrap"><canvas id="map" aria-label="路線図。列車が走っています"></canvas></div>
+    <div class="legend" id="legend"></div>
+    <div class="evstrip" id="evstrip"></div>
   </section>
 
   <div class="grid2">
@@ -461,20 +489,61 @@ const g=(t,mu,sd)=>Math.exp(-0.5*((t-mu)/sd)**2);
 const PURP=['通勤・通学','ビジネス','観光・レジャー','私用・買い物'];
 const OFFICE={C:1,K:0.5,P:0.7,U:0.3};
 const SI={};ALL.forEach((x,i)=>SI[x]=i);const NSt=ALL.length;
-const COND_DEF={day:'wd',wx:'sun',season:'aut',econ:'mid',ev:'none'};
+/* ===== イベントデータ（ここに1件足すだけで新しい出来事を追加できます） =====
+  id: 一意の英字 / name: 名前 / icon: 地図の記号(1文字) / place: 会場の最寄り駅 / pos: 地図上の位置[x,y]（省略時は駅の近く）
+  start,end: 開催時刻（分。19:30=1170）/ outdoor: 屋外なら雨・雪で規模が縮小 / weekday: 平日の規模（既定0.75）
+  flows: 人の流れ。from/to を省略すると「各駅」（駅の人口で按分）。amt: 規模、peak: ピーク時刻、sd: 広がり(分)、p: 目的(0通勤 1ビジネス 2観光 3私用)
+  ops: 運転への影響。st の駅で from〜to の間、停車時間を dwell 分延ばす / anim: 地図の演出（'fireworks' など） */
+const EVENT_DATA=[
+ {id:'hanabi',name:'港の花火大会',icon:'火',place:'P',pos:[848,410],start:1170,end:1245,outdoor:true,anim:'fireworks',
+  desc:'みなと湾で約1時間半、花火を打ち上げます。終わった直後に帰る人が港駅へ一斉に集まります。',
+  flows:[{to:'P',amt:9,peak:1050,sd:45,p:2},{from:'C',to:'P',amt:12,peak:1060,sd:50,p:2},{from:'P',amt:10,peak:1290,sd:22,p:2},{from:'P',to:'C',amt:14,peak:1295,sd:25,p:2}],
+  ops:[{st:'P',dwell:0.5,from:1230,to:1340}]},
+ {id:'onsen',name:'温泉まつり',icon:'♨',place:'O',pos:[862,112],start:600,end:960,outdoor:true,
+  desc:'温泉街で神輿と屋台が出ます。午前に来て夕方に帰る日帰り客が中心です。',
+  flows:[{to:'O',amt:6,peak:660,sd:70,p:2},{from:'C',to:'O',amt:20,peak:630,sd:60,p:2},{from:'O',amt:6,peak:1000,sd:70,p:2},{from:'O',to:'C',amt:18,peak:990,sd:60,p:2}],
+  ops:[{st:'O',dwell:0.4,from:930,to:1080}]},
+ {id:'live',name:'中央アリーナのコンサート',icon:'♪',place:'C',pos:[60,196],start:1080,end:1260,outdoor:false,weekday:0.8,
+  desc:'中央駅そばのアリーナで18時開演。21時過ぎの終演後に帰りの客が集中します。',
+  flows:[{to:'C',amt:7,peak:1020,sd:40,p:2},{from:'C',amt:9,peak:1275,sd:18,p:2}],
+  ops:[{st:'C',dwell:0.4,from:1260,to:1320}]},
+ {id:'campus',name:'大学オープンキャンパス',icon:'学',place:'U',pos:[396,236],start:570,end:960,outdoor:true,
+  desc:'みなと川大学の見学会。午前に来場し、午後に帰ります。',
+  flows:[{to:'U',amt:5,peak:570,sd:40,p:3},{from:'U',amt:4,peak:930,sd:60,p:3}]},
+ {id:'ship',name:'観光船の寄港',icon:'⚓',place:'P',pos:[978,378],start:540,end:1050,outdoor:false,weekday:1,
+  desc:'大型観光船が港に入ります。乗客は午前に温泉や中央へ出かけ、出港前の夕方に港へ戻ります。',
+  flows:[{from:'P',to:'O',amt:10,peak:600,sd:40,p:2},{from:'P',to:'C',amt:8,peak:590,sd:40,p:2},{from:'P',to:'T',amt:2,peak:610,sd:40,p:2},
+         {from:'O',to:'P',amt:9,peak:960,sd:40,p:2},{from:'C',to:'P',amt:7,peak:990,sd:40,p:2},{from:'T',to:'P',amt:1.5,peak:940,sd:40,p:2}]},
+ {id:'matsuri',name:'川辺の夏祭り',icon:'祭',place:'K',pos:[650,258],start:1020,end:1290,outdoor:true,
+  desc:'川沿いに屋台と盆踊り。夕方から人が集まり、21時の終了後に帰ります。',
+  flows:[{to:'K',amt:4,peak:1070,sd:60,p:2},{from:'K',amt:4.5,peak:1255,sd:35,p:2}],
+  ops:[{st:'K',dwell:0.3,from:1230,to:1320}]},
+];
+const EVMAP={};EVENT_DATA.forEach(e=>EVMAP[e.id]=e);
+let ACTIVE_EV=[],EV_OPS={};
+function evScale(ev){const w=ev.outdoor?(COND.wx==='rain'?0.45:COND.wx==='snow'?0.3:1):1;return w*(COND.day==='wd'?(ev.weekday??0.75):1);}
+function addEventDemand(o,s,d,t){
+  for(const ev of ACTIVE_EV){const k=ev._k;for(const f of ev.flows){
+    if(f.from&&f.from!==s)continue;if(f.to&&f.to!==d)continue;if(!f.from&&s===f.to)continue;if(!f.to&&d===f.from)continue;
+    const sc=(f.from?1:POP[s])*(f.to?1:POP[d]);o[f.p]+=k*f.amt*sc*g(t,f.peak,f.sd);}}}
+function evDwell(st,t){const L=EV_OPS[st];if(!L)return 0;let x=0;for(const o of L)if(t>=o.from&&t<=o.to)x+=o.dwell;return x;}
+function evWindow(ev){let a=ev.start,b=ev.end;for(const f of ev.flows){a=Math.min(a,f.peak-2*f.sd);b=Math.max(b,f.peak+2*f.sd);}return [Math.max(300,a),Math.min(1500,b)];}
+function registerEvent(def){if(!def||!def.id||!def.name||!ST[def.place]||!Array.isArray(def.flows))throw new Error('id・name・place（駅）・flows が必要です');
+  if(EVMAP[def.id])EVENT_DATA.splice(EVENT_DATA.indexOf(EVMAP[def.id]),1);EVENT_DATA.push(def);EVMAP[def.id]=def;return def;}
+const COND_DEF={day:'wd',wx:'sun',season:'aut',econ:'mid',evs:[]};
 const CONDS={
  day:{label:'曜日',opts:{wd:{n:'平日',m:[1,1,1,1]},sat:{n:'土曜',m:[0.38,0.3,1.7,1.45]},hol:{n:'日曜・祝日',m:[0.22,0.12,2.0,1.35]}}},
  wx:{label:'天気',opts:{sun:{n:'晴れ',m:[1,1,1.12,1.05]},cld:{n:'くもり',m:[1,1,0.95,1]},rain:{n:'雨',m:[1.08,0.97,0.55,0.8],sp:0.95,dw:0.15,eki:1.12},snow:{n:'大雪',m:[0.85,0.6,0.35,0.45],sp:0.72,dw:0.35,eki:1.05}}},
  season:{label:'季節',opts:{spr:{n:'春',m:[1,1,1.15,1.05]},sum:{n:'夏',m:[0.95,0.95,1.1,1]},aut:{n:'秋',m:[1,1,1.15,1]},win:{n:'冬',m:[1,1,0.9,1.05]}}},
  econ:{label:'景気',opts:{boom:{n:'好景気',m:[1.04,1.25,1.15,1.12],eki:1.15},mid:{n:'ふつう',m:[1,1,1,1]},slump:{n:'不景気',m:[0.96,0.75,0.85,0.9],eki:0.85}}},
- ev:{label:'イベント',opts:{none:{n:'なし'},hanabi:{n:'港の花火大会'},onsen:{n:'温泉まつり'},live:{n:'中央アリーナのコンサート'},campus:{n:'大学オープンキャンパス'}}},
 };
 let COND={...COND_DEF},CX=null,SVF=null;
-function setCond(c){COND={...COND_DEF,...c};const m=[1,1,1,1];let sp=1,dw=0,eki=1;
+function setCond(c){c=c||{};let evs=Array.isArray(c.evs)?c.evs:(c.ev&&c.ev!=='none'?[c.ev]:[]);COND={...COND_DEF,...c,evs:evs.filter(id=>EVMAP[id])};delete COND.ev;const m=[1,1,1,1];let sp=1,dw=0,eki=1;
   for(const k in CONDS){const o=CONDS[k].opts[COND[k]];if(!o)continue;if(o.m)for(let p=0;p<4;p++)m[p]*=o.m[p];if(o.sp)sp*=o.sp;if(o.dw)dw+=o.dw;if(o.eki)eki*=o.eki;}
   const st={};const se=COND.season;
   if(se==='sum'){st.P=1.5;st.O=0.8;}if(se==='win'){st.O=1.45;st.P=0.7;st.T=0.6;}if(se==='aut'){st.T=1.7;st.O=1.15;}
-  CX={m,sp,dw,eki,st,evw:(COND.wx==='rain'?0.45:COND.wx==='snow'?0.3:1)*(COND.day==='wd'?0.75:1),uni:se==='sum'?0.3:se==='spr'?0.6:1};}
+  CX={m,sp,dw,eki,st,evw:(COND.wx==='rain'?0.45:COND.wx==='snow'?0.3:1)*(COND.day==='wd'?0.75:1),uni:se==='sum'?0.3:se==='spr'?0.6:1};
+  ACTIVE_EV=COND.evs.map(id=>EVMAP[id]);EV_OPS={};ACTIVE_EV.forEach(ev=>{ev._k=evScale(ev);(ev.ops||[]).forEach(o=>(EV_OPS[o.st]||(EV_OPS[o.st]=[])).push(o));});}
 setCond(COND_DEF);
 function rateParts(s,d,t,noSvc){
   const o=[0,0,0,0];if(s===d||t<300||t>1475) return o;
@@ -501,11 +570,7 @@ function rateParts(s,d,t,noSvc){
   if(d==='C'&&s!=='C') o[3]+=1.8*ps*g(t,780,120);
   if(s==='C'&&d!=='C') o[3]+=1.2*pd*g(t,1000,110);
   for(let p=0;p<4;p++)o[p]*=CX.m[p];
-  const ev=COND.ev;
-  if(ev==='hanabi'){const w=CX.evw;if(d==='P')o[2]+=w*(9*ps*g(t,1050,45)+(s==='C'?12*g(t,1060,50):0));if(s==='P')o[2]+=w*(10*pd*g(t,1290,22)+(d==='C'?14*g(t,1295,25):0));}
-  else if(ev==='onsen'){const w=CX.evw;if(d==='O')o[2]+=w*(6*ps*g(t,660,70)+(s==='C'?20*g(t,630,60):0));if(s==='O')o[2]+=w*(6*pd*g(t,1000,70)+(d==='C'?18*g(t,990,60):0));}
-  else if(ev==='live'){const w=COND.day==='wd'?0.8:1;if(d==='C')o[2]+=w*7*ps*g(t,1020,40);if(s==='C')o[2]+=w*9*pd*g(t,1275,18);}
-  else if(ev==='campus'){const w=CX.evw;if(d==='U')o[3]+=w*5*ps*g(t,570,40);if(s==='U')o[3]+=w*4*pd*g(t,930,60);}
+  if(ACTIVE_EV.length)addEventDemand(o,s,d,t);
   if(SVF&&!noSvc){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=SVF[b+p];}
   return o;
 }
@@ -549,14 +614,14 @@ function scheduleTrip(tr,reg){
   tr.nominal=nominal;
   for(let b=0;b<w.length-1;b++){
     const bi=w[b],bj=w[b+1];
-    const base=bi===0?tr.want:arr[bi]+(stop[bi]?ty.dwell+CX.dw:0);
+    const base=bi===0?tr.want:arr[bi]+(stop[bi]?ty.dwell+CX.dw+evDwell(seq[bi],arr[bi]):0);
     let start=base;const branch=segIsBranch(seq[bi],seq[bi+1]);
     let ta=[],td=[];
     for(let it=0;it<90;it++){
       ta=[];td=[];td[bi]=start;let cur=start;
       for(let k=bi;k<bj;k++){
         ta[k+1]=cur+runT(seq[k],seq[k+1],ty,stop[k]||(k===bi&&start>base+0.01),stop[k+1]);
-        td[k+1]=ta[k+1]+(stop[k+1]?ty.dwell+CX.dw:0);cur=td[k+1];
+        td[k+1]=ta[k+1]+(stop[k+1]?ty.dwell+CX.dw+evDwell(seq[k+1],ta[k+1]):0);cur=td[k+1];
       }
       let shift=0;
       if(branch){
@@ -586,7 +651,7 @@ function scheduleTrip(tr,reg){
   tr.down=seq[n-1]==='P'||seq[n-1]==='O';
   tr.delay=arr[n-1]-dep[0]-nominal;
 }
-function onSiding(tr,i){const n=tr.seq.length;if(i<=0||i>=n-1||!ST[tr.seq[i]].taihi)return false;return tr.dep[i]-tr.arr[i]>(tr.stop[i]?TYPES[tr.type].dwell+CX.dw:0)+0.4;}
+function onSiding(tr,i){const n=tr.seq.length;if(i<=0||i>=n-1||!ST[tr.seq[i]].taihi)return false;return tr.dep[i]-tr.arr[i]>(tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0)+0.4;}
 
 function buildAll(patterns){
   const reg={},trips=[],outs=[];
@@ -691,9 +756,21 @@ function makeEvents(trips,sets){
   const firstBy={},lastBy={};trips.forEach(t=>{const k=t.seq[0]+t.seq.at(-1);if(!firstBy[k]||t.dep[0]<firstBy[k].dep[0])firstBy[k]=t;if(!lastBy[k]||t.dep[0]>lastBy[k].dep[0])lastBy[k]=t;});
   Object.values(firstBy).forEach(t=>ev.push({t:t.dep[0],k:'first',txt:`始発 ${nm(t)} ${ST[t.seq[0]].name}発 ${ST[t.seq.at(-1)].name}行`}));
   Object.values(lastBy).forEach(t=>ev.push({t:t.dep[0],k:'first',txt:`最終 ${nm(t)} ${ST[t.seq[0]].name}発 ${ST[t.seq.at(-1)].name}行`}));
+  ACTIVE_EV.forEach(e=>{ev.push({t:e.start,k:'event',txt:`${ST[e.place].name} ${e.name}が始まりました`,ev:e.id});ev.push({t:e.end,k:'event',txt:`${ST[e.place].name} ${e.name}が終わりました`,ev:e.id});});
   ev.sort((a,b)=>a.t-b.t);ev.counts={taihi,conn,kokan};return ev;
 }
 
+function eventImpacts(trips,sim){
+  /* 追加需要は「イベントの流れ」だけを積分したモデル上の見込み。乗降・混雑はシミュレーション結果をそのまま集計する */
+  const out={};for(const ev of ACTIVE_EV){const [w0,w1]=evWindow(ev);const h0=Math.floor(w0/60),h1=Math.min(29,Math.floor(w1/60));
+    let extra=0;const o=[0,0,0,0];for(let t=w0;t<=w1;t+=10)for(const a of ALL)for(const b of ALL){if(a===b)continue;o[0]=o[1]=o[2]=o[3]=0;
+      const keep=ACTIVE_EV;ACTIVE_EV=[ev];addEventDemand(o,a,b,t);ACTIVE_EV=keep;let x=o[0]+o[1]+o[2]+o[3];if(x>0&&SVF){const k=((SI[a]*NSt+SI[b])*30+Math.min(29,t/60|0))*4;x=0;for(let p=0;p<4;p++)x+=o[p]*SVF[k+p];}extra+=x*10;}
+    const st=sim.stat[ev.place];let onoff=0,dayOn=0;for(let h=0;h<30;h++){let v=0;for(let p=0;p<4;p++)v+=st.hb[p][h]+st.ha[p][h];dayOn+=v;if(h>=h0&&h<=h1)onoff+=v;}
+    let sec=null;for(let sg=0;sg<SEGS.length;sg++){const x=SEGS[sg];if(x.a!==ev.place&&x.b!==ev.place&&treeKm(x.a,ev.place)>6&&treeKm(x.b,ev.place)>6)continue;
+      for(let dr=0;dr<2;dr++)for(let h=h0;h<=h1;h++){const ix=(sg*2+dr)*30+h,L=sim.SECL[ix],C=sim.SECC[ix];if(C>0&&L>30&&(!sec||L/C>sec.r))sec={sg,dr,h,r:L/C,L};}}
+    let tr=null;for(const t of trips){const i=t.seq.indexOf(ev.place);if(i<0||!t.stop[i])continue;const tt=t.arr[i];if(tt<w0||tt>w1)continue;if(!tr||t.maxRatio>tr.maxRatio)tr=t;}
+    out[ev.id]={w0,w1,extra,onoff,dayOn,sec,tr,scale:ev._k};}
+  return out;}
 function summarize(trips,sets,sim,events){
   const fixed=sets.reduce((a,s)=>a+s.cars*CARDAY,0);
   let peak=null;trips.forEach(t=>{if(!peak||t.maxRatio>peak.maxRatio)peak=t;});
@@ -703,7 +780,7 @@ function summarize(trips,sets,sim,events){
   let secMax=null,secMin=null;for(let sg=0;sg<SEGS.length;sg++)for(let dr=0;dr<2;dr++)for(let h=5;h<25;h++){const ix=(sg*2+dr)*30+h,L=sim.SECL[ix],C=sim.SECC[ix];if(C<=0||L<150)continue;const r=L/C;
     if(!secMax||r>secMax.r)secMax={sg,dr,h,r,L,C,n:sim.SECN[ix]};if(h>=10&&h<16&&sim.SECN[ix]>=2&&(!secMin||r<secMin.r))secMin={sg,dr,h,r,L,C,n:sim.SECN[ix]};}
   return {trips:trips.length,sets:sets.length,byCls,riders:tot.riders,rev:tot.rev,run:tot.run,fixed,eki:tot.ekiYen*0.12,ekiSales:tot.ekiYen,profit:tot.rev+tot.ekiYen*0.12-tot.run-fixed,peak,left:tot.left,aband:tot.aband,counts:events.counts,
-    abH:sim.abH,leftH:sim.leftH,loadH:sim.loadH,dm,ref:ref.pot,secMax,secMin};
+    abH:sim.abH,leftH:sim.leftH,loadH:sim.loadH,dm,ref:ref.pot,secMax,secMin,evImpact:eventImpacts(trips,sim)};
 }
 /* ======================= /CORE ======================= */
 </script>
@@ -765,7 +842,7 @@ function rebuild(){
   const keepSet=sel.kind==='set'?sel.set.id:null;
   D=buildAll(PAT);
   if(sel.kind==='set'||sel.kind==='trip'){sel={kind:'station',st:'C'};}
-  ttKey='';pKey='';flKey='';renderScore();renderImpact();renderEditorCounts();refreshPanels(true);
+  ttKey='';pKey='';flKey='';stripKey='';SNAP=null;renderScore();renderImpact();renderEditorCounts();refreshPanels(true);
 }
 let rbTimer=null;function rebuildSoon(){clearTimeout(rbTimer);rbTimer=setTimeout(()=>{save();rebuild();},250);}
 
@@ -908,10 +985,9 @@ function drawMap(){
     c.fillStyle=sn?'#ffffff':TH.muted;c.globalAlpha=sn?0.16:0.06;c.fillRect(-20,-20,1040,460);c.globalAlpha=sn?0.9:0.5;c.lineWidth=1;c.strokeStyle=sn?TH.muted:TH.water;c.fillStyle='#ffffff';
     for(let i=0;i<(sn?110:150);i++){const y=((i*71.3)%430+now*(sn?20:240))%440-10;let x=((i*137.5)%1000+(sn?Math.sin(now*0.8+i)*8:-y*0.25)+1000)%1000;
       c.beginPath();if(sn){c.arc(x,y,1.6,0,6.3);c.fill();c.lineWidth=0.4;c.stroke();}else{c.moveTo(x,y);c.lineTo(x-3,y+10);c.stroke();}}c.globalAlpha=1;}
-  if(COND.ev!=='none'){const vs=EVPOS[COND.ev],st=ST[vs];const txt=CONDS.ev.opts[COND.ev].n;c.font='700 11px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(txt).width+12;
-    let bx=Math.min(996-w,Math.max(4,st.x-w/2)),by=st.y-(vs==='O'?46:46);c.fillStyle=TH.X;c.beginPath();c.roundRect(bx,by,w,17,8);c.fill();c.fillStyle='#ffffff';c.textAlign='left';c.fillText(txt,bx+6,by+12.5);
-    if(COND.ev==='hanabi'&&T>=1170&&T<=1250){const now=performance.now()/1000;const cols=[TH.E,TH.glow,TH.X,TH.R];for(let k=0;k<3;k++){const ph=(now*0.7+k*0.33)%1,cx=880+k*42,cy=360-k*18-ph*14,r=6+ph*26;c.strokeStyle=cols[(k+Math.floor(now))%4];c.globalAlpha=1-ph;c.lineWidth=1.6;
-      for(let a=0;a<12;a++){const an=a/12*6.283;c.beginPath();c.moveTo(cx+Math.cos(an)*r*0.5,cy+Math.sin(an)*r*0.5);c.lineTo(cx+Math.cos(an)*r,cy+Math.sin(an)*r);c.stroke();}}c.globalAlpha=1;}}
+  const snap=trafficSnapshot(T);
+  if(LAYERS.heat)drawHeat(c,snap);
+  if(LAYERS.stations)drawStationLayer(c,snap);
   // station names
   c.textAlign='center';c.fillStyle=TH.ink;
   ALL.forEach(s=>{const st=ST[s];let lx=st.x,ly=st.y+(st.taihi?40:s==='C'?44:30);
@@ -933,10 +1009,11 @@ function drawMap(){
     for(let i=0;i<Math.min(n,16);i++){const lane=i%4,col=Math.floor(i/4);const yy=y.y+4+lane*(y.h-8)/3;c.fillStyle=TH.dead;c.fillRect(y.x+4+col*15,yy-2.4,12,4.8);}
     c.fillStyle=TH.ink;if(k==='C'){c.fillText(DEPOTNAME[k],y.x-4,y.y-22);c.fillText(`${n}/${total[k]}編成`,y.x-4,y.y-9);}else c.fillText(`${DEPOTNAME[k]} ${n}/${total[k]}編成`,y.x-24,y.y-10);});
   // trains
-  VIS.forEach(({s,st})=>{const tr=st.trip;const col=st.dead?TH.dead:TH[tr.type];drawTrainShape(c,st.x,st.y,st.ang,s.cars,col,dk);
+  if(LAYERS.trains)VIS.forEach(({s,st})=>{const tr=st.trip;const col=st.dead?TH.dead:TH[tr.type];drawTrainShape(c,st.x,st.y,st.ang,s.cars,col,dk);
     const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);c.arc(st.x+n.x*9*side,st.y+n.y*9*side,2.8,0,Math.PI*2);c.fill();}});
   // selection
-  const ss=selSet();if(ss){const v=VIS.find(v=>v.s===ss);if(v){const tr=v.st.trip;c.strokeStyle=TH.accent;c.lineWidth=2;c.beginPath();c.arc(v.st.x,v.st.y,14,0,Math.PI*2);c.stroke();
+  if(LAYERS.events)drawEventIcons(c,snap,dk);
+  const ss=LAYERS.trains?selSet():null;if(ss){const v=VIS.find(v=>v.s===ss);if(v){const tr=v.st.trip;c.strokeStyle=TH.accent;c.lineWidth=2;c.beginPath();c.arc(v.st.x,v.st.y,14,0,Math.PI*2);c.stroke();
     const want=sel.kind==='trip'?sel.trip:null;const txt=v.st.dead?'回送':(want&&want!==tr?`${want.num}は${fmt(want.dep[0])}発・この編成で運転`:`${TYPES[tr.type].name} ${tr.num}　${fmtN(v.st.load||0)}人・${Math.round((v.st.load||0)/tr.cap*100)}%`);c.font='700 12px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(txt).width+14;let bx=v.st.x-w/2,by=v.st.y-38;bx=Math.max(4,Math.min(996-w,bx));if(by<4)by=v.st.y+18;
     c.fillStyle=TH.ink;c.beginPath();c.roundRect(bx,by,w,20,5);c.fill();c.fillStyle=TH.panel;c.textAlign='left';c.fillText(txt,bx+7,by+14.5);}}
 }
@@ -1081,9 +1158,11 @@ let lastInfo='';
 function refreshPanels(force){
   if(!D)return;
   let html='';const tr=curTrip();
-  if(tr)html=renderTrain(tr);else if(sel.kind==='station')html=renderStation(sel.st);
+  if(sel.kind==='event'&&!COND.evs.includes(sel.id))sel={kind:'station',st:'C'};
+  if(tr)html=renderTrain(tr);else if(sel.kind==='event')html=renderEvent(EVMAP[sel.id]);else if(sel.kind==='station')html=renderStation(sel.st);
+  renderEvStrip();
   if(html!==lastInfo||force){$('#info').innerHTML=html;lastInfo=html;}
-  renderTT(force);renderPurpose(force);renderFlow(force);
+  renderTT(force);renderPurpose(force);renderFlow(force);renderMapNote();
   // kpis
   const G=D.sim.G;const j=bsearch(G.t,T);
   let run=0,onb=0;D.trips.forEach(t=>{if(T>=t.dep[0]&&T<t.arr.at(-1)){run++;let i=0;while(i<t.seq.length-1&&t.arr[i+1]<=T)i++;onb+=T<t.dep[i]?(t.loadAfter[i-1]||0):t.loadAfter[i];}});
@@ -1095,7 +1174,7 @@ function refreshPanels(force){
   let maxW=1;const ws={};ALL.forEach(s=>{ws[s]=waitingAt(s,T);maxW=Math.max(maxW,ws[s]);});
   $('#sttbody').innerHTML=ALL.map(s=>{const st=D.sim.stat[s];const k=bsearch(st.t,T);return `<tr data-st="${s}" class="${sel.kind==='station'&&sel.st===s?'sel':''}"><td>${ST[s].name}</td><td>${fmtN(ws[s])}<span class="wbar" style="width:${Math.round(ws[s]/maxW*40)}px"></span></td><td>${fmtN(k<0?0:st.b[k])}</td><td>${fmtN(k<0?0:st.a[k])}</td><td>${fmtN(k<0?0:st.x[k])}</td><td>${mixBar([0,1,2,3].map(p=>upto(h=>st.hb[p][h]+st.ha[p][h],T)),70)}</td></tr>`;}).join('');
   // log
-  const ev=D.events;const e=bsearch(ev.map(x=>x.t),T);const lab={taihi:'待避',conn:'接続',kokan:'交換',depot:'車庫',first:'運転'};
+  const ev=D.events;const e=bsearch(ev.map(x=>x.t),T);const lab={taihi:'待避',conn:'接続',kokan:'交換',depot:'車庫',first:'運転',event:'イベント'};
   const items=[];for(let i=e;i>=0&&items.length<9;i--){const x=ev[i];items.push(`<li><time>${fmt(x.t)}</time><span><span class="k ${x.k}">${lab[x.k]}</span>${x.txt}</span></li>`);}
   $('#log').innerHTML=items.join('')||'<li><time></time><span class="sub">まだ記録はありません。始発を待っています</span></li>';
 }
@@ -1166,23 +1245,24 @@ function psStation(s){PS.st=s;$('#pst').value=s;pKey='';}
 
 
 /* ---------- conditions ---------- */
-const EVINFO={none:'',hanabi:'（港・19:30から。終わった後の21時台に帰る人が集中）',onsen:'（温泉・午前に来て夕方に帰る）',live:'（中央・18時開演、21時過ぎに終演）',campus:'（大学前・午前に来場）'};
-const EVPOS={hanabi:'P',onsen:'O',live:'C',campus:'U'};
 function saveCond(){try{localStorage.setItem('dia-cond',JSON.stringify(COND));}catch(e){}}
 const condLabel=()=>`${CONDS.day.opts[COND.day].n}・${CONDS.wx.opts[COND.wx].n}`;
-function renderCondUI(){
+function renderEventChips(){$('#evchips').innerHTML=EVENT_DATA.map(e=>`<button data-ev="${e.id}" aria-pressed="${COND.evs.includes(e.id)}" title="${ST[e.place].name}・${fmt(e.start)}〜${fmt(e.end)}"><b>${e.icon}</b>${e.name}</button>`).join('');}
+$('#evchips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const id=b.dataset.ev;const evs=COND.evs.includes(id)?COND.evs.filter(x=>x!==id):[...COND.evs,id];setCond({...COND,evs});saveCond();renderEventChips();rebuildSoon();});
+function renderCondUI(){renderEventChips();
   $('#condsel').innerHTML=Object.entries(CONDS).map(([k,c])=>`<label for="c-${k}">${c.label}<select id="c-${k}" data-k="${k}">${Object.entries(c.opts).map(([v,o])=>`<option value="${v}" ${COND[k]===v?'selected':''}>${o.n}</option>`).join('')}</select></label>`).join('');}
 $('#condsel').addEventListener('change',e=>{const k=e.target.dataset.k;if(!k)return;setCond({...COND,[k]:e.target.value});saveCond();rebuildSoon();});
 $('#scen').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let c;
-  if(b.dataset.c==='rand'){c={};for(const k in CONDS){const ks=Object.keys(CONDS[k].opts);c[k]=ks[Math.floor(Math.random()*ks.length)];}if(Math.random()<0.4)c.ev='none';if(c.wx==='snow'&&c.season!=='win')c.wx='rain';}
-  else{const [day,wx,season,econ,ev]=b.dataset.c.split(',');c={day,wx,season,econ,ev};}
+  if(b.dataset.c==='rand'){c={};for(const k in CONDS){const ks=Object.keys(CONDS[k].opts);c[k]=ks[Math.floor(Math.random()*ks.length)];}if(c.wx==='snow'&&c.season!=='win')c.wx='rain';
+    const pool=EVENT_DATA.map(e=>e.id).sort(()=>Math.random()-0.5);c.evs=pool.slice(0,Math.floor(Math.random()*3));}
+  else{const [day,wx,season,econ,ev]=b.dataset.c.split(',');c={day,wx,season,econ,evs:ev?ev.split('+'):[]};}
   setCond(c);saveCond();renderCondUI();rebuildSoon();});
 function renderImpact(){const S=D.summary;const sum=a=>a.reduce((x,y)=>x+y,0);
   const pot=sum(S.dm.pot),ref=sum(S.ref),act=sum(S.dm.act);const pct=x=>Math.round(x*100)+'%';
   const cls=v=>v>1.02?'up':v<0.98?'dn':'';
   const per=PURP.map((n,p)=>`${n} ${pct(S.dm.pot[p]/Math.max(1,S.ref[p]))}`).join('・');
   const sp=CX.sp<1?`<span>列車の速度 <b class="dn">−${Math.round((1-CX.sp)*100)}%</b>　停車時間 <b class="dn">+${Math.round(CX.dw*60)}秒</b></span>`:'';
-  const ev=COND.ev!=='none'?`<span>イベント <b>${CONDS.ev.opts[COND.ev].n}</b>${EVINFO[COND.ev]}</span>`:'';
+  const ev=ACTIVE_EV.length?`<span>イベント ${ACTIVE_EV.map(e=>`<b>${e.name}</b>（${ST[e.place].name}・${fmt(e.start)}〜${fmt(e.end)}${e._k<0.99?`・規模${Math.round(e._k*100)}%`:''}）`).join('、')}</span>`:'';
   $('#impact').innerHTML=`<span>出かける人（いつもの平日比） <b class="${cls(pot/ref)}">${pct(pot/ref)}</b>　${per}</span><span>ダイヤの便利さ（本数・速さ） <b class="${cls(act/pot)}">×${(act/pot).toFixed(2)}</b></span><span>鉄道を使いたい人 <b>${fmtN(act)}人</b></span>${sp}${ev}`;}
 
 /* ---------- OD & sections ---------- */
@@ -1223,6 +1303,95 @@ function trainOD(tr){let i=0;const n=tr.seq.length;while(i<n-1&&tr.arr[i+1]<=T)i
   const fa=tr.fromAfter[k],ta=tr.toAfter[k];if(!fa)return '';const L=a=>ALL.map((x,j)=>[x,a[j]]).filter(x=>x[1]>0.5).sort((x,y)=>y[1]-x[1]);
   const f=L(fa),t=L(ta);if(!f.length)return '';
   return `<div class="odh">乗っている人が乗った駅</div>${odBars(f,'')}<div class="odh">乗っている人の行き先（乗換先を含む）</div>${odBars(t,'to')}`;}
+
+
+/* ---------- 共通の交通スナップショット（地図・ヒートマップ・イベント詳細・将来の運行日誌/車窓モードで共用） ---------- */
+let SNAP=null;
+function trafficSnapshot(T){const key=Math.floor(T*2);if(SNAP&&SNAP.D===D&&SNAP.key===key)return SNAP;
+  const h=Math.min(29,Math.max(0,Math.floor(T/60))),sim=D.sim;
+  const stations={};ALL.forEach(s=>{const st=sim.stat[s];let on=0;for(let p=0;p<4;p++)on+=st.hb[p][h]+st.ha[p][h];stations[s]={waiting:waitingAt(s,T),onoffHour:on};});
+  const segments=SEGS.map((x,i)=>[0,1].map(dr=>{const ix=(i*2+dr)*30+h,L=sim.SECL[ix],C=sim.SECC[ix];return {L,C,n:sim.SECN[ix],ratio:C>0?L/C:null};}));
+  const events=ACTIVE_EV.map(ev=>({ev,state:T<ev.start?'before':T<=ev.end?'during':'after',impact:D.summary.evImpact[ev.id]}));
+  return SNAP={D,key,T,hour:h,stations,segments,events};}
+
+/* ---------- 地図レイヤー ---------- */
+const LAYERS={trains:true,stations:false,heat:false,events:true};
+try{const l=JSON.parse(localStorage.getItem('dia-layers')||'null');if(l)for(const k in LAYERS)if(typeof l[k]==='boolean')LAYERS[k]=l[k];}catch(e){}
+let EVHIT=[];
+function segLine(a,b,off,trim){const br=segIsBranch(a,b),n=br?NB[a+b]:NM[a+b],A=ST[a],B=ST[b],L=Math.hypot(B.x-A.x,B.y-A.y),ux=(B.x-A.x)/L,uy=(B.y-A.y)/L;
+  return {x0:A.x+ux*trim+n.x*off,y0:A.y+uy*trim+n.y*off,x1:B.x-ux*trim+n.x*off,y1:B.y-uy*trim+n.y*off,nx:n.x,ny:n.y};}
+function pillText(c,txt,x,y,fg,bg){c.font='700 10.5px "JetBrains Mono",monospace';const w=c.measureText(txt).width+8;c.fillStyle=bg;c.globalAlpha=0.88;c.beginPath();c.roundRect(x-w/2,y-8,w,15,4);c.fill();c.globalAlpha=1;c.fillStyle=fg;c.textAlign='center';c.fillText(txt,x,y+3.5);}
+function drawHeat(c,snap){
+  SEGS.forEach((x,i)=>{const br=x.line!=='本線';[0,1].forEach(dr=>{const v=snap.segments[i][dr];const off=(br?5:7)*(dr?-1:1);const g=segLine(x.a,x.b,off,br?10:16);
+    c.lineCap='round';
+    if(v.ratio==null){c.setLineDash([4,4]);c.strokeStyle=TH.dead;c.lineWidth=1.6;c.beginPath();c.moveTo(g.x0,g.y0);c.lineTo(g.x1,g.y1);c.stroke();c.setLineDash([]);return;}
+    c.strokeStyle=crowdCol(v.ratio);c.globalAlpha=0.85;c.lineWidth=3+Math.min(7,Math.sqrt(v.L)/9);c.beginPath();c.moveTo(g.x0,g.y0);c.lineTo(g.x1,g.y1);c.stroke();c.globalAlpha=1;
+    const mx=(g.x0+g.x1)/2+g.nx*(dr?-1:1)*(br?15:21),my=(g.y0+g.y1)/2+g.ny*(dr?-1:1)*(br?15:21);
+    pillText(c,`${dr?'上':'下'}${Math.round(v.ratio*100)}%`,mx,my,TH.ink,TH.panel);});});}
+function drawStationLayer(c,snap){
+  ALL.forEach(s=>{const v=snap.stations[s],st=ST[s];const r=Math.min(34,5+Math.sqrt(v.onoffHour)/2.4);
+    c.fillStyle=TH.accent;c.globalAlpha=0.16;c.beginPath();c.arc(st.x,st.y,r,0,6.284);c.fill();c.globalAlpha=0.9;c.strokeStyle=TH.accent;c.lineWidth=1.5;c.stroke();c.globalAlpha=1;
+    const below=s==='O'||s==='T'||st.y-r-9<12;pillText(c,`${fmtN(v.onoffHour)}人/時`,s==='O'||s==='T'?st.x+r+26:st.x,below?st.y+(s==='O'||s==='T'?0:r+10):st.y-r-9,TH.ink,TH.panel);});}
+function evPos(ev){return ev.pos?{x:ev.pos[0],y:ev.pos[1]}:{x:ST[ev.place].x+22,y:ST[ev.place].y-46};}
+function drawEventIcons(c,snap,dk){EVHIT=[];const now=performance.now()/1000;
+  snap.events.forEach(({ev,state})=>{const p=evPos(ev);EVHIT.push({id:ev.id,x:p.x,y:p.y});
+    if(state==='during'&&ev.anim==='fireworks'&&dk>0.2){const cols=[TH.E,TH.glow,TH.X,TH.R];for(let k=0;k<3;k++){const ph=(now*0.7+k*0.33)%1,cx=p.x-40+k*38,cy=p.y-30-k*12-ph*14,r=6+ph*24;c.strokeStyle=cols[(k+Math.floor(now))%4];c.globalAlpha=1-ph;c.lineWidth=1.6;
+      for(let a=0;a<12;a++){const an=a/12*6.283;c.beginPath();c.moveTo(cx+Math.cos(an)*r*0.5,cy+Math.sin(an)*r*0.5);c.lineTo(cx+Math.cos(an)*r,cy+Math.sin(an)*r);c.stroke();}}c.globalAlpha=1;}
+    // 会場の駅との結び線
+    const st=ST[ev.place];c.strokeStyle=TH.X;c.globalAlpha=0.5;c.lineWidth=1;c.setLineDash([2,3]);c.beginPath();c.moveTo(p.x,p.y);c.lineTo(st.x,st.y);c.stroke();c.setLineDash([]);c.globalAlpha=1;
+    if(state==='during'){const ph=(now*0.8)%1;c.strokeStyle=TH.X;c.globalAlpha=1-ph;c.lineWidth=2;c.beginPath();c.arc(p.x,p.y,12+ph*12,0,6.284);c.stroke();c.globalAlpha=1;}
+    c.fillStyle=state==='during'?TH.X:state==='after'?TH.dead:TH.panel;c.beginPath();c.arc(p.x,p.y,12,0,6.284);c.fill();c.strokeStyle=state==='after'?TH.dead:TH.X;c.lineWidth=2;c.stroke();
+    if(sel.kind==='event'&&sel.id===ev.id){c.strokeStyle=TH.accent;c.lineWidth=2.5;c.beginPath();c.arc(p.x,p.y,17,0,6.284);c.stroke();}
+    c.fillStyle=state==='before'?TH.X:'#ffffff';c.font='700 13px "Zen Kaku Gothic New",sans-serif';c.textAlign='center';c.fillText(ev.icon,p.x,p.y+4.5);
+    c.font='700 10.5px "Zen Kaku Gothic New",sans-serif';const lab=`${ev.name} ${fmt(ev.start)}〜`;const w=c.measureText(lab).width+10;let lx=Math.max(w/2+2,Math.min(998-w/2,p.x)),ly=p.y+26;if(ly>414)ly=p.y-24;
+    c.fillStyle=TH.panel;c.globalAlpha=0.9;c.beginPath();c.roundRect(lx-w/2,ly-10,w,15,4);c.fill();c.globalAlpha=1;c.fillStyle=state==='after'?TH.muted:TH.ink;c.fillText(lab,lx,ly+1.5);});}
+function renderLegend(){const L=[];
+  if(LAYERS.trains)L.push('<span><i style="background:var(--t-local)"></i>普通</span><span><i style="background:var(--t-rapid)"></i>快速</span><span><i style="background:var(--t-exp)"></i>特急</span><span><i style="background:var(--t-tour)"></i>観光特急</span><span><i style="background:var(--t-dead)"></i>回送</span>');
+  if(LAYERS.trains||LAYERS.heat)L.push(`<span style="margin-left:6px">${LAYERS.heat?'区間の乗車率':'列車の混雑'}</span><span><i class="dot" style="background:var(--ok)"></i>〜80%</span><span><i class="dot" style="background:var(--warn)"></i>〜150%</span><span><i class="dot" style="background:var(--bad)"></i>150%〜</span>`);
+  if(LAYERS.heat)L.push('<span>下＝港・温泉方面 / 上＝中央方面</span><span><span class="nodata"></span>この時間は運転なし</span><span>線の太さ＝通過人数</span>');
+  if(LAYERS.stations)L.push('<span><span class="ring"></span>円の大きさ＝この1時間の乗降人数</span>');
+  L.push('<span style="margin-left:auto">列車・駅・イベントをタップすると詳細</span>');
+  $('#legend').innerHTML=L.join('');
+  document.querySelectorAll('#layers button').forEach(b=>b.setAttribute('aria-pressed',String(LAYERS[b.dataset.l])));}
+let noteKey='';
+function renderMapNote(){const h=Math.min(29,Math.floor(T/60));const parts=[];
+  if(LAYERS.heat||LAYERS.stations)parts.push(`${h%24}時台の値（このダイヤでのシミュレーション）`);
+  if(LAYERS.events&&!ACTIVE_EV.length)parts.push('イベントは「この日の条件」で選べます');
+  const t=parts.join('　');if(t!==noteKey){noteKey=t;$('#mapnote').textContent=t;}}
+$('#layers').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;LAYERS[b.dataset.l]=!LAYERS[b.dataset.l];try{localStorage.setItem('dia-layers',JSON.stringify(LAYERS));}catch(er){}renderLegend();noteKey='';renderMapNote();drawMap();});
+
+/* ---------- イベントの詳細 ---------- */
+const evState=ev=>T<ev.start?'before':T<=ev.end?'during':'after';
+const EVST={before:'開催前',during:'開催中',after:'終了'};
+let stripKey='';
+function renderEvStrip(){const key=ACTIVE_EV.map(e=>e.id+evState(e)).join('|')+(sel.kind==='event'?sel.id:'');if(key===stripKey)return;stripKey=key;
+  $('#evstrip').innerHTML=ACTIVE_EV.map(e=>{const st=evState(e);return `<button class="${st}" data-ev="${e.id}" aria-pressed="${sel.kind==='event'&&sel.id===e.id}"><b class="ic">${e.icon}</b><span>${e.name}<br><span class="st">${ST[e.place].name}・${fmt(e.start)}〜${fmt(e.end)}・${EVST[st]}</span></span></button>`;}).join('');}
+$('#evstrip').addEventListener('click',e=>{const b=e.target.closest('button');if(b)selectEvent(b.dataset.ev);});
+function selectEvent(id){sel={kind:'event',id};stripKey='';refreshPanels(true);drawDia();if(innerWidth<=980)$('#info').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
+const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
+function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '';const st=evState(ev),snap=trafficSnapshot(T);
+  const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
+  const ops=(ev.ops||[]).map(o=>`<dt>停車時間</dt><dd>${ST[o.st].name}駅で +${Math.round(o.dwell*60)}秒（${fmt(o.from)}〜${fmt(o.to)}・ホームの混雑）</dd>`).join('');
+  const sec=im.sec?`<dt>いちばん混む区間</dt><dd>${ST[SEGS[im.sec.sg].a].name}–${ST[SEGS[im.sec.sg].b].name} ${im.sec.dr?'上り':'下り'}・${im.sec.h%24}時台 平均${Math.round(im.sec.r*100)}%</dd>`:'';
+  const tr=im.tr?`<dt>いちばん混む列車</dt><dd>${TYPES[im.tr.type].name} ${im.tr.num}（${fmt(im.tr.dep[0])}発）最大${Math.round(im.tr.maxRatio*100)}%</dd>`:'';
+  const flows=ev.flows.map(f=>`<li><span>${flowWho(f)}（${PURP[f.p]}）</span><span>${fmt(f.peak)}ごろ</span></li>`).join('');
+  return `<div class="evhead"><div class="ic">${ev.icon}</div><div><h3>${ev.name}</h3><span class="pill ${st}">${EVST[st]}</span> <span class="sub">${ST[ev.place].name}駅・${fmt(ev.start)}〜${fmt(ev.end)}</span></div></div>
+  <p style="margin:6px 0 8px">${ev.desc||''}</p>
+  <div class="odh">人の流れ（いつ・どこからどこへ）</div><ul class="flowlist">${flows}</ul>
+  <div class="odh">交通への影響</div>
+  <dl class="facts"><dt>増える利用</dt><dd>約${fmtN(im.extra)}人（見込み）</dd>${scale}${ops}
+  <dt>${ST[ev.place].name}駅の乗降</dt><dd>${Math.floor(im.w0/60)%24}〜${Math.floor(im.w1/60)%24}時台で${fmtN(im.onoff)}人（1日 ${fmtN(im.dayOn)}人）</dd>${sec}${tr}
+  <dt>いまの${ST[ev.place].name}駅</dt><dd>${fmtN(snap.stations[ev.place].waiting)}人が待っています</dd></dl>
+  <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="linkbtn" data-act="station" data-st="${ev.place}">${ST[ev.place].name}駅を見る</button>${im.tr?`<button class="linkbtn" data-act="trip" data-ix="${im.tr.ix}">${im.tr.num}を見る</button>`:''}</div>
+  <p class="srcnote">「増える利用」はイベントのデータから計算した見込みです。乗降人数・乗車率はこのダイヤでのシミュレーション結果で、実測値ではありません。</p>`;}
+$('#info').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;
+  if(b.dataset.act==='station'){sel={kind:'station',st:b.dataset.st};ttStation(b.dataset.st);psStation(b.dataset.st);}
+  else if(b.dataset.act==='trip'){const t=D.trips[Number(b.dataset.ix)];if(t)sel={kind:'trip',trip:t};}
+  refreshPanels(true);drawDia();});
+
+/* ---------- 拡張用の入口（開発者ツールのコンソールから使えます） ---------- */
+window.minatoDia={events:EVENT_DATA,snapshot:()=>trafficSnapshot(T),
+  addEvent(def,enable=true){registerEvent(def);if(enable&&!COND.evs.includes(def.id))setCond({...COND,evs:[...COND.evs,def.id]});saveCond();renderEventChips();rebuild();return def.id;}};
 
 /* ---------- score ---------- */
 function renderScore(){
@@ -1288,7 +1457,8 @@ const scrub=$('#scrub');scrub.addEventListener('input',()=>{T=Number(scrub.value
 document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))return;if(e.code==='Space'){e.preventDefault();setPlay(!playing);}});
 
 map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.clientX-r.left)/MS,y=(e.clientY-r.top)/MS;
-  let best=null,bd=16;VIS.forEach(v=>{const d=Math.hypot(v.st.x-x,v.st.y-y);if(d<bd){bd=d;best=v;}});
+  if(LAYERS.events){const h=EVHIT.find(v=>Math.hypot(v.x-x,v.y-y)<18);if(h){selectEvent(h.id);return;}}
+  let best=null,bd=16;if(LAYERS.trains)VIS.forEach(v=>{const d=Math.hypot(v.st.x-x,v.st.y-y);if(d<bd){bd=d;best=v;}});
   if(best){sel={kind:'set',set:best.s};}
   else{let bs=null,sd=30;ALL.forEach(s=>{const d=Math.hypot(ST[s].x-x,ST[s].y-y);if(d<sd){sd=d;bs=s;}});if(bs){sel={kind:'station',st:bs};ttStation(bs);psStation(bs);}}
   refreshPanels(true);drawDia();});
@@ -1309,7 +1479,7 @@ function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
   drawMap();acc+=dt;if(acc>0.15||!playing&&acc>0.3){acc=0;drawDia();refreshPanels(false);}
   requestAnimationFrame(frame);}
-function start(data){if(data&&typeof data.T==='number')T=data.T;renderCondUI();renderEditor();rebuild();resize();setPlay(true);requestAnimationFrame(frame);}
+function start(data){if(data&&typeof data.T==='number')T=data.T;renderCondUI();renderLegend();renderEditor();rebuild();resize();setPlay(true);requestAnimationFrame(frame);}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>
