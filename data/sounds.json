@@ -1,0 +1,32 @@
+{
+  "about": "みなと川電鉄 ダイヤ工房の環境音の設定。音源を足すときは assets/sounds/ にファイルを置き、files と loops（または occasional）に1件ずつ書き足す。座標は地図の座標（横1000×縦420）、時刻は時（0〜24）。",
+  "loudnessTarget": -28.0,
+  "loudnessNote": "lufs はファイルの実測ラウドネス（モノラルのMP3を ffmpeg -af ebur128 で測定）。再生時に loudnessTarget にそろえる。-28.0 は変更前（ステレオ録音を再生時に左右平均した音量）と同じ大きさになる値。",
+  "files": {
+    "train":    { "src": "assets/sounds/train_pass.mp3",      "lufs": -22.7, "label": "電車通過3", "preload": true },
+    "sea":      { "src": "assets/sounds/seashore.mp3",        "lufs": -21.9, "label": "海岸1", "loopSeconds": 32, "preload": true },
+    "bath":     { "src": "assets/sounds/onsen_bath.mp3",      "lufs": -26.0, "label": "大浴場", "loopSeconds": 45 },
+    "downtown": { "src": "assets/sounds/night_downtown.mp3",  "lufs": -25.5, "label": "夜の繁華街", "loopSeconds": 45 },
+    "park":     { "src": "assets/sounds/park.mp3",            "lufs": -26.4, "label": "公園", "loopSeconds": 45 },
+    "station":  { "src": "assets/sounds/station_holiday.mp3", "lufs": -28.6, "label": "休日でごった返す駅構内", "loopSeconds": 45 },
+    "fall":     { "src": "assets/sounds/waterfall.mp3",       "lufs": -21.1, "label": "滝1", "loopSeconds": 45 },
+    "horn":     { "src": "assets/sounds/ship_horn.mp3",       "lufs": -21.1, "label": "大型船の汽笛1" },
+    "rain":     { "src": "assets/sounds/rain_street.mp3",     "lufs": -29.1, "label": "雨の街の道路", "loopSeconds": 63 }
+  },
+  "loops": [
+    { "file": "sea",      "at": [[904,330],[880,400],[960,400]], "radius": 300, "base": 0.10, "maxGain": 0.30, "volume": "sea", "synth": { "sea": 0 } },
+    { "file": "bath",     "at": [[822,80]],  "radius": 110, "maxGain": 0.24 },
+    { "file": "downtown", "at": [[356,322]], "radius": 130, "maxGain": 0.18, "hourly": [[0,1],[1,0.45],[17,1]], "synth": { "city": 0.35 } },
+    { "file": "park",     "at": [[606,296]], "radius": 130, "maxGain": 0.20, "hourly": [[0,0.12],[7,1],[18,0.5],[20,0.12]], "synthDropAnchors": { "town": [[606,296]] } },
+    { "file": "station",  "at": [[112,322]], "radius": 140, "maxGain": 0.24, "crowd": { "station": "C", "full": 300, "holidayBoost": 1.15 }, "synth": { "city": 0.35 } },
+    { "file": "fall",     "at": [[706,148]], "radius": 110, "maxGain": 0.18 },
+    { "file": "rain",     "everywhere": true, "when": "rain", "maxGain": 0.20, "synth": { "rain": 0 } }
+  ],
+  "trainPass": { "file": "train", "radius": 75, "minGapSec": 4, "maxConcurrent": 2, "sameTrainSec": 20, "level": 0.42, "overviewFactor": 0.5, "lowpassHz": [1600, 7600], "synth": { "train": 0, "rail": 0 } },
+  "onboard":   { "file": "train", "level": 0.15, "lowpassHz": 900, "segment": [1.0, 3.2], "grainSec": 2.4, "stepSec": 1.4 },
+  "trainDuck": [ { "at": [[822,80]], "radius": 110, "amount": 0.9, "note": "温泉駅に近づくと走行音を小さく" } ],
+  "occasional": [
+    { "id": "horn", "file": "horn", "near": [[904,330],[880,400],[960,400]], "radius": 220, "minWeight": 0.3,
+      "firstAfterSec": [40, 100], "everySec": [120, 240], "hours": [6, 22], "level": 0.22, "lowpassHz": 650, "fadeInSec": 0.9, "volume": "sea" }
+  ]
+}

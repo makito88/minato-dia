@@ -1584,29 +1584,21 @@ const SND=(()=>{
     const m=((T%1440)+1440)%1440,day=m>=360&&m<1080;S.shotCount=(S.shotCount||0)+1;
     if(day&&Math.random()<0.5)chirp(0.012*w);else clink(0.01*w);}
   /* ===== 録音の環境音 =====
-     録音は sounds/ に置き、近づいたときに初めて読み込む。読み込んだら モノラル化・最大45秒に短縮・つなぎ目を2.5秒クロスフェード して
-     メモリを抑え、継ぎ目が聞こえないループにする。読み込めないときは合成音がそのまま代わりに鳴る。 */
-  const REC_FILES={
-    train:{src:'sounds/train_pass.mp3',lufs:-21.1},                 // 電車通過3：約6秒の通過音
-    sea:{src:'sounds/seashore.mp3',lufs:-20.5,loop:32},            // 海岸1
-    bath:{src:'sounds/onsen_bath.mp3',lufs:-24.7,loop:45},          // 大浴場
-    downtown:{src:'sounds/night_downtown.mp3',lufs:-24.4,loop:45},  // 夜の繁華街
-    park:{src:'sounds/park.mp3',lufs:-24.7,loop:45},                // 公園
-    station:{src:'sounds/station_holiday.mp3',lufs:-27.4,loop:45},  // 休日でごった返す駅構内
-    fall:{src:'sounds/waterfall.mp3',lufs:-19.5,loop:45},           // 滝1
-    horn:{src:'sounds/ship_horn.mp3',lufs:-19.8},                  // 大型船の汽笛1
-    rain:{src:'sounds/rain_street.mp3',lufs:-27.6,loop:63}};        // 雨の街の道路（全体をループ）                  // 大型船の汽笛1
-  // 録音ループを鳴らす場所（at：地図上の位置、r：届く範囲、cap：最大音量）
-  const PLACES=[
-    {rec:'sea',at:[[904,330],[880,400],[960,400]],r:300,base:0.10,cap:0.30,vol:'sea'},
-    {rec:'bath',at:[[822,80]],r:110,cap:0.24},
-    {rec:'downtown',at:[[356,322]],r:130,cap:0.18,time:'night'},
-    {rec:'park',at:[[606,296]],r:130,cap:0.20,time:'day'},
-    {rec:'station',at:[[112,322]],r:140,cap:0.24,crowd:'C'},
-    {rec:'fall',at:[[706,148]],r:110,cap:0.18},
-    {rec:'rain',everywhere:true,cap:0.20,rain:true}];
-  const R={};const ready=n=>!!(R[n]&&R[n].state==='ready');
-  const normGain=lufs=>Math.pow(10,(-24-lufs)/20);              // 録音ごとの大きさの違いをそろえる
+     音源の一覧・鳴らす場所・時間帯・音量はすべて data/sounds.json に書く（このエンジンは設定を読んで鳴らすだけ）。
+     録音は近づいたときに初めて読み込み、モノラル化・長さの調整・つなぎ目のクロスフェードをしてループする。
+     設定や録音が読めないときは、合成音がそのまま代わりに鳴る。 */
+  const CONFIG_URL='data/sounds.json';
+  let CFG=null,FILES={},LOOPS=[],PASS=null,OB=null,OCC=[],DUCK=[];
+  function applyConfig(c){CFG=c;FILES=c.files||{};LOOPS=(c.loops||[]).filter(p=>FILES[p.file]);PASS=c.trainPass&&FILES[c.trainPass.file]?c.trainPass:null;
+    OB=c.onboard&&FILES[c.onboard.file]?c.onboard:null;OCC=(c.occasional||[]).filter(o=>FILES[o.file]);DUCK=c.trainDuck||[];}
+  function loadConfig(){if(S.cfgState)return;S.cfgState='loading';
+    fetch(CONFIG_URL).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(c=>{applyConfig(c);S.cfgState='ready';
+      for(const k in FILES)if(FILES[k].preload)load(k);}).catch(e=>{S.cfgState='error:'+String(e&&e.message||e);});}
+  const R={};const ready=n=>!!(n&&R[n]&&R[n].state==='ready');
+  const normGain=lufs=>Math.pow(10,((CFG&&CFG.loudnessTarget!=null?CFG.loudnessTarget:-28)-lufs)/20);   // 録音ごとの大きさの違いをそろえる
+  const volOf=k=>k==='sea'?S.seaVol/50:k==='train'?S.trainVol/50:1;
+  const rnd=([a,b])=>a+Math.random()*(b-a);
+  const hourly=(curve,m)=>{const h=m/60;let v=curve[0][1];for(const [hh,f] of curve)if(h>=hh)v=f;return v;};
   function prep(buf,maxSec,loop){const sr=buf.sampleRate,n0=Math.min(buf.length,Math.floor((maxSec||buf.duration)*sr)),ch=buf.numberOfChannels;
     const mono=new Float32Array(n0);for(let c=0;c<ch;c++){const d=buf.getChannelData(c);for(let i=0;i<n0;i++)mono[i]+=d[i]/ch;}
     let out=mono,n=n0;
@@ -1614,45 +1606,46 @@ const SND=(()=>{
       for(let i=0;i<xf;i++){const a=i/xf;out[i]=mono[i]*Math.sin(a*Math.PI/2)+mono[n+i]*Math.cos(a*Math.PI/2);}}
     const b=S.ctx.createBuffer(1,n,sr);b.getChannelData(0).set(out);return b;}
   function decode(ab){return new Promise((res,rej)=>{try{const p=S.ctx.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej);}catch(e){rej(e);}});}
-  function load(name){if(R[name]||!S.ctx)return;const f=REC_FILES[name];R[name]={state:'loading'};
-    fetch(f.src).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();}).then(decode).then(buf=>{
-      R[name].buf=prep(buf,f.loop||null,!!f.loop);R[name].norm=normGain(f.lufs);R[name].state='ready';if(f.loop)startLoop(name);
+  function srcOf(f){for(const a of f.alternatives||[]){try{if(a.type&&new Audio().canPlayType(a.type))return a.src;}catch(e){}}return f.src;}  // 対応していれば軽い形式を優先
+  function load(name){if(R[name]||!S.ctx||!FILES[name])return;const f=FILES[name];R[name]={state:'loading'};
+    fetch(srcOf(f)).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();}).then(decode).then(buf=>{
+      R[name].buf=prep(buf,f.loopSeconds||null,!!f.loopSeconds);R[name].norm=normGain(f.lufs);R[name].state='ready';if(f.loopSeconds)startLoop(name);
     }).catch(e=>{R[name].state='error';R[name].err=String(e&&e.message||e);});}
   function startLoop(name){const r=R[name],c=S.ctx,src=c.createBufferSource();src.buffer=r.buf;src.loop=true;
     const ng=c.createGain();ng.gain.value=r.norm;const g=c.createGain();g.gain.value=0;src.connect(ng);ng.connect(g);g.connect(S.nodes.bus);
     src.start(0,Math.random()*r.buf.duration);r.g=g;}
-  // 列車の通過音：近づいてくる列車に合わせて1回ずつ。最低4秒あけ、同時に2本まで、同じ列車は20秒に1回まで
-  const PASS={R:75,gap:4000,max:2};
-  function passBy(level,d){const c=S.ctx,r=R.train,now=c.currentTime,dur=r.buf.duration;
+  // 列車の通過音：近づいてくる列車に合わせて1回ずつ（間隔・同時数・音量は trainPass の設定）
+  function passBy(level,d){const c=S.ctx,r=R[PASS.file],now=c.currentTime,dur=r.buf.duration;
     const src=c.createBufferSource();src.buffer=r.buf;const ng=c.createGain();ng.gain.value=r.norm;
-    const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1600+6000*Math.max(0,1-d/PASS.R);  // 遠いほどこもった音
+    const [lo,hi]=PASS.lowpassHz;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=lo+(hi-lo)*Math.max(0,1-d/PASS.radius);  // 遠いほどこもった音
     const g=c.createGain();g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(level,now+0.35);g.gain.setValueAtTime(level,now+dur-0.8);g.gain.linearRampToValueAtTime(0,now+dur);
     src.connect(ng);ng.connect(lp);lp.connect(g);g.connect(S.nodes.bus);src.start(now);src.stop(now+dur+0.05);
     S.active.push({end:now+dur});S.passCount=(S.passCount||0)+1;S.lastPassLevel=level;(S.passTimes=S.passTimes||[]).push(performance.now());}
-  // 列車に乗っているとき：通過音の中ほどを少しずつずらして重ね、こもらせて車内の音にする
-  function onboard(target){const c=S.ctx,now=c.currentTime;
-    if(!S.ob){S.ob=c.createGain();S.ob.gain.value=0;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;S.ob.connect(lp);lp.connect(S.nodes.bus);
-      S.obIn=c.createGain();S.obIn.gain.value=R.train.norm;S.obIn.connect(S.ob);S.obNext=0;}
+  // 列車に乗っているとき：通過音の中ほどを少しずつずらして重ね、こもらせて車内の音にする（onboard の設定）
+  function onboard(target){const c=S.ctx,now=c.currentTime,r=R[OB.file];
+    if(!S.ob){S.ob=c.createGain();S.ob.gain.value=0;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=OB.lowpassHz;S.ob.connect(lp);lp.connect(S.nodes.bus);
+      S.obIn=c.createGain();S.obIn.gain.value=r.norm;S.obIn.connect(S.ob);S.obNext=0;}
     const g=S.ob.gain,cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(target,now,1.0);
     if(target<0.001&&cur<0.002)return;
-    while(S.obNext<now+0.6){const t0=Math.max(S.obNext,now+0.02),s=c.createBufferSource(),e=c.createGain();s.buffer=R.train.buf;
-      e.gain.setValueAtTime(0,t0);e.gain.linearRampToValueAtTime(1,t0+1.0);e.gain.setValueAtTime(1,t0+1.4);e.gain.linearRampToValueAtTime(0,t0+2.4);
-      s.connect(e);e.connect(S.obIn);s.start(t0,1.0+Math.random()*2.2,2.5);S.obNext=t0+1.4;S.grains=(S.grains||0)+1;}}
-  function trainRec(L,duck){if(!ready('train'))return;const now=performance.now(),tv=S.trainVol/50*duck;
-    const riding=L.kind==='train'&&L.moving;onboard(riding?0.15*tv:0);
+    const step=OB.stepSec,len=OB.grainSec,fade=len-step,[s0,s1]=OB.segment;
+    while(S.obNext<now+0.6){const t0=Math.max(S.obNext,now+0.02),sN=c.createBufferSource(),e=c.createGain();sN.buffer=r.buf;
+      e.gain.setValueAtTime(0,t0);e.gain.linearRampToValueAtTime(1,t0+fade);e.gain.setValueAtTime(1,t0+step);e.gain.linearRampToValueAtTime(0,t0+len);
+      sN.connect(e);e.connect(S.obIn);sN.start(t0,s0+Math.random()*(s1-s0),len+0.1);S.obNext=t0+step;S.grains=(S.grains||0)+1;}}
+  function trainRec(L,duck){if(!PASS||!ready(PASS.file))return;const now=performance.now(),tv=volOf('train')*duck;
+    const riding=L.kind==='train'&&L.moving;if(OB&&ready(OB.file))onboard(riding?OB.level*tv:0);
     S.trk=S.trk||new Map();S.active=(S.active||[]).filter(x=>x.end>S.ctx.currentTime);
     for(const v of VIS){if(!v.st.moving)continue;const d=Math.hypot(v.st.x-L.x,v.st.y-L.y);const k=S.trk.get(v.s.id)||{d:1e9,last:-1e9};
       const approaching=d<k.d-0.01;k.d=d;S.trk.set(v.s.id,k);if(riding&&d<10)continue;
-      if(d<PASS.R&&approaching&&now-k.last>20000&&now-(S.lastPass||-1e9)>PASS.gap&&S.active.length<PASS.max&&tv>0.01){
-        k.last=now;S.lastPass=now;passBy(Math.min(1,1.15-d/PASS.R)*0.42*tv*(L.kind==='center'?0.5:1),d);}}}
-  // 汽笛：港の近くにいるときだけ、2〜4分に1回、遠くからこもった音で
-  function horn(port){if(port<0.3)return;if(!R.horn){load('horn');return;}if(!ready('horn'))return;const now=performance.now();
-    if(!S.nextHorn){S.nextHorn=now+40000+Math.random()*60000;return;}if(now<S.nextHorn)return;S.nextHorn=now+120000+Math.random()*120000;
-    const m=((T%1440)+1440)%1440;if(m<360||m>1320)return;
-    const c=S.ctx,t0=c.currentTime,r=R.horn,src=c.createBufferSource();src.buffer=r.buf;const ng=c.createGain();ng.gain.value=r.norm;
-    const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=650;const g=c.createGain();const lv=0.22*port*S.seaVol/50;
-    g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(lv,t0+0.9);g.gain.setValueAtTime(lv,t0+r.buf.duration-2);g.gain.linearRampToValueAtTime(0,t0+r.buf.duration);
-    src.connect(ng);ng.connect(lp);lp.connect(g);g.connect(S.nodes.bus);src.start(t0);S.hornCount=(S.hornCount||0)+1;}
+      if(d<PASS.radius&&approaching&&now-k.last>PASS.sameTrainSec*1000&&now-(S.lastPass||-1e9)>PASS.minGapSec*1000&&S.active.length<PASS.maxConcurrent&&tv>0.01){
+        k.last=now;S.lastPass=now;passBy(Math.min(1,1.15-d/PASS.radius)*PASS.level*tv*(L.kind==='center'?PASS.overviewFactor:1),d);}}}
+  // ときどき鳴る音（汽笛など）：近くにいるときだけ、設定した間隔と時間帯で、こもった音でフェードイン
+  function occasional(o,w){if(w<o.minWeight)return;if(!R[o.file]){load(o.file);return;}if(!ready(o.file))return;const now=performance.now();S.nextOcc=S.nextOcc||{};
+    if(!S.nextOcc[o.id]){S.nextOcc[o.id]=now+rnd(o.firstAfterSec)*1000;return;}if(now<S.nextOcc[o.id])return;S.nextOcc[o.id]=now+rnd(o.everySec)*1000;
+    const m=((T%1440)+1440)%1440;if(m<o.hours[0]*60||m>o.hours[1]*60)return;
+    const c=S.ctx,t0=c.currentTime,r=R[o.file],src=c.createBufferSource();src.buffer=r.buf;const ng=c.createGain();ng.gain.value=r.norm;
+    const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=o.lowpassHz;const g=c.createGain();const lv=o.level*w*volOf(o.volume);
+    g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(lv,t0+o.fadeInSec);g.gain.setValueAtTime(lv,t0+r.buf.duration-2);g.gain.linearRampToValueAtTime(0,t0+r.buf.duration);
+    src.connect(ng);ng.connect(lp);lp.connect(g);g.connect(S.nodes.bus);src.start(t0);S.occCount=S.occCount||{};S.occCount[o.id]=(S.occCount[o.id]||0)+1;}
   const VOICES=['train','rail','sea','city','town','rain'];
   // 各音の最大音量（重ねても大きくなりすぎない配分）
   const CAP={train:0.55,rail:0.07,sea:0.30,city:0.26,town:0.12,rain:0.22};
@@ -1680,23 +1673,25 @@ const SND=(()=>{
     const raining=COND.wx==='rain'||(COND.evs.includes('raiu')&&T>=EVMAP.raiu.start&&T<=EVMAP.raiu.end);  // 雨の日と、雷雨イベントの間
     t.rain=raining?1:0;
     // 録音がある場所は録音に置き換え、合成音は控える
-    const bathW=near(L,[[822,80]],110);t._duck=1-0.9*bathW;            // 温泉に近づくと走行音は聞こえなくなる
-    t.train*=t._duck;t.rail*=t._duck;
-    if(ready('train')){t.train=0;t.rail=0;}
-    if(ready('sea'))t.sea=0;
-    if(ready('rain'))t.rain=0;
-    if(ready('park'))t.town=near(L,[[480,305],[232,330]],150)*(m<420?0.15:m<900?0.7:m<1080?1:m<1260?0.55:0.15);
-    if(ready('station')||ready('downtown'))t.city*=0.35;
+    let duck=1;for(const z of DUCK)duck*=1-z.amount*near(L,z.at,z.radius);t._duck=duck;   // 例：温泉に近づくと走行音は聞こえなくなる
+    t.train*=duck;t.rail*=duck;
+    // 録音が鳴っている場所では、設定にしたがって合成音を控える
+    const mute={};const lower=(rules)=>{for(const k in rules)mute[k]=Math.min(mute[k]??1,rules[k]);};
+    if(PASS&&ready(PASS.file)&&PASS.synth)lower(PASS.synth);
+    for(const P of LOOPS)if(ready(P.file)){if(P.synth)lower(P.synth);
+      if(P.synthDropAnchors)for(const k in P.synthDropAnchors){const drop=P.synthDropAnchors[k].map(a=>a.join());const left=ANCH[k].filter(a=>!drop.includes(a.join()));
+        if(k==='town')t.town=near(L,left,150)*(m<420?0.15:m<900?0.7:m<1080?1:m<1260?0.55:0.15);}}
+    for(const k in mute)if(k in t)t[k]*=mute[k];
     for(const k of VOICES)t[k]=Math.min(1,t[k])*CAP[k];
-    for(const P of PLACES){let w=P.everywhere?1:near(L,P.at,P.r);if(P.base)w=P.base+(1-P.base)*w;if(P.rain)w*=raining?1:0;
-      if(P.time==='day')w*=(m>=420&&m<1080?1:m>=1080&&m<1200?0.5:0.12);
-      if(P.time==='night')w*=(m>=1020||m<60?1:0.45);
-      if(P.crowd){const ws=trafficSnapshot(T).stations[P.crowd].waiting;w*=(0.55+0.45*Math.min(1,ws/300))*(COND.day==='wd'?1:1.15);}
-      w=Math.min(1,w)*P.cap*(P.vol==='sea'?S.seaVol/50:1);t['r_'+P.rec]=w;
-      if(w>0.004&&!R[P.rec])load(P.rec);}
-    t._port=near(L,[[904,330],[880,400],[960,400]],220);
+    for(const P of LOOPS){let w=P.everywhere?1:near(L,P.at,P.radius);if(P.base)w=P.base+(1-P.base)*w;
+      if(P.when==='rain')w*=raining?1:0;
+      if(P.hourly)w*=hourly(P.hourly,m);
+      if(P.crowd){const ws=trafficSnapshot(T).stations[P.crowd.station].waiting;w*=(0.55+0.45*Math.min(1,ws/P.crowd.full))*(COND.day==='wd'?1:P.crowd.holidayBoost);}
+      w=Math.min(1,w)*P.maxGain*volOf(P.volume);t['r_'+P.file]=w;
+      if(w>0.004&&!R[P.file])load(P.file);}
+    t._occ={};for(const o of OCC)t._occ[o.id]=near(L,o.near,o.radius);
     return t;}
-  function apply(t,tau){const now=S.ctx.currentTime;for(const P of PLACES){const r=R[P.rec];if(r&&r.g){const g=r.g.gain,cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(t['r_'+P.rec]||0,now,tau);}}
+  function apply(t,tau){const now=S.ctx.currentTime;for(const P of LOOPS){const r=R[P.file];if(r&&r.g){const g=r.g.gain,cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(t['r_'+P.file]||0,now,tau);}}
     for(const k of VOICES){const g=S.nodes[k].g.gain;const cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(t[k],now,tau);}
     // 列車が近いほど高い音も少し通す（遠いとこもった音）
     const f=S.nodes.train.flt.frequency;f.cancelScheduledValues(now);f.setValueAtTime(f.value,now);f.setTargetAtTime(110+170*Math.min(1,t.train/CAP.train),now,tau);}
@@ -1705,11 +1700,11 @@ const SND=(()=>{
   function tick(ts){ // 1秒に4回だけ計算
     if(!S.on||!S.ctx||ts-S.lastTick<250)return;S.lastTick=ts;
     const L=listenerPos();S.listener=L;
-    if(audible()){const t=targets(L);apply(t,2.5);setMaster(masterLevel(),1.2);shots(t);trainRec(L,t._duck);horn(t._port);}
+    if(audible()){const t=targets(L);apply(t,2.5);setMaster(masterLevel(),1.2);shots(t);trainRec(L,t._duck);for(const o of OCC)occasional(o,t._occ[o.id]);}
     updateUI();}
   async function start(){if(!S.supported)return false;
     try{if(!S.ctx)build();if(S.ctx.state!=='running')await S.ctx.resume();}catch(e){S.supported=false;updateUI();return false;}
-    clearTimeout(S.stopTimer);S.on=true;persist();load('train');load('sea');
+    clearTimeout(S.stopTimer);S.on=true;persist();loadConfig();for(const k in FILES)if(FILES[k].preload)load(k);
     const L=listenerPos();S.listener=L;apply(targets(L),0.01);  // 各音の配分は先に決め、全体を3秒かけて上げる
     if(audible())setMaster(masterLevel(),1.0);updateUI();return true;}
   function quiet(thenSuspend){ // 穏やかに小さくしてから止める
@@ -1735,7 +1730,7 @@ const SND=(()=>{
   document.addEventListener('pointerdown',resumeOnce,true);document.addEventListener('keydown',resumeOnce,true);
   return {S,tick,start,stop,onPlay,setVol,setPart,updateUI,listenerPos,
     debug:()=>({on:S.on,state:S.ctx?S.ctx.state:'none',built:S.built,master:S.nodes?S.nodes.master.gain.value:0,
-      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,rec:Object.fromEntries(Object.keys(REC_FILES).map(k=>[k,R[k]?R[k].state+(R[k].err?':'+R[k].err:''):'未読込'])),recGains:Object.fromEntries(PLACES.map(P=>[P.rec,R[P.rec]&&R[P.rec].g?+R[P.rec].g.gain.value.toFixed(4):null])),passes:S.passCount||0,lastPassLevel:S.lastPassLevel||0,passTimes:(S.passTimes||[]).slice(-6),active:(S.active||[]).length,grains:S.grains||0,onboard:S.ob?+S.ob.gain.value.toFixed(4):0,horns:S.hornCount||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
+      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,config:S.cfgState||'未読込',rec:Object.fromEntries(Object.keys(FILES).map(k=>[k,R[k]?R[k].state+(R[k].err?':'+R[k].err:''):'未読込'])),recGains:Object.fromEntries(LOOPS.map(P=>[P.file,R[P.file]&&R[P.file].g?+R[P.file].g.gain.value.toFixed(4):null])),passes:S.passCount||0,lastPassLevel:S.lastPassLevel||0,passTimes:(S.passTimes||[]).slice(-6),active:(S.active||[]).length,grains:S.grains||0,onboard:S.ob?+S.ob.gain.value.toFixed(4):0,horns:(S.occCount&&S.occCount.horn)||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
 })();
 const toggleSnd=()=>{if(SND.S.on)SND.stop();else SND.start();};
 $('#snd').addEventListener('click',toggleSnd);$('#msnd').addEventListener('click',toggleSnd);
