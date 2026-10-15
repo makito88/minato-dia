@@ -1568,10 +1568,8 @@ const SND=(()=>{
       train:voice(ctx,brown,bus,{type:'lowpass',freq:180,q:0.5}),            // 列車：低いゴーという響き
       rail: voice(ctx,pink,bus,{type:'bandpass',freq:700,q:0.6,lfo:0.9,lfoDepth:0.35}), // 列車：かすかなレールの擦れ（ゆるい揺らぎ）
       sea:  voice(ctx,pink,bus,{type:'lowpass',freq:650,q:0.4,lfo:0.085,lfoDepth:0.7}), // 港：寄せては返す波
-      stream:voice(ctx,pink,bus,{type:'bandpass',freq:1800,q:0.45,lfo:0.23,lfoDepth:0.15}), // 森下：沢・小さな滝
       city: voice(ctx,pink,bus,{type:'bandpass',freq:520,q:0.6,lfos:[[0.031,0.18],[0.071,0.12]]}), // 中央：遠い街のざわめき（スマホのスピーカーでも聞こえる高さ）
       town: voice(ctx,pink,bus,{type:'bandpass',freq:850,q:1.1,lfos:[[0.13,0.16],[0.29,0.12],[0.47,0.08]]}), // 川辺：住宅街の遠い人の声（カフェ・公園）
-      wind: voice(ctx,pink,bus,{type:'bandpass',freq:420,q:0.9,lfo:0.06,lfoDepth:0.55,ffo:0.045,ffoDepth:160}), // 森・峠：風
       rain: voice(ctx,pink,bus,{type:'highpass',freq:1400,q:0.3,lfo:0.11,lfoDepth:0.12})}; // 雨
   }
   // 住宅街のまれな小さな音（カップの音・すずめ）。実時間で最低25秒あけ、近くにいるときだけ
@@ -1596,7 +1594,8 @@ const SND=(()=>{
     park:{src:'sounds/park.mp3',lufs:-24.7,loop:45},                // 公園
     station:{src:'sounds/station_holiday.mp3',lufs:-27.4,loop:45},  // 休日でごった返す駅構内
     fall:{src:'sounds/waterfall.mp3',lufs:-19.5,loop:45},           // 滝1
-    horn:{src:'sounds/ship_horn.mp3',lufs:-19.8}};                  // 大型船の汽笛1
+    horn:{src:'sounds/ship_horn.mp3',lufs:-19.8},                  // 大型船の汽笛1
+    rain:{src:'sounds/rain_street.mp3',lufs:-27.6,loop:63}};        // 雨の街の道路（全体をループ）                  // 大型船の汽笛1
   // 録音ループを鳴らす場所（at：地図上の位置、r：届く範囲、cap：最大音量）
   const PLACES=[
     {rec:'sea',at:[[904,330],[880,400],[960,400]],r:300,base:0.10,cap:0.30,vol:'sea'},
@@ -1604,7 +1603,8 @@ const SND=(()=>{
     {rec:'downtown',at:[[356,322]],r:130,cap:0.18,time:'night'},
     {rec:'park',at:[[606,296]],r:130,cap:0.20,time:'day'},
     {rec:'station',at:[[112,322]],r:140,cap:0.24,crowd:'C'},
-    {rec:'fall',at:[[706,148]],r:110,cap:0.18}];
+    {rec:'fall',at:[[706,148]],r:110,cap:0.18},
+    {rec:'rain',everywhere:true,cap:0.20,rain:true}];
   const R={};const ready=n=>!!(R[n]&&R[n].state==='ready');
   const normGain=lufs=>Math.pow(10,(-24-lufs)/20);              // 録音ごとの大きさの違いをそろえる
   function prep(buf,maxSec,loop){const sr=buf.sampleRate,n0=Math.min(buf.length,Math.floor((maxSec||buf.duration)*sr)),ch=buf.numberOfChannels;
@@ -1653,10 +1653,10 @@ const SND=(()=>{
     const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=650;const g=c.createGain();const lv=0.22*port*S.seaVol/50;
     g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(lv,t0+0.9);g.gain.setValueAtTime(lv,t0+r.buf.duration-2);g.gain.linearRampToValueAtTime(0,t0+r.buf.duration);
     src.connect(ng);ng.connect(lp);lp.connect(g);g.connect(S.nodes.bus);src.start(t0);S.hornCount=(S.hornCount||0)+1;}
-  const VOICES=['train','rail','sea','stream','city','town','wind','rain'];
+  const VOICES=['train','rail','sea','city','town','rain'];
   // 各音の最大音量（重ねても大きくなりすぎない配分）
-  const CAP={train:0.55,rail:0.07,sea:0.30,stream:0.16,city:0.26,town:0.12,wind:0.20,rain:0.22};
-  const ANCH={sea:[[904,330],[880,400],[960,400]],stream:[[652,216],[628,178],[684,182]],city:[[112,322],[356,322]],town:[[606,296],[480,305],[232,330]],wind:[[652,216],[706,148],[822,80]]};
+  const CAP={train:0.55,rail:0.07,sea:0.30,city:0.26,town:0.12,rain:0.22};
+  const ANCH={sea:[[904,330],[880,400],[960,400]],city:[[112,322],[356,322]],town:[[606,296],[480,305],[232,330]]};
   const near=(p,list,r)=>{let m=1e9;for(const [x,y] of list)m=Math.min(m,Math.hypot(p.x-x,p.y-y));return Math.max(0,1-m/r);};
   function listenerPos(){
     const set=sel.kind==='set'?sel.set:sel.kind==='trip'?sel.trip.set:null;
@@ -1674,22 +1674,21 @@ const SND=(()=>{
     t.train=tr;t.rail=tr;
     const dk=darkness(T);
     t.sea=0.15+0.85*near(L,ANCH.sea,300);
-    t.stream=near(L,ANCH.stream,85);   // 川辺の住宅街まで届かないよう、森の中だけ
     t.city=(0.12+0.88*near(L,ANCH.city,300))*(1-0.55*dk);
     const m=((T%1440)+1440)%1440;                       // 住宅街：昼はカフェ、放課後(15〜18時)は公園で少しにぎやか、夜は静か
     t.town=near(L,ANCH.town,150)*(m<420?0.15:m<900?0.7:m<1080?1:m<1260?0.55:0.15);
-    t.wind=0.18+0.82*near(L,ANCH.wind,260);
-    t.rain=COND.wx==='rain'?1:0;
-    if(COND.wx==='rain'){t.wind*=1.15;}
+    const raining=COND.wx==='rain'||(COND.evs.includes('raiu')&&T>=EVMAP.raiu.start&&T<=EVMAP.raiu.end);  // 雨の日と、雷雨イベントの間
+    t.rain=raining?1:0;
     // 録音がある場所は録音に置き換え、合成音は控える
     const bathW=near(L,[[822,80]],110);t._duck=1-0.9*bathW;            // 温泉に近づくと走行音は聞こえなくなる
     t.train*=t._duck;t.rail*=t._duck;
     if(ready('train')){t.train=0;t.rail=0;}
     if(ready('sea'))t.sea=0;
+    if(ready('rain'))t.rain=0;
     if(ready('park'))t.town=near(L,[[480,305],[232,330]],150)*(m<420?0.15:m<900?0.7:m<1080?1:m<1260?0.55:0.15);
     if(ready('station')||ready('downtown'))t.city*=0.35;
     for(const k of VOICES)t[k]=Math.min(1,t[k])*CAP[k];
-    for(const P of PLACES){let w=near(L,P.at,P.r);if(P.base)w=P.base+(1-P.base)*w;
+    for(const P of PLACES){let w=P.everywhere?1:near(L,P.at,P.r);if(P.base)w=P.base+(1-P.base)*w;if(P.rain)w*=raining?1:0;
       if(P.time==='day')w*=(m>=420&&m<1080?1:m>=1080&&m<1200?0.5:0.12);
       if(P.time==='night')w*=(m>=1020||m<60?1:0.45);
       if(P.crowd){const ws=trafficSnapshot(T).stations[P.crowd].waiting;w*=(0.55+0.45*Math.min(1,ws/300))*(COND.day==='wd'?1:1.15);}
