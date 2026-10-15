@@ -103,7 +103,8 @@ canvas{display:block;touch-action:manipulation}
 .sndbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .sndbtn:disabled{opacity:.5;cursor:default}
 .sndvol{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.sndvol input{width:120px;accent-color:var(--accent)}
+.sndvol input{width:110px;accent-color:var(--accent)}
+@media (max-width:520px){.sndvol input{width:84px}}
 .sndwhere{font-size:12px;color:var(--muted)}
 .msnd[aria-pressed="true"]{border-color:var(--led);font-weight:700}
 .mspeed{border:1px solid var(--led-dim);background:transparent;color:var(--led);border-radius:7px;padding:5px 10px;font-family:var(--f-mono);font-size:13px}
@@ -315,6 +316,8 @@ canvas{display:block;touch-action:manipulation}
     <div class="sndbox" id="sndbox">
       <button class="sndbtn" id="snd" aria-pressed="false">♪ 音 OFF</button>
       <label class="sndvol" for="vol"><span>音量</span><input type="range" id="vol" min="0" max="100" step="1" value="40"></label>
+      <label class="sndvol" for="volTrain"><span>電車</span><input type="range" id="volTrain" min="0" max="100" step="1" value="50"></label>
+      <label class="sndvol" for="volSea"><span>波</span><input type="range" id="volSea" min="0" max="100" step="1" value="50"></label>
       <span class="sndwhere" id="sndwhere"></span>
     </div>
   </header>
@@ -1534,9 +1537,9 @@ $('#info').addEventListener('click',e=>{const b=e.target.closest('[data-act]');i
    音はすべて合成（音声ファイルなし）。音量の変化は現実の時間で数秒かけて行う。 */
 const SND=(()=>{
   const AC=window.AudioContext||window.webkitAudioContext;
-  const S={supported:!!AC,on:false,vol:40,ctx:null,nodes:null,built:0,listener:null,lastTick:0,hidden:false,stopTimer:null};
-  try{const v=JSON.parse(localStorage.getItem('dia-sound')||'null');if(v){S.vol=Math.max(0,Math.min(100,Number(v.vol)||0));S.savedOn=!!v.on;}}catch(e){}
-  const persist=()=>{try{localStorage.setItem('dia-sound',JSON.stringify({on:S.on,vol:S.vol}));}catch(e){}};
+  const S={supported:!!AC,on:false,vol:40,trainVol:50,seaVol:50,ctx:null,nodes:null,built:0,listener:null,lastTick:0,hidden:false,stopTimer:null};
+  try{const v=JSON.parse(localStorage.getItem('dia-sound')||'null');if(v){const c=x=>Math.max(0,Math.min(100,Number(x)));S.vol=c(v.vol)||0;if(v.train!=null)S.trainVol=c(v.train);if(v.sea!=null)S.seaVol=c(v.sea);S.savedOn=!!v.on;}}catch(e){}
+  const persist=()=>{try{localStorage.setItem('dia-sound',JSON.stringify({on:S.on,vol:S.vol,train:S.trainVol,sea:S.seaVol}));}catch(e){}};
   const masterLevel=()=>0.55*Math.pow(S.vol/100,1.6);   // 音量つまみ→実際の音量（小さい側を細かく）
   // 雑音の元データ（1本だけ作り、全ての音で使い回す）
   function noiseBuffer(ctx,kind){const n=ctx.sampleRate*4,b=ctx.createBuffer(1,n,ctx.sampleRate),d=b.getChannelData(0);let last=0,b0=0,b1=0,b2=0;
@@ -1582,6 +1585,74 @@ const SND=(()=>{
     S.nextShot=now+25000+Math.random()*35000;const w=t.town/CAP.town;if(w<0.25)return;
     const m=((T%1440)+1440)%1440,day=m>=360&&m<1080;S.shotCount=(S.shotCount||0)+1;
     if(day&&Math.random()<0.5)chirp(0.012*w);else clink(0.01*w);}
+  /* ===== 録音の環境音 =====
+     録音は sounds/ に置き、近づいたときに初めて読み込む。読み込んだら モノラル化・最大45秒に短縮・つなぎ目を2.5秒クロスフェード して
+     メモリを抑え、継ぎ目が聞こえないループにする。読み込めないときは合成音がそのまま代わりに鳴る。 */
+  const REC_FILES={
+    train:{src:'sounds/train_pass.mp3',lufs:-21.1},                 // 電車通過3：約6秒の通過音
+    sea:{src:'sounds/seashore.mp3',lufs:-20.5,loop:32},            // 海岸1
+    bath:{src:'sounds/onsen_bath.mp3',lufs:-24.7,loop:45},          // 大浴場
+    downtown:{src:'sounds/night_downtown.mp3',lufs:-24.4,loop:45},  // 夜の繁華街
+    park:{src:'sounds/park.mp3',lufs:-24.7,loop:45},                // 公園
+    station:{src:'sounds/station_holiday.mp3',lufs:-27.4,loop:45},  // 休日でごった返す駅構内
+    fall:{src:'sounds/waterfall.mp3',lufs:-19.5,loop:45},           // 滝1
+    horn:{src:'sounds/ship_horn.mp3',lufs:-19.8}};                  // 大型船の汽笛1
+  // 録音ループを鳴らす場所（at：地図上の位置、r：届く範囲、cap：最大音量）
+  const PLACES=[
+    {rec:'sea',at:[[904,330],[880,400],[960,400]],r:300,base:0.10,cap:0.30,vol:'sea'},
+    {rec:'bath',at:[[822,80]],r:110,cap:0.24},
+    {rec:'downtown',at:[[356,322]],r:130,cap:0.18,time:'night'},
+    {rec:'park',at:[[606,296]],r:130,cap:0.20,time:'day'},
+    {rec:'station',at:[[112,322]],r:140,cap:0.24,crowd:'C'},
+    {rec:'fall',at:[[706,148]],r:110,cap:0.18}];
+  const R={};const ready=n=>!!(R[n]&&R[n].state==='ready');
+  const normGain=lufs=>Math.pow(10,(-24-lufs)/20);              // 録音ごとの大きさの違いをそろえる
+  function prep(buf,maxSec,loop){const sr=buf.sampleRate,n0=Math.min(buf.length,Math.floor((maxSec||buf.duration)*sr)),ch=buf.numberOfChannels;
+    const mono=new Float32Array(n0);for(let c=0;c<ch;c++){const d=buf.getChannelData(c);for(let i=0;i<n0;i++)mono[i]+=d[i]/ch;}
+    let out=mono,n=n0;
+    if(loop){const xf=Math.min(Math.floor(2.5*sr),Math.floor(n0/4));n=n0-xf;out=new Float32Array(mono.subarray(0,n));
+      for(let i=0;i<xf;i++){const a=i/xf;out[i]=mono[i]*Math.sin(a*Math.PI/2)+mono[n+i]*Math.cos(a*Math.PI/2);}}
+    const b=S.ctx.createBuffer(1,n,sr);b.getChannelData(0).set(out);return b;}
+  function decode(ab){return new Promise((res,rej)=>{try{const p=S.ctx.decodeAudioData(ab,res,rej);if(p&&p.then)p.then(res,rej);}catch(e){rej(e);}});}
+  function load(name){if(R[name]||!S.ctx)return;const f=REC_FILES[name];R[name]={state:'loading'};
+    fetch(f.src).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.arrayBuffer();}).then(decode).then(buf=>{
+      R[name].buf=prep(buf,f.loop||null,!!f.loop);R[name].norm=normGain(f.lufs);R[name].state='ready';if(f.loop)startLoop(name);
+    }).catch(e=>{R[name].state='error';R[name].err=String(e&&e.message||e);});}
+  function startLoop(name){const r=R[name],c=S.ctx,src=c.createBufferSource();src.buffer=r.buf;src.loop=true;
+    const ng=c.createGain();ng.gain.value=r.norm;const g=c.createGain();g.gain.value=0;src.connect(ng);ng.connect(g);g.connect(S.nodes.bus);
+    src.start(0,Math.random()*r.buf.duration);r.g=g;}
+  // 列車の通過音：近づいてくる列車に合わせて1回ずつ。最低4秒あけ、同時に2本まで、同じ列車は20秒に1回まで
+  const PASS={R:75,gap:4000,max:2};
+  function passBy(level,d){const c=S.ctx,r=R.train,now=c.currentTime,dur=r.buf.duration;
+    const src=c.createBufferSource();src.buffer=r.buf;const ng=c.createGain();ng.gain.value=r.norm;
+    const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1600+6000*Math.max(0,1-d/PASS.R);  // 遠いほどこもった音
+    const g=c.createGain();g.gain.setValueAtTime(0,now);g.gain.linearRampToValueAtTime(level,now+0.35);g.gain.setValueAtTime(level,now+dur-0.8);g.gain.linearRampToValueAtTime(0,now+dur);
+    src.connect(ng);ng.connect(lp);lp.connect(g);g.connect(S.nodes.bus);src.start(now);src.stop(now+dur+0.05);
+    S.active.push({end:now+dur});S.passCount=(S.passCount||0)+1;S.lastPassLevel=level;(S.passTimes=S.passTimes||[]).push(performance.now());}
+  // 列車に乗っているとき：通過音の中ほどを少しずつずらして重ね、こもらせて車内の音にする
+  function onboard(target){const c=S.ctx,now=c.currentTime;
+    if(!S.ob){S.ob=c.createGain();S.ob.gain.value=0;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;S.ob.connect(lp);lp.connect(S.nodes.bus);
+      S.obIn=c.createGain();S.obIn.gain.value=R.train.norm;S.obIn.connect(S.ob);S.obNext=0;}
+    const g=S.ob.gain,cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(target,now,1.0);
+    if(target<0.001&&cur<0.002)return;
+    while(S.obNext<now+0.6){const t0=Math.max(S.obNext,now+0.02),s=c.createBufferSource(),e=c.createGain();s.buffer=R.train.buf;
+      e.gain.setValueAtTime(0,t0);e.gain.linearRampToValueAtTime(1,t0+1.0);e.gain.setValueAtTime(1,t0+1.4);e.gain.linearRampToValueAtTime(0,t0+2.4);
+      s.connect(e);e.connect(S.obIn);s.start(t0,1.0+Math.random()*2.2,2.5);S.obNext=t0+1.4;S.grains=(S.grains||0)+1;}}
+  function trainRec(L,duck){if(!ready('train'))return;const now=performance.now(),tv=S.trainVol/50*duck;
+    const riding=L.kind==='train'&&L.moving;onboard(riding?0.15*tv:0);
+    S.trk=S.trk||new Map();S.active=(S.active||[]).filter(x=>x.end>S.ctx.currentTime);
+    for(const v of VIS){if(!v.st.moving)continue;const d=Math.hypot(v.st.x-L.x,v.st.y-L.y);const k=S.trk.get(v.s.id)||{d:1e9,last:-1e9};
+      const approaching=d<k.d-0.01;k.d=d;S.trk.set(v.s.id,k);if(riding&&d<10)continue;
+      if(d<PASS.R&&approaching&&now-k.last>20000&&now-(S.lastPass||-1e9)>PASS.gap&&S.active.length<PASS.max&&tv>0.01){
+        k.last=now;S.lastPass=now;passBy(Math.min(1,1.15-d/PASS.R)*0.42*tv*(L.kind==='center'?0.5:1),d);}}}
+  // 汽笛：港の近くにいるときだけ、2〜4分に1回、遠くからこもった音で
+  function horn(port){if(port<0.3)return;if(!R.horn){load('horn');return;}if(!ready('horn'))return;const now=performance.now();
+    if(!S.nextHorn){S.nextHorn=now+40000+Math.random()*60000;return;}if(now<S.nextHorn)return;S.nextHorn=now+120000+Math.random()*120000;
+    const m=((T%1440)+1440)%1440;if(m<360||m>1320)return;
+    const c=S.ctx,t0=c.currentTime,r=R.horn,src=c.createBufferSource();src.buffer=r.buf;const ng=c.createGain();ng.gain.value=r.norm;
+    const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=650;const g=c.createGain();const lv=0.22*port*S.seaVol/50;
+    g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(lv,t0+0.9);g.gain.setValueAtTime(lv,t0+r.buf.duration-2);g.gain.linearRampToValueAtTime(0,t0+r.buf.duration);
+    src.connect(ng);ng.connect(lp);lp.connect(g);g.connect(S.nodes.bus);src.start(t0);S.hornCount=(S.hornCount||0)+1;}
   const VOICES=['train','rail','sea','stream','city','town','wind','rain'];
   // 各音の最大音量（重ねても大きくなりすぎない配分）
   const CAP={train:0.55,rail:0.07,sea:0.30,stream:0.16,city:0.26,town:0.12,wind:0.20,rain:0.22};
@@ -1590,7 +1661,7 @@ const SND=(()=>{
   function listenerPos(){
     const set=sel.kind==='set'?sel.set:sel.kind==='trip'?sel.trip.set:null;
     if(set){const num=sel.kind==='trip'?sel.trip.num:null;const st=setState(set,T);
-      if(st)return {x:st.x,y:st.y,label:`列車 ${num||st.trip.num}`,kind:'train'};
+      if(st)return {x:st.x,y:st.y,label:`列車 ${num||st.trip.num}`,kind:'train',moving:!!st.moving};
       const y=DEPOT[set.home].yard;return {x:y.x+y.w/2,y:y.y+y.h/2,label:`列車 ${num||set.label}（${DEPOTNAME[set.home]}）`,kind:'train'};}
     if(sel.kind==='station')return {x:ST[sel.st].x,y:ST[sel.st].y,label:`${ST[sel.st].name}駅`,kind:'station'};
     const w=$('#mapwrap');const cx=((w?.scrollLeft||0)+(w?.clientWidth||1000)/2)/(MS||1);return {x:Math.min(1000,cx),y:240,label:'地図の中央',kind:'center'};}
@@ -1610,9 +1681,24 @@ const SND=(()=>{
     t.wind=0.18+0.82*near(L,ANCH.wind,260);
     t.rain=COND.wx==='rain'?1:0;
     if(COND.wx==='rain'){t.wind*=1.15;}
+    // 録音がある場所は録音に置き換え、合成音は控える
+    const bathW=near(L,[[822,80]],110);t._duck=1-0.9*bathW;            // 温泉に近づくと走行音は聞こえなくなる
+    t.train*=t._duck;t.rail*=t._duck;
+    if(ready('train')){t.train=0;t.rail=0;}
+    if(ready('sea'))t.sea=0;
+    if(ready('park'))t.town=near(L,[[480,305],[232,330]],150)*(m<420?0.15:m<900?0.7:m<1080?1:m<1260?0.55:0.15);
+    if(ready('station')||ready('downtown'))t.city*=0.35;
     for(const k of VOICES)t[k]=Math.min(1,t[k])*CAP[k];
+    for(const P of PLACES){let w=near(L,P.at,P.r);if(P.base)w=P.base+(1-P.base)*w;
+      if(P.time==='day')w*=(m>=420&&m<1080?1:m>=1080&&m<1200?0.5:0.12);
+      if(P.time==='night')w*=(m>=1020||m<60?1:0.45);
+      if(P.crowd){const ws=trafficSnapshot(T).stations[P.crowd].waiting;w*=(0.55+0.45*Math.min(1,ws/300))*(COND.day==='wd'?1:1.15);}
+      w=Math.min(1,w)*P.cap*(P.vol==='sea'?S.seaVol/50:1);t['r_'+P.rec]=w;
+      if(w>0.004&&!R[P.rec])load(P.rec);}
+    t._port=near(L,[[904,330],[880,400],[960,400]],220);
     return t;}
-  function apply(t,tau){const now=S.ctx.currentTime;for(const k of VOICES){const g=S.nodes[k].g.gain;const cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(t[k],now,tau);}
+  function apply(t,tau){const now=S.ctx.currentTime;for(const P of PLACES){const r=R[P.rec];if(r&&r.g){const g=r.g.gain,cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(t['r_'+P.rec]||0,now,tau);}}
+    for(const k of VOICES){const g=S.nodes[k].g.gain;const cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(t[k],now,tau);}
     // 列車が近いほど高い音も少し通す（遠いとこもった音）
     const f=S.nodes.train.flt.frequency;f.cancelScheduledValues(now);f.setValueAtTime(f.value,now);f.setTargetAtTime(110+170*Math.min(1,t.train/CAP.train),now,tau);}
   function setMaster(level,tau){if(!S.ctx)return;const now=S.ctx.currentTime,g=S.nodes.master.gain;const cur=g.value;g.cancelScheduledValues(now);g.setValueAtTime(cur,now);g.setTargetAtTime(level,now,tau);}
@@ -1620,11 +1706,11 @@ const SND=(()=>{
   function tick(ts){ // 1秒に4回だけ計算
     if(!S.on||!S.ctx||ts-S.lastTick<250)return;S.lastTick=ts;
     const L=listenerPos();S.listener=L;
-    if(audible()){const t=targets(L);apply(t,2.5);setMaster(masterLevel(),1.2);shots(t);}
+    if(audible()){const t=targets(L);apply(t,2.5);setMaster(masterLevel(),1.2);shots(t);trainRec(L,t._duck);horn(t._port);}
     updateUI();}
   async function start(){if(!S.supported)return false;
     try{if(!S.ctx)build();if(S.ctx.state!=='running')await S.ctx.resume();}catch(e){S.supported=false;updateUI();return false;}
-    clearTimeout(S.stopTimer);S.on=true;persist();
+    clearTimeout(S.stopTimer);S.on=true;persist();load('train');load('sea');
     const L=listenerPos();S.listener=L;apply(targets(L),0.01);  // 各音の配分は先に決め、全体を3秒かけて上げる
     if(audible())setMaster(masterLevel(),1.0);updateUI();return true;}
   function quiet(thenSuspend){ // 穏やかに小さくしてから止める
@@ -1635,11 +1721,12 @@ const SND=(()=>{
     if(audible()){apply(targets(listenerPos()),0.01);setMaster(masterLevel(),1.0);}}
   function onPlay(v){if(!S.on)return;if(v)wake();else quiet(true);}
   function setVol(v){S.vol=v;persist();if(audible())setMaster(masterLevel(),0.4);updateUI();}
+  function setPart(k,v){S[k]=v;persist();updateUI();}
   function updateUI(){const b=$('#snd'),m=$('#msnd');if(!b)return;
     b.disabled=!S.supported;m.disabled=!S.supported;
     b.textContent=!S.supported?'♪ 音を鳴らせません':S.on?'♪ 音 ON':'♪ 音 OFF';b.setAttribute('aria-pressed',String(S.on));
     m.textContent=S.on?'♪ ON':'♪ OFF';m.setAttribute('aria-pressed',String(S.on));
-    $('#vol').value=S.vol;
+    $('#vol').value=S.vol;$('#volTrain').value=S.trainVol;$('#volSea').value=S.seaVol;
     const w=S.on&&S.listener?`聞いている場所：${S.listener.label}${playing?'':'（一時停止中は静か）'}`:(S.savedOn&&!S.on&&S.supported?'前回は音がONでした。画面のどこかに触れると再開します':'');
     if($('#sndwhere').textContent!==w)$('#sndwhere').textContent=w;}
   document.addEventListener('visibilitychange',()=>{S.hidden=document.hidden;if(!S.on)return;if(S.hidden)quiet(true);else wake();});
@@ -1647,13 +1734,15 @@ const SND=(()=>{
   const resumeOnce=e=>{if(S.savedOn&&!S.on&&!(e.target&&e.target.closest&&e.target.closest('#snd,#msnd')))start();S.savedOn=false;updateUI();
     document.removeEventListener('pointerdown',resumeOnce,true);document.removeEventListener('keydown',resumeOnce,true);};
   document.addEventListener('pointerdown',resumeOnce,true);document.addEventListener('keydown',resumeOnce,true);
-  return {S,tick,start,stop,onPlay,setVol,updateUI,listenerPos,
+  return {S,tick,start,stop,onPlay,setVol,setPart,updateUI,listenerPos,
     debug:()=>({on:S.on,state:S.ctx?S.ctx.state:'none',built:S.built,master:S.nodes?S.nodes.master.gain.value:0,
-      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
+      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,rec:Object.fromEntries(Object.keys(REC_FILES).map(k=>[k,R[k]?R[k].state+(R[k].err?':'+R[k].err:''):'未読込'])),recGains:Object.fromEntries(PLACES.map(P=>[P.rec,R[P.rec]&&R[P.rec].g?+R[P.rec].g.gain.value.toFixed(4):null])),passes:S.passCount||0,lastPassLevel:S.lastPassLevel||0,passTimes:(S.passTimes||[]).slice(-6),active:(S.active||[]).length,grains:S.grains||0,onboard:S.ob?+S.ob.gain.value.toFixed(4):0,horns:S.hornCount||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
 })();
 const toggleSnd=()=>{if(SND.S.on)SND.stop();else SND.start();};
 $('#snd').addEventListener('click',toggleSnd);$('#msnd').addEventListener('click',toggleSnd);
 $('#vol').addEventListener('input',e=>SND.setVol(Number(e.target.value)));
+$('#volTrain').addEventListener('input',e=>SND.setPart('trainVol',Number(e.target.value)));
+$('#volSea').addEventListener('input',e=>SND.setPart('seaVol',Number(e.target.value)));
 SND.updateUI();
 
 /* ---------- 拡張用の入口（開発者ツールのコンソールから使えます） ---------- */
