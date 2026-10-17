@@ -1801,9 +1801,16 @@ const SND=(()=>{
   const resumeOnce=e=>{if(S.savedOn&&!S.on&&!(e.target&&e.target.closest&&e.target.closest('#snd,#msnd')))start();S.savedOn=false;updateUI();
     document.removeEventListener('pointerdown',resumeOnce,true);document.removeEventListener('keydown',resumeOnce,true);};
   document.addEventListener('pointerdown',resumeOnce,true);document.addEventListener('keydown',resumeOnce,true);
-  return {S,tick,start,stop,onPlay,setVol,setPart,updateUI,listenerPos,
+  // 1回だけ鳴らす効果音（ドアの開閉など）。設定は sounds.json の effects。音が OFF のときは何もしない
+  function effect(id,gain){const e=CFG&&CFG.effects&&CFG.effects[id];if(!e||!S.on||!S.ctx||!FILES[e.file])return false;if(!R[e.file]){load(e.file);return false;}if(!ready(e.file))return false;
+    const c=S.ctx,t0=c.currentTime,r=R[e.file],src=c.createBufferSource();src.buffer=r.buf;if(e.rate)src.playbackRate.value=e.rate;
+    const ng=c.createGain();ng.gain.value=r.norm;const g=c.createGain();g.gain.value=(e.level||0.5)*(gain==null?1:gain)*volOf(e.volume||'train');
+    let last=g;src.connect(ng);ng.connect(g);if(e.lowpassHz){const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=e.lowpassHz;g.connect(lp);last=lp;}last.connect(S.nodes.bus);
+    src.start(t0);S.fx=(S.fx||0)+1;S.lastFx=id;return true;}
+  function preload(id){const e=CFG&&CFG.effects&&CFG.effects[id];if(e&&S.on&&S.ctx&&FILES[e.file]&&!R[e.file])load(e.file);}
+  return {S,tick,start,stop,onPlay,setVol,setPart,updateUI,listenerPos,effect,preload,
     debug:()=>({on:S.on,state:S.ctx?S.ctx.state:'none',built:S.built,master:S.nodes?S.nodes.master.gain.value:0,
-      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,config:S.cfgState||'未読込',rec:Object.fromEntries(Object.keys(FILES).map(k=>[k,R[k]?R[k].state+(R[k].err?':'+R[k].err:''):'未読込'])),recGains:Object.fromEntries(LOOPS.map(P=>[P.file,R[P.file]&&R[P.file].g?+R[P.file].g.gain.value.toFixed(4):null])),passes:S.passCount||0,lastPassLevel:S.lastPassLevel||0,passTimes:(S.passTimes||[]).slice(-6),active:(S.active||[]).length,grains:S.grains||0,onboard:S.ob?+S.ob.gain.value.toFixed(4):0,horns:(S.occCount&&S.occCount.horn)||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
+      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,fx:S.fx||0,lastFx:S.lastFx||null,config:S.cfgState||'未読込',rec:Object.fromEntries(Object.keys(FILES).map(k=>[k,R[k]?R[k].state+(R[k].err?':'+R[k].err:''):'未読込'])),recGains:Object.fromEntries(LOOPS.map(P=>[P.file,R[P.file]&&R[P.file].g?+R[P.file].g.gain.value.toFixed(4):null])),passes:S.passCount||0,lastPassLevel:S.lastPassLevel||0,passTimes:(S.passTimes||[]).slice(-6),active:(S.active||[]).length,grains:S.grains||0,onboard:S.ob?+S.ob.gain.value.toFixed(4):0,horns:(S.occCount&&S.occCount.horn)||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
 })();
 const toggleSnd=()=>{if(SND.S.on)SND.stop();else SND.start();};
 $('#snd').addEventListener('click',toggleSnd);$('#msnd').addEventListener('click',toggleSnd);
@@ -2449,7 +2456,8 @@ const st=personStyle(o,s,T),pal=PAL[st],col=pal[Math.floor(o.r2*pal.length)],b=P
   function platDraw(dt){const b=P.bg,im=R.img[b.src];const c=fit(el('rideCv'),b.w,b.h);if(!c)return;const t=performance.now()/1000,dk=darkness(T);
     c.clearRect(0,0,b.w,b.h);c.drawImage(im,0,0,b.w,b.h);
     if(COND.wx==='cld'||COND.wx==='rain'){c.fillStyle=COND.wx==='rain'?'rgba(80,92,108,.26)':'rgba(130,138,150,.15)';c.fillRect(0,0,b.w,b.railY);}
-    const vis=platTrains(T);P.vis=vis;
+    const vis=platTrains(T);P.vis=vis;P.ds=P.ds||{};
+    for(const v of vis)if(v.lane==='near'){const st=P.ds[v.tr.ix]||(P.ds[v.tr.ix]={});doorSound(st,'p',v.door,0.7);}
     for(const lane of ['far','through','near'])for(const v of vis)if(v.lane===lane){if(lane!=='near'){c.save();c.globalAlpha=0.92;drawTrain(c,v,b.w);c.restore();}else drawTrain(c,v,b.w);}
     for(const [px,py,pw,ph] of b.pillars)c.drawImage(im,px,py,pw,ph,px,py,pw,ph);   // 手前の柱は列車より前に描き直す
     const ct=crowdTarget(P.s,T),rate=Math.min(1,dt*SC().crowd.fadePerSec);P.wait=ct;
@@ -2537,12 +2545,17 @@ const st=personStyle(o,s,T),pal=PAL[st],col=pal[Math.floor(o.r2*pal.length)],b=P
     if(k&&!k.moving&&(why==='alight'||why==='terminal')){const s=tr.seq[k.i];sel={kind:'station',st:s};ttStation(s);psStation(s);}
     else if(tr)sel={kind:'trip',trip:tr};
     refreshPanels(true);drawDia();}
-  function tick(dt){if(!R.on||!R.cfg)return;
+  // ドアの開閉音：ドアが閉→開き始め、開→閉まり始めた瞬間に1回。時刻を飛ばしたとき（0.2分以上）は鳴らさない
+  function doorSound(st,key,door,gain){const pk='_d'+key,prev=st[pk];st[pk]=door;const jump=Math.abs(T-(st[pk+'T']??T))>0.2;st[pk+'T']=T;
+    if(prev==null||jump||!playing||typeof SND==='undefined')return;
+    if(prev<=0.001&&door>0.001)SND.effect('doorOpen',gain);else if(prev>=0.999&&door<0.999)SND.effect('doorClose',gain);}
+  function tick(dt){if(!R.on||!R.cfg)return;try{SND.preload('doorOpen');}catch(e){}
     if(R.mode==='plat'){if(T<R.lastT-1){exit('wrap');return;}R.lastT=T;platDraw(dt);platSide(dt);R.dirty=false;return;}
     if(!R.it||!R.tr)return;const tr=R.tr;
     if(T<R.lastT-1){exit('wrap');return;}R.lastT=T;
     const k=kin(tr,T);const gm=dt*speed*(playing?1:0);const acc=gm>0?(k.v-R.lastV)/gm:0;R.lastV=k.v;R.k=k;
     R.tilt+=(clamp(-acc*0.03,-0.07,0.07)-R.tilt)*Math.min(1,dt*3);
+    doorSound(R,'ride',k.door,1);
     if(!k.moving&&k.i===tr.seq.length-1&&T>=tr.arr.at(-1)+R.cfg.ride.terminalExitMin){alight();return;}
     drawScene(dt);drawDoor(k);drawMonitor(k);side(k);R.dirty=false;}
 
