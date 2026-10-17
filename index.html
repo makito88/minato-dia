@@ -1916,7 +1916,7 @@ const RIDE=(()=>{
     R.loading=fetch('data/ride.json').then(r=>{if(!r.ok)throw new Error('data/ride.json: HTTP '+r.status);return r.json();}).then(c=>{
       const srcs=new Set([c.platform.src,c.monitor.src,c.buttons.src]);
       Object.values(c.scenery).forEach(s=>{srcs.add(s.src);VARIANTS.forEach(v=>{if(s[v])srcs.add(s[v].src);});});
-      if(c.station){Object.values(c.station.backgrounds).forEach(b=>srcs.add(b.src));Object.values(c.station.trains).forEach(t=>{srcs.add(t.headSrc);srcs.add(t.midSrc);});}Object.values(c.interiors).forEach(s=>srcs.add(s.src));Object.values(c.doors).forEach(s=>srcs.add(s.src));
+      if(c.station){Object.values(c.station.backgrounds).forEach(b=>srcs.add(b.src));Object.values(c.station.trains).forEach(t=>{srcs.add(t.headSrc);srcs.add(t.midSrc);});}Object.values(c.interiors).forEach(s=>{srcs.add(s.src);(s.levels||[]).forEach(x=>srcs.add(x));});if(c.sprites){c.sprites.heads.forEach(x=>srcs.add(x.src));c.sprites.stand.forEach(x=>srcs.add(x.src));}if(c.stationView)['floor','canopy','pillar'].forEach(k=>srcs.add(c.stationView[k]));Object.values(c.doors).forEach(s=>srcs.add(s.src));
       return Promise.all([...srcs].map(s=>loadImg(s).then(im=>{R.img[s]=im;}))).then(()=>{R.cfg=c;buildStrips();});});
     R.loading.catch(()=>{R.loading=null;});
     return R.loading;}
@@ -1959,7 +1959,7 @@ const RIDE=(()=>{
     const seat=it.seated.map(([x,y,s])=>({kind:'seat',x,y,s,key:y+30*s}));
     for(let i=seat.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[seat[i],seat[j]]=[seat[j],seat[i]];}
     const stand=it.standing.map(([x,y])=>({kind:'stand',x,y,s:(y-it.horizon)/it.standK,key:y}));
-    R.seatN=seat.length;R.slots=[...seat,...stand].map((o,ix)=>({...o,a:0,ph:rnd()*6.28,col:pal[Math.floor(rnd()*pal.length)],hair:['#1d1a19','#2b2420','#3a2e26','#4a4038','#6b6460'][Math.floor(rnd()*5)],skin:['#e8c8ab','#dcb593','#efd3b8'][Math.floor(rnd()*3)],pose:Math.floor(rnd()*4)}));}
+    R.seatN=seat.length;R.slots=[...seat,...stand].map((o,ix)=>({...o,a:0,ph:rnd()*6.28,col:pal[Math.floor(rnd()*pal.length)],hair:['#1d1a19','#2b2420','#3a2e26','#4a4038','#6b6460'][Math.floor(rnd()*5)],skin:['#e8c8ab','#dcb593','#efd3b8'][Math.floor(rnd()*3)],pose:Math.floor(rnd()*4),si:Math.floor(rnd()*97),flip:rnd()<0.4}));}
   function targets(r){const st=R.slots.length-R.seatN;const nS=Math.round(R.seatN*clamp(r/0.6)),nT=Math.round(st*clamp((r-0.6)/1.0));
     return R.slots.map((o,ix)=>ix<R.seatN?(ix<nS?1:0):(ix-R.seatN<nT?1:0));}
 
@@ -2005,14 +2005,144 @@ const RIDE=(()=>{
   function drawWindow(c,tr,k,q,side,wi,dk,blur){const xs=q.map(p=>p[0]),ys=q.map(p=>p[1]);const bx=Math.min(...xs),by=Math.min(...ys),bw=Math.max(...xs)-bx,bh=Math.max(...ys)-by;
     c.save();c.beginPath();{const cx=xs.reduce((a,b)=>a+b)/q.length,cy=ys.reduce((a,b)=>a+b)/q.length;const Q=q.map(([x,y])=>{const d=Math.hypot(x-cx,y-cy)||1;return [x+(cx-x)/d,y+(cy-y)/d];});   // 窓枠に1px内側へ寄せ、角を丸める
       const m=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2],r=Math.min(4,bw/6,bh/6);c.moveTo(...m(Q[Q.length-1],Q[0]));Q.forEach((p,j)=>c.arcTo(p[0],p[1],...Q[(j+1)%Q.length],r));c.closePath();}
-    c.clip();
+    c.clip();windowContent(c,tr,k,bx,by,bw,bh,side,wi,dk,blur);c.restore();}
+  function windowContent(c,tr,k,bx,by,bw,bh,side,wi,dk,blur){
     const dir=side==='left'?1:-1,pos=dir*k.km*R.cfg.pxPerKm+wi*157;
     for(const [key,a] of sceneryMix(tr,k))drawScenery(c,key,a,bx,by,bw,bh,pos,blur*(bh/218),R.it.eye==null?by+bh/2:R.it.eye);
-    if(side===R.cfg.platform.side)drawPlatform(c,tr,k,bx,by,bw,bh,dir,wi);
     weatherOnGlass(c,bx,by,bw,bh,wi,k);
     if(dk>0.01){c.fillStyle=`rgba(10,16,32,${0.8*dk})`;c.fillRect(bx,by,bw,bh);}
-    const g=c.createLinearGradient(bx,by,bx+bw,by+bh);g.addColorStop(0,'rgba(255,255,255,.10)');g.addColorStop(0.5,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(bx,by,bw,bh);
+    if(side===R.cfg.platform.side)drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk);
+    const g=c.createLinearGradient(bx,by,bx+bw,by+bh);g.addColorStop(0,'rgba(255,255,255,.10)');g.addColorStop(0.5,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(bx,by,bw,bh);}
+  /* --- 窓から見える駅（通過・停車）：横から見たホームを、近くのものほど速く・大きく描く ---
+     窓の高さで見える範囲を約 viewM メートルとし、ホームの床・人・駅名標・柱・屋根を実際の大きさ（メートル）で並べる。
+     床・柱・屋根は用意された絵から切り出した素材、駅名標と吊り下げ案内は文字なので描画で作る。 */
+  const platLenM=s=>{const V=R.cfg.stationView;return (V.lengthM&&V.lengthM[s])||V.lengthM.default;};
+  function stationPeople(s){R.stvPeople=R.stvPeople||{};if(R.stvPeople[s])return R.stvPeople[s];const V=R.cfg.stationView,L=platLenM(s),rnd=seeded(s.charCodeAt(0)*131+17),out=[];
+    // 人はドアの止まる位置（約20mごと）のまわりに集まって並ぶ。ほかはホームにばらばらに
+    for(let i=0;i<V.maxPeople;i++){const grp=rnd()<0.7;const u=grp?(-L/2+10+Math.floor(rnd()*Math.max(1,(L-20)/20))*20+(rnd()-0.5)*3.5):(-L/2+4+rnd()*(L-8));
+      out.push({u,z:grp?0.15+rnd()*0.6:rnd()*0.8,r:rnd(),r2:rnd(),ph:rnd()*6.28,side:0,h:1.5+rnd()*0.3});}
+    out.sort(()=>0);
+    return (R.stvPeople[s]=out);}
+  function drawEkimeihyo(c,x,yb,w,h,s,A,yGround){const st=R.cfg.stations[s]||{},nm=ST[s].name,nb=platNeighbors(s),y=yb-h;
+    c.save();c.globalAlpha=A;const pl=(yGround||yb+h*2)-yb;c.fillStyle='#5f656d';c.fillRect(x+w*0.1,yb,w*0.035,pl);c.fillRect(x+w*0.865,yb,w*0.035,pl);   // 支柱（ホームの床まで）
+    c.fillStyle='rgba(0,0,0,.18)';c.fillRect(x+w*0.02,y+h,w*0.96,h*0.05);
+    c.fillStyle='#fbfbf8';c.fillRect(x,y,w,h);c.strokeStyle='rgba(0,0,0,.25)';c.lineWidth=Math.max(0.3,w*0.008);c.strokeRect(x,y,w,h);
+    c.fillStyle='#1f4f9c';c.fillRect(x,y+h*0.64,w,h*0.17);
+    c.textAlign='center';c.textBaseline='middle';c.fillStyle='#1c1c1c';c.font=`700 ${h*0.36}px ${FONT}`;c.fillText(nm,x+w/2,y+h*0.36);
+    c.font=`${h*0.13}px ${FONT}`;c.fillStyle='#333';c.fillText(st.kana||'',x+w/2,y+h*0.1);c.fillStyle='#fff';c.fillText(st.roma||'',x+w/2,y+h*0.725);
+    c.fillStyle='#333';c.font=`${h*0.12}px ${FONT}`;c.textAlign='left';c.fillText(nb.l.length?'← '+nb.l.map(a=>ST[a].name).join('・'):'',x+w*0.03,y+h*0.9);
+    c.textAlign='right';c.fillText(nb.r.length?nb.r.map(a=>ST[a].name).join('・')+' →':'',x+w*0.97,y+h*0.9);c.restore();}
+  function drawHanging(c,x,y,w,h,kind,s,A,yRoof){c.save();c.globalAlpha=A;const rl=yRoof==null?y-h*0.6:yRoof;c.fillStyle='#4b5058';
+    if(kind==='edge'){c.fillRect(x+w*0.3,rl,Math.max(0.6,w*0.4),y-rl);c.fillStyle='#2b2f35';c.fillRect(x,y,w,h);c.fillStyle='#f2c230';c.fillRect(x,y+h*0.1,Math.max(0.5,w*0.3),h*0.8);c.restore();return;}
+    c.fillRect(x+w*0.15,rl,Math.max(0.6,w*0.02),y-rl);c.fillRect(x+w*0.83,rl,Math.max(0.6,w*0.02),y-rl);
+    if(kind==='exit'){c.fillStyle='#f2c230';c.fillRect(x,y,w,h);c.fillStyle='#1a1a1a';c.textBaseline='middle';c.textAlign='left';c.font=`700 ${h*0.55}px ${FONT}`;c.fillText('出口',x+w*0.08,y+h*0.52);c.font=`${h*0.32}px ${FONT}`;c.fillText('Exit',x+w*0.48,y+h*0.55);c.textAlign='right';c.font=`700 ${h*0.6}px ${FONT}`;c.fillText('→',x+w*0.95,y+h*0.5);}
+    else{c.fillStyle='#22324a';c.fillRect(x,y,w,h);c.fillStyle='#fff';c.textBaseline='middle';c.textAlign='center';c.font=`700 ${h*0.5}px ${FONT}`;c.fillText(ST[s].name,x+w*0.5,y+h*0.42);c.font=`${h*0.24}px ${FONT}`;c.fillText((R.cfg.stations[s]||{}).roma||'',x+w*0.5,y+h*0.8);}
     c.restore();}
+  function platNeighbors(s){const out={l:[],r:[]};if(isMain(s)){const j=MAIN.indexOf(s);if(j>0)out.l.push(MAIN[j-1]);if(j<MAIN.length-1)out.r.push(MAIN[j+1]);}
+    if(isBr(s)){const j=BR.indexOf(s);if(j>0&&s!=='K')out.l.push(BR[j-1]);if(j<BR.length-1)out.r.push(BR[j+1]);}return out;}
+  // ホームで待つ人（線路のほうを向いた正面の姿）。手描きの仮の絵
+  function drawWaiter(c,x,yf,h,o,s,A){const st=personStyleS(o,s),pal=PAL_S[st],col=pal[Math.floor(o.r2*pal.length)];
+    const hair=['#1d1a19','#2b2420','#3a2e26','#5a4636','#8b857c'][st==='elder'?4:Math.floor(o.r*4)],skin=['#e8c6a6','#dcb593','#efd3b8'][Math.floor(o.r2*3)];
+    const long=o.r2>0.55&&st!=='suit',ph=o.r>0.62&&st!=='elder';
+    c.save();c.globalAlpha=A;c.translate(x,yf);
+    c.fillStyle='rgba(0,0,0,.22)';c.beginPath();c.ellipse(0,0,h*0.15,h*0.022,0,0,7);c.fill();
+    const legC=st==='suit'?'#22262d':(st==='student'?'#1e2537':['#3b4352','#5a5148','#6f6a62','#2f3a4d'][Math.floor(o.r2*4)]);
+    if(st==='yukata'){const g=c.createLinearGradient(-h*0.12,0,h*0.12,0);g.addColorStop(0,shade(col,0.15));g.addColorStop(1,shade(col,-0.25));c.fillStyle=g;
+      c.beginPath();c.moveTo(-h*0.115,-h*0.79);c.lineTo(h*0.115,-h*0.79);c.lineTo(h*0.095,-h*0.03);c.lineTo(-h*0.095,-h*0.03);c.closePath();c.fill();
+      c.fillStyle='rgba(255,255,255,.45)';for(let j=0;j<7;j++){c.beginPath();c.arc(-h*0.07+((j*37)%10)/10*h*0.14,-h*0.72+j*h*0.1,h*0.014,0,7);c.fill();}
+      c.fillStyle=o.r<0.5?'#e8c25a':'#c9404d';c.fillRect(-h*0.115,-h*0.52,h*0.23,h*0.075);
+      c.fillStyle='#3a2a20';c.fillRect(-h*0.06,-h*0.03,h*0.05,h*0.025);c.fillRect(h*0.01,-h*0.03,h*0.05,h*0.025);}
+    else{const skirt=st==='student'&&o.r2<0.5;
+      if(skirt){c.fillStyle='#24304a';c.beginPath();c.moveTo(-h*0.1,-h*0.48);c.lineTo(h*0.1,-h*0.48);c.lineTo(h*0.12,-h*0.3);c.lineTo(-h*0.12,-h*0.3);c.closePath();c.fill();
+        c.fillStyle=skin;c.fillRect(-h*0.065,-h*0.3,h*0.045,h*0.14);c.fillRect(h*0.02,-h*0.3,h*0.045,h*0.14);c.fillStyle='#1c1c22';c.fillRect(-h*0.067,-h*0.16,h*0.049,h*0.13);c.fillRect(h*0.018,-h*0.16,h*0.049,h*0.13);}
+      else{const lg=c.createLinearGradient(-h*0.08,0,h*0.08,0);lg.addColorStop(0,shade(legC,0.12));lg.addColorStop(1,shade(legC,-0.2));c.fillStyle=lg;
+        rr(c,-h*0.078,-h*0.48,h*0.068,h*0.46,h*0.02);c.fill();rr(c,h*0.01,-h*0.48,h*0.068,h*0.46,h*0.02);c.fill();}
+      c.fillStyle='#24201d';rr(c,-h*0.085,-h*0.035,h*0.075,h*0.035,h*0.012);c.fill();rr(c,h*0.01,-h*0.035,h*0.075,h*0.035,h*0.012);c.fill();
+      // 胴：上着の前があいた形（スーツ・学生服）か、ふつうの服
+      const tg=c.createLinearGradient(-h*0.13,0,h*0.13,0);tg.addColorStop(0,shade(col,0.18));tg.addColorStop(0.55,col);tg.addColorStop(1,shade(col,-0.28));c.fillStyle=tg;
+      c.beginPath();c.moveTo(-h*0.1,-h*0.8);c.quadraticCurveTo(-h*0.135,-h*0.79,-h*0.13,-h*0.72);c.lineTo(-h*0.11,-h*0.44);c.lineTo(h*0.11,-h*0.44);c.lineTo(h*0.13,-h*0.72);c.quadraticCurveTo(h*0.135,-h*0.79,h*0.1,-h*0.8);c.closePath();c.fill();
+      if(st==='suit'||st==='student'){c.fillStyle='#f1f1ee';c.beginPath();c.moveTo(-h*0.035,-h*0.8);c.lineTo(h*0.035,-h*0.8);c.lineTo(0,-h*0.63);c.closePath();c.fill();if(st==='suit'){c.fillStyle=['#7a2230','#203a6b','#4a4a4a'][Math.floor(o.r*3)];c.fillRect(-h*0.008,-h*0.78,h*0.016,h*0.13);}}
+      if(st==='fan'){c.fillStyle='#f4f4f4';c.fillRect(-h*0.11,-h*0.8,h*0.035,h*0.2);c.fillRect(h*0.075,-h*0.8,h*0.035,h*0.2);c.fillStyle='#2f6fd0';c.fillRect(-h*0.11,-h*0.66,h*0.035,h*0.04);c.fillRect(h*0.075,-h*0.66,h*0.035,h*0.04);}
+      // うで（スマートフォンを見ている人は片手を胸の前に）
+      c.fillStyle=shade(col,-0.12);rr(c,-h*0.155,-h*0.78,h*0.042,h*0.33,h*0.02);c.fill();
+      if(ph){rr(c,h*0.11,-h*0.78,h*0.042,h*0.17,h*0.02);c.fill();c.save();c.translate(h*0.13,-h*0.62);c.rotate(-1.15);rr(c,0,-h*0.02,h*0.16,h*0.042,h*0.02);c.fill();c.restore();
+        c.fillStyle=skin;c.beginPath();c.arc(h*0.06,-h*0.66,h*0.022,0,7);c.fill();c.fillStyle='#1d2228';c.fillRect(h*0.035,-h*0.71,h*0.045,h*0.06);}
+      else{rr(c,h*0.113,-h*0.78,h*0.042,h*0.33,h*0.02);c.fill();c.fillStyle=skin;c.beginPath();c.arc(h*0.134,-h*0.44,h*0.02,0,7);c.fill();}
+      c.fillStyle=skin;c.beginPath();c.arc(-h*0.134,-h*0.44,h*0.02,0,7);c.fill();
+      if(st==='suit'||st==='student'){c.fillStyle='#2a2522';rr(c,-h*0.2,-h*0.47,h*0.1,h*0.13,h*0.012);c.fill();}
+      if(st==='tourist'){c.fillStyle='#2e3238';c.fillRect(-h*0.1,-h*0.79,h*0.025,h*0.3);c.fillRect(h*0.075,-h*0.79,h*0.025,h*0.3);if(o.r2<0.45){c.fillStyle='#4a5560';rr(c,h*0.17,-h*0.3,h*0.13,h*0.27,h*0.02);c.fill();c.fillStyle='#22262a';c.fillRect(h*0.215,-h*0.36,h*0.035,h*0.06);}}
+      if(COND.wx==='rain'&&o.r2>0.3){c.strokeStyle='#2c3e50';c.lineWidth=h*0.022;c.beginPath();c.moveTo(-h*0.17,-h*0.48);c.lineTo(-h*0.19,-h*0.02);c.stroke();}}
+    // 首と頭
+    const r=h*0.066,hy=-h*0.88;c.fillStyle=shade(skin,-0.12);c.fillRect(-h*0.022,-h*0.83,h*0.044,h*0.04);
+    if(long){c.fillStyle=hair;rr(c,-r*1.02,hy-r*0.5,r*0.45,r*2.3,r*0.2);c.fill();rr(c,r*0.57,hy-r*0.5,r*0.45,r*2.3,r*0.2);c.fill();}   // 長い髪（顔の両わき）
+    const fg=c.createLinearGradient(-r,0,r,0);fg.addColorStop(0,skin);fg.addColorStop(1,shade(skin,-0.12));c.fillStyle=fg;c.beginPath();c.ellipse(0,hy,r*0.86,r*1.02,0,0,7);c.fill();
+    c.fillStyle=hair;c.beginPath();c.ellipse(0,hy-r*0.38,r*0.95,r*0.7,0,Math.PI,0);c.fill();c.beginPath();c.ellipse(-r*0.25,hy-r*0.3,r*0.62,r*0.35,-0.3,0,7);c.fill();
+    if(h>26){c.fillStyle='rgba(40,30,25,.75)';c.fillRect(-r*0.42,hy+r*0.05,r*0.22,r*0.1);c.fillRect(r*0.2,hy+r*0.05,r*0.22,r*0.1);}   // 目（大きく見えるときだけ）
+    if(st==='elder'&&o.r2<0.5){c.fillStyle='#6b5f52';c.beginPath();c.ellipse(0,hy-r*0.55,r*1.25,r*0.42,0,Math.PI,0);c.fill();}
+    if((st==='fan'||st==='tourist')&&o.r2<0.4){c.fillStyle=st==='fan'?col:'#d9c9a3';c.beginPath();c.ellipse(0,hy-r*0.5,r*1.05,r*0.55,0,Math.PI,0);c.fill();c.fillRect(-r*0.2,hy-r*0.55,r*1.4,r*0.18);}
+    c.restore();}
+  const PAL_S={suit:['#2c3340','#353a45','#262b33'],student:['#1f2a44','#283350'],casual:['#6d7f8f','#8a6f5a','#5f7a63','#9a8bb0','#b07f6a','#c9b48a'],tourist:['#3f7fb5','#d08b3a','#6aa06f','#c4566a'],elder:['#8d8270','#7a7f86','#9c8f7a'],fan:['#e2574c','#3c8fd6','#f0b542'],yukata:['#3b5fa8','#c2457b','#2f7f74','#7a4fa0']};
+  function personStyleS(o,s){const m=((T%1440)+1440)%1440,wd=COND.day==='wd',rush=wd&&((m>=390&&m<=570)||(m>=1020&&m<=1200));
+    for(const id of COND.evs||[]){const e=EVMAP[id];if(e&&e.place===s&&m>=e.start-90&&m<=e.end+90&&o.r<0.45)return /matsuri|hanabi|bon|okuri|natsu/.test(id)?'yukata':'fan';}
+    if(rush)return o.r<0.6?'suit':(o.r<0.8?'student':'casual');return o.r<0.15?'elder':(o.r<0.35?'tourist':'casual');}
+  // 窓から見たホーム：奥行き d（窓からの距離、メートル）ごとに大きさと流れる速さが変わる（近いものほど大きく速い）。
+  // 基準の奥行き d0 で 1m＝pxm ピクセル。高さはホーム面からのメートル、eyeM は目の高さ。
+  function stationLayer(c,s,L,uw,bx,by,bw,bh,eye,pxm,sgn,offK,A,dk){const V=R.cfg.stationView,I=k=>R.img[V[k]],D0=V.d0,eh=V.eyeM;
+    const S=d=>pxm*D0/d,X=(u,d)=>bx+bw/2+sgn*(u-uw)*S(d)+offK*S(d),Y=(h,d)=>eye+(eh-h)*S(d),top=by-2,bot=by+bh+2;
+    const visible=(u0,u1,d)=>{const a=X(u0,d),b=X(u1,d);return Math.max(a,b)>bx-4&&Math.min(a,b)<bx+bw+4;};
+    if(!visible(-L/2,L/2,V.edgeD))return;
+    const span=(u0,u1,d)=>{const a=X(u0,d),b=X(u1,d);return [Math.min(a,b),Math.max(a,b)];};
+    c.save();c.globalAlpha=A;
+    // ホームの奥の柵：低い土台と、柱と横棒の柵（すき間から外の景色が見える）
+    {const d=V.backD,[a,b]=span(-L/2,L/2,d),yB=Y(0,d),yBase=Y(0.28,d),yT=Y(V.backH,d),sc=S(d);
+      c.fillStyle='#8f9397';c.fillRect(a,yBase,b-a,yB-yBase);c.fillStyle='rgba(255,255,255,.2)';c.fillRect(a,yBase,b-a,Math.max(0.6,sc*0.03));
+      c.strokeStyle='#5d6268';c.lineWidth=Math.max(0.7,sc*0.04);c.beginPath();c.moveTo(a,yT);c.lineTo(b,yT);c.moveTo(a,(yT+yBase)/2);c.lineTo(b,(yT+yBase)/2);
+      const u0=Math.floor((uw-bw/sc)/2)*2;for(let u=u0;u<uw+bw/sc;u+=2){if(u<-L/2||u>L/2)continue;const x=X(u,d);c.moveTo(x,yT);c.lineTo(x,yBase);}c.stroke();
+      c.strokeStyle='rgba(93,98,104,.45)';c.lineWidth=Math.max(0.4,sc*0.012);c.beginPath();for(let u=u0;u<uw+bw/sc;u+=0.12){if(u<-L/2||u>L/2)continue;const x=X(u,d);c.moveTo(x,yT);c.lineTo(x,yBase);}c.stroke();}
+    // 床：線路と平行な目地は水平、直角な目地は窓の正面の消失点に向かって集まる（正しい遠近）。点字ブロックと白い縁も同じ遠近で描く
+    {const yN=Y(0,V.edgeD),yFar=Y(0,V.backD);if(yN>top&&yFar<bot){const [a,b]=span(-L/2,L/2,V.edgeD),[a2,b2]=span(-L/2,L/2,V.backD);
+      c.save();c.beginPath();c.moveTo(a,yN);c.lineTo(b,yN);c.lineTo(b2,yFar);c.lineTo(a2,yFar);c.closePath();c.clip();
+      const g=c.createLinearGradient(0,yFar,0,yN);g.addColorStop(0,V.floorColor[0]);g.addColorStop(1,V.floorColor[1]);c.fillStyle=g;c.fillRect(bx-4,yFar,bw+8,yN-yFar);
+      const band=(d1,d2,col)=>{const [p,q]=span(-L/2,L/2,d1),[p2,q2]=span(-L/2,L/2,d2);c.fillStyle=col;c.beginPath();c.moveTo(p,Y(0,d1));c.lineTo(q,Y(0,d1));c.lineTo(q2,Y(0,d2));c.lineTo(p2,Y(0,d2));c.closePath();c.fill();};
+      band(V.tactileD[0],V.tactileD[1],V.tactileColor);
+      c.strokeStyle='rgba(40,44,50,.13)';c.lineWidth=0.6;c.beginPath();
+      for(let d=V.edgeD+V.tileM;d<V.backD;d+=V.tileM){const y=Y(0,d);c.moveTo(bx-4,y);c.lineTo(bx+bw+4,y);}
+      const u0=Math.floor((uw-(bw/S(V.edgeD))*0.7)/V.tileM)*V.tileM,u1=uw+(bw/S(V.edgeD))*0.7;for(let u=u0;u<=u1;u+=V.tileM){c.moveTo(X(u,V.edgeD),yN);c.lineTo(X(u,V.backD),yFar);}c.stroke();
+      // 点字ブロックの粒
+      c.fillStyle='rgba(150,110,10,.35)';const dm=(V.tactileD[0]+V.tactileD[1])/2;for(let u=Math.floor((uw-bw/S(dm))/0.3)*0.3;u<uw+bw/S(dm);u+=0.3){const x=X(u,dm),r=Math.max(0.5,0.03*S(dm));c.fillRect(x-r,Y(0,dm)-r*0.4,r*2,r*0.8);}
+      const sh=c.createLinearGradient(0,yFar,0,yFar+(yN-yFar)*0.5);sh.addColorStop(0,'rgba(0,0,0,.22)');sh.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=sh;c.fillRect(bx-4,yFar,bw+8,(yN-yFar)*0.5);   // 屋根の影
+      c.restore();
+      const ew=Math.max(1.2,S(V.edgeD)*0.06);c.fillStyle='rgba(238,238,232,.95)';c.fillRect(Math.max(a,bx-4),yN-ew,Math.min(b,bx+bw+4)-Math.max(a,bx-4),ew);   // ホームの白い縁
+      c.fillStyle='rgba(60,62,66,.9)';c.fillRect(Math.max(a,bx-4),yN,Math.min(b,bx+bw+4)-Math.max(a,bx-4),Math.max(2,S(V.edgeD)*0.25));}}   // ホームの側面（縁の下）
+    // 屋根の裏側：手前の端 canopyD から奥の壁まで。屋根のある区間だけ
+    const Lc=L*((V.canopyFrac&&V.canopyFrac[s])||V.canopyFrac.default);
+    {const yE=Y(V.roofM,V.canopyD),yB=Y(V.roofM,V.backD);if(yB>top){const [a,b]=span(-Lc/2,Lc/2,V.canopyD),[a2,b2]=span(-Lc/2,Lc/2,V.backD),im=I('canopy');
+      c.save();c.beginPath();c.moveTo(a,Math.min(yE,top));c.lineTo(b,Math.min(yE,top));c.lineTo(b2,yB);c.lineTo(a2,yB);c.closePath();c.clip();
+      const sc=S((V.canopyD+V.backD)/2),th=Math.max(yB-Math.min(yE,top),4),tw=im.width*th/im.height;let x0=X(0,(V.canopyD+V.backD)/2);x0=x0-Math.ceil((x0-(bx-tw))/tw)*tw;for(let x=x0;x<bx+bw+tw;x+=tw)c.drawImage(im,x,Math.min(yE,top),tw,th);
+      c.fillStyle='rgba(0,0,0,.18)';c.fillRect(bx,top,bw,yB-top);
+      // 蛍光灯
+      c.fillStyle=`rgba(255,250,232,${0.75+0.25*dk})`;for(let u=-Lc/2+3;u<Lc/2;u+=V.lampM){const x=X(u,V.lampD),w=1.2*S(V.lampD),y=Y(V.roofM-0.15,V.lampD);if(x<bx-w||x>bx+bw+w)continue;c.fillRect(x-w/2,y,w,Math.max(1.2,0.07*S(V.lampD)));}
+      c.restore();}}
+    const items=[];
+    for(let u=-Lc/2+V.pillarM/2;u<Lc/2;u+=V.pillarM)items.push({d:V.pillarD,u,draw:()=>{const im=I('pillar'),d=V.pillarD,w=0.28*S(d),x=X(u,d)-w/2,y0=Y(V.roofM,d),y1=Y(0,d);c.drawImage(im,x,y0,w,y1-y0);
+      c.fillStyle='rgba(0,0,0,.12)';c.fillRect(x+w*0.6,y0,w*0.4,y1-y0);c.fillStyle='rgba(0,0,0,.22)';c.beginPath();c.ellipse(x+w/2,y1,w*1.3,Math.max(1,w*0.18),0,0,7);c.fill();c.fillStyle='#6d7277';c.fillRect(x-w*0.15,y1-w*0.35,w*1.3,w*0.35);}});
+    for(const f of V.signsAt)items.push({d:V.signD,u:f*L,draw:()=>{const d=V.signD,w=V.signM[0]*S(d),h=V.signM[1]*S(d);drawEkimeihyo(c,X(f*L,d)-w/2,Y(V.signM[2],d),w,h,s,A,Y(0,d));}});
+    for(let u=-Lc/2+V.hangM/2,i=0;u<Lc/2;u+=V.hangM,i++){const uu=u,kind=i%2?'exit':'name';items.push({d:V.hangD,u:uu,draw:()=>{const d=V.hangD,sc=S(d),h=0.34*sc,y=Y(2.6,d)-h;
+      if(kind==='name')drawHanging(c,X(uu,d)-0.65*sc,y,1.3*sc,h,'name',s,A,Y(V.roofM,d));
+      else drawHanging(c,X(uu,d)-0.04*sc,y,Math.max(1,0.08*sc),h,'edge',s,A,Y(V.roofM,d));}});}   // 出口の案内は線路と直角に吊られているので、横からは板の厚みしか見えない
+    const ppl=stationPeople(s),n=Math.min(ppl.length,Math.round(V.crowdK*Math.sqrt(Math.max(0,waitingAt(s,T)))));
+    for(let i=0;i<n;i++){const o=ppl[i],d=V.peopleD[0]+o.z*(V.peopleD[1]-V.peopleD[0]);items.push({d,u:o.u,draw:()=>drawWaiter(c,X(o.u,d),Y(0,d),o.h*S(d),o,s,A)});}
+    items.filter(it=>{const x=X(it.u,it.d),m=2.2*S(it.d);return x>bx-m&&x<bx+bw+m;}).sort((a,b)=>b.d-a.d).forEach(it=>it.draw());
+    c.restore();}
+  function drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk){const V=R.cfg.stationView;if(!V||!R.img[V.floor])return;
+    // 窓ガラスの上下（遠近で窓ごとに違う）から、見える高さ viewM と目の高さ eyeFrac を合わせる
+    const gl=(R.it.glass&&R.it.glass[side]&&R.it.glass[side][wi])||[by,by+bh],gh=gl[1]-gl[0];
+    const km=kmOf(tr),eye=gl[0]+gh*V.eyeFrac,pxm=gh/V.viewM,sgn=side==='left'?1:-1,wOff=wi*V.windowGapM;
+    for(let j=0;j<tr.seq.length;j++){const s=tr.seq[j],L=platLenM(s),uw=(k.km-km[j])*1000+wOff;if(Math.abs(uw)>L/2+bw/pxm+2)continue;
+      const mps=Math.abs(k.v)*1000*R.mult/60;   // 実際の1秒に進むメートル（k.v は1分あたりのkm）
+      const blurM=playing?mps*V.shutterSec:0,blurPx=blurM*pxm*V.d0/V.edgeD,taps=Math.min(8,Math.max(1,Math.ceil(blurPx/3)));
+      for(let t=0;t<taps;t++){const off=taps>1?(t/(taps-1)-0.5)*blurM:0;stationLayer(c,s,L,uw,bx,by,bw,bh,eye,pxm,sgn,off,1/(t+1),dk);}}}
+
   // 天気：くもり・雨は窓の外を少し灰色に、雨は窓を流れる雨筋、雪は舞う雪
   function weatherOnGlass(c,bx,by,bw,bh,wi,k){const wx=COND.wx;if(wx==='sun')return;const t=performance.now()/1000;
     if(wx==='cld'||wx==='rain'){c.fillStyle=wx==='rain'?'rgba(88,98,112,.30)':'rgba(130,138,148,.16)';c.fillRect(bx,by,bw,bh);}
@@ -2055,19 +2185,34 @@ const RIDE=(()=>{
     c.fillStyle=o.hair;c.beginPath();c.ellipse(o.x,o.y-r*0.15,r*0.92,r*1.02,0,0,7);c.fill();
     const g=c.createRadialGradient(o.x-r*0.35,o.y-r*0.7,0,o.x,o.y,r*1.1);g.addColorStop(0,'rgba(255,255,255,.18)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.fill();
     c.restore();}
-  function drawPeople(c,dt,t){const tg=targets(R.k.load/R.tr.cap),rate=Math.min(1,dt*2.2);
+  function drawStandSprite(g,o,tilt,t){const L=R.cfg.sprites.stand,sp=L[o.si%L.length],im=R.img[sp.src];if(!im)return drawStand(g,o,tilt,t);
+    const h=R.cfg.figure.heightPx*o.s*1.24,w=im.width*h/im.height,sway=Math.sin(t*1.3+o.ph)*0.01*(R.k.moving?1:0.3);
+    g.save();g.translate(o.x,o.y);g.rotate(tilt+sway);g.globalAlpha=o.a;if(o.flip)g.scale(-1,1);g.drawImage(im,-w/2,-h,w,h);g.restore();}
+  function drawHeadSprite(g,o){const L=R.cfg.sprites.heads,sp=L[o.si%L.length],im=R.img[sp.src];if(!im)return drawSeatCross(g,o);
+    const r=R.cfg.figure.heightPx*0.068*o.s,w=r*4.3,h=im.height*w/im.width;
+    g.save();g.globalAlpha=o.a;g.beginPath();g.rect(o.x-w,o.y-h*2,w*2,h*2+r*0.2);g.clip();if(o.flip){g.translate(o.x,0);g.scale(-1,1);g.translate(-o.x,0);}g.drawImage(im,o.x-w/2,o.y-r*0.15-h*0.33,w,h);g.restore();}
+  function drawPeople(c,dt,t){if(R.it.levels)return;const tg=targets(R.k.load/R.tr.cap),rate=Math.min(1,dt*2.2);
     R.slots.forEach((o,ix)=>{o.a+=(tg[ix]-o.a)*rate;if(Math.abs(tg[ix]-o.a)<0.004)o.a=tg[ix];});
     const vis=R.slots.filter(o=>o.a>0.01).sort((a,b)=>a.key-b.key);
     if(!vis.length)return;
     // 乗客はいったん別の層に描き、1回だけ少しぼかして重ねる（輪郭をやわらげて車内の絵になじませる）
     const L=R.layer||(R.layer=document.createElement('canvas'));if(L.width!==c.canvas.width||L.height!==c.canvas.height){L.width=c.canvas.width;L.height=c.canvas.height;}
     const g=L.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,L.width,L.height);g.setTransform(c.getTransform());
-    for(const o of vis){if(o.kind==='stand')drawStand(g,o,R.tilt,t);else if(R.it.seatStyle==='long')drawSeatLong(g,o,t);else drawSeatCross(g,o);}
+    const SP=R.cfg.sprites;
+    for(const o of vis){if(o.kind==='stand')(SP?drawStandSprite(g,o,R.tilt,t):drawStand(g,o,R.tilt,t));else if(R.it.seatStyle==='long')drawSeatLong(g,o,t);else (SP?drawHeadSprite(g,o):drawSeatCross(g,o));}
     c.save();c.setTransform(1,0,0,1,0,0);if('filter' in c)c.filter='blur(0.7px) saturate(0.85)';c.drawImage(L,0,0);c.restore();}
+  // 窓の部分が透明になった車内の絵：先に窓の外を描き、その上に車内を重ねる。混雑度（1〜5）ごとの絵をゆっくり切り替える
+  function drawLevels(c,dt,k,dk,blur,W,H,bob){const it=R.it;
+    for(const side of ['left','right'])(it.windows[side]||[]).forEach(([x,y,w,h],wi)=>{c.save();c.beginPath();c.rect(x,y,w,h);c.clip();windowContent(c,R.tr,k,x,y,w,h,side,wi,dk,blur);c.restore();});
+    if(it.door){const [x,y,w,h]=it.door,ref=R.img[it.levels[0]];c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.drawImage(ref,x-w*0.6,y-h*0.35,w*2.2,h*1.6);c.fillStyle='rgba(30,24,18,.35)';c.fillRect(x,y,w,h);c.restore();}   // 貫通扉の窓の向こう＝となりの車両
+    const tgt=level(k.load/R.tr.cap);if(R.lvShow==null)R.lvShow=tgt;R.lvShow+=(tgt-R.lvShow)*Math.min(1,dt*1.2);if(Math.abs(tgt-R.lvShow)<0.003)R.lvShow=tgt;
+    const a=Math.max(1,Math.min(5,Math.floor(R.lvShow))),f=R.lvShow-a;
+    c.drawImage(R.img[it.levels[a-1]],0,-1,W,H+2);if(f>0.01&&a<5){c.globalAlpha=f;c.drawImage(R.img[it.levels[a]],0,-1,W,H+2);c.globalAlpha=1;}}
   function drawScene(dt){const cv=el('rideCv'),it=R.it,im=R.img[it.src],W=im.width,H=im.height;const c=fit(cv,W,H);if(!c)return;
     const k=R.k,t=performance.now()/1000,dk=darkness(T);
     const blur=Math.abs(k.v)*R.mult/60*R.cfg.pxPerKm/30*(playing?1:0);
-    const bob=k.moving?Math.sin(t*2*Math.PI*1.6)*0.35*clamp(Math.abs(k.v)/1.2):0;
+    const bob=k.moving?Math.sin(t*2*Math.PI*1.6)*0.35*clamp(Math.abs(k.v)/1.2)*(W/419):0;
+    if(it.levels){c.clearRect(0,0,W,H);c.save();c.translate(0,bob);drawLevels(c,dt,k,dk,blur,W,H,bob);if(dk>0.01){c.fillStyle=`rgba(24,22,40,${0.18*dk})`;c.fillRect(0,0,W,H);}c.restore();return;}
     c.clearRect(0,0,W,H);c.save();c.translate(0,bob);c.drawImage(im,0,-1,W,H+2);
     for(const side of ['left','right'])(it.windows[side]||[]).forEach((q,wi)=>drawWindow(c,R.tr,k,q,side,wi,dk,blur));
     drawPeople(c,dt,t);
@@ -2369,7 +2514,7 @@ const RIDE=(()=>{
     el('rideTitle').innerHTML=`${TYPES[tr.type].name} ${tr.num}<small>${ST[tr.seq.at(-1)].name}行・${tr.cars}両</small>`;
     R.it=Object.values(R.cfg.interiors).find(x=>x.types.includes(tr.type))||R.cfg.interiors.local;
     el('rideBtns').src=R.cfg.buttons.src;makeSlots(tr);R.k=kin(tr,T);const tg=targets(R.k.load/tr.cap);R.slots.forEach((o,ix)=>o.a=tg[ix]);
-    R.lastV=R.k.v;R.lastT=T;R.tilt=0;R.keys={};R.dirty=true;}
+    R.lastV=R.k.v;R.lastT=T;R.tilt=0;R.keys={};R.dirty=true;R.lvShow=null;}
   function exit(why){if(!R.on)return;R.on=false;el('ride').hidden=true;document.documentElement.style.overflow='';
     const tr=R.tr,k=R.k,mode=R.mode;R.tr=null;R.mode='ride';setSpeed(R.prevSpeed);  // 元の速さ（×30〜×600）に戻す。時刻は乗車を終えた時刻のまま
     if(why==='rebuild')return;

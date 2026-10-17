@@ -830,211 +830,123 @@
    "eye": 85
   },
   "exp": {
-   "src": "assets/images/ride/interior_exp.webp",
+   "src": "assets/images/ride/interior_exp_c1.webp",
    "types": [
     "E",
     "X"
    ],
+   "levels": [
+    "assets/images/ride/interior_exp_c1.webp",
+    "assets/images/ride/interior_exp_c2.webp",
+    "assets/images/ride/interior_exp_c3.webp",
+    "assets/images/ride/interior_exp_c4.webp",
+    "assets/images/ride/interior_exp_c5.webp"
+   ],
+   "about": "窓の部分が透明な車内の絵。混雑度1〜5の絵を切り替える（ChatGPT/Geminiで作成した絵を加工）",
    "windows": {
     "left": [
      [
-      [
-       0,
-       18
-      ],
-      [
-       81,
-       36
-      ],
-      [
-       81,
-       110
-      ],
-      [
-       0,
-       122
-      ]
+      0,
+      46,
+      255,
+      381
      ],
      [
-      [
-       103,
-       48
-      ],
-      [
-       135,
-       53
-      ],
-      [
-       135,
-       98
-      ],
-      [
-       103,
-       100
-      ]
+      311,
+      144,
+      104,
+      195
      ],
      [
-      [
-       147,
-       62
-      ],
-      [
-       160,
-       64
-      ],
-      [
-       160,
-       96
-      ],
-      [
-       147,
-       97
-      ]
+      445,
+      183,
+      44,
+      118
+     ],
+     [
+      503,
+      200,
+      11,
+      75
      ]
     ],
     "right": [
      [
-      [
-       362,
-       36
-      ],
-      [
-       418,
-       22
-      ],
-      [
-       418,
-       125
-      ],
-      [
-       362,
-       120
-      ]
+      1101,
+      69,
+      179,
+      333
      ],
      [
-      [
-       309,
-       52
-      ],
-      [
-       340,
-       46
-      ],
-      [
-       340,
-       98
-      ],
-      [
-       309,
-       100
-      ]
+      939,
+      144,
+      102,
+      190
      ],
      [
-      [
-       280,
-       64
-      ],
-      [
-       294,
-       62
-      ],
-      [
-       294,
-       97
-      ],
-      [
-       280,
-       98
-      ]
+      864,
+      182,
+      45,
+      121
+     ],
+     [
+      838,
+      199,
+      12,
+      87
      ]
     ]
    },
-   "seated": [
-    [
-     51,
-     135,
-     1.35
-    ],
-    [
-     384,
-     138,
-     1.17
-    ],
-    [
-     125,
-     110,
-     0.83
-    ],
-    [
-     319,
-     110,
-     0.87
-    ],
-    [
-     161,
-     100,
-     0.53
-    ],
-    [
-     284,
-     100,
-     0.55
-    ],
-    [
-     178,
-     93,
-     0.4
-    ],
-    [
-     262,
-     93,
-     0.37
-    ],
-    [
-     188,
-     90,
-     0.3
-    ],
-    [
-     252,
-     90,
-     0.27
-    ]
+   "door": [
+    657,
+    215,
+    40,
+    56
    ],
+   "eye": 242,
+   "seated": [],
+   "standing": [],
    "seatStyle": "cross",
-   "standing": [
-    [
-     223,
-     124
+   "horizon": 242,
+   "standK": 100,
+   "glass": {
+    "left": [
+     [
+      86,
+      357
+     ],
+     [
+      156,
+      282
+     ],
+     [
+      188,
+      292
+     ],
+     [
+      200,
+      268
+     ]
     ],
-    [
-     214,
-     128
-    ],
-    [
-     231,
-     132
-    ],
-    [
-     221,
-     142
-    ],
-    [
-     230,
-     150
-    ],
-    [
-     216,
-     160
-    ],
-    [
-     227,
-     174
+    "right": [
+     [
+      96,
+      366
+     ],
+     [
+      157,
+      271
+     ],
+     [
+      187,
+      273
+     ],
+     [
+      199,
+      281
+     ]
     ]
-   ],
-   "horizon": 80,
-   "standK": 135,
-   "eye": 80
+   }
   }
  },
  "doors": {
@@ -1426,5 +1338,198 @@
   ],
   "terminalStandMin": 3,
   "originArriveMin": 5
+ },
+ "sprites": {
+  "about": "後ろ姿の人の絵（緑の背景から切り抜き）。heads＝座席の上に見える頭と肩、stand＝通路に立つ人",
+  "heads": [
+   {
+    "src": "assets/images/ride/ppl_head_1.webp",
+    "w": 169,
+    "h": 160
+   },
+   {
+    "src": "assets/images/ride/ppl_head_2.webp",
+    "w": 171,
+    "h": 160
+   },
+   {
+    "src": "assets/images/ride/ppl_head_3.webp",
+    "w": 173,
+    "h": 160
+   },
+   {
+    "src": "assets/images/ride/ppl_head_4.webp",
+    "w": 164,
+    "h": 160
+   },
+   {
+    "src": "assets/images/ride/ppl_head_5.webp",
+    "w": 174,
+    "h": 160
+   },
+   {
+    "src": "assets/images/ride/ppl_head_6.webp",
+    "w": 184,
+    "h": 160
+   },
+   {
+    "src": "assets/images/ride/ppl_head_7.webp",
+    "w": 138,
+    "h": 142
+   },
+   {
+    "src": "assets/images/ride/ppl_head_8.webp",
+    "w": 171,
+    "h": 160
+   }
+  ],
+  "stand": [
+   {
+    "src": "assets/images/ride/ppl_stand_1.webp",
+    "w": 104,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_2.webp",
+    "w": 94,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_3.webp",
+    "w": 97,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_4.webp",
+    "w": 114,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_5.webp",
+    "w": 86,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_6.webp",
+    "w": 119,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_7.webp",
+    "w": 108,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_8.webp",
+    "w": 109,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_9.webp",
+    "w": 93,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_10.webp",
+    "w": 128,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_11.webp",
+    "w": 104,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_12.webp",
+    "w": 134,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_13.webp",
+    "w": 108,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_14.webp",
+    "w": 132,
+    "h": 320
+   },
+   {
+    "src": "assets/images/ride/ppl_stand_15.webp",
+    "w": 127,
+    "h": 320
+   }
+  ]
+ },
+ "stationView": {
+  "about": "窓から見える駅。長さ・高さ・奥行き（d：窓からの距離）はメートル。近いもの（ホームの縁）ほど大きく速く流れ、奥のもの（柱・壁）ほど小さくゆっくり流れる。床・屋根・柱は絵から切り出した素材、駅名標と吊り下げ案内は文字で描く",
+  "floor": "assets/images/ride/stv_floor.webp",
+  "canopy": "assets/images/ride/stv_canopy.webp",
+  "pillar": "assets/images/ride/stv_pillar.webp",
+  "viewM": 3.0,
+  "roofM": 3.1,
+  "windowGapM": 2.3,
+  "shutterSec": 0.014,
+  "lengthM": {
+   "default": 150,
+   "C": 175,
+   "P": 175,
+   "K": 175,
+   "U": 165,
+   "M": 165,
+   "F": 110,
+   "T": 110,
+   "O": 120
+  },
+  "canopyFrac": {
+   "default": 0.62,
+   "C": 0.9,
+   "P": 0.85,
+   "K": 0.8,
+   "O": 0.7
+  },
+  "pillarM": 9,
+  "hangM": 24,
+  "signsAt": [
+   -0.36,
+   -0.09,
+   0.17,
+   0.41
+  ],
+  "signM": [
+   1.6,
+   0.66,
+   1.35
+  ],
+  "maxPeople": 70,
+  "crowdK": 3.2,
+  "eyeFrac": 0.5,
+  "eyeM": 1.25,
+  "d0": 3.0,
+  "edgeD": 1.5,
+  "backD": 6.5,
+  "canopyD": 2.2,
+  "lampD": 3.6,
+  "lampM": 6,
+  "pillarD": 4.0,
+  "signD": 3.4,
+  "hangD": 2.9,
+  "peopleD": [
+   2.2,
+   4.8
+  ],
+  "backH": 1.1,
+  "backColor": "#8a8f95",
+  "floorTileM": 7,
+  "floorColor": [
+   "#9aa1a8",
+   "#b9bdbf"
+  ],
+  "tactileD": [
+   2.25,
+   2.55
+  ],
+  "tactileColor": "#e8c23a",
+  "tileM": 0.9
  }
 }
