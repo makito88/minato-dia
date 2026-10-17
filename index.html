@@ -1704,8 +1704,8 @@ const SND=(()=>{
     while(S.obNext<now+0.6){const t0=Math.max(S.obNext,now+0.02),sN=c.createBufferSource(),e=c.createGain();sN.buffer=r.buf;
       e.gain.setValueAtTime(0,t0);e.gain.linearRampToValueAtTime(1,t0+fade);e.gain.setValueAtTime(1,t0+step);e.gain.linearRampToValueAtTime(0,t0+len);
       sN.connect(e);e.connect(S.obIn);sN.start(t0,s0+Math.random()*(s1-s0),len+0.1);S.obNext=t0+step;S.grains=(S.grains||0)+1;}}
-  function trainRec(L,duck){if(!PASS||!ready(PASS.file))return;const now=performance.now(),tv=volOf('train')*duck;
-    const riding=L.kind==='train'&&L.moving;if(OB&&ready(OB.file))onboard(riding?OB.level*tv:0);
+  function trainRec(L,duck,onlyOnboard){if(!PASS||!ready(PASS.file))return;const now=performance.now(),tv=volOf('train')*duck;
+    const riding=L.kind==='train'&&L.moving;if(OB&&ready(OB.file))onboard(riding?OB.level*tv:0);if(onlyOnboard)return;
     S.trk=S.trk||new Map();S.active=(S.active||[]).filter(x=>x.end>S.ctx.currentTime);
     for(const v of VIS){if(!v.st.moving)continue;const d=Math.hypot(v.st.x-L.x,v.st.y-L.y);const k=S.trk.get(v.s.id)||{d:1e9,last:-1e9};
       const approaching=d<k.d-0.01;k.d=d;S.trk.set(v.s.id,k);if(riding&&d<10)continue;
@@ -1773,7 +1773,10 @@ const SND=(()=>{
   function tick(ts){ // 1秒に4回だけ計算
     if(!S.on||!S.ctx||ts-S.lastTick<250)return;S.lastTick=ts;
     const L=listenerPos();S.listener=L;
-    if(audible()){const t=targets(L);apply(t,2.5);setMaster(masterLevel(),1.2);shots(t);trainRec(L,t._duck);for(const o of OCC)occasional(o,t._occ[o.id]);}
+    // 乗車画面（客席）にいる間は、駅や街の環境音・ほかの列車の通過音を止め、自分の列車の走行音（ガタンゴトン）とドアの音だけにする
+    const riding=typeof RIDE!=='undefined'&&RIDE.on&&RIDE.mode==='ride';S.ridingOnly=riding;
+    if(audible()){const t=targets(L);if(riding)for(const k in t)if(k[0]!=='_'&&typeof t[k]==='number')t[k]=0;
+      apply(t,riding?1.2:2.5);setMaster(masterLevel(),1.2);if(!riding){shots(t);for(const o of OCC)occasional(o,t._occ[o.id]);}trainRec(L,riding?1:t._duck,riding);}
     updateUI();}
   async function start(){if(!S.supported)return false;
     try{if(!S.ctx)build();if(S.ctx.state!=='running')await S.ctx.resume();}catch(e){S.supported=false;updateUI();return false;}
@@ -1810,7 +1813,7 @@ const SND=(()=>{
   function preload(id){const e=CFG&&CFG.effects&&CFG.effects[id];if(e&&S.on&&S.ctx&&FILES[e.file]&&!R[e.file])load(e.file);}
   return {S,tick,start,stop,onPlay,setVol,setPart,updateUI,listenerPos,effect,preload,
     debug:()=>({on:S.on,state:S.ctx?S.ctx.state:'none',built:S.built,master:S.nodes?S.nodes.master.gain.value:0,
-      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,fx:S.fx||0,lastFx:S.lastFx||null,config:S.cfgState||'未読込',rec:Object.fromEntries(Object.keys(FILES).map(k=>[k,R[k]?R[k].state+(R[k].err?':'+R[k].err:''):'未読込'])),recGains:Object.fromEntries(LOOPS.map(P=>[P.file,R[P.file]&&R[P.file].g?+R[P.file].g.gain.value.toFixed(4):null])),passes:S.passCount||0,lastPassLevel:S.lastPassLevel||0,passTimes:(S.passTimes||[]).slice(-6),active:(S.active||[]).length,grains:S.grains||0,onboard:S.ob?+S.ob.gain.value.toFixed(4):0,horns:(S.occCount&&S.occCount.horn)||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
+      gains:S.nodes?Object.fromEntries(VOICES.map(k=>[k,+S.nodes[k].g.gain.value.toFixed(4)])):{},shots:S.shotCount||0,fx:S.fx||0,lastFx:S.lastFx||null,config:S.cfgState||'未読込',rec:Object.fromEntries(Object.keys(FILES).map(k=>[k,R[k]?R[k].state+(R[k].err?':'+R[k].err:''):'未読込'])),recGains:Object.fromEntries(LOOPS.map(P=>[P.file,R[P.file]&&R[P.file].g?+R[P.file].g.gain.value.toFixed(4):null])),passes:S.passCount||0,lastPassLevel:S.lastPassLevel||0,passTimes:(S.passTimes||[]).slice(-6),active:(S.active||[]).length,grains:S.grains||0,onboard:S.ob?+S.ob.gain.value.toFixed(4):0,ridingOnly:!!S.ridingOnly,horns:(S.occCount&&S.occCount.horn)||0,nextShotIn:S.nextShot?Math.round((S.nextShot-performance.now())/1000):null,listener:S.listener})};
 })();
 const toggleSnd=()=>{if(SND.S.on)SND.stop();else SND.start();};
 $('#snd').addEventListener('click',toggleSnd);$('#msnd').addEventListener('click',toggleSnd);
@@ -2573,7 +2576,7 @@ const st=personStyle(o,s,T),pal=PAL[st],col=pal[Math.floor(o.r2*pal.length)],b=P
   el('rideDbgBtn').addEventListener('click',()=>{R.dbg=!R.dbg;try{localStorage.setItem('dia-ride-dbg',R.dbg?'1':'0');}catch(e){}dbgUI();});
   document.addEventListener('keydown',e=>{if(R.on&&e.key==='Escape')exit('close');});
   addEventListener('resize',()=>{R.dirty=true;});
-  return {debug:(tr,t)=>R.cfg?debugInfo(tr,kin(tr,t)):null,plat:()=>({mode:R.mode,s:P.s,dir:P.dir,vis:(P.vis||[]).map(v=>({ix:v.tr.ix,type:v.tr.type,lane:v.lane,d:v.d,stopped:v.stopped,door:v.door,right:v.right,front:v.front,i:v.i})),wait:P.wait,drawn:P.slots.filter(o=>o.a>0.5).length,styles:P.s?P.slots.filter(o=>o.a>0.5).map(o=>personStyle(o,P.s,T)):[],ev:P.s?evOutfit(P.s,T):null,board:P.board?P.board.ix:null}),toPlat,get on(){return R.on;},enter,exit,tick,kin:(tr,t)=>R.cfg?kin(tr,t):null,state:()=>({on:R.on,mult:R.mult,prevSpeed:R.prevSpeed,speed,k:R.k,level:R.k&&R.tr?level(R.k.load/R.tr.cap):null,visible:R.slots.filter(o=>o.a>0.5).length,seats:R.seatN,slots:R.slots.length,interior:R.it&&R.it.src,loaded:!!R.cfg})};
+  return {debug:(tr,t)=>R.cfg?debugInfo(tr,kin(tr,t)):null,plat:()=>({mode:R.mode,s:P.s,dir:P.dir,vis:(P.vis||[]).map(v=>({ix:v.tr.ix,type:v.tr.type,lane:v.lane,d:v.d,stopped:v.stopped,door:v.door,right:v.right,front:v.front,i:v.i})),wait:P.wait,drawn:P.slots.filter(o=>o.a>0.5).length,styles:P.s?P.slots.filter(o=>o.a>0.5).map(o=>personStyle(o,P.s,T)):[],ev:P.s?evOutfit(P.s,T):null,board:P.board?P.board.ix:null}),toPlat,get on(){return R.on;},get mode(){return R.mode;},enter,exit,tick,kin:(tr,t)=>R.cfg?kin(tr,t):null,state:()=>({on:R.on,mult:R.mult,prevSpeed:R.prevSpeed,speed,k:R.k,level:R.k&&R.tr?level(R.k.load/R.tr.cap):null,visible:R.slots.filter(o=>o.a>0.5).length,seats:R.seatN,slots:R.slots.length,interior:R.it&&R.it.src,loaded:!!R.cfg})};
 })();
 $('#info').addEventListener('click',e=>{const b=e.target.closest('[data-ride]');if(!b)return;const tr=D.trips[Number(b.dataset.ride)];if(tr)RIDE.enter(tr);});
 
