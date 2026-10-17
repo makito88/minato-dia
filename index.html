@@ -2353,7 +2353,7 @@ const RIDE=(()=>{
     const nm=ST[s].name;c.font=`700 ${hh*0.46}px ${FONT}`;c.textAlign='center';c.fillText(nm.split('').join(' '),x+w*0.47,y+hh*0.42);
     c.font=`${hh*0.16}px ${FONT}`;c.fillStyle='#cdd8f0';c.fillText(stc.roma||'',x+w*0.47,y+hh*0.82);
     // 右上：時刻
-    c.fillStyle='rgba(255,255,255,.12)';rr(c,x+w-66,y+8,58,hh-16,5);c.fill();c.fillStyle='#fff';c.font=`${hh*0.17}px ${FONT}`;c.fillText(lab==='まもなく'?'到着予定':'現在時刻',x+w-37,y+hh*0.33);
+    c.fillStyle='rgba(255,255,255,.12)';rr(c,x+w-66,y+8,58,hh-16,5);c.fill();c.fillStyle='#fff';c.font=`${hh*0.17}px ${FONT}`;c.fillText(lab==='まもなく'||lab==='次は'?'到着予定':'現在時刻',x+w-37,y+hh*0.33);
     c.font=`700 ${hh*0.24}px ${FONT}`;c.fillText(fmt(lab==='まもなく'||lab==='次は'?tr.arr[j]:T),x+w-37,y+hh*0.66);
     // 下：この先の停車駅
     const list=[];for(let q=j;q<n&&list.length<3;q++)if(tr.stop[q]||q===n-1)list.push(q);
