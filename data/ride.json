@@ -467,7 +467,7 @@
    "types": [
     "R"
    ],
-   "about": "正面から向かいの壁を見た快速の車内（Geminiで作成）。窓とドアのガラスが透明。乗客は riders の絵を seated（腰の位置）・standing（足もと）に置く。led はドア上の案内表示",
+   "about": "正面から向かいの壁を見た快速の車内（Geminiで作成）。窓とドアのガラスが透明。中央のドアは doorway で開閉する。乗客は riders の絵を seated（腰の位置）・standing（足もと）に置く。led はドア上の案内表示",
    "levels": [
     "assets/images/ride/interior_rapid_f.webp"
    ],
@@ -484,18 +484,6 @@
       200,
       217,
       250
-     ],
-     [
-      509,
-      204,
-      99,
-      251
-     ],
-     [
-      675,
-      204,
-      99,
-      251
      ],
      [
       999,
@@ -521,14 +509,6 @@
      [
       202,
       447
-     ],
-     [
-      206,
-      453
-     ],
-     [
-      206,
-      453
      ],
      [
       201,
@@ -633,7 +613,25 @@
     95,
     308,
     41
-   ]
+   ],
+   "doorway": {
+    "about": "絵の中のドア。rect＝開口部（車内の絵では透明）、seam＝左右の扉の合わせ目、src＝扉の絵。開くと扉が左右の壁に引き込まれ、外（ホーム）が見える。eyeY・pxm・glassY は外の駅の見え方",
+    "src": "assets/images/ride/door_rapid_leaves.webp",
+    "rect": [
+     479,
+     168,
+     800,
+     685
+    ],
+    "seam": 640,
+    "eyeY": 343,
+    "pxm": 137,
+    "glassY": [
+     206,
+     453
+    ],
+    "wi": 2
+   }
   },
   "exp": {
    "src": "assets/images/ride/interior_exp_c1.webp",

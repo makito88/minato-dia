@@ -314,6 +314,7 @@ canvas{display:block;touch-action:manipulation}
 .rside canvas#rideMon{display:block;width:100%;aspect-ratio:321/216}
 .rdoorrow{display:grid;grid-template-columns:130px 38px minmax(0,1fr);gap:8px;align-items:end}
 .rdoorrow canvas{display:block;width:100%;border-radius:6px}
+.rdoorrow.nodoor{grid-template-columns:38px minmax(0,1fr)}.rdoorrow.nodoor canvas{display:none}
 .rdoorrow img{width:38px;height:auto;display:block;opacity:.92;transition:filter .3s}
 .rdoorrow img.on{filter:drop-shadow(0 0 6px rgb(80 220 150 / .6))}
 .rcrowd{background:#1d2127;border:1px solid #2a2e35;border-radius:8px;padding:9px 11px}
@@ -1926,7 +1927,7 @@ const RIDE=(()=>{
     R.loading=fetch('data/ride.json').then(r=>{if(!r.ok)throw new Error('data/ride.json: HTTP '+r.status);return r.json();}).then(c=>{
       const srcs=new Set([c.platform.src,c.monitor.src,c.buttons.src]);
       Object.values(c.scenery).forEach(s=>{srcs.add(s.src);VARIANTS.forEach(v=>{if(s[v])srcs.add(s[v].src);});});
-      if(c.station){Object.values(c.station.backgrounds).forEach(b=>srcs.add(b.src));Object.values(c.station.trains).forEach(t=>{srcs.add(t.headSrc);srcs.add(t.midSrc);});}Object.values(c.interiors).forEach(s=>{srcs.add(s.src);(s.levels||[]).flat().forEach(x=>srcs.add(x));});if(c.people)['front','back'].forEach(k=>(c.people[k]||[]).forEach(x=>srcs.add(x.src)));if(c.sprites){c.sprites.heads.forEach(x=>srcs.add(x.src));c.sprites.stand.forEach(x=>srcs.add(x.src));}if(c.riders)['stand','seat'].forEach(k=>c.riders[k].forEach(x=>srcs.add(x.src)));Object.values(c.doors).forEach(d=>srcs.add(d.src));if(c.stationView)['floor','canopy','pillar'].forEach(k=>srcs.add(c.stationView[k]));Object.values(c.doors).forEach(s=>srcs.add(s.src));
+      if(c.station){Object.values(c.station.backgrounds).forEach(b=>srcs.add(b.src));Object.values(c.station.trains).forEach(t=>{srcs.add(t.headSrc);srcs.add(t.midSrc);});}Object.values(c.interiors).forEach(s=>{srcs.add(s.src);if(s.doorway)srcs.add(s.doorway.src);(s.levels||[]).flat().forEach(x=>srcs.add(x));});if(c.people)['front','back'].forEach(k=>(c.people[k]||[]).forEach(x=>srcs.add(x.src)));if(c.sprites){c.sprites.heads.forEach(x=>srcs.add(x.src));c.sprites.stand.forEach(x=>srcs.add(x.src));}if(c.riders)['stand','seat'].forEach(k=>c.riders[k].forEach(x=>srcs.add(x.src)));Object.values(c.doors).forEach(d=>srcs.add(d.src));if(c.stationView)['floor','canopy','pillar'].forEach(k=>srcs.add(c.stationView[k]));Object.values(c.doors).forEach(s=>srcs.add(s.src));
       return Promise.all([...srcs].map(s=>loadImg(s).then(im=>{R.img[s]=im;}))).then(()=>{R.cfg=c;buildStrips();});});
     R.loading.catch(()=>{R.loading=null;});
     return R.loading;}
@@ -2218,10 +2219,19 @@ const RIDE=(()=>{
   function levelSrc(n){const LV=R.it.levels,L=LV[Math.min(n,LV.length-1)];return Array.isArray(L)?L[(R.tr.num||0)%L.length]:L;}
   function drawLevels(c,dt,k,dk,blur,W,H,bob){const it=R.it;
     for(const side of ['left','right'])(it.windows[side]||[]).forEach(([x,y,w,h],wi)=>{c.save();c.beginPath();c.rect(x,y,w,h);c.clip();windowContent(c,R.tr,k,x,y,w,h,side,wi,dk,blur);c.restore();});
+    if(it.doorway)drawDoorway(c,k,dk,blur);
     if(it.door){const [x,y,w,h]=it.door,ref=R.img[levelSrc(0)];c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.drawImage(ref,x-w*0.6,y-h*0.35,w*2.2,h*1.6);c.fillStyle='rgba(30,24,18,.35)';c.fillRect(x,y,w,h);c.restore();}   // 貫通扉の窓の向こう＝となりの車両
     const tgt=level(k.load/R.tr.cap);if(R.lvShow==null)R.lvShow=tgt;R.lvShow+=(tgt-R.lvShow)*Math.min(1,dt*2.5);if(Math.abs(tgt-R.lvShow)<0.003)R.lvShow=tgt;
     const a=Math.max(1,Math.min(5,Math.floor(R.lvShow))),f=R.lvShow-a;
     const s0=levelSrc(a-1),s1=levelSrc(a);c.drawImage(R.img[s0],0,-1,W,H+2);if(f>0.01&&a<5&&s1!==s0){c.globalAlpha=f;c.drawImage(R.img[s1],0,-1,W,H+2);c.globalAlpha=1;}}
+  // 車内の絵の中のドア：開口部（車内の絵では透明）の向こうに外を描き、その上に扉を描く。扉は開くと左右の壁の中へ引き込まれる（このあと重ねる車内の絵に隠れる）
+  function drawDoorway(c,k,dk,blur){const D=R.it.doorway,[x0,y0,x1,y1]=D.rect,mid=D.seam,o=k.door,im=R.img[D.src];
+    c.save();c.beginPath();c.rect(x0,y0,x1-x0,y1-y0);c.clip();
+    R.ov={eye:D.eyeY,eyeY:D.eyeY,pxm:D.pxm,glass:D.glassY};try{windowContent(c,R.tr,k,x0,y0,x1-x0,y1-y0,'left',D.wi||0,dk,blur);}finally{R.ov=null;}
+    const sh=Math.max(mid-x0,x1-mid)*o*0.97,lw=mid-x0;
+    c.drawImage(im,0,0,lw,im.height,x0-sh,y0,lw,y1-y0);c.drawImage(im,lw,0,im.width-lw,im.height,mid+sh,y0,x1-mid,y1-y0);
+    if(o>0.001){c.fillStyle='rgba(0,0,0,.3)';c.fillRect(mid-sh-2,y0,2,y1-y0);c.fillRect(mid+sh,y0,2,y1-y0);}
+    c.restore();}
   /* --- 乗客の絵（riders）：席・立ち位置に、いま乗っている人の目的（通勤通学・ビジネス・観光・私用）の割合で服装を選んで置く。
      イベントの開催中で会場の駅を通る列車は、観光・私用の一部をイベントの服装（浴衣・フェス・鉄道フェス）にする。
      同じ人が同じ車内に2人出ないように、使っていない絵から選ぶ（足りないときだけ左右反転で再利用） --- */
@@ -2231,7 +2241,10 @@ const RIDE=(()=>{
     const ev=riderEvent(tr),w=[mx[0],mx[1],mx[2],mx[3],0];if(ev){w[4]=w[2]*0.7+w[3]*0.2;w[2]*=0.3;w[3]*=0.8;}
     const sum=w.reduce((a,b)=>a+b,0),rnd=R.prnd;let r=rnd()*(sum||1),cat=0;if(sum>0)for(cat=0;cat<4&&r>=w[cat];cat++)r-=w[cat];
     const list=RD[o.kind==='seat'?'seat':'stand'];let pool=list.filter(x=>x.cat===cat&&(cat!==4||x.ev===ev));if(!pool.length)pool=list.filter(x=>x.cat===2);
-    const used=new Set(R.slots.filter(q=>q.rd).map(q=>q.rd.src)),free=pool.filter(x=>!used.has(x.src)),reuse=!free.length;
+    const used=new Set(R.slots.filter(q=>q.rd).map(q=>q.rd.src));let free=pool.filter(x=>!used.has(x.src));
+    // その目的の絵を使い切ったら、近い目的のまだ使っていない絵から選ぶ（同じ人を並べない）。全部使い切ったときだけ再利用
+    for(const c2 of ({0:[3,1,2],1:[0,3,2],2:[3,0,1],3:[0,2,1],4:[2,3,0]})[cat]){if(free.length)break;free=list.filter(x=>x.cat===c2&&!used.has(x.src));}
+    const reuse=!free.length;
     const sp=(reuse?pool:free)[Math.floor(rnd()*(reuse?pool.length:free.length))];
     return {...sp,flip:!sp.nf&&(reuse||o.flip),k:0.97+rnd()*0.06};}
   function drawPax(c,dt,t){const it=R.it,P=it.pax,RD=R.cfg.riders;if(!RD)return;
@@ -2257,14 +2270,19 @@ const RIDE=(()=>{
     return best;}
   // 停車中に同じ方向の列車が通過していく（通過待ち）
   function passWait(tr,i){const s=tr.seq[i];for(const o of D.trips){if(o===tr||o.down!==tr.down)continue;const q=o.seq.indexOf(s);if(q<=0||q===o.seq.length-1||o.stop[q])continue;if(o.arr[q]>=T&&o.arr[q]<=tr.dep[i])return o;}return null;}
+  // この駅から先で通過する駅（all＝終点まで全部、そうでなければ次の停車駅まで）と、そこへ行く各駅停車
+  function passAhead(tr,i,all){const n=tr.seq.length,out=[];for(let a=i+1;a<n-1;a++){if(tr.stop[a]){if(!all)break;continue;}out.push(tr.seq[a]);}
+    if(!out.length)return null;const s=tr.seq[i],cn=conn(s,T-1,o=>o.type==='L'&&o.down===tr.down&&o.seq.includes(out[0]));return {names:out.map(q=>ST[q].name),cn};}
   function ledSegs(k){const tr=R.tr,n=tr.seq.length,{lab,j}=monitorInfo(k),s=tr.seq[j],nm=ST[s].name,dest=ST[tr.seq.at(-1)].name,ty=TYPES[tr.type].name;
     const A='#ffad42',G='#72e596',Wt='#eef1f2',msgs=[];const M=(...a)=>msgs.push(a.map(x=>Array.isArray(x)?x:[x,A]));
     const side=R.cfg.platform.side==='right'?'右':'左';
+    const pass=(i,all)=>{const p=passAhead(tr,i,all);if(p)M(`${p.names.join('・')}にお越しのお客様は 各駅停車にお乗り換えください`+(p.cn?`（${fmt(p.cn.t)}発 普通 ${ST[p.cn.o.seq.at(-1)].name}行）`:''));};
     const xfer=()=>transferDirs(tr,j).forEach(({end,cn})=>M(`${ST[end].name}方面はお乗り換えです`+(cn?`（${fmt(cn.t)}発 ${TYPES[cn.o.type].name} ${ST[cn.o.seq.at(-1)].name}行）`:'')));
     if(lab==='終点'){M([nm,G],' 終点です');M('ご乗車ありがとうございました');M('お忘れ物のないようご注意ください');M([`${roma(s)}. This is the last stop.`,Wt]);return msgs;}
-    if(!k.moving&&k.i===0){M('この電車は ',[`${ty} ${dest}`,G],' 行きです');M('停車駅は '+tr.seq.filter((q,ix)=>ix>0&&(tr.stop[ix]||ix===n-1)).map(q=>ST[q].name).join('・')+' です');M(`${fmt(tr.dep[0])} 発車`);M([`This is the ${TYPE_EN[tr.type]} train bound for ${roma(tr.seq.at(-1))}.`,Wt]);return msgs;}
+    if(!k.moving&&k.i===0){M('この電車は ',[`${ty} ${dest}`,G],' 行きです');M('停車駅は '+tr.seq.filter((q,ix)=>ix>0&&(tr.stop[ix]||ix===n-1)).map(q=>ST[q].name).join('・')+' です');pass(0,true);M(`${fmt(tr.dep[0])} 発車`);M([`This is the ${TYPE_EN[tr.type]} train bound for ${roma(tr.seq.at(-1))}.`,Wt]);return msgs;}
     if(lab==='ただいま'){M([nm,G],' です');M('この電車は ',[`${ty} ${dest}`,G],' 行きです');xfer();
       const fc=fasterConn(tr,j);if(fc)M(`${ST[tr.seq[fc.X]].name}へお急ぎの方は 向かいの`,[TYPES[fc.o.type].name,G],`（${fmt(fc.o.dep[fc.q])}発）にお乗り換えください`+(TYPES[fc.o.type].sur?'　特急券が必要です':''));
+      pass(j,false);
       const pw=passWait(tr,j);if(pw)M(`${TYPES[pw.type].name}の通過待ちのため しばらく停車します`);
       M(`${fmt(tr.dep[j])} 発車`);return msgs;}
     M(lab==='まもなく'?'まもなく ':'次は ',...(j===n-1?['終点 ']:[]),[nm,G],' です');M(`お出口は${side}側です`);xfer();M(`${nm} ${fmt(tr.arr[j])} 着`);
@@ -2292,7 +2310,7 @@ const RIDE=(()=>{
     c.restore();}
 
   /* --- 描画：ドア（開くと後ろにホームが見える） --- */
-  function drawDoor(k){const D0=R.cfg.doors[R.tr.type]||R.cfg.doors.L;if(D0.glass)return drawDoorGlass(k,D0);const im=R.img[D0.src],W=im.width,H=im.height;const c=fit(el('rideDoor'),W,H);if(!c)return;
+  function drawDoor(k){if(R.it&&R.it.doorway)return;const D0=R.cfg.doors[R.tr.type]||R.cfg.doors.L;if(D0.glass)return drawDoorGlass(k,D0);const im=R.img[D0.src],W=im.width,H=im.height;const c=fit(el('rideDoor'),W,H);if(!c)return;
     const key=k.door.toFixed(3)+'|'+Math.round(darkness(T)*50);if(R.keys.door===key&&!R.dirty)return;R.keys.door=key;
     c.clearRect(0,0,W,H);c.drawImage(im,0,0);
     const [x0,y0,x1,y1]=D0.leaves,mid=(x0+x1)/2,o=k.door;
@@ -2597,7 +2615,7 @@ const st=personStyle(o,s,T),pal=PAL[st],col=pal[Math.floor(o.r2*pal.length)],b=P
   function startRide(tr){R.mode='ride';R.tr=tr;sel={kind:'trip',trip:tr};el('rideSide').hidden=false;el('platSide').hidden=true;el('rideCv').style.aspectRatio='';
     el('rideTitle').innerHTML=`${TYPES[tr.type].name} ${tr.num}<small>${ST[tr.seq.at(-1)].name}行・${tr.cars}両</small>`;
     R.it=Object.values(R.cfg.interiors).find(x=>x.types.includes(tr.type))||R.cfg.interiors.local;
-    el('rideBtns').src=R.cfg.buttons.src;makeSlots(tr);R.prnd=seeded((tr.num||1)*7+3);R.led=null;R.ledKey=null;R.k=kin(tr,T);const tg=targets(R.k.load/tr.cap);R.slots.forEach((o,ix)=>o.a=tg[ix]);
+    el('rideBtns').src=R.cfg.buttons.src;el('rideDoor').parentElement.classList.toggle('nodoor',!!R.it.doorway);makeSlots(tr);R.prnd=seeded((tr.num||1)*7+3);R.led=null;R.ledKey=null;R.k=kin(tr,T);const tg=targets(R.k.load/tr.cap);R.slots.forEach((o,ix)=>o.a=tg[ix]);
     R.lastV=R.k.v;R.lastT=T;R.tilt=0;R.keys={};R.dirty=true;R.lvShow=null;}
   function exit(why){if(!R.on)return;R.on=false;el('ride').hidden=true;document.documentElement.style.overflow='';
     const tr=R.tr,k=R.k,mode=R.mode;R.tr=null;R.mode='ride';setSpeed(R.prevSpeed);  // 元の速さ（×30〜×600）に戻す。時刻は乗車を終えた時刻のまま
