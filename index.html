@@ -529,7 +529,7 @@ canvas{display:block;touch-action:manipulation}
       <canvas id="rideMon" aria-label="車内の案内表示"></canvas>
       <div class="rdoorrow"><canvas id="rideDoor" aria-label="ドア"></canvas><img id="rideBtns" alt=""><div class="rcrowd" id="rideCrowd"></div></div>
       <button class="roff" id="rideOff" disabled>この駅で降りる</button>
-      <p class="rnote">試作です。景色・車内・ドアは用意された絵を使っています（解像度は低め）。乗客は仮のシルエット表示で、人数は乗車率から5段階で決めています。あなた自身はシミュレーションの乗客数に含まれません。</p>
+      <p class="rnote">試作です。景色・車内・ドアは用意された絵を使っています。車内の混み具合は乗車率から5段階で決め、段階ごとの絵に切り替えます（快速は人の絵を重ねて表示）。あなた自身はシミュレーションの乗客数に含まれません。</p>
     </div>
     <div class="rside" id="platSide" hidden>
       <canvas id="platLED" aria-label="発車標"></canvas>
@@ -538,7 +538,7 @@ canvas{display:block;touch-action:manipulation}
       <button class="rsub" id="platSkip">次の電車が来るまで時刻を進める</button>
       <div class="rxfer" id="platXfer"></div>
       <div class="rcrowd" id="platWait"></div>
-      <p class="rnote">試作です。ホームの背景は用意された絵を加工したもの、列車は絵をつないで描いています。待っている人は仮の手描きで、人数は駅で待っている人数（シミュレーション）に合わせて増減します。</p>
+      <p class="rnote">試作です。ホームの背景は用意された絵を加工したもの、列車は絵をつないで描いています。待っている人はChatGPTで作った絵で、人数は駅で待っている人数（シミュレーション）に合わせて増減します。</p>
     </div>
   </div>
 </div>
@@ -1916,7 +1916,7 @@ const RIDE=(()=>{
     R.loading=fetch('data/ride.json').then(r=>{if(!r.ok)throw new Error('data/ride.json: HTTP '+r.status);return r.json();}).then(c=>{
       const srcs=new Set([c.platform.src,c.monitor.src,c.buttons.src]);
       Object.values(c.scenery).forEach(s=>{srcs.add(s.src);VARIANTS.forEach(v=>{if(s[v])srcs.add(s[v].src);});});
-      if(c.station){Object.values(c.station.backgrounds).forEach(b=>srcs.add(b.src));Object.values(c.station.trains).forEach(t=>{srcs.add(t.headSrc);srcs.add(t.midSrc);});}Object.values(c.interiors).forEach(s=>{srcs.add(s.src);(s.levels||[]).forEach(x=>srcs.add(x));});if(c.sprites){c.sprites.heads.forEach(x=>srcs.add(x.src));c.sprites.stand.forEach(x=>srcs.add(x.src));}if(c.stationView)['floor','canopy','pillar'].forEach(k=>srcs.add(c.stationView[k]));Object.values(c.doors).forEach(s=>srcs.add(s.src));
+      if(c.station){Object.values(c.station.backgrounds).forEach(b=>srcs.add(b.src));Object.values(c.station.trains).forEach(t=>{srcs.add(t.headSrc);srcs.add(t.midSrc);});}Object.values(c.interiors).forEach(s=>{srcs.add(s.src);(s.levels||[]).flat().forEach(x=>srcs.add(x));});if(c.people)['front','back'].forEach(k=>(c.people[k]||[]).forEach(x=>srcs.add(x.src)));if(c.sprites){c.sprites.heads.forEach(x=>srcs.add(x.src));c.sprites.stand.forEach(x=>srcs.add(x.src));}Object.values(c.doors).forEach(d=>srcs.add(d.src));if(c.stationView)['floor','canopy','pillar'].forEach(k=>srcs.add(c.stationView[k]));Object.values(c.doors).forEach(s=>srcs.add(s.src));
       return Promise.all([...srcs].map(s=>loadImg(s).then(im=>{R.img[s]=im;}))).then(()=>{R.cfg=c;buildStrips();});});
     R.loading.catch(()=>{R.loading=null;});
     return R.loading;}
@@ -2008,7 +2008,7 @@ const RIDE=(()=>{
     c.clip();windowContent(c,tr,k,bx,by,bw,bh,side,wi,dk,blur);c.restore();}
   function windowContent(c,tr,k,bx,by,bw,bh,side,wi,dk,blur){
     const dir=side==='left'?1:-1,pos=dir*k.km*R.cfg.pxPerKm+wi*157;
-    for(const [key,a] of sceneryMix(tr,k))drawScenery(c,key,a,bx,by,bw,bh,pos,blur*(bh/218),R.it.eye==null?by+bh/2:R.it.eye);
+    for(const [key,a] of sceneryMix(tr,k))drawScenery(c,key,a,bx,by,bw,bh,pos,blur*(bh/218),R.ov?R.ov.eye:(R.it.eye==null?by+bh/2:R.it.eye));
     weatherOnGlass(c,bx,by,bw,bh,wi,k);
     if(dk>0.01){c.fillStyle=`rgba(10,16,32,${0.8*dk})`;c.fillRect(bx,by,bw,bh);}
     if(side===R.cfg.platform.side)drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk);
@@ -2041,7 +2041,10 @@ const RIDE=(()=>{
   function platNeighbors(s){const out={l:[],r:[]};if(isMain(s)){const j=MAIN.indexOf(s);if(j>0)out.l.push(MAIN[j-1]);if(j<MAIN.length-1)out.r.push(MAIN[j+1]);}
     if(isBr(s)){const j=BR.indexOf(s);if(j>0&&s!=='K')out.l.push(BR[j-1]);if(j<BR.length-1)out.r.push(BR[j+1]);}return out;}
   // ホームで待つ人（線路のほうを向いた正面の姿）。手描きの仮の絵
-  function drawWaiter(c,x,yf,h,o,s,A){const st=personStyleS(o,s),pal=PAL_S[st],col=pal[Math.floor(o.r2*pal.length)];
+  function personSprite(kind,st,o){const P=R.cfg.people;if(!P||!P[kind])return null;const ix=(P.styles[kind]||{})[st]||P.styles[kind].casual;const sp=P[kind][ix[Math.floor(o.r2*ix.length)%ix.length]];const im=sp&&R.img[sp.src];return im?{im,rel:sp.srcH/P.refH}:null;}
+  function drawSprite(c,S,x,yf,h,A,flip,rot){const hh=h*S.rel,w=S.im.width*hh/S.im.height;c.save();c.globalAlpha=A;c.translate(x,yf);if(rot)c.rotate(rot);
+    c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(0,0,w*0.42,Math.max(1,hh*0.025),0,0,7);c.fill();if(flip)c.scale(-1,1);c.drawImage(S.im,-w/2,-hh,w,hh);c.restore();}
+  function drawWaiter(c,x,yf,h,o,s,A){{const S=personSprite('front',personStyleS(o,s),o);if(S)return drawSprite(c,S,x,yf,h,A,o.r<0.35,0);}const st=personStyleS(o,s),pal=PAL_S[st],col=pal[Math.floor(o.r2*pal.length)];
     const hair=['#1d1a19','#2b2420','#3a2e26','#5a4636','#8b857c'][st==='elder'?4:Math.floor(o.r*4)],skin=['#e8c6a6','#dcb593','#efd3b8'][Math.floor(o.r2*3)];
     const long=o.r2>0.55&&st!=='suit',ph=o.r>0.62&&st!=='elder';
     c.save();c.globalAlpha=A;c.translate(x,yf);
@@ -2136,8 +2139,8 @@ const RIDE=(()=>{
     c.restore();}
   function drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk){const V=R.cfg.stationView;if(!V||!R.img[V.floor])return;
     // 窓ガラスの上下（遠近で窓ごとに違う）から、見える高さ viewM と目の高さ eyeFrac を合わせる
-    const gl=(R.it.glass&&R.it.glass[side]&&R.it.glass[side][wi])||[by,by+bh],gh=gl[1]-gl[0];
-    const km=kmOf(tr),eye=gl[0]+gh*V.eyeFrac,pxm=gh/V.viewM,sgn=side==='left'?1:-1,wOff=wi*V.windowGapM;
+    const gl=(R.ov&&R.ov.glass)||(R.it.glass&&R.it.glass[side]&&R.it.glass[side][wi])||[by,by+bh],gh=gl[1]-gl[0];
+    const km=kmOf(tr),eye=(R.ov&&R.ov.eyeY!=null)?R.ov.eyeY:gl[0]+gh*V.eyeFrac,pxm=(R.ov&&R.ov.pxm)||gh/V.viewM,sgn=side==='left'?1:-1,wOff=wi*V.windowGapM;
     for(let j=0;j<tr.seq.length;j++){const s=tr.seq[j],L=platLenM(s),uw=(k.km-km[j])*1000+wOff;if(Math.abs(uw)>L/2+bw/pxm+2)continue;
       const mps=Math.abs(k.v)*1000*R.mult/60;   // 実際の1秒に進むメートル（k.v は1分あたりのkm）
       const blurM=playing?mps*V.shutterSec:0,blurPx=blurM*pxm*V.d0/V.edgeD,taps=Math.min(8,Math.max(1,Math.ceil(blurPx/3)));
@@ -2202,12 +2205,13 @@ const RIDE=(()=>{
     for(const o of vis){if(o.kind==='stand')(SP?drawStandSprite(g,o,R.tilt,t):drawStand(g,o,R.tilt,t));else if(R.it.seatStyle==='long')drawSeatLong(g,o,t);else (SP?drawHeadSprite(g,o):drawSeatCross(g,o));}
     c.save();c.setTransform(1,0,0,1,0,0);if('filter' in c)c.filter='blur(0.7px) saturate(0.85)';c.drawImage(L,0,0);c.restore();}
   // 窓の部分が透明になった車内の絵：先に窓の外を描き、その上に車内を重ねる。混雑度（1〜5）ごとの絵をゆっくり切り替える
+  function levelSrc(n){const L=R.it.levels[n];return Array.isArray(L)?L[(R.tr.num||0)%L.length]:L;}
   function drawLevels(c,dt,k,dk,blur,W,H,bob){const it=R.it;
     for(const side of ['left','right'])(it.windows[side]||[]).forEach(([x,y,w,h],wi)=>{c.save();c.beginPath();c.rect(x,y,w,h);c.clip();windowContent(c,R.tr,k,x,y,w,h,side,wi,dk,blur);c.restore();});
-    if(it.door){const [x,y,w,h]=it.door,ref=R.img[it.levels[0]];c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.drawImage(ref,x-w*0.6,y-h*0.35,w*2.2,h*1.6);c.fillStyle='rgba(30,24,18,.35)';c.fillRect(x,y,w,h);c.restore();}   // 貫通扉の窓の向こう＝となりの車両
-    const tgt=level(k.load/R.tr.cap);if(R.lvShow==null)R.lvShow=tgt;R.lvShow+=(tgt-R.lvShow)*Math.min(1,dt*1.2);if(Math.abs(tgt-R.lvShow)<0.003)R.lvShow=tgt;
+    if(it.door){const [x,y,w,h]=it.door,ref=R.img[levelSrc(0)];c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.drawImage(ref,x-w*0.6,y-h*0.35,w*2.2,h*1.6);c.fillStyle='rgba(30,24,18,.35)';c.fillRect(x,y,w,h);c.restore();}   // 貫通扉の窓の向こう＝となりの車両
+    const tgt=level(k.load/R.tr.cap);if(R.lvShow==null)R.lvShow=tgt;R.lvShow+=(tgt-R.lvShow)*Math.min(1,dt*2.5);if(Math.abs(tgt-R.lvShow)<0.003)R.lvShow=tgt;
     const a=Math.max(1,Math.min(5,Math.floor(R.lvShow))),f=R.lvShow-a;
-    c.drawImage(R.img[it.levels[a-1]],0,-1,W,H+2);if(f>0.01&&a<5){c.globalAlpha=f;c.drawImage(R.img[it.levels[a]],0,-1,W,H+2);c.globalAlpha=1;}}
+    c.drawImage(R.img[levelSrc(a-1)],0,-1,W,H+2);if(f>0.01&&a<5){c.globalAlpha=f;c.drawImage(R.img[levelSrc(a)],0,-1,W,H+2);c.globalAlpha=1;}}
   function drawScene(dt){const cv=el('rideCv'),it=R.it,im=R.img[it.src],W=im.width,H=im.height;const c=fit(cv,W,H);if(!c)return;
     const k=R.k,t=performance.now()/1000,dk=darkness(T);
     const blur=Math.abs(k.v)*R.mult/60*R.cfg.pxPerKm/30*(playing?1:0);
@@ -2220,7 +2224,7 @@ const RIDE=(()=>{
     c.restore();}
 
   /* --- 描画：ドア（開くと後ろにホームが見える） --- */
-  function drawDoor(k){const D0=R.cfg.doors[R.tr.type]||R.cfg.doors.L,im=R.img[D0.src],W=im.width,H=im.height;const c=fit(el('rideDoor'),W,H);if(!c)return;
+  function drawDoor(k){const D0=R.cfg.doors[R.tr.type]||R.cfg.doors.L;if(D0.glass)return drawDoorGlass(k,D0);const im=R.img[D0.src],W=im.width,H=im.height;const c=fit(el('rideDoor'),W,H);if(!c)return;
     const key=k.door.toFixed(3)+'|'+Math.round(darkness(T)*50);if(R.keys.door===key&&!R.dirty)return;R.keys.door=key;
     c.clearRect(0,0,W,H);c.drawImage(im,0,0);
     const [x0,y0,x1,y1]=D0.leaves,mid=(x0+x1)/2,o=k.door;
@@ -2233,6 +2237,16 @@ const RIDE=(()=>{
       c.restore();}
     const dk=darkness(T);if(dk>0.01){c.fillStyle=`rgba(24,22,40,${0.2*dk})`;c.fillRect(0,0,W,H);}}
 
+  function drawDoorGlass(k,D0){const im=R.img[D0.src],W=im.width,H=im.height;const c=fit(el('rideDoor'),W,H);if(!c)return;
+    const dk=darkness(T),blur=Math.abs(k.v)*R.mult/60*R.cfg.pxPerKm/30*(playing?1:0),[x0,y0,x1,y1]=D0.leaves,mid=D0.seam,o=k.door,[gy0,gy1]=D0.glassY;
+    c.clearRect(0,0,W,H);R.ov={eye:D0.eyeY,eyeY:D0.eyeY,pxm:D0.pxm,glass:[gy0,gy1]};   // ドアの下端＝ホームの高さになるように
+    try{windowContent(c,R.tr,k,0,0,W,H,'left',0,dk,blur);}finally{R.ov=null;}
+    if(o<=0.001)c.drawImage(im,0,0);
+    else{c.save();c.beginPath();c.rect(0,0,W,H);c.rect(x0,y0,x1-x0,y1-y0);c.clip('evenodd');c.drawImage(im,0,0);c.restore();
+      c.save();c.beginPath();c.rect(x0,y0,x1-x0,y1-y0);c.clip();const sh=Math.max(mid-x0,x1-mid)*o*0.97;
+      c.drawImage(im,x0,y0,mid-x0,y1-y0,x0-sh,y0,mid-x0,y1-y0);c.drawImage(im,mid,y0,x1-mid,y1-y0,mid+sh,y0,x1-mid,y1-y0);
+      c.fillStyle='rgba(0,0,0,.3)';c.fillRect(mid-sh-2,y0,2,y1-y0);c.fillRect(mid+sh,y0,2,y1-y0);c.restore();}
+    if(dk>0.01){c.fillStyle=`rgba(24,22,40,${0.2*dk})`;c.fillRect(0,0,W,H);}}
   /* --- 描画：車内の案内表示（枠は絵、画面の中は文字で描く） --- */
   function conn(at,t,pred){let best=null;for(const o of D.trips){if(o===R.tr)continue;const q=o.seq.indexOf(at);if(q<0||q===o.seq.length-1||!o.stop[q]||!pred(o))continue;if(o.dep[q]>=t+1&&(!best||o.dep[q]<best.t))best={o,t:o.dep[q]};}return best;}
   function monitorInfo(k){const tr=R.tr,n=tr.seq.length,C=R.cfg.ride;let lab,j;
@@ -2367,12 +2381,13 @@ const RIDE=(()=>{
       out.push({x,y,a:0,ph:rnd()*6.28,r:rnd(),r2:rnd(),side:rnd()<0.3?(rnd()<0.5?-1:1):0});}
     return out;}
   function personStyle(o,s,t){const m=((t%1440)+1440)%1440,wd=COND.day==='wd',rush=wd&&((m>=390&&m<=570)||(m>=1020&&m<=1200)),ev=evOutfit(s,t);
-    if(ev&&o.r<0.45)return ev;
+    if(ev&&o.r<0.3)return ev;
     if(rush)return o.r<0.6?'suit':(o.r<0.8?'student':'casual');
     if((s==='O'||s==='P'||s==='T')&&o.r<0.35)return 'tourist';
     return o.r<0.15?'elder':(o.r<0.35?'tourist':'casual');}
   const PAL={suit:['#2c3340','#353a45','#262b33'],student:['#1f2a44','#283350'],casual:['#6d7f8f','#8a6f5a','#5f7a63','#9a8bb0','#b07f6a','#c9b48a'],tourist:['#3f7fb5','#d08b3a','#6aa06f','#c4566a'],elder:['#8d8270','#7a7f86','#9c8f7a'],fan:['#e2574c','#3c8fd6','#f0b542'],yukata:['#3b5fa8','#c2457b','#2f7f74','#7a4fa0']};
-  function drawPerson(g,o,s,t){const st=personStyle(o,s,T),pal=PAL[st],col=pal[Math.floor(o.r2*pal.length)],b=P.bg;
+  function drawPerson(g,o,s,t){{const b0=P.bg,S=personSprite('back',personStyle(o,s,T),o);if(S){const h=(44+(o.y-b0.railY-14)*0.55)*(0.95+o.r2*0.1);return drawSprite(g,S,o.x,o.y,h,o.a,o.r<0.4,Math.sin(t*0.7+o.ph)*0.01);}}
+const st=personStyle(o,s,T),pal=PAL[st],col=pal[Math.floor(o.r2*pal.length)],b=P.bg;
     const h=(44+(o.y-b.railY-14)*0.55)*(st==='student'?0.94:1)*(0.95+o.r2*0.1),sway=Math.sin(t*0.7+o.ph)*0.015;
     const hair=['#1d1a19','#2b2420','#3a2e26','#5a5048','#8b857c'][st==='elder'?4:Math.floor(o.r*4)];
     g.save();g.translate(o.x,o.y);g.rotate(sway);g.globalAlpha=o.a;

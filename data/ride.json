@@ -302,222 +302,165 @@
  "pxPerKm": 8000,
  "interiors": {
   "local": {
-   "src": "assets/images/ride/interior_local.webp",
+   "src": "assets/images/ride/interior_local_c1a.webp",
    "types": [
     "L"
+   ],
+   "about": "窓の部分が透明な普通の車内（ChatGPTで作成）。混雑度1〜5、段階ごとに候補が複数あれば列車ごとに1枚を選ぶ",
+   "levels": [
+    [
+     "assets/images/ride/interior_local_c1a.webp"
+    ],
+    [
+     "assets/images/ride/interior_local_c2a.webp",
+     "assets/images/ride/interior_local_c2b.webp"
+    ],
+    [
+     "assets/images/ride/interior_local_c3a.webp",
+     "assets/images/ride/interior_local_c3b.webp"
+    ],
+    [
+     "assets/images/ride/interior_local_c4a.webp",
+     "assets/images/ride/interior_local_c4b.webp",
+     "assets/images/ride/interior_local_c4c.webp"
+    ],
+    [
+     "assets/images/ride/interior_local_c5a.webp",
+     "assets/images/ride/interior_local_c5b.webp"
+    ]
    ],
    "windows": {
     "left": [
      [
-      [
-       21,
-       36
-      ],
-      [
-       67,
-       39
-      ],
-      [
-       67,
-       174
-      ],
-      [
-       20,
-       177
-      ]
+      63,
+      108,
+      144,
+      423
      ],
      [
-      [
-       104,
-       41
-      ],
-      [
-       174,
-       50
-      ],
-      [
-       174,
-       152
-      ],
-      [
-       105,
-       155
-      ]
+      311,
+      121,
+      207,
+      336
      ],
      [
-      [
-       180,
-       51
-      ],
-      [
-       227,
-       56
-      ],
-      [
-       227,
-       140
-      ],
-      [
-       180,
-       143
-      ]
+      535,
+      156,
+      140,
+      277
      ],
      [
-      [
-       243,
-       63
-      ],
-      [
-       272,
-       66
-      ],
-      [
-       272,
-       130
-      ],
-      [
-       243,
-       132
-      ]
+      727,
+      189,
+      85,
+      218
      ],
      [
-      [
-       289,
-       75
-      ],
-      [
-       305,
-       77
-      ],
-      [
-       305,
-       124
-      ],
-      [
-       289,
-       125
-      ]
+      863,
+      226,
+      22,
+      159
+     ],
+     [
+      900,
+      231,
+      21,
+      126
+     ],
+     [
+      957,
+      227,
+      42,
+      147
+     ],
+     [
+      1018,
+      239,
+      39,
+      124
+     ],
+     [
+      1067,
+      248,
+      21,
+      106
+     ],
+     [
+      1108,
+      256,
+      18,
+      91
+     ],
+     [
+      1128,
+      261,
+      14,
+      83
      ]
     ],
     "right": []
    },
-   "seated": [
-    [
-     130,
-     186,
-     1.0
+   "glass": {
+    "left": [
+     [
+      117,
+      520
+     ],
+     [
+      135,
+      452
+     ],
+     [
+      168,
+      423
+     ],
+     [
+      194,
+      397
+     ],
+     [
+      227,
+      383
+     ],
+     [
+      232,
+      328
+     ],
+     [
+      231,
+      369
+     ],
+     [
+      242,
+      337
+     ],
+     [
+      250,
+      351
+     ],
+     [
+      257,
+      345
+     ],
+     [
+      261,
+      343
+     ]
     ],
-    [
-     162,
-     181,
-     0.93
-    ],
-    [
-     190,
-     177,
-     0.86
-    ],
-    [
-     214,
-     173,
-     0.81
-    ],
-    [
-     236,
-     170,
-     0.77
-    ],
-    [
-     256,
-     167,
-     0.73
-    ],
-    [
-     274,
-     164,
-     0.7
-    ],
-    [
-     306,
-     157,
-     0.6
-    ],
-    [
-     324,
-     155,
-     0.57
-    ]
+    "right": []
+   },
+   "door": [
+    1177,
+    252,
+    51,
+    90
    ],
+   "eye": 265,
+   "seated": [],
+   "standing": [],
    "seatStyle": "long",
-   "standing": [
-    [
-     372,
-     152
-    ],
-    [
-     350,
-     156
-    ],
-    [
-     392,
-     160
-    ],
-    [
-     332,
-     164
-    ],
-    [
-     378,
-     170
-    ],
-    [
-     312,
-     173
-    ],
-    [
-     356,
-     180
-    ],
-    [
-     290,
-     182
-    ],
-    [
-     338,
-     190
-    ],
-    [
-     396,
-     196
-    ],
-    [
-     262,
-     196
-    ],
-    [
-     318,
-     202
-    ],
-    [
-     372,
-     206
-    ],
-    [
-     240,
-     204
-    ],
-    [
-     352,
-     212
-    ],
-    [
-     285,
-     210
-    ]
-   ],
-   "horizon": 115,
-   "standK": 85,
-   "eye": 105
+   "horizon": 265,
+   "standK": 100
   },
   "rapid": {
    "src": "assets/images/ride/interior_rapid.webp",
@@ -951,13 +894,22 @@
  },
  "doors": {
   "L": {
-   "src": "assets/images/ride/door_local.webp",
+   "src": "assets/images/ride/door_local2.webp",
+   "about": "窓が透明なドアの絵。ガラスの向こうに景色・ホームを描く",
    "leaves": [
-    6,
-    7,
-    120,
-    206
-   ]
+    84,
+    67,
+    455,
+    609
+   ],
+   "seam": 270,
+   "glass": true,
+   "glassY": [
+    89,
+    353
+   ],
+   "eyeY": 250,
+   "pxm": 144
   },
   "R": {
    "src": "assets/images/ride/door_rapid.webp",
@@ -1531,5 +1483,241 @@
   ],
   "tactileColor": "#e8c23a",
   "tileM": 0.9
+ },
+ "people": {
+  "about": "ホームで待つ人の絵。front＝線路側を向いた正面（窓から見える駅）、back＝後ろ姿（ホームに降りた画面）。styles は服装の種類→絵の番号",
+  "refH": 470,
+  "front": [
+   {
+    "src": "assets/images/ride/ppl_front_1.webp",
+    "w": 105,
+    "h": 300,
+    "srcH": 476
+   },
+   {
+    "src": "assets/images/ride/ppl_front_2.webp",
+    "w": 93,
+    "h": 300,
+    "srcH": 430
+   },
+   {
+    "src": "assets/images/ride/ppl_front_3.webp",
+    "w": 96,
+    "h": 300,
+    "srcH": 476
+   },
+   {
+    "src": "assets/images/ride/ppl_front_4.webp",
+    "w": 98,
+    "h": 300,
+    "srcH": 433
+   },
+   {
+    "src": "assets/images/ride/ppl_front_5.webp",
+    "w": 100,
+    "h": 287,
+    "srcH": 287
+   },
+   {
+    "src": "assets/images/ride/ppl_front_6.webp",
+    "w": 100,
+    "h": 300,
+    "srcH": 438
+   },
+   {
+    "src": "assets/images/ride/ppl_front_7.webp",
+    "w": 109,
+    "h": 300,
+    "srcH": 466
+   },
+   {
+    "src": "assets/images/ride/ppl_front_8.webp",
+    "w": 82,
+    "h": 300,
+    "srcH": 423
+   },
+   {
+    "src": "assets/images/ride/ppl_front_9.webp",
+    "w": 100,
+    "h": 300,
+    "srcH": 467
+   }
+  ],
+  "back": [
+   {
+    "src": "assets/images/ride/ppl_back_1.webp",
+    "w": 101,
+    "h": 300,
+    "srcH": 475
+   },
+   {
+    "src": "assets/images/ride/ppl_back_2.webp",
+    "w": 84,
+    "h": 300,
+    "srcH": 430
+   },
+   {
+    "src": "assets/images/ride/ppl_back_3.webp",
+    "w": 95,
+    "h": 300,
+    "srcH": 468
+   },
+   {
+    "src": "assets/images/ride/ppl_back_4.webp",
+    "w": 105,
+    "h": 300,
+    "srcH": 430
+   },
+   {
+    "src": "assets/images/ride/ppl_back_5.webp",
+    "w": 95,
+    "h": 291,
+    "srcH": 291
+   },
+   {
+    "src": "assets/images/ride/ppl_back_6.webp",
+    "w": 102,
+    "h": 300,
+    "srcH": 442
+   },
+   {
+    "src": "assets/images/ride/ppl_back_7.webp",
+    "w": 105,
+    "h": 300,
+    "srcH": 453
+   },
+   {
+    "src": "assets/images/ride/ppl_back_8.webp",
+    "w": 94,
+    "h": 300,
+    "srcH": 427
+   },
+   {
+    "src": "assets/images/ride/ppl_back_9.webp",
+    "w": 96,
+    "h": 300,
+    "srcH": 461
+   }
+  ],
+  "seated": [
+   {
+    "src": "assets/images/ride/ppl_seat_1.webp",
+    "w": 165,
+    "h": 260,
+    "srcH": 526
+   },
+   {
+    "src": "assets/images/ride/ppl_seat_2.webp",
+    "w": 131,
+    "h": 260,
+    "srcH": 506
+   },
+   {
+    "src": "assets/images/ride/ppl_seat_3.webp",
+    "w": 168,
+    "h": 260,
+    "srcH": 501
+   },
+   {
+    "src": "assets/images/ride/ppl_seat_4.webp",
+    "w": 136,
+    "h": 260,
+    "srcH": 507
+   },
+   {
+    "src": "assets/images/ride/ppl_seat_5.webp",
+    "w": 165,
+    "h": 260,
+    "srcH": 521
+   },
+   {
+    "src": "assets/images/ride/ppl_seatb_1.webp",
+    "w": 178,
+    "h": 260,
+    "srcH": 442
+   },
+   {
+    "src": "assets/images/ride/ppl_seatb_2.webp",
+    "w": 150,
+    "h": 260,
+    "srcH": 438
+   },
+   {
+    "src": "assets/images/ride/ppl_seatb_3.webp",
+    "w": 161,
+    "h": 260,
+    "srcH": 350
+   },
+   {
+    "src": "assets/images/ride/ppl_seatb_4.webp",
+    "w": 169,
+    "h": 260,
+    "srcH": 438
+   },
+   {
+    "src": "assets/images/ride/ppl_seatb_5.webp",
+    "w": 190,
+    "h": 260,
+    "srcH": 437
+   }
+  ],
+  "styles": {
+   "front": {
+    "suit": [
+     0,
+     6
+    ],
+    "student": [
+     1
+    ],
+    "fan": [
+     2
+    ],
+    "casual": [
+     3,
+     5,
+     2
+    ],
+    "elder": [
+     6
+    ],
+    "yukata": [
+     7
+    ],
+    "tourist": [
+     8,
+     5,
+     4
+    ]
+   },
+   "back": {
+    "suit": [
+     0
+    ],
+    "student": [
+     1,
+     2
+    ],
+    "fan": [
+     2
+    ],
+    "casual": [
+     3,
+     5,
+     2
+    ],
+    "elder": [
+     6
+    ],
+    "yukata": [
+     7
+    ],
+    "tourist": [
+     8,
+     5,
+     4
+    ]
+   }
+  }
  }
 }
