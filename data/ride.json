@@ -129,7 +129,7 @@
      "k": 1.4286
     }
    ],
-   "about": "郊外（Geminiで作成）。遠景・中景・近景の3枚を別の速さで流す。近景は電柱・木のかたまりを並べ替えた長い帯。雪・春の専用の絵は未作成（当面は昼の絵に天気の色をかける）",
+   "about": "郊外（Geminiで作成）。遠景・中景・近景の3枚を別の速さで流す。近景は電柱・木のかたまりを並べ替えた長い帯。夕方・くもりは昼の絵の色を変えた版、雪・春は専用の絵",
    "dusk": {
     "src": "assets/images/ride/scn_suburb2_far_dusk.webp",
     "H": 600,
@@ -171,6 +171,52 @@
      {
       "src": "assets/images/ride/scn_suburb2_near_cloudy.webp",
       "y": 80,
+      "f": 1.33,
+      "k": 1.4286
+     }
+    ]
+   },
+   "snow": {
+    "src": "assets/images/ride/scn_suburb2_far_snow.webp",
+    "H": 600,
+    "horizon": 0.5667,
+    "layers": [
+     {
+      "src": "assets/images/ride/scn_suburb2_far_snow.webp",
+      "y": -243,
+      "f": 0.1
+     },
+     {
+      "src": "assets/images/ride/scn_suburb2_mid_snow.webp",
+      "y": -93,
+      "f": 0.6
+     },
+     {
+      "src": "assets/images/ride/scn_suburb2_near_snow.webp",
+      "y": 8,
+      "f": 1.33,
+      "k": 1.4286
+     }
+    ]
+   },
+   "spring": {
+    "src": "assets/images/ride/scn_suburb2_far_spring.webp",
+    "H": 600,
+    "horizon": 0.5667,
+    "layers": [
+     {
+      "src": "assets/images/ride/scn_suburb2_far_spring.webp",
+      "y": -243,
+      "f": 0.1
+     },
+     {
+      "src": "assets/images/ride/scn_suburb2_mid_spring.webp",
+      "y": -374,
+      "f": 0.6
+     },
+     {
+      "src": "assets/images/ride/scn_suburb2_near_spring.webp",
+      "y": 68,
       "f": 1.33,
       "k": 1.4286
      }
