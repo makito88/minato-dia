@@ -308,6 +308,7 @@ canvas{display:block;touch-action:manipulation}
 .rbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:14px;padding:14px 16px 18px;align-items:start;max-width:1280px;width:100%;margin:0 auto;box-sizing:border-box}
 .rmain canvas{display:block;width:100%;aspect-ratio:419/254;border-radius:10px;background:#000}
 .rstat{margin-top:8px;font-size:14px;color:#cfd5db;min-height:1.5em}
+.rdbg{margin-top:6px;font:12.5px/1.6 var(--f-mono),monospace;color:#9fe3c0;background:#0e1a15;border:1px solid #234536;border-radius:7px;padding:6px 9px;white-space:pre-wrap}
 .rload{padding:40px 0;text-align:center;color:#aab2bb}
 .rside{display:grid;gap:10px}
 .rside canvas#rideMon{display:block;width:100%;aspect-ratio:321/216}
@@ -509,11 +510,12 @@ canvas{display:block;touch-action:manipulation}
     <span class="rclock" id="rideClock"></span>
     <span class="sp"></span>
     <span class="rseg" id="rideSpd" role="group" aria-label="乗車中の速さ"><button data-m="1">×1 等倍</button><button data-m="5">×5</button></span>
+    <button id="rideDbgBtn" aria-pressed="false" title="いまの区間・景色・ホームの表示を文字で出す">確認表示</button>
     <button id="ridePlay">❚❚</button>
     <button id="rideExit">通常画面に戻る</button>
   </div>
   <div class="rbody">
-    <div class="rmain"><canvas id="rideCv"></canvas><div class="rstat" id="rideStat"></div><div class="rload" id="rideLoad" hidden>素材を読み込んでいます…</div></div>
+    <div class="rmain"><canvas id="rideCv"></canvas><div class="rstat" id="rideStat"></div><div class="rdbg" id="rideDbg" hidden></div><div class="rload" id="rideLoad" hidden>素材を読み込んでいます…</div></div>
     <div class="rside">
       <canvas id="rideMon" aria-label="車内の案内表示"></canvas>
       <div class="rdoorrow"><canvas id="rideDoor" aria-label="ドア"></canvas><img id="rideBtns" alt=""><div class="rcrowd" id="rideCrowd"></div></div>
@@ -1943,7 +1945,7 @@ const RIDE=(()=>{
   /* --- 描画：車内 --- */
   function fit(cv,W,H){const dpr=Math.min(2,window.devicePixelRatio||1),cw=cv.clientWidth;if(!cw)return null;const w=Math.round(cw*dpr),h=Math.round(cw*H/W*dpr);
     if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;R.dirty=true;}const c=cv.getContext('2d');c.setTransform(w/W,0,0,h/H,0,0);c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';return c;}
-  function sceneryMix(tr,k){const km=kmOf(tr),n=tr.seq.length,i=Math.min(k.i,n-2),B=0.25;const cur=segKey(tr.seq[i],tr.seq[i+1]),out=[[cur,1]];
+  function sceneryMix(tr,k){const km=kmOf(tr),n=tr.seq.length,i=Math.min(k.i,n-2),B=R.cfg.blendKm||0.25;const cur=segKey(tr.seq[i],tr.seq[i+1]),out=[[cur,1]];
     const dEnd=km[i+1]-k.km,dSt=k.km-km[i];
     if(i<n-2&&dEnd<B){const nx=segKey(tr.seq[i+1],tr.seq[i+2]);if(nx!==cur)out.push([nx,0.5*(1-dEnd/B)]);}
     if(i>0&&dSt<B){const pv=segKey(tr.seq[i-1],tr.seq[i]);if(pv!==cur)out.push([pv,0.5*(1-dSt/B)]);}
@@ -2099,9 +2101,23 @@ const RIDE=(()=>{
     else if(k.i===0&&T<tr.dep[0])st=`${ST[s].name}　${fmt(tr.dep[0])}発　発車を待っています${k.open?'（ドアが開いています）':''}`;
     else st=`${ST[s].name}に${tr.stop[k.i]?'停車中':(onSiding(tr,k.i)?'待避中（ドアは開きません）':'運転停車中（ドアは開きません）')}${k.open?'　ドアが開いています':''}　${fmt(tr.dep[k.i])}発`;
     if(R.msg)st=R.msg+'　'+st;
+    if(R.dbg){const d=debugInfo(tr,k);const tx=`区間　${d.seg}（${d.segKm.toFixed(2)}km中 ${d.at.toFixed(2)}km地点）\n景色　${d.mix}\nホーム　${d.platform}\n次の変化　${d.next}`;const de=el('rideDbg');if(de.textContent!==tx)de.textContent=tx;}
     const se=el('rideStat');if(se.textContent!==st)se.textContent=st;
     const cl=fmt(T);if(el('rideClock').textContent!==cl)el('rideClock').textContent=cl;
     el('ridePlay').textContent=playing?'❚❚ 一時停止':'▶ 再開';}
+
+  /* --- 確認表示：いまの区間・景色の混ざり具合・ホームを文字にする（描画と同じ関数から計算） --- */
+  const scName=k=>(R.cfg.sceneryNames||{})[k]||k;
+  function debugInfo(tr,k){const km=kmOf(tr),n=tr.seq.length,i=Math.min(k.i,n-2),P=R.cfg.platform;
+    const mix=sceneryMix(tr,k);let share=mix.map(([key,a],j)=>[key,a]);if(share.length>1){const w=share.slice(1).reduce((x,y)=>x+y[1],0);share[0][1]=1-w;}
+    const plat=tr.seq.map((s,j)=>[s,Math.abs(km[j]-k.km)]).filter(([s,d])=>d<=P.lengthKm/2);
+    let next='';const B=R.cfg.blendKm||0.25;
+    if(i<n-2){const a=segKey(tr.seq[i],tr.seq[i+1]),b=segKey(tr.seq[i+1],tr.seq[i+2]);const d=km[i+1]-k.km;
+      next=a===b?`${ST[tr.seq[i+1]].name}の先も「${scName(a)}」のまま（残り${d.toFixed(2)}km）`:`${ST[tr.seq[i+1]].name}の${B*1000}m手前から「${scName(b)}」へ混ざり始める（残り${d.toFixed(2)}km）`;}
+    else next='終点まで同じ景色';
+    return {seg:`${ST[tr.seq[i]].name}→${ST[tr.seq[i+1]].name}`,segKm:km[i+1]-km[i],at:k.km-km[i],key:mix[0][0],
+      mix:share.map(([key,a])=>`${scName(key)} ${Math.round(a*100)}%`).join('＋'),keys:share.map(([key,a])=>[key,+a.toFixed(3)]),
+      platform:plat.length?plat.map(([s])=>`${ST[s].name}（${P.side==='left'?'左側':'右側'}の窓・駅名標あり）`).join('、'):'なし',platSt:plat.map(([s])=>s),next};}
 
   /* --- 入る・出る --- */
   function markSpd(){document.querySelectorAll('#rideSpd button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.m)===R.mult)));}
@@ -2134,9 +2150,12 @@ const RIDE=(()=>{
   el('rideOff').addEventListener('click',()=>{if(R.k&&!R.k.moving&&R.k.door>0.95)exit('alight');});
   el('rideSpd').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!R.on)return;R.mult=Number(b.dataset.m);speed=R.mult/60;markSpd();});
   el('ridePlay').addEventListener('click',()=>setPlay(!playing));
+  try{R.dbg=localStorage.getItem('dia-ride-dbg')==='1';}catch(e){}
+  const dbgUI=()=>{el('rideDbgBtn').setAttribute('aria-pressed',String(!!R.dbg));el('rideDbg').hidden=!R.dbg;};dbgUI();
+  el('rideDbgBtn').addEventListener('click',()=>{R.dbg=!R.dbg;try{localStorage.setItem('dia-ride-dbg',R.dbg?'1':'0');}catch(e){}dbgUI();});
   document.addEventListener('keydown',e=>{if(R.on&&e.key==='Escape')exit('close');});
   addEventListener('resize',()=>{R.dirty=true;});
-  return {get on(){return R.on;},enter,exit,tick,kin:(tr,t)=>R.cfg?kin(tr,t):null,state:()=>({on:R.on,mult:R.mult,prevSpeed:R.prevSpeed,speed,k:R.k,level:R.k&&R.tr?level(R.k.load/R.tr.cap):null,visible:R.slots.filter(o=>o.a>0.5).length,seats:R.seatN,slots:R.slots.length,interior:R.it&&R.it.src,loaded:!!R.cfg})};
+  return {debug:(tr,t)=>R.cfg?debugInfo(tr,kin(tr,t)):null,get on(){return R.on;},enter,exit,tick,kin:(tr,t)=>R.cfg?kin(tr,t):null,state:()=>({on:R.on,mult:R.mult,prevSpeed:R.prevSpeed,speed,k:R.k,level:R.k&&R.tr?level(R.k.load/R.tr.cap):null,visible:R.slots.filter(o=>o.a>0.5).length,seats:R.seatN,slots:R.slots.length,interior:R.it&&R.it.src,loaded:!!R.cfg})};
 })();
 $('#info').addEventListener('click',e=>{const b=e.target.closest('[data-ride]');if(!b)return;const tr=D.trips[Number(b.dataset.ride)];if(tr)RIDE.enter(tr);});
 

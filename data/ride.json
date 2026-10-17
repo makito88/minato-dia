@@ -130,7 +130,7 @@
   "S-U": "city",
   "U-M": "fields",
   "M-K": "fields",
-  "K-N": "city",
+  "K-N": "fields",
   "N-P": "sea",
   "K-F": "forest",
   "F-T": "mountain",
@@ -987,5 +987,13 @@
    "#56606e",
    "#6e4f45"
   ]
- }
+ },
+ "sceneryNames": {
+  "city": "街（高層ビルと川）",
+  "sea": "海と港（客船・クレーン）",
+  "fields": "田園（田んぼ・家並み・山並み）",
+  "mountain": "山あいの渓谷と鉄橋",
+  "forest": "森と沢"
+ },
+ "blendKm": 0.25
 }
