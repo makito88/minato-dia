@@ -45,20 +45,193 @@
  },
  "scenery": {
   "city": {
-   "src": "assets/images/ride/scenery_city.webp",
+   "src": "assets/images/ride/scn_city_day.webp",
+   "horizon": 0.58,
    "bands": [
     [
      0,
-     0.8,
-     0.15
+     0.62,
+     0.1
     ],
     [
-     0.8,
+     0.62,
+     0.74,
+     0.32
+    ],
+    [
+     0.74,
+     1,
+     0.7
+    ]
+   ],
+   "dusk": {
+    "src": "assets/images/ride/scn_city_dusk.webp",
+    "horizon": 0.46,
+    "bands": [
+     [
+      0,
+      0.5,
+      0.08
+     ],
+     [
+      0.5,
+      0.72,
+      0.3
+     ],
+     [
+      0.72,
+      1,
+      0.7
+     ]
+    ]
+   },
+   "cloudy": {
+    "src": "assets/images/ride/scn_river_cloudy.webp",
+    "horizon": 0.51,
+    "bands": [
+     [
+      0,
+      0.52,
+      0.06
+     ],
+     [
+      0.52,
+      0.72,
+      0.25
+     ],
+     [
+      0.72,
+      1,
+      0.7
+     ]
+    ]
+   }
+  },
+  "suburb": {
+   "src": "assets/images/ride/scn_suburb_day.webp",
+   "horizon": 0.47,
+   "bands": [
+    [
+     0,
+     0.5,
+     0.06
+    ],
+    [
+     0.5,
+     0.7,
+     0.25
+    ],
+    [
+     0.7,
      1,
      0.55
     ]
    ],
-   "horizon": 0.56
+   "dusk": {
+    "src": "assets/images/ride/scn_suburb_dusk.webp",
+    "horizon": 0.47,
+    "bands": [
+     [
+      0,
+      0.5,
+      0.06
+     ],
+     [
+      0.5,
+      0.7,
+      0.25
+     ],
+     [
+      0.7,
+      1,
+      0.55
+     ]
+    ]
+   },
+   "snow": {
+    "src": "assets/images/ride/scn_suburb_snow.webp",
+    "horizon": 0.47,
+    "bands": [
+     [
+      0,
+      0.5,
+      0.06
+     ],
+     [
+      0.5,
+      0.7,
+      0.25
+     ],
+     [
+      0.7,
+      1,
+      0.55
+     ]
+    ]
+   },
+   "spring": {
+    "src": "assets/images/ride/scn_suburb_sakura.webp",
+    "horizon": 0.47,
+    "bands": [
+     [
+      0,
+      0.5,
+      0.06
+     ],
+     [
+      0.5,
+      0.7,
+      0.25
+     ],
+     [
+      0.7,
+      1,
+      0.55
+     ]
+    ]
+   },
+   "cloudy": {
+    "src": "assets/images/ride/scn_river_cloudy.webp",
+    "horizon": 0.51,
+    "bands": [
+     [
+      0,
+      0.52,
+      0.06
+     ],
+     [
+      0.52,
+      0.72,
+      0.25
+     ],
+     [
+      0.72,
+      1,
+      0.7
+     ]
+    ]
+   }
+  },
+  "country": {
+   "src": "assets/images/ride/scn_country_day.webp",
+   "horizon": 0.36,
+   "bands": [
+    [
+     0,
+     0.42,
+     0.04
+    ],
+    [
+     0.42,
+     0.62,
+     0.2
+    ],
+    [
+     0.62,
+     1,
+     0.65
+    ]
+   ]
   },
   "sea": {
    "src": "assets/images/ride/scenery_sea.webp",
@@ -76,26 +249,16 @@
    ],
    "horizon": 0.5
   },
-  "fields": {
-   "src": "assets/images/ride/scenery_fields.webp",
+  "forest": {
+   "src": "assets/images/ride/scenery_forest.webp",
    "bands": [
     [
      0,
-     0.3,
-     0.02
-    ],
-    [
-     0.3,
-     0.56,
-     0.12
-    ],
-    [
-     0.56,
      1,
-     0.6
+     0.4
     ]
    ],
-   "horizon": 0.46
+   "horizon": 0.5
   },
   "mountain": {
    "src": "assets/images/ride/scenery_mountain.webp",
@@ -112,25 +275,14 @@
     ]
    ],
    "horizon": 0.5
-  },
-  "forest": {
-   "src": "assets/images/ride/scenery_forest.webp",
-   "bands": [
-    [
-     0,
-     1,
-     0.4
-    ]
-   ],
-   "horizon": 0.5
   }
  },
  "segments": {
   "C-S": "city",
-  "S-U": "city",
-  "U-M": "fields",
-  "M-K": "fields",
-  "K-N": "fields",
+  "S-U": "suburb",
+  "U-M": "suburb",
+  "M-K": "suburb",
+  "K-N": "country",
   "N-P": "sea",
   "K-F": "forest",
   "F-T": "mountain",
@@ -989,11 +1141,290 @@
   ]
  },
  "sceneryNames": {
-  "city": "街（高層ビルと川）",
+  "city": "街（ビル街と住宅）",
+  "suburb": "郊外（住宅街・商店街・川・土手・踏切・田畑）",
+  "country": "田舎（田んぼ・家並み・山並み）",
   "sea": "海と港（客船・クレーン）",
-  "fields": "田園（田んぼ・家並み・山並み）",
-  "mountain": "山あいの渓谷と鉄橋",
-  "forest": "森と沢"
+  "forest": "森と沢",
+  "mountain": "山あいの渓谷と鉄橋"
  },
- "blendKm": 0.25
+ "blendKm": 0.25,
+ "sceneryNote": "景色ごとに、夕方（dusk）・雨やくもり（cloudy）・大雪（snow）・春（spring）の差し替えを書ける。書いていない景色は同じ絵に色をかけて表す。",
+ "variantNames": {
+  "base": "昼",
+  "dusk": "夕方〜夜",
+  "cloudy": "くもり・雨",
+  "snow": "雪",
+  "spring": "春（桜）"
+ },
+ "duskMin": [
+  990,
+  1020,
+  270
+ ],
+ "station": {
+  "about": "ホームに降りたときの画面。背景は列車の写っていない状態に加工した絵、列車は先頭車・中間車の絵をつないで描く。座標は各画像のピクセル。",
+  "backgrounds": {
+   "plat_terminal_L": {
+    "src": "assets/images/ride/plat_terminal_L.webp",
+    "w": 506,
+    "h": 244,
+    "railY": 167,
+    "bandTop": 50,
+    "pillars": [],
+    "kind": "terminal"
+   },
+   "plat_rural_L": {
+    "src": "assets/images/ride/plat_rural_L.webp",
+    "w": 440,
+    "h": 244,
+    "railY": 167,
+    "bandTop": 50,
+    "pillars": [],
+    "kind": "rural"
+   },
+   "plat_suburb_L": {
+    "src": "assets/images/ride/plat_suburb_L.webp",
+    "w": 506,
+    "h": 244,
+    "railY": 167,
+    "bandTop": 50,
+    "pillars": [
+     [
+      407,
+      0,
+      19,
+      244
+     ]
+    ],
+    "kind": "suburb"
+   },
+   "plat_terminal_R": {
+    "src": "assets/images/ride/plat_terminal_R.webp",
+    "w": 506,
+    "h": 222,
+    "railY": 162,
+    "bandTop": 46,
+    "pillars": [],
+    "kind": "terminal"
+   },
+   "plat_rural_R": {
+    "src": "assets/images/ride/plat_rural_R.webp",
+    "w": 506,
+    "h": 222,
+    "railY": 162,
+    "bandTop": 46,
+    "pillars": [
+     [
+      448,
+      0,
+      19,
+      222
+     ]
+    ],
+    "kind": "rural"
+   },
+   "plat_suburb_R": {
+    "src": "assets/images/ride/plat_suburb_R.webp",
+    "w": 506,
+    "h": 222,
+    "railY": 162,
+    "bandTop": 46,
+    "pillars": [],
+    "kind": "suburb"
+   },
+   "plat_terminal_E": {
+    "src": "assets/images/ride/plat_terminal_E.webp",
+    "w": 506,
+    "h": 235,
+    "railY": 176,
+    "bandTop": 61,
+    "pillars": [],
+    "kind": "terminal"
+   },
+   "plat_rural_E": {
+    "src": "assets/images/ride/plat_rural_E.webp",
+    "w": 506,
+    "h": 235,
+    "railY": 176,
+    "bandTop": 61,
+    "pillars": [
+     [
+      452,
+      0,
+      17,
+      235
+     ]
+    ],
+    "kind": "rural"
+   },
+   "plat_suburb_E": {
+    "src": "assets/images/ride/plat_suburb_E.webp",
+    "w": 506,
+    "h": 235,
+    "railY": 176,
+    "bandTop": 61,
+    "pillars": [
+     [
+      424,
+      0,
+      17,
+      235
+     ]
+    ],
+    "kind": "suburb"
+   }
+  },
+  "stations": {
+   "C": "plat_terminal_L",
+   "S": "plat_suburb_L",
+   "U": "plat_suburb_R",
+   "M": "plat_suburb_E",
+   "K": "plat_terminal_R",
+   "N": "plat_rural_L",
+   "P": "plat_terminal_E",
+   "F": "plat_rural_E",
+   "T": "plat_rural_R",
+   "O": "plat_rural_L"
+  },
+  "trains": {
+   "L": {
+    "headSrc": "assets/images/ride/train_L_head.webp",
+    "midSrc": "assets/images/ride/train_L_mid.webp",
+    "scale": 1.0,
+    "head": {
+     "w": 306,
+     "h": 117,
+     "doors": [
+      [
+       76,
+       31,
+       36,
+       61
+      ],
+      [
+       254,
+       31,
+       40,
+       61
+      ]
+     ]
+    },
+    "mid": {
+     "w": 237,
+     "doors": [
+      [
+       7,
+       31,
+       36,
+       61
+      ],
+      [
+       185,
+       31,
+       40,
+       61
+      ]
+     ]
+    }
+   },
+   "R": {
+    "headSrc": "assets/images/ride/train_R_head.webp",
+    "midSrc": "assets/images/ride/train_R_mid.webp",
+    "scale": 1.0,
+    "head": {
+     "w": 314,
+     "h": 117,
+     "doors": [
+      [
+       64,
+       32,
+       40,
+       63
+      ],
+      [
+       265,
+       32,
+       39,
+       63
+      ]
+     ]
+    },
+    "mid": {
+     "w": 268,
+     "doors": [
+      [
+       18,
+       32,
+       40,
+       63
+      ],
+      [
+       219,
+       32,
+       39,
+       63
+      ]
+     ]
+    }
+   },
+   "E": {
+    "headSrc": "assets/images/ride/train_E_head.webp",
+    "midSrc": "assets/images/ride/train_E_mid.webp",
+    "scale": 1.0,
+    "head": {
+     "w": 293,
+     "h": 114,
+     "doors": [
+      [
+       43,
+       32,
+       18,
+       58
+      ]
+     ]
+    },
+    "mid": {
+     "w": 227,
+     "doors": []
+    }
+   },
+   "X": {
+    "headSrc": "assets/images/ride/train_X_head.webp",
+    "midSrc": "assets/images/ride/train_X_mid.webp",
+    "scale": 0.97,
+    "head": {
+     "w": 323,
+     "h": 99,
+     "doors": [
+      [
+       69,
+       18,
+       20,
+       60
+      ]
+     ]
+    },
+    "mid": {
+     "w": 231,
+     "doors": []
+    }
+   }
+  },
+  "pxPerKm": 15300,
+  "stopX": 0.06,
+  "farScale": 0.7,
+  "farLift": 10,
+  "crowd": {
+   "max": 26,
+   "k": 1.7,
+   "fadePerSec": 1.2
+  },
+  "doorOpenMin": [
+   0.1,
+   0.15
+  ],
+  "terminalStandMin": 3,
+  "originArriveMin": 5
+ }
 }
