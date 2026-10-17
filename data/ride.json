@@ -463,314 +463,177 @@
    "standK": 100
   },
   "rapid": {
-   "src": "assets/images/ride/interior_rapid.webp",
+   "src": "assets/images/ride/interior_rapid_f.webp",
    "types": [
     "R"
+   ],
+   "about": "正面から向かいの壁を見た快速の車内（Geminiで作成）。窓とドアのガラスが透明。乗客は riders の絵を seated（腰の位置）・standing（足もと）に置く。led はドア上の案内表示",
+   "levels": [
+    "assets/images/ride/interior_rapid_f.webp"
    ],
    "windows": {
     "left": [
      [
-      [
-       0,
-       30
-      ],
-      [
-       41,
-       40
-      ],
-      [
-       41,
-       108
-      ],
-      [
-       0,
-       110
-      ]
+      0,
+      200,
+      41,
+      250
      ],
      [
-      [
-       62,
-       44
-      ],
-      [
-       105,
-       50
-      ],
-      [
-       105,
-       108
-      ],
-      [
-       62,
-       108
-      ]
+      66,
+      200,
+      217,
+      250
      ],
      [
-      [
-       117,
-       58
-      ],
-      [
-       139,
-       62
-      ],
-      [
-       139,
-       100
-      ],
-      [
-       117,
-       102
-      ]
+      509,
+      204,
+      99,
+      251
      ],
      [
-      [
-       149,
-       64
-      ],
-      [
-       158,
-       65
-      ],
-      [
-       158,
-       98
-      ],
-      [
-       149,
-       99
-      ]
+      675,
+      204,
+      99,
+      251
      ],
      [
-      [
-       166,
-       67
-      ],
-      [
-       173,
-       68
-      ],
-      [
-       173,
-       96
-      ],
-      [
-       166,
-       96
-      ]
+      999,
+      199,
+      215,
+      252
+     ],
+     [
+      1236,
+      199,
+      44,
+      252
      ]
     ],
-    "right": [
+    "right": []
+   },
+   "glass": {
+    "left": [
      [
-      [
-       383,
-       36
-      ],
-      [
-       419,
-       28
-      ],
-      [
-       419,
-       110
-      ],
-      [
-       383,
-       112
-      ]
+      202,
+      447
      ],
      [
-      [
-       331,
-       52
-      ],
-      [
-       369,
-       45
-      ],
-      [
-       369,
-       108
-      ],
-      [
-       331,
-       110
-      ]
+      202,
+      447
      ],
      [
-      [
-       304,
-       63
-      ],
-      [
-       322,
-       60
-      ],
-      [
-       322,
-       100
-      ],
-      [
-       304,
-       102
-      ]
+      206,
+      453
      ],
      [
-      [
-       277,
-       64
-      ],
-      [
-       288,
-       62
-      ],
-      [
-       288,
-       99
-      ],
-      [
-       277,
-       100
-      ]
+      206,
+      453
      ],
      [
-      [
-       259,
-       67
-      ],
-      [
-       267,
-       66
-      ],
-      [
-       267,
-       96
-      ],
-      [
-       259,
-       96
-      ]
+      201,
+      449
+     ],
+     [
+      201,
+      449
      ]
-    ]
+    ],
+    "right": []
+   },
+   "eye": 322,
+   "horizon": 322,
+   "standK": 100,
+   "seatStyle": "front",
+   "pax": {
+    "about": "立つ人は足もとの高さから大きさを決める（1m＝(y−horizon)/eyeM ピクセル）。座る人は seatPxm（1m あたりのピクセル）",
+    "eyeM": 1.3,
+    "seatPxm": 290
    },
    "seated": [
     [
-     75,
-     108,
-     1.0
-    ],
-    [
-     371,
-     110,
-     1.03
-    ],
-    [
-     141,
-     107,
-     0.62
-    ],
-    [
-     310,
-     107,
-     0.58
-    ],
-    [
-     112,
-     103,
-     0.55
-    ],
-    [
-     336,
-     105,
-     0.55
-    ],
-    [
-     167,
-     100,
-     0.42
-    ],
-    [
-     282,
-     100,
-     0.42
-    ],
-    [
-     181,
-     95,
-     0.3
-    ],
-    [
-     265,
-     95,
-     0.3
+     58,
+     595,
+     1
     ],
     [
      190,
-     92,
-     0.22
+     595,
+     1
     ],
     [
-     256,
-     92,
-     0.22
+     320,
+     595,
+     1
     ],
     [
-     14,
-     112,
-     1.0
+     958,
+     595,
+     1
     ],
     [
-     410,
-     112,
-     1.0
+     1090,
+     595,
+     1
+    ],
+    [
+     1220,
+     595,
+     1
     ]
    ],
-   "seatStyle": "cross",
    "standing": [
     [
-     224,
-     124
+     590,
+     702
     ],
     [
-     214,
-     127
+     700,
+     704
     ],
     [
-     232,
-     130
+     450,
+     712
     ],
     [
-     221,
-     138
+     840,
+     712
     ],
     [
-     230,
-     144
+     250,
+     760
     ],
     [
-     215,
-     150
+     1030,
+     760
     ],
     [
-     228,
-     160
+     640,
+     770
     ],
     [
-     219,
-     172
+     120,
+     785
     ],
     [
-     231,
-     186
+     900,
+     790
     ],
     [
-     222,
-     205
+     380,
+     795
+    ],
+    [
+     1180,
+     795
     ]
    ],
-   "horizon": 78,
-   "standK": 137,
-   "eye": 85
+   "led": [
+    487,
+    95,
+    308,
+    41
+   ]
   },
   "exp": {
    "src": "assets/images/ride/interior_exp_c1.webp",
@@ -1719,5 +1582,229 @@
     ]
    }
   }
+ },
+ "riders": {
+  "about": "乗客の絵（Geminiで作成した絵から切り抜き）。1m＝pxm ピクセル。cat：0通勤通学 1ビジネス 2観光 3私用 4イベント。ev：イベントの種類（y＝祭り・花火 f＝音楽などのフェス r＝鉄道フェス）。hy：座る人の腰（座面）の高さ。nf：左右反転しない",
+  "pxm": 360,
+  "events": {
+   "y": [
+    "hanabi",
+    "matsuri",
+    "okuribi"
+   ],
+   "f": [
+    "live",
+    "bandlive",
+    "nightfes",
+    "gourmet",
+    "sportscup"
+   ],
+   "r": [
+    "railfes"
+   ]
+  },
+  "stand": [
+   {
+    "src": "assets/images/ride/rider/st_01.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_02.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_03.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_04.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_05.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_06.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_07.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_08.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_09.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_10.webp",
+    "cat": 0
+   },
+   {
+    "src": "assets/images/ride/rider/st_11.webp",
+    "cat": 1
+   },
+   {
+    "src": "assets/images/ride/rider/st_12.webp",
+    "cat": 1
+   },
+   {
+    "src": "assets/images/ride/rider/st_13.webp",
+    "cat": 2
+   },
+   {
+    "src": "assets/images/ride/rider/st_14.webp",
+    "cat": 2
+   },
+   {
+    "src": "assets/images/ride/rider/st_15.webp",
+    "cat": 2
+   },
+   {
+    "src": "assets/images/ride/rider/st_16.webp",
+    "cat": 2
+   },
+   {
+    "src": "assets/images/ride/rider/st_17.webp",
+    "cat": 3
+   },
+   {
+    "src": "assets/images/ride/rider/st_18.webp",
+    "cat": 3
+   },
+   {
+    "src": "assets/images/ride/rider/st_19.webp",
+    "cat": 3
+   },
+   {
+    "src": "assets/images/ride/rider/st_20.webp",
+    "cat": 3
+   },
+   {
+    "src": "assets/images/ride/rider/st_21.webp",
+    "cat": 4,
+    "ev": "y"
+   },
+   {
+    "src": "assets/images/ride/rider/st_22.webp",
+    "cat": 4,
+    "ev": "y"
+   },
+   {
+    "src": "assets/images/ride/rider/st_23.webp",
+    "cat": 4,
+    "ev": "y"
+   },
+   {
+    "src": "assets/images/ride/rider/st_24.webp",
+    "cat": 4,
+    "ev": "y"
+   },
+   {
+    "src": "assets/images/ride/rider/st_25.webp",
+    "cat": 4,
+    "ev": "y"
+   },
+   {
+    "src": "assets/images/ride/rider/st_26.webp",
+    "cat": 4,
+    "ev": "f"
+   },
+   {
+    "src": "assets/images/ride/rider/st_27.webp",
+    "cat": 4,
+    "ev": "f",
+    "nf": 1
+   },
+   {
+    "src": "assets/images/ride/rider/st_28.webp",
+    "cat": 4,
+    "ev": "r",
+    "nf": 1
+   },
+   {
+    "src": "assets/images/ride/rider/st_29.webp",
+    "cat": 4,
+    "ev": "r"
+   }
+  ],
+  "seat": [
+   {
+    "src": "assets/images/ride/rider/se_01.webp",
+    "cat": 0,
+    "hy": 331
+   },
+   {
+    "src": "assets/images/ride/rider/se_02.webp",
+    "cat": 0,
+    "hy": 350
+   },
+   {
+    "src": "assets/images/ride/rider/se_03.webp",
+    "cat": 0,
+    "hy": 301
+   },
+   {
+    "src": "assets/images/ride/rider/se_04.webp",
+    "cat": 0,
+    "hy": 308
+   },
+   {
+    "src": "assets/images/ride/rider/se_05.webp",
+    "cat": 0,
+    "hy": 223
+   },
+   {
+    "src": "assets/images/ride/rider/se_06.webp",
+    "cat": 0,
+    "hy": 308
+   },
+   {
+    "src": "assets/images/ride/rider/se_07.webp",
+    "cat": 0,
+    "hy": 289
+   },
+   {
+    "src": "assets/images/ride/rider/se_08.webp",
+    "cat": 1,
+    "hy": 312
+   },
+   {
+    "src": "assets/images/ride/rider/se_09.webp",
+    "cat": 2,
+    "hy": 332
+   },
+   {
+    "src": "assets/images/ride/rider/se_10.webp",
+    "cat": 3,
+    "hy": 296
+   },
+   {
+    "src": "assets/images/ride/rider/se_11.webp",
+    "cat": 3,
+    "hy": 311
+   },
+   {
+    "src": "assets/images/ride/rider/se_12.webp",
+    "cat": 3,
+    "hy": 307
+   },
+   {
+    "src": "assets/images/ride/rider/se_13.webp",
+    "cat": 4,
+    "ev": "y",
+    "hy": 306
+   },
+   {
+    "src": "assets/images/ride/rider/se_14.webp",
+    "cat": 4,
+    "ev": "f",
+    "hy": 324
+   }
+  ]
  }
 }
