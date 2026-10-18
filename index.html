@@ -2143,7 +2143,7 @@ const RIDE=(()=>{
   // 景色の地平線を車内の絵の目の高さ（eye）にそろえ、どの窓から見ても同じ高さに地平線が来るようにする
   function drawStrip(c,src,alpha,bx,by,bw,bh,pos,blur,eye){const S=R.strips[src];if(!S||alpha<=0.002)return;const hz=S.hz*S.H;
     const s=1.04*Math.max(bh/S.H,(eye-by)/hz,(by+bh-eye)/(S.H-hz)),top=eye-hz*s;
-    for(const b of S.bands){const k=b.k||1,tw=b.cv.width,w=tw*s*k;const off=((pos*b.f)%tw+tw)%tw;const bl=blur*b.f*k;
+    for(const b of S.bands){if(b.f>1&&R.it&&R.it.persp&&!R.ov)continue;const k=b.k||1,tw=b.cv.width,w=tw*s*k;const off=((pos*b.f)%tw+tw)%tw;const bl=blur*b.f*k;
       const taps=bl>1.2?[[-bl/2,1],[0,0.5],[bl/2,1/3]]:[[0,1]];
       for(const [dx,a] of taps){c.globalAlpha=alpha*a;let x=bx-off*s*k+dx;while(x>bx-w)x-=w;for(;x<bx+bw;x+=w)c.drawImage(b.cv,x,top+b.y*s,w,b.cv.height*s*k);}}
     c.globalAlpha=1;}
@@ -2171,7 +2171,7 @@ const RIDE=(()=>{
     for(const [key,a] of sceneryMix(tr,k))drawScenery(c,key,a,bx,by,bw,bh,pos,blur*(bh/218),R.ov?R.ov.eye:(R.it.eye==null?by+bh/2:R.it.eye));
     weatherOnGlass(c,bx,by,bw,bh,wi,k);
     if(dk>0.01){c.fillStyle=`rgba(10,16,32,${0.8*dk})`;c.fillRect(bx,by,bw,bh);}
-    if(side===R.cfg.platform.side)drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk);
+    if(side===R.cfg.platform.side&&!(R.it&&R.it.persp&&!R.ov))drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk);   // 遠近法で描く車内では、ホームは drawStationViewP でまとめて描く
     const g=c.createLinearGradient(bx,by,bx+bw,by+bh);g.addColorStop(0,'rgba(255,255,255,.10)');g.addColorStop(0.5,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(bx,by,bw,bh);}
   /* --- 窓から見える駅（通過・停車）：横から見たホームを、近くのものほど速く・大きく描く ---
      窓の高さで見える範囲を約 viewM メートルとし、ホームの床・人・駅名標・柱・屋根を実際の大きさ（メートル）で並べる。
@@ -2297,6 +2297,53 @@ const RIDE=(()=>{
     for(let i=0;i<n;i++){const o=ppl[i],d=V.peopleD[0]+o.z*(V.peopleD[1]-V.peopleD[0]);items.push({d,u:o.u,draw:()=>drawWaiter(c,X(o.u,d),Y(0,d),o.h*S(d),o,s,A)});}
     items.filter(it=>{const x=X(it.u,it.d),m=2.2*S(it.d);return x>bx-m&&x<bx+bw+m;}).sort((a,b)=>b.d-a.d).forEach(it=>it.draw());
     c.restore();}
+  /* --- 窓から見える駅を、車内の絵と同じ遠近法で描く（通路の奥＝消失点に向かって線が集まる） ---
+     見ている人は通路の中央で車両の前の方を向いている。窓の外の点（前方 a m、窓からの奥行き d m、高さ h m）は
+     x = vpX ∓ f·(W+d)/a、y = vpY + f·(目の高さ − h)/a に見える（W：目から窓ガラスまでの横の距離） */
+  function stationLayerP(c,s,L,uw,P,sideSg,A,dk){const V=R.cfg.stationView,I=k=>R.img[V[k]],eh=P.eyeM||V.eyeM,aMin=0.7;
+    const a=u=>u-uw,X=(u,d)=>P.vpX+sideSg*P.f*(P.W+d)/a(u),Y=(h,u)=>P.vpY+P.f*(eh-h)/a(u),S=u=>P.f/a(u),pt=(u,d,h)=>[X(u,d),Y(h,u)];
+    const poly=(pts,fill)=>{c.fillStyle=fill;c.beginPath();pts.forEach(([u,d,h],i)=>{const [x,y]=pt(u,d,h);i?c.lineTo(x,y):c.moveTo(x,y);});c.closePath();c.fill();};
+    const line=(u0,u1,d,h)=>{const [x0,y0]=pt(u0,d,h),[x1,y1]=pt(u1,d,h);c.moveTo(x0,y0);c.lineTo(x1,y1);};
+    const u0=Math.max(-L/2,uw+aMin),u1=L/2;if(u1<=u0)return;
+    c.save();c.globalAlpha=A;
+    // 奥の柵
+    poly([[u0,V.backD,0],[u1,V.backD,0],[u1,V.backD,0.28],[u0,V.backD,0.28]],'#8f9397');
+    c.strokeStyle='#5d6268';c.lineWidth=1;c.beginPath();line(u0,u1,V.backD,V.backH);line(u0,u1,V.backD,(V.backH+0.28)/2);
+    for(let u=Math.ceil(u0/2)*2;u<u1&&a(u)<60;u+=2){const [x,y]=pt(u,V.backD,V.backH),[,y2]=pt(u,V.backD,0.28);c.moveTo(x,y);c.lineTo(x,y2);}c.stroke();
+    // 床・点字ブロック・白い縁・ホームの側面
+    poly([[u0,V.edgeD,0],[u1,V.edgeD,0],[u1,V.backD,0],[u0,V.backD,0]],V.floorColor[1]);
+    c.strokeStyle='rgba(40,44,50,.13)';c.lineWidth=0.7;c.beginPath();
+    for(let d=V.edgeD+V.tileM;d<V.backD;d+=V.tileM)line(u0,u1,d,0);
+    for(let u=Math.ceil(u0/V.tileM)*V.tileM;u<u1&&a(u)<40;u+=V.tileM){const [x,y]=pt(u,V.edgeD,0),[x2,y2]=pt(u,V.backD,0);c.moveTo(x,y);c.lineTo(x2,y2);}c.stroke();
+    poly([[u0,V.tactileD[0],0],[u1,V.tactileD[0],0],[u1,V.tactileD[1],0],[u0,V.tactileD[1],0]],V.tactileColor);
+    poly([[u0,V.edgeD,0],[u1,V.edgeD,0],[u1,V.edgeD+0.12,0],[u0,V.edgeD+0.12,0]],'rgba(238,238,232,.95)');
+    poly([[u0,V.edgeD,0],[u1,V.edgeD,0],[u1,V.edgeD,-0.4],[u0,V.edgeD,-0.4]],'rgba(60,62,66,.92)');
+    // 屋根の裏側と蛍光灯
+    const Lc=L*((V.canopyFrac&&V.canopyFrac[s])||V.canopyFrac.default),r0=Math.max(-Lc/2,uw+aMin),r1=Lc/2;
+    if(r1>r0){poly([[r0,V.canopyD,V.roofM],[r1,V.canopyD,V.roofM],[r1,V.backD,V.roofM],[r0,V.backD,V.roofM]],'#6d7177');
+      poly([[r0,V.canopyD,V.roofM],[r1,V.canopyD,V.roofM],[r1,V.canopyD,V.roofM+0.3],[r0,V.canopyD,V.roofM+0.3]],'#a3a8ad');
+      const lc=`rgba(255,250,232,${0.8+0.2*dk})`;for(let u=Math.ceil((r0+3)/V.lampM)*V.lampM-3;u<r1-1.2&&a(u)<60;u+=V.lampM)poly([[u,V.lampD,V.roofM-0.05],[u+1.2,V.lampD,V.roofM-0.05],[u+1.2,V.lampD+0.15,V.roofM-0.05],[u,V.lampD+0.15,V.roofM-0.05]],lc);}
+    // 柱・駅名標・待っている人（遠いものから描く）
+    const items=[];
+    for(let u=-Lc/2+V.pillarM/2;u<Lc/2;u+=V.pillarM)items.push({u,draw:()=>{const im=I('pillar'),sc=S(u),w=0.28*sc,x=X(u,V.pillarD)-w/2,y0=Y(V.roofM,u),y1=Y(0,u);c.drawImage(im,x,y0,w,y1-y0);c.fillStyle='rgba(0,0,0,.12)';c.fillRect(x+w*0.6,y0,w*0.4,y1-y0);}});
+    for(const f of V.signsAt){const u=f*L;items.push({u,draw:()=>{const xa=X(u-V.signM[0]/2,V.signD),xb=X(u+V.signM[0]/2,V.signD),h=V.signM[1]*S(u);drawEkimeihyo(c,Math.min(xa,xb),Y(V.signM[2],u),Math.abs(xb-xa),h,s,A,Y(0,u));}});}
+    const ppl=stationPeople(s),n=Math.min(ppl.length,Math.round(V.crowdK*Math.sqrt(Math.max(0,waitingAt(s,T)))));
+    for(let i=0;i<n;i++){const o=ppl[i],d=V.peopleD[0]+o.z*(V.peopleD[1]-V.peopleD[0]);items.push({u:o.u,draw:()=>drawWaiter(c,X(o.u,d),Y(0,o.u),o.h*S(o.u),o,s,A)});}
+    items.filter(it=>a(it.u)>aMin+0.3&&a(it.u)<90).sort((p,q)=>q.u-p.u).forEach(it=>it.draw());
+    c.restore();}
+  // 架線柱：線路の両側に立つ柱と、車両の上を渡るはり（門の形）。電車はこの門をくぐる。左右の窓に同じ柱の組が同時に見える
+  function drawCatenaryP(c,tr,k,dk){const P=R.it,PP=P.persp,G=PP.catM||50,base=k.km*1000,km=kmOf(tr),aMin=0.8,eh=PP.eyeM;
+    for(const side of ['left','right']){const ws=P.windows[side]||[];if(!ws.length)continue;const sg=side==='left'?-1:1;
+      c.save();c.beginPath();ws.forEach(([x,y,w,h])=>c.rect(x,y,w,h));c.clip();
+      for(let u=Math.ceil((base+aMin)/G)*G;u<base+140;u+=G){const a=u-base;
+        if(side===R.cfg.platform.side&&tr.seq.some((s,j)=>Math.abs(u-km[j]*1000)<platLenM(s)/2+4))continue;   // ホームのある所はホームの柱
+        const X=d=>PP.vpX+sg*PP.f*(PP.W+d)/a,Y=h=>PP.vpY+PP.f*(eh-h)/a,sc=PP.f/a,d=0.55,w=Math.max(1,0.26*sc),x=X(d),y0=Y(7),y1=Y(-1.3);
+        const g=c.createLinearGradient(x-w/2,0,x+w/2,0);g.addColorStop(0,'#9aa1a8');g.addColorStop(0.55,'#7b838b');g.addColorStop(1,'#5d646b');c.fillStyle=g;c.fillRect(x-w/2,y0,w,y1-y0);
+        c.fillStyle='#4f565c';c.fillRect(x-w/2,Y(5.6),Math.abs(X(-PP.W*2)-x)*(sg<0?1:-1)+w/2,Math.max(1,0.18*sc));   // はり（車両の上へ）
+        if(dk>0.3){c.fillStyle=`rgba(10,16,32,${0.5*dk})`;c.fillRect(x-w/2,y0,w,y1-y0);}}
+      c.restore();}}
+  function drawStationViewP(c,tr,k,dk){const P=R.it.persp,side=R.cfg.platform.side,sg=side==='left'?-1:1,km=kmOf(tr);
+    for(let j=0;j<tr.seq.length;j++){const s=tr.seq[j],L=platLenM(s),uw=(k.km-km[j])*1000;if(uw>L/2||-uw>L/2+250)continue;stationLayerP(c,s,L,uw,P,sg,1,dk);}}
   function drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk){const V=R.cfg.stationView;if(!V||!R.img[V.floor])return;
     // 窓ガラスの上下（遠近で窓ごとに違う）から、見える高さ viewM と目の高さ eyeFrac を合わせる
     const gl=(R.ov&&R.ov.glass)||(R.it.glass&&R.it.glass[side]&&R.it.glass[side][wi])||[by,by+bh],gh=gl[1]-gl[0];
@@ -2368,6 +2415,8 @@ const RIDE=(()=>{
   function levelSrc(n){const LV=R.it.levels,L=LV[Math.min(n,LV.length-1)];return Array.isArray(L)?L[(R.tr.num||0)%L.length]:L;}
   function drawLevels(c,dt,k,dk,blur,W,H,bob){const it=R.it;
     for(const side of ['left','right'])(it.windows[side]||[]).forEach(([x,y,w,h],wi)=>{c.save();c.beginPath();c.rect(x,y,w,h);c.clip();windowContent(c,R.tr,k,x,y,w,h,side,wi,dk,blur);c.restore();});
+    if(it.persp&&R.cfg.stationView&&R.img[R.cfg.stationView.floor]){c.save();c.beginPath();(it.windows[R.cfg.platform.side]||[]).forEach(([x,y,w,h])=>c.rect(x,y,w,h));c.clip();drawStationViewP(c,R.tr,k,dk);c.restore();}   // 窓の外の駅（遠近法）
+    if(it.persp)drawCatenaryP(c,R.tr,k,dk);   // 架線柱（遠近法）
     if(it.doorway)drawDoorway(c,k,dk,blur);
     if(it.door){const [x,y,w,h]=it.door,ref=R.img[levelSrc(0)];c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.drawImage(ref,x-w*0.6,y-h*0.35,w*2.2,h*1.6);c.fillStyle='rgba(30,24,18,.35)';c.fillRect(x,y,w,h);c.restore();}   // 貫通扉の窓の向こう＝となりの車両
     const tgt=level(k.load/R.tr.cap);if(R.lvShow==null)R.lvShow=tgt;R.lvShow+=(tgt-R.lvShow)*Math.min(1,dt*2.5);if(Math.abs(tgt-R.lvShow)<0.003)R.lvShow=tgt;
