@@ -793,22 +793,40 @@
    ]
   },
   "E": {
-   "src": "assets/images/ride/door_exp.webp",
+   "src": "assets/images/ride/door_exp2.webp",
+   "about": "特急のデッキの片開き扉（Geminiで作成）。窓が透明。single：扉1枚が左の戸袋へ引き込まれる",
    "leaves": [
-    20,
-    7,
-    140,
-    203
-   ]
+    194,
+    171,
+    367,
+    577
+   ],
+   "single": true,
+   "glass": true,
+   "glassY": [
+    208,
+    482
+   ],
+   "eyeY": 308,
+   "pxm": 108
   },
   "X": {
-   "src": "assets/images/ride/door_exp.webp",
+   "src": "assets/images/ride/door_exp2.webp",
+   "about": "特急のデッキの片開き扉（Geminiで作成）。窓が透明。single：扉1枚が左の戸袋へ引き込まれる",
    "leaves": [
-    20,
-    7,
-    140,
-    203
-   ]
+    194,
+    171,
+    367,
+    577
+   ],
+   "single": true,
+   "glass": true,
+   "glassY": [
+    208,
+    482
+   ],
+   "eyeY": 308,
+   "pxm": 108
   }
  },
  "buttons": {

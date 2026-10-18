@@ -2478,9 +2478,11 @@ const RIDE=(()=>{
     try{windowContent(c,R.tr,k,0,0,W,H,'left',0,dk,blur);}finally{R.ov=null;}
     if(o<=0.001)c.drawImage(im,0,0);
     else{c.save();c.beginPath();c.rect(0,0,W,H);c.rect(x0,y0,x1-x0,y1-y0);c.clip('evenodd');c.drawImage(im,0,0);c.restore();
-      c.save();c.beginPath();c.rect(x0,y0,x1-x0,y1-y0);c.clip();const sh=Math.max(mid-x0,x1-mid)*o*0.97;
+      c.save();c.beginPath();c.rect(x0,y0,x1-x0,y1-y0);c.clip();
+      if(D0.single){const sh=(x1-x0)*o*0.97;c.drawImage(im,x0,y0,x1-x0,y1-y0,x0-sh,y0,x1-x0,y1-y0);c.fillStyle='rgba(0,0,0,.3)';c.fillRect(x1-sh,y0,2,y1-y0);}   // 片開き：扉1枚が左の戸袋へ
+      else{const sh=Math.max(mid-x0,x1-mid)*o*0.97;
       c.drawImage(im,x0,y0,mid-x0,y1-y0,x0-sh,y0,mid-x0,y1-y0);c.drawImage(im,mid,y0,x1-mid,y1-y0,mid+sh,y0,x1-mid,y1-y0);
-      c.fillStyle='rgba(0,0,0,.3)';c.fillRect(mid-sh-2,y0,2,y1-y0);c.fillRect(mid+sh,y0,2,y1-y0);c.restore();}
+      c.fillStyle='rgba(0,0,0,.3)';c.fillRect(mid-sh-2,y0,2,y1-y0);c.fillRect(mid+sh,y0,2,y1-y0);}c.restore();}
     if(dk>0.01){c.fillStyle=`rgba(24,22,40,${0.2*dk})`;c.fillRect(0,0,W,H);}}
   /* --- 描画：車内の案内表示（枠は絵、画面の中は文字で描く） --- */
   function conn(at,t,pred){let best=null;for(const o of D.trips){if(o===R.tr)continue;const q=o.seq.indexOf(at);if(q<0||q===o.seq.length-1||!o.stop[q]||!pred(o))continue;if(o.dep[q]>=t+1&&(!best||o.dep[q]<best.t))best={o,t:o.dep[q]};}return best;}
