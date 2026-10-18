@@ -1306,8 +1306,9 @@ function drawMap(){
     c.font=`${st.term?700:500} ${st.term?14:12.5}px "Zen Kaku Gothic New",sans-serif`;
     {const w=c.measureText(st.name).width+12,h=st.term?19:17,y0=ly-h+5;   // 駅名札：角丸の札に白い文字・白い縁・小さな影
       c.fillStyle='rgba(0,0,0,.18)';c.beginPath();c.roundRect(lx-w/2+0.8,y0+1,w,h,4);c.fill();
-      c.fillStyle=isSel?TH.accent:(st.term?'#2b6f52':'#3d7f63');c.beginPath();c.roundRect(lx-w/2,y0,w,h,4);c.fill();c.strokeStyle='#fff';c.lineWidth=1.2;c.stroke();
-      c.fillStyle='#fff';c.fillText(st.name,lx,ly);}
+      c.fillStyle=isSel?'#fffdf6':(st.term?'#2b6f52':'#3d7f63');c.beginPath();c.roundRect(lx-w/2,y0,w,h,4);c.fill();   // 選んだ駅は白い札に緑の文字・太い縁
+      c.strokeStyle=isSel?TH.accent:'#fff';c.lineWidth=isSel?2.2:1.2;c.stroke();
+      c.fillStyle=isSel?TH.accent:'#fff';c.fillText(st.name,lx,ly);}
     // waiting crowd indicator
     const w=waitingAt(s,T);if(w>20){const r=Math.min(14,2+Math.sqrt(w)/3.2);c.fillStyle=TH.warn;c.globalAlpha=0.5;c.beginPath();c.arc(lx+(c.measureText(st.name).width/2)+4+r,ly-4,r,0,Math.PI*2);c.fill();c.globalAlpha=1;}
   });
