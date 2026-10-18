@@ -1168,7 +1168,7 @@ function tripState(tr,T){
   const p=segPos(tr,i,f),q=segPos(tr,i,Math.min(1,f+0.02)),r0=segPos(tr,i,Math.max(0,f-0.02));
   return {x:p.x,y:p.y,ang:Math.atan2(q.y-r0.y,q.x-r0.x),at:i,moving:true,f:raw,load:tr.loadAfter[i]};
 }
-const DEPOT={C:{yard:{x:18,y:372,w:66,h:34},exit:[{x:50,y:389},{x:86,y:389},{x:100,y:350}]},P:{yard:{x:936,y:262,w:58,h:30},exit:[{x:965,y:277},{x:938,y:277},{x:922,y:316}]}};
+const DEPOT={C:{yard:{x:18,y:372,w:66,h:34},exit:[{x:50,y:389},{x:86,y:389},{x:100,y:350}]},P:{yard:{x:800,y:266,w:58,h:30},exit:[{x:829,y:281},{x:860,y:281},{x:884,y:316}]}};
 function alongPath(pts,f){let L=0;const seg=[];for(let i=0;i<pts.length-1;i++){const l=Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y);seg.push(l);L+=l;}
   let d=f*L;for(let i=0;i<seg.length;i++){if(d<=seg[i]||i===seg.length-1){const u=seg[i]?Math.min(1,d/seg[i]):0;return {x:pts[i].x+(pts[i+1].x-pts[i].x)*u,y:pts[i].y+(pts[i+1].y-pts[i].y)*u,ang:Math.atan2(pts[i+1].y-pts[i].y,pts[i+1].x-pts[i].x)};}d-=seg[i];}}
 function setState(s,T){
