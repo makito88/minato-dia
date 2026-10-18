@@ -1195,7 +1195,12 @@ const BLOCKS=[];(()=>{const r=rng(7);
   zone(16,228,200,292,40,13);zone(110,350,215,412,16,11);zone(200,350,300,404,10,9);zone(195,262,280,302,8,9);
   zone(430,240,520,282,9,9);zone(440,330,540,384,8,9);zone(700,338,820,392,9,9);zone(720,250,800,288,6,9);zone(860,350,940,372,5,8);zone(780,96,840,120,5,7);})();
 const TREES=[];(()=>{const r=rng(31);for(let i=0;i<46;i++)TREES.push({x:612+r()*120,y:160+r()*90,r:3+r()*3});for(let i=0;i<20;i++)TREES.push({x:300+r()*120,y:372+r()*36,r:2.5+r()*2.5});})();
+/* 地図の背景：イラストの画像（ChatGPTで作成）を敷き、上に地名を書く。画像がまだ読み込めていないときは今までの手描きの地形 */
+const MAPBG=new Image();MAPBG.decoding='async';MAPBG.onload=()=>{try{drawMap();}catch(e){}};MAPBG.src='assets/images/map_bg.webp';
 function drawTerrain(c){
+  if(MAPBG.complete&&MAPBG.naturalWidth){c.drawImage(MAPBG,0,0,1000,420);c.fillStyle='rgba(246,246,240,.30)';c.fillRect(-20,-20,1040,460);
+    c.save();c.font='600 10.5px "Zen Kaku Gothic New",sans-serif';c.textAlign='center';c.lineJoin='round';c.lineWidth=3;c.strokeStyle='rgba(255,255,250,.85)';c.fillStyle='#55605a';
+    [['みなと川大学',354,246],['中央市街',90,224],['みなと川',560,412],['みなと湾',955,412],['ひのき山',905,40]].forEach(([t,x,y])=>{c.strokeText(t,x,y);c.fillText(t,x,y);});c.restore();return;}
   c.fillStyle=TH.land;c.fillRect(-20,-20,1040,460);
   // hills
   c.fillStyle=TH.hill;
@@ -1218,49 +1223,71 @@ function drawTerrain(c){
   c.font='18px sans-serif';c.fillStyle=TH.muted;c.textAlign='center';c.fillText('♨',852,74);c.fillText('⚓',870,382);
 }
 function strokePts(c,pts){c.beginPath();pts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.stroke();}
+const RAIL={edge:'#DCE1DC',body:'#b4866b',plat:'#E8E3D5',platLine:'#A5A99F'};
+// ホーム：[駅, 線路からの横の位置, 線路に沿った位置, 長さ, 幅]
+const PLATS=[['S',12,0,30,4.2],['S',-12,0,30,4.2],['N',12,0,30,4.2],['N',-12,0,30,4.2],
+  ['U',12.2,0,34,4.2],['U',-12.2,0,34,4.2],['M',12.2,0,34,4.2],['M',-12.2,0,34,4.2],['K',12.2,0,34,4.2],['K',-12.2,0,34,4.2],
+  ['C',-13,-12,34,4.6],['C',13,-12,34,4.6],['P',0,10,22,5],['F',0,0,16,4.6],['T',0,0,18,4.6],['O',0,7,16,4.6]];
 function drawTracks(c){
-  c.strokeStyle=TH.track;c.lineCap='round';c.lineJoin='round';
-  // platforms
-  c.fillStyle=TH.paper;
-  const plat=(s,hw,hl,frame)=>{const n=stN(s);c.save();c.translate(ST[s].x,ST[s].y);c.rotate(Math.atan2(n.ty,n.tx));c.beginPath();c.roundRect(-hl,-hw,hl*2,hw*2,3);c.fill();c.strokeStyle=TH.line2;c.lineWidth=1;c.stroke();c.restore();};
-  ['S','N'].forEach(s=>plat(s,12,16));['U','M','K'].forEach(s=>plat(s,22,20));plat('C',25,26);plat('P',13,18);plat('F',11,12);plat('T',11,13);plat('O',11,15);
-  c.strokeStyle=TH.track;c.lineWidth=2.4;
+  c.lineCap='round';c.lineJoin='round';
+  PLATS.forEach(([s,off,al,len,w])=>{const p=anchorPt(s,off,al),n=stN(s);c.save();c.translate(p.x,p.y);c.rotate(Math.atan2(n.ty,n.tx));
+    c.fillStyle=RAIL.plat;c.strokeStyle=RAIL.platLine;c.lineWidth=0.7;c.beginPath();c.roundRect(-len/2,-w/2,len,w,1.2);c.fill();c.stroke();c.restore();});
+  const paths=()=>{
   // main with terminal connections
-  [7,-7].forEach(off=>{const pts=[];MAIN.forEach(s=>{if(s==='C')pts.push(segPt('C','S',0.32,off));else if(s==='P')pts.push(segPt('N','P',0.8,off));else pts.push(anchorPt(s,off));});strokePts(c,pts);});
-  // C lanes
-  LANE_C.forEach(off=>{const a=anchorPt('C',off,-30),b=anchorPt('C',off,6),e=segPt('C','S',0.32,off<0?-7:7);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.quadraticCurveTo(b.x+22,b.y,e.x,e.y);c.stroke();});
-  [-7,7].forEach(off=>{const a=segPt('N','P',0.8,off),b=anchorPt('P',off,0),e=anchorPt('P',off,20);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
-  // sidings
-  [['U','S','M'],['M','U','K'],['K','M','N']].forEach(([s,p,q])=>[7,-7].forEach(off=>{const a=segPt(p,s,0.72,off),b=anchorPt(s,off*2.5,-16),d=anchorPt(s,off*2.5,16),e=segPt(s,q,0.28,off);c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo(b.x-10,b.y,b.x,b.y);c.lineTo(d.x,d.y);c.quadraticCurveTo(d.x+10,d.y,e.x,e.y);c.stroke();}));
-  // branch
-  const bk=segPt('K','F',0.25,0);c.beginPath();c.moveTo(ST.K.x+NS.K.x*7,ST.K.y+NS.K.y*7);c.quadraticCurveTo(ST.K.x+14,ST.K.y-12,bk.x,bk.y);c.stroke();
-  const bk2=anchorPt('K',-7,8);c.beginPath();c.moveTo(bk2.x,bk2.y);c.quadraticCurveTo(ST.K.x+16,ST.K.y-14,bk.x,bk.y);c.stroke();
-  const f1=segPt('K','F',0.7,0),f2=segPt('F','T',0.3,0);strokePts(c,[bk,f1]);
-  [6,-6].forEach(off=>{const b=anchorPt('F',off,-8),d=anchorPt('F',off,8);c.beginPath();c.moveTo(f1.x,f1.y);c.lineTo(b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(f2.x,f2.y);c.stroke();});
-  strokePts(c,[f2,segPt('F','T',0.75,0)]);
-  [6,-6].forEach(off=>{const a=segPt('F','T',0.75,0),b=anchorPt('T',off,-10),d=anchorPt('T',off,10),e=segPt('T','O',0.22,0);c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo(b.x-6*NBS.T.tx,b.y-6*NBS.T.ty,b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(e.x,e.y);c.stroke();});
-  const o1=segPt('T','O',0.22,0),o2=segPt('T','O',0.8,0);strokePts(c,[o1,o2]);
-  [6,-6].forEach(off=>{const b=anchorPt('O',off,0),e=anchorPt('O',off,14);c.beginPath();c.moveTo(o2.x,o2.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
+    [7,-7].forEach(off=>{const pts=[];MAIN.forEach(s=>{if(s==='C')pts.push(segPt('C','S',0.32,off));else if(s==='P')pts.push(segPt('N','P',0.8,off));else pts.push(anchorPt(s,off));});strokePts(c,pts);});
+    // C lanes
+    LANE_C.forEach(off=>{const a=anchorPt('C',off,-30),b=anchorPt('C',off,6),e=segPt('C','S',0.32,off<0?-7:7);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.quadraticCurveTo(b.x+22,b.y,e.x,e.y);c.stroke();});
+    [-7,7].forEach(off=>{const a=segPt('N','P',0.8,off),b=anchorPt('P',off,0),e=anchorPt('P',off,20);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
+    // sidings
+    [['U','S','M'],['M','U','K'],['K','M','N']].forEach(([s,p,q])=>[7,-7].forEach(off=>{const a=segPt(p,s,0.72,off),b=anchorPt(s,off*2.5,-16),d=anchorPt(s,off*2.5,16),e=segPt(s,q,0.28,off);c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo(b.x-10,b.y,b.x,b.y);c.lineTo(d.x,d.y);c.quadraticCurveTo(d.x+10,d.y,e.x,e.y);c.stroke();}));
+    // branch
+    const bk=segPt('K','F',0.25,0);c.beginPath();c.moveTo(ST.K.x+NS.K.x*7,ST.K.y+NS.K.y*7);c.quadraticCurveTo(ST.K.x+14,ST.K.y-12,bk.x,bk.y);c.stroke();
+    const bk2=anchorPt('K',-7,8);c.beginPath();c.moveTo(bk2.x,bk2.y);c.quadraticCurveTo(ST.K.x+16,ST.K.y-14,bk.x,bk.y);c.stroke();
+    const f1=segPt('K','F',0.7,0),f2=segPt('F','T',0.3,0);strokePts(c,[bk,f1]);
+    [6,-6].forEach(off=>{const b=anchorPt('F',off,-8),d=anchorPt('F',off,8);c.beginPath();c.moveTo(f1.x,f1.y);c.lineTo(b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(f2.x,f2.y);c.stroke();});
+    strokePts(c,[f2,segPt('F','T',0.75,0)]);
+    [6,-6].forEach(off=>{const a=segPt('F','T',0.75,0),b=anchorPt('T',off,-10),d=anchorPt('T',off,10),e=segPt('T','O',0.22,0);c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo(b.x-6*NBS.T.tx,b.y-6*NBS.T.ty,b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(e.x,e.y);c.stroke();});
+    const o1=segPt('T','O',0.22,0),o2=segPt('T','O',0.8,0);strokePts(c,[o1,o2]);
+    [6,-6].forEach(off=>{const b=anchorPt('O',off,0),e=anchorPt('O',off,14);c.beginPath();c.moveTo(o2.x,o2.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
+  };
+  // 同じ線路の形を3回なぞる：明るいふち → 茶色 → 明るい縞（線路が重なる分岐でもすき間が出ない）
+  [[RAIL.edge,4.6,null,'round'],[RAIL.body,3.4,null,'round'],[RAIL.edge,1.9,[3.2,3.2],'butt']].forEach(([col,w,d,cap])=>{c.strokeStyle=col;c.lineWidth=w;c.lineCap=cap;c.setLineDash(d||[]);paths();});
+  c.setLineDash([]);c.lineCap='round';
   // depots
   c.lineWidth=1.6;
-  Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;c.fillStyle=TH.paper;c.beginPath();c.roundRect(y.x-4,y.y-4,y.w+8,y.h+8,4);c.fill();c.strokeStyle=TH.line2;c.lineWidth=1;c.stroke();c.strokeStyle=TH.track;c.lineWidth=1.6;
+  Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;c.fillStyle=TH.paper;c.beginPath();c.roundRect(y.x-4,y.y-4,y.w+8,y.h+8,4);c.fill();c.strokeStyle=TH.line2;c.lineWidth=1;c.stroke();c.strokeStyle=RAIL.body;c.lineWidth=1.6;
     for(let i=0;i<4;i++){const yy=y.y+4+i*(y.h-8)/3;c.beginPath();c.moveTo(y.x,yy);c.lineTo(y.x+y.w,yy);c.stroke();}
     strokePts(c,d.exit);});
 }
-function drawTrainShape(c,x,y,ang,cars,col,dk){
-  const len=8+cars*3.1;c.save();c.translate(x,y);c.rotate(ang);
+function drawTrainShape(c,x,y,ang,cars,col,dk,stopped){
+  const cl=Math.min(5,30/Math.max(cars,4)),gap=0.5,w=4.3,len=cars*cl+(cars-1)*gap;
+  c.save();c.translate(x,y);c.rotate(ang);
+  if(stopped){c.save();c.shadowColor='rgba(255,246,214,.95)';c.shadowBlur=6;c.fillStyle='rgba(255,246,214,.75)';c.beginPath();c.roundRect(-len/2-1,-w/2-1,len+2,w+2,2);c.fill();c.restore();}
   if(dk>0.3){c.shadowColor=TH.glow;c.shadowBlur=8*dk;}
-  c.fillStyle=col;c.beginPath();c.roundRect(-len/2,-3.3,len,6.6,3);c.fill();c.shadowBlur=0;
-  c.strokeStyle=TH.land;c.lineWidth=0.8;const cl=len/cars;for(let i=1;i<cars;i++){c.beginPath();c.moveTo(-len/2+cl*i,-3.3);c.lineTo(-len/2+cl*i,3.3);c.stroke();}
-  if(dk>0.3){c.fillStyle=TH.glow;c.globalAlpha=0.75*dk;c.fillRect(-len/2+1.5,-0.9,len-3,1.8);c.globalAlpha=1;}
+  c.fillStyle='rgba(40,40,40,.18)';c.beginPath();c.roundRect(-len/2+0.4,-w/2+0.6,len,w,1);c.fill();c.shadowBlur=0;   // 影
+  for(let i=0;i<cars;i++){const x0=-len/2+i*(cl+gap),head=i===0||i===cars-1,front=i===cars-1;
+    if(i>0){c.fillStyle='#5c6168';c.fillRect(x0-gap,-w*0.32,gap,w*0.64);}                                     // 連結部
+    c.fillStyle='#e8ebee';c.beginPath();c.roundRect(x0,-w/2,cl,w,head?(front?[0.4,1.5,1.5,0.4]:[1.5,0.4,0.4,1.5]):0.4);c.fill();   // 車体
+    c.fillStyle=col;c.fillRect(x0+0.2,-w/2,cl-0.4,0.42);c.fillRect(x0+0.2,w/2-0.42,cl-0.4,0.42);                // 種別の色の帯
+    c.fillStyle='#c9cfd5';c.fillRect(x0+0.35,-w/2+0.55,cl-0.7,w-1.1);                                          // 屋根
+    c.fillStyle='#aab2ba';c.fillRect(x0+cl*0.18,-0.55,cl*0.22,1.1);c.fillRect(x0+cl*0.6,-0.55,cl*0.22,1.1);     // 冷房装置
+    if(cars>2&&(i===1||i===cars-2)){c.strokeStyle='#4a4f56';c.lineWidth=0.22;const px=x0+cl*0.5;c.beginPath();c.moveTo(px-0.9,0);c.lineTo(px,-1.2);c.lineTo(px+0.9,0);c.lineTo(px,1.2);c.closePath();c.stroke();}   // パンタグラフ
+    if(stopped){c.fillStyle='#fff6c8';for(const dx of [0.22,0.5,0.78])for(const sy of [-1,1])c.fillRect(x0+cl*dx-0.35,sy*w/2-(sy>0?0.5:0),0.7,0.5);}   // 開いたドア
+    if(head){c.fillStyle='#3c4650';c.fillRect(front?x0+cl-0.55:x0+0.15,-w/2+0.5,0.4,w-1);}                      // 運転台の窓
+    if(dk>0.3){c.fillStyle=TH.glow;c.globalAlpha=0.6*dk;c.fillRect(x0+0.6,-0.3,cl-1.2,0.6);c.globalAlpha=1;}}   // 夜の窓明かり
   c.restore();
 }
 let VIS=[];
+// 動かない層（背景・鉄道設備）を1枚の絵として作り置く。毎回はこれを貼るだけ
+const SMAP={cv:null,key:''};
+function staticMap(dpr){const key=[map.width,map.height,MS,dpr,TH.land,MAPBG.complete&&MAPBG.naturalWidth?1:0].join('|');
+  if(SMAP.key!==key){const cv=SMAP.cv||(SMAP.cv=document.createElement('canvas'));cv.width=map.width;cv.height=map.height;const g=cv.getContext('2d');
+    g.fillStyle=TH.land;g.fillRect(0,0,cv.width,cv.height);g.setTransform(MS*dpr,0,0,MS*dpr,0,0);g.imageSmoothingQuality='high';drawTerrain(g);drawTracks(g);SMAP.key=key;}
+  return SMAP.cv;}
 function drawMap(){
   if(!D)return;const c=mctx;const dpr=window.devicePixelRatio||1;
-  c.setTransform(1,0,0,1,0,0);c.fillStyle=TH.land;c.fillRect(0,0,map.width,map.height);
+  c.setTransform(1,0,0,1,0,0);c.drawImage(staticMap(dpr),0,0);
   c.setTransform(MS*dpr,0,0,MS*dpr,0,0);
-  drawTerrain(c);drawTracks(c);
   const dk=darkness(T);
   if(dk>0){c.fillStyle=TH.night;c.globalAlpha=0.42*dk;c.fillRect(-20,-20,1040,460);c.globalAlpha=1;
     c.fillStyle=TH.glow;BLOCKS.forEach(b=>{if(b.lit<0.55*dk){c.globalAlpha=0.7;c.fillRect(b.x+b.w*0.3,b.y+b.h*0.3,1.6,1.6);c.fillRect(b.x+b.w*0.65,b.y+b.h*0.6,1.6,1.6);}});c.globalAlpha=1;}
@@ -1277,9 +1304,10 @@ function drawMap(){
     if(s==='F'){lx=st.x-34;ly=st.y+4;}if(s==='T'){lx=st.x-36;ly=st.y+4;}if(s==='O'){lx=st.x-16;ly=st.y-20;}if(s==='K'){lx=st.x-6;}
     const isSel=sel.kind==='station'&&sel.st===s;
     c.font=`${st.term?700:500} ${st.term?14:12.5}px "Zen Kaku Gothic New",sans-serif`;
-    if(isSel){const w=c.measureText(st.name).width+12;c.fillStyle=TH.accent;c.beginPath();c.roundRect(lx-w/2,ly-13,w,18,4);c.fill();c.fillStyle=TH.panel;}
-    else c.fillStyle=TH.ink;
-    c.fillText(st.name,lx,ly);
+    {const w=c.measureText(st.name).width+12,h=st.term?19:17,y0=ly-h+5;   // 駅名札：角丸の札に白い文字・白い縁・小さな影
+      c.fillStyle='rgba(0,0,0,.18)';c.beginPath();c.roundRect(lx-w/2+0.8,y0+1,w,h,4);c.fill();
+      c.fillStyle=isSel?TH.accent:(st.term?'#2b6f52':'#3d7f63');c.beginPath();c.roundRect(lx-w/2,y0,w,h,4);c.fill();c.strokeStyle='#fff';c.lineWidth=1.2;c.stroke();
+      c.fillStyle='#fff';c.fillText(st.name,lx,ly);}
     // waiting crowd indicator
     const w=waitingAt(s,T);if(w>20){const r=Math.min(14,2+Math.sqrt(w)/3.2);c.fillStyle=TH.warn;c.globalAlpha=0.5;c.beginPath();c.arc(lx+(c.measureText(st.name).width/2)+4+r,ly-4,r,0,Math.PI*2);c.fill();c.globalAlpha=1;}
   });
@@ -1292,7 +1320,7 @@ function drawMap(){
     for(let i=0;i<Math.min(n,16);i++){const lane=i%4,col=Math.floor(i/4);const yy=y.y+4+lane*(y.h-8)/3;c.fillStyle=TH.dead;c.fillRect(y.x+4+col*15,yy-2.4,12,4.8);}
     c.fillStyle=TH.ink;if(k==='C'){c.fillText(DEPOTNAME[k],y.x-4,y.y-22);c.fillText(`${n}/${total[k]}編成`,y.x-4,y.y-9);}else c.fillText(`${DEPOTNAME[k]} ${n}/${total[k]}編成`,y.x-24,y.y-10);});
   // trains
-  if(LAYERS.trains)VIS.forEach(({s,st})=>{const tr=st.trip;const col=st.dead?TH.dead:TH[tr.type];drawTrainShape(c,st.x,st.y,st.ang,s.cars,col,dk);
+  if(LAYERS.trains)VIS.forEach(({s,st})=>{const tr=st.trip;const col=st.dead?TH.dead:TH[tr.type];drawTrainShape(c,st.x,st.y,st.ang,s.cars,col,dk,!st.moving&&!st.dead);
     const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);c.arc(st.x+n.x*9*side,st.y+n.y*9*side,2.8,0,Math.PI*2);c.fill();}});
   // selection
   if(LAYERS.events)drawEventIcons(c,snap,dk);
