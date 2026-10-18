@@ -2354,21 +2354,26 @@ const RIDE=(()=>{
       const p=gl.createProgram();
       gl.attachShader(p,sh(gl.VERTEX_SHADER,'#version 300 es\nvoid main(){vec2 q=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(q*2.-1.,0,1);}'));
       gl.attachShader(p,sh(gl.FRAGMENT_SHADER,`#version 300 es
-precision highp float;uniform sampler2D tx;uniform vec4 uT;uniform float uH,uVx,uVy,uF,uK,uSg,uOff,uKK,uTW,uBH,uYb,uA;uniform int uM;out vec4 o;
+precision highp float;uniform sampler2D tx;uniform vec4 uT;uniform float uH,uVx,uVy,uF,uK,uSg,uOff,uKK,uTW,uBH,uYb,uA;uniform int uM;uniform vec3 uSky;out vec4 o;
 void main(){float lx=(gl_FragCoord.x-uT.z)/uT.x,ly=(uH-gl_FragCoord.y-uT.w)/uT.y,d=uSg*(lx-uVx);if(d<6.)discard;
   float v=d*uF/uK,top=uVy+uYb*v,sy=(ly-top)/(v*uKK);
-  if(sy<.5){if((uM&1)==0&&sy<0.)discard;sy=max(sy,.5);}if(sy>uBH-.5){if((uM&2)==0&&sy>uBH)discard;sy=min(sy,uBH-.5);}
-  o=texture(tx,vec2((uOff+uK/d/uKK)/uTW,sy/uBH))*uA;}`));
+  float up=0.;if(sy<.5){if((uM&1)==0&&sy<0.)discard;up=max(0.,-sy);sy=max(sy,.5);}if(sy>uBH-.5){if((uM&2)==0&&sy>uBH)discard;sy=min(sy,uBH-.5);}
+  vec4 c=texture(tx,vec2((uOff+uK/d/uKK)/uTW,sy/uBH));
+  if(up>0.){vec4 s=vec4(uSky.rgb*(1.-.12*smoothstep(0.,uBH,up)),1.);c=mix(c,s,smoothstep(0.,uBH*.06+4.,up));}   // 絵より上の空：上端の1行を引きのばすと縦すじになるので、空の平均色へなじませる（上ほど少し濃く）
+  o=c*uA;}`));
       gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS)){SGL.off=true;return false;}
-      const U={};['tx','uT','uH','uVx','uVy','uF','uK','uSg','uOff','uKK','uTW','uBH','uYb','uA','uM'].forEach(n=>U[n]=gl.getUniformLocation(p,n));
+      const U={};['tx','uT','uH','uVx','uVy','uF','uK','uSg','uOff','uKK','uTW','uBH','uYb','uA','uM','uSky'].forEach(n=>U[n]=gl.getUniformLocation(p,n));
       cv.addEventListener('webglcontextlost',()=>{SGL.off=true;});
-      Object.assign(SGL,{cv,gl,p,U,tex:new WeakMap()});}
+      Object.assign(SGL,{cv,gl,p,U,tex:new WeakMap(),sky:new WeakMap()});}
     const {gl,cv,U}=SGL,W=c.canvas.width,H=c.canvas.height;if(gl.isContextLost()){SGL.off=true;return false;}
     if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
     const texOf=img=>{let t=SGL.tex.get(img);if(t)return t;t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);gl.generateMipmap(gl.TEXTURE_2D);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);SGL.tex.set(img,t);return t;};
+    const skyOf=img=>{let s=SGL.sky.get(img);if(s)return s;const w=64,n=4,g=document.createElement('canvas');g.width=w;g.height=n;const x=g.getContext('2d');   // 絵の上の数行を平均した空の色
+      x.drawImage(img,0,0,img.width,Math.max(1,Math.round(img.height*0.02)),0,0,w,n);const D=x.getImageData(0,0,w,n).data;let r=0,gg=0,b=0,m=0;for(let i=0;i<D.length;i+=4)if(D[i+3]>200){r+=D[i];gg+=D[i+1];b+=D[i+2];m++;}
+      s=m?[r/m/255,gg/m/255,b/m/255]:[0.45,0.65,0.9];SGL.sky.set(img,s);return s;};
     const it=R.it,P=it.persp,K=P.scnK||580000,m=c.getTransform(),pos=k.km*R.cfg.pxPerKm;
     gl.viewport(0,0,W,H);gl.disable(gl.SCISSOR_TEST);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(SGL.p);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.activeTexture(gl.TEXTURE0);gl.uniform1i(U.tx,0);
@@ -2382,7 +2387,7 @@ void main(){float lx=(gl_FragCoord.x-uT.z)/uT.x,ly=(uH-gl_FragCoord.y-uT.w)/uT.y
         S.bands.forEach((b,bi)=>{if(b.f>1)return;const kk=b.k||1,tw=b.cv.width,bh=b.cv.height;if(!tw||!bh)return;
           const last=bi===S.bands.length-1||S.bands[bi+1].f>1;
           gl.bindTexture(gl.TEXTURE_2D,texOf(b.cv));gl.uniform1f(U.uOff,((pos*b.f/kk)%tw+tw)%tw);gl.uniform1f(U.uKK,kk);gl.uniform1f(U.uTW,tw);gl.uniform1f(U.uBH,bh);
-          gl.uniform1f(U.uYb,b.y-hz);gl.uniform1f(U.uA,A);gl.uniform1i(U.uM,(bi===0?1:0)|(last?2:0));gl.drawArrays(gl.TRIANGLES,0,3);any=true;});}}
+          gl.uniform1f(U.uYb,b.y-hz);gl.uniform1f(U.uA,A);gl.uniform1i(U.uM,(bi===0?1:0)|(last?2:0));if(bi===0)gl.uniform3fv(U.uSky,skyOf(b.cv));gl.drawArrays(gl.TRIANGLES,0,3);any=true;});}}
     if(!SGL.ok){if(gl.getError()!==gl.NO_ERROR){SGL.off=true;return false;}SGL.ok=true;}   // 最初の1回だけ確かめる（毎フレームだと遅くなる）
     if(any){c.save();c.beginPath();for(const side of ['left','right'])(it.windows[side]||[]).forEach(([x,y,w,h])=>c.rect(x,y,w,h));c.clip();c.setTransform(1,0,0,1,0,0);c.drawImage(cv,0,0);c.restore();}
     return true;}
