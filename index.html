@@ -167,6 +167,20 @@ canvas{display:block;touch-action:manipulation}
 
 /* editor */
 .presets{display:flex;flex-wrap:wrap;gap:6px}
+.modetab{display:flex;gap:0;margin:0 0 10px;border:1px solid var(--line2);border-radius:8px;overflow:hidden;width:max-content;max-width:100%}
+.modetab button{border:0;background:var(--paper);padding:6px 12px;font-size:12.5px;color:var(--muted)}
+.modetab button[aria-pressed=true]{background:var(--accent);color:#fff;font-weight:700}
+.cslots{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.cslots button{border:1px solid var(--line2);background:var(--paper);border-radius:6px;padding:4px 10px;font-size:12.5px}
+.cslots button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);font-weight:700}
+.cform{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:end}
+.cform label{display:flex;flex-direction:column;gap:2px;font-size:11.5px;color:var(--muted)}
+.cform select,.cform input{background:var(--paper);border:1px solid var(--line2);border-radius:5px;padding:4px 5px;font-size:13px;color:var(--ink)}
+.cform input{width:4.6em;font-family:var(--f-mono)}
+.cmsg{margin-top:8px;font-size:12.5px;line-height:1.6;min-height:1.6em}
+.cmsg .ok{color:var(--ok);font-weight:700}.cmsg .ng{color:var(--bad);font-weight:700}
+.cmsg button{margin-left:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:5px;padding:1px 8px;font-size:12px}
+.cclear{margin-top:8px;border:0;background:transparent;color:var(--muted);font-size:12px;text-decoration:underline}
 .presets button{border:1px solid var(--line2);background:var(--paper);border-radius:6px;padding:4px 10px;font-size:12.5px}
 .presets button:hover{border-color:var(--accent)}
 .pt{width:100%;border-collapse:collapse;font-size:13px}
@@ -447,8 +461,25 @@ canvas{display:block;touch-action:manipulation}
   <div class="grid3">
     <section class="card">
       <div class="cardhead">
-        <div><h2>運行パターン</h2><div class="sub">種別・区間・時間帯・間隔を決めると、待避や交換を考えたダイヤが自動で組まれます</div></div>
+        <div><h2 id="edTitle">運行パターン</h2><div class="sub" id="edSub">種別・区間・時間帯・間隔を決めると、待避や交換を考えたダイヤが自動で組まれます</div></div>
       </div>
+      <div class="modetab" id="modetab" role="group" aria-label="ダイヤの組み方"><button data-m="auto">自動で組む</button><button data-m="custom">カスタム（1本ずつ組む）</button></div>
+      <div id="cusPanel" hidden>
+        <div class="cslots" id="cslots" role="group" aria-label="保存枠"></div>
+        <div class="cform">
+          <label>種別<select id="cType"></select></label>
+          <label>両数<select id="cCars"></select></label>
+          <label>始発駅<select id="cFrom"></select></label>
+          <label>行先<select id="cTo"></select></label>
+          <label>発車<input id="cTime" type="text" inputmode="numeric" placeholder="07:00"></label>
+        </div>
+        <div class="cmsg" id="cMsg" aria-live="polite"></div>
+        <button class="add" id="cAdd">この筋を確定する</button>
+        <div class="tablewrap" style="margin-top:10px"><table class="pt"><thead><tr><th>順</th><th>種別</th><th>区間</th><th>発</th><th>着</th><th>両数</th><th></th></tr></thead><tbody id="cbody"></tbody></table></div>
+        <button class="cclear" id="cClear">この枠の列車を全部消す</button>
+        <p class="help">ダイヤ図の何もないところをクリックすると、その駅と時刻が「始発駅」「発車」に入ります。先に確定した列車が優先され、後から置く列車は待避駅・交換駅で待って筋が伸びます。始発駅を予定の時刻に発車できないときは確定できません（置ける時刻を案内します）。組んだダイヤはこのブラウザに保存されます。</p>
+      </div>
+      <div id="autoPanel">
       <div class="presets" id="presets">
         <button data-p="std">標準ダイヤ</button>
         <button data-p="rush">朝ラッシュ強化</button>
@@ -460,6 +491,7 @@ canvas{display:block;touch-action:manipulation}
       </div>
       <button class="add" id="addp">＋ パターンを追加（時間帯を区切って増発）</button>
       <p class="help">列車は朝、中央車庫か港留置線から出庫し、終点で折り返して往復します。最後の仕業を終えると入庫します。編成は同じ車種・両数どうしで使い回されます。</p>
+      </div>
     </section>
     <section class="card">
       <div class="cardhead"><div><h2>このダイヤの1日の成績</h2><div class="sub">変更するとすぐ再計算されます</div></div></div>
@@ -877,12 +909,7 @@ function buildAll(patterns){
       if(t.leg==='out'){const r={type:t.type,route:t.route,cars:t.cars,want:t.arr[t.arr.length-1]+TYPES[t.type].turn,pid:t.pid,leg:'ret',seq:[...t.seq].reverse(),pair:t};t.ret=r;
         let lo=0,hi=pend.length;while(lo<hi){const m=(lo+hi)>>1;if(pend[m].want<=r.want)lo=m+1;else hi=m;}pend.splice(lo,0,r);}}
   }
-  trips.sort((a,b)=>a.dep[0]-b.dep[0]);
-  const ctr={};
-  trips.forEach((t,ix)=>{t.ix=ix;const k=t.type+(t.down?'d':'u');ctr[k]=(ctr[k]||0)+1;t.num=TYPES[t.type].code*1000+(t.down?ctr[k]*2-1:ctr[k]*2);
-    const c=CLS[TYPES[t.type].cls];t.cap=t.cars*c.cap;t.capMax=t.cap*c.maxF;
-    t.mpts=[];t.bpts=[];t.seq.forEach((s,i)=>{if(isMain(s)){t.mpts.push([t.arr[i],ST[s].km],[t.dep[i],ST[s].km]);}if(isBr(s)){t.bpts.push([t.arr[i],ST[s].bkm],[t.dep[i],ST[s].bkm]);}});
-    if(t.bpts.length<4)t.bpts=[];});
+  return finishTrips(trips,trips=>{
   // vehicle assignment
   const sets=[],pools={},clsCount={};
   trips.filter(t=>t.leg==='out').forEach(o=>{
@@ -892,6 +919,17 @@ function buildAll(patterns){
     let set;if(best>=0)set=pool[best];else{clsCount[cls]=(clsCount[cls]||0)+1;set={id:sets.length,cls,cars:o.cars,home,trips:[],free:0,no:clsCount[cls]};set.plat=set.id;sets.push(set);pool.push(set);}
     set.trips.push(o,o.ret);o.set=set;o.ret.set=set;set.free=o.ret.arr[o.ret.arr.length-1];
   });
+  return sets;});
+}
+// 列車の一覧ができたあとの共通の仕上げ（番号・編成・乗客の計算）。assign は編成の一覧を返す
+function finishTrips(trips,assign){
+  trips.sort((a,b)=>a.dep[0]-b.dep[0]);
+  const ctr={};
+  trips.forEach((t,ix)=>{t.ix=ix;const k=t.type+(t.down?'d':'u');ctr[k]=(ctr[k]||0)+1;t.num=TYPES[t.type].code*1000+(t.down?ctr[k]*2-1:ctr[k]*2);
+    const c=CLS[TYPES[t.type].cls];t.cap=t.cars*c.cap;t.capMax=t.cap*c.maxF;
+    t.mpts=[];t.bpts=[];t.seq.forEach((s,i)=>{if(isMain(s)){t.mpts.push([t.arr[i],ST[s].km],[t.dep[i],ST[s].km]);}if(isBr(s)){t.bpts.push([t.arr[i],ST[s].bkm],[t.dep[i],ST[s].bkm]);}});
+    if(t.bpts.length<4)t.bpts=[];});
+  const sets=assign(trips);
   sets.forEach(s=>{s.first=s.trips[0].dep[0];s.last=s.trips[s.trips.length-1].arr.at(-1);s.label=CLS[s.cls].name+String(s.no).padStart(2,'0')+'編成';});
   SVF=null;SVF=computeService(trips);
   const sim=simulate(trips);
@@ -899,6 +937,31 @@ function buildAll(patterns){
   const summary=summarize(trips,sets,sim,events);
   return {trips,sets,sim,events,summary};
 }
+
+/* ---------- カスタムモード：1本ずつ筋を引いてダイヤを組む ----------
+   組んだ順に scheduleTrip で置く。先に確定した列車は動かず、後から置く列車が待避駅・交換駅で待つ。
+   始発駅を予定の時刻に発車できない（前の列車とぶつかる）ときは確定できない */
+const CUS_ST=ALL.filter(s=>ST[s].wait);           // 始発・終点にできる駅（待避・交換・終点の駅）
+function cusSeq(a,b){if(a===b)return null;const mi=MAIN.indexOf(a),mj=MAIN.indexOf(b),bi=BR.indexOf(a),bj=BR.indexOf(b);
+  if(mi>=0&&mj>=0)return mi<mj?MAIN.slice(mi,mj+1):MAIN.slice(mj,mi+1).reverse();
+  if(bi>=0&&bj>=0)return bi<bj?BR.slice(bi,bj+1):BR.slice(bj,bi+1).reverse();
+  const k=MAIN.indexOf('K');if(mi>=0)return [...cusSeq(a,'K')||['K'],...BR.slice(1,bj+1)];          // 本線→支線
+  return [...BR.slice(0,bi+1).reverse(),...(cusSeq('K',b)||[]).slice(1)];}                           // 支線→本線
+const cusDown=seq=>{const pos=s=>isMain(s)?ST[s].km:ST.K.km+ST[s].bkm+0.001;return pos(seq.at(-1))>pos(seq[0]);};
+function cusTrip(c,ix){return {type:c.type,cars:c.cars,want:c.t,seq:cusSeq(c.from,c.to),leg:'out',cix:ix};}
+// list の順に置く。各列車について、始発駅を予定どおり発車できたか（ok）も返す
+function cusPlace(list){const reg={};return list.map((c,ix)=>{const t=cusTrip(c,ix);scheduleTrip(t,reg);t.down=cusDown(t.seq);t.okStart=t.dep[0]<=c.t+0.05;return t;});}
+function buildCustom(list){const trips=cusPlace(list);
+  return finishTrips(trips,trips=>trips.map((t,i)=>{const cls=TYPES[t.type].cls,o=t.seq[0];
+    const set={id:i,cls,cars:t.cars,home:o==='P'||o==='N'?'P':'C',trips:[t],no:i+1,plat:i};t.set=set;return set;}));}
+// 置けるかどうかを調べる。置けないときは、置ける一番早い時刻（0.5分刻み）を探す
+function cusTry(list,c){const tr=cusPlace([...list,c]).at(-1);if(tr.okStart)return {ok:true,tr};
+  let t=Math.ceil(tr.dep[0]*2)/2;for(let k=0;k<40&&t<END;k++){const x=cusPlace([...list,{...c,t}]).at(-1);if(x.okStart)return {ok:false,tr,sug:t,blk:cusBlocker(list,tr)};t=Math.ceil(Math.max(t+0.5,x.dep[0])*2)/2;}
+  return {ok:false,tr,sug:null,blk:cusBlocker(list,tr)};}
+// 始発駅を出たところでぶつかる相手（同じ区間を近い時刻に走る、先に置いた列車）
+function cusBlocker(list,tr){const a=tr.seq[0],b=tr.seq[1],t0=tr.want;let best=null,bd=1e9;
+  cusPlace(list).forEach(o=>{for(let i=0;i<o.seq.length-1;i++){const same=o.seq[i]===a&&o.seq[i+1]===b,single=segIsBranch(a,b)&&[o.seq[i],o.seq[i+1]].sort().join()===[a,b].sort().join();
+    if(same||single){const d=Math.abs(o.dep[i]-t0);if(d<bd){bd=d;best={o,i};}}}});return best;}
 
 function simulate(trips){
   const W={},Wx={},last={},stat={};
@@ -1048,6 +1111,11 @@ const PRESETS={
 const mkPat=p=>({id:pid++,type:p.type,route:p.route,from:parseT(p.from),to:parseT(p.to),int:p.int,cars:p.cars});
 let PAT=PRESETS.std.map(mkPat);
 try{const s=JSON.parse(localStorage.getItem('dia-patterns')||'null');if(Array.isArray(s)&&s.length){PAT=s.map(p=>({...p,id:pid++}));}}catch(e){}
+// カスタムモードの状態：保存枠4つ。各枠は確定した順の列車の一覧 {type,cars,from,to,t}
+const CUS={on:false,slot:0,slots:[[],[],[],[]],form:{type:'L',cars:6,from:'C',to:'P',t:420},prev:null};
+try{const c=JSON.parse(localStorage.getItem('dia-custom')||'null');if(c&&Array.isArray(c.slots)){CUS.on=!!c.on;CUS.slot=Math.max(0,Math.min(3,c.slot|0));c.slots.slice(0,4).forEach((l,i)=>{if(Array.isArray(l))CUS.slots[i]=l.filter(x=>x&&TYPES[x.type]&&ST[x.from]&&ST[x.to]&&Number.isFinite(x.t));});if(c.form)Object.assign(CUS.form,c.form);}}catch(e){}
+const cusList=()=>CUS.slots[CUS.slot];
+function cusSave(){try{localStorage.setItem('dia-custom',JSON.stringify({on:CUS.on,slot:CUS.slot,slots:CUS.slots,form:CUS.form}));}catch(e){}}
 let D=null,T=440,playing=true,speed=1,diaSpan=240,sel={kind:'station',st:'C'};
 try{const v=Number(localStorage.getItem('dia-speed'));if(v)speed=v;}catch(e){}
 try{const c=JSON.parse(localStorage.getItem('dia-cond')||'null');if(c&&typeof c==='object')setCond(c);}catch(e){}
@@ -1055,7 +1123,7 @@ function save(){try{localStorage.setItem('dia-patterns',JSON.stringify(PAT.map((
 function rebuild(){
   try{if(RIDE.on)RIDE.exit('rebuild');}catch(e){}  // 乗車中にダイヤが組み直されたら通常画面に戻る
   const keepSet=sel.kind==='set'?sel.set.id:null;
-  D=buildAll(PAT);
+  D=CUS.on?buildCustom(cusList()):buildAll(PAT);
   if(sel.kind==='set'||sel.kind==='trip'){sel={kind:'station',st:'C'};}
   ttKey='';pKey='';flKey='';stripKey='';SNAP=null;renderScore();renderImpact();renderEditorCounts();refreshPanels(true);
 }
@@ -1264,6 +1332,11 @@ function drawDia(){
     if(tr.bpts.length){c.beginPath();tr.bpts.forEach(([t,k],i)=>{const x=G.x(t),y=G.yb(k);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();}
   });
   c.globalAlpha=1;
+  // カスタムモード：これから置く列車の予告の筋（置けるときは種別の色の破線、置けないときは赤）
+  if(CUS.on&&CUS.prev){const p=CUS.prev,tr=p.tr;c.save();c.setLineDash([6,4]);c.lineWidth=2.4;c.strokeStyle=p.ok?TH[tr.type]:TH.bad;
+    const m=[],b=[];tr.seq.forEach((s,i)=>{if(isMain(s))m.push([tr.arr[i],ST[s].km],[tr.dep[i],ST[s].km]);if(isBr(s))b.push([tr.arr[i],ST[s].bkm],[tr.dep[i],ST[s].bkm]);});
+    if(!p.ok){c.beginPath();const y=isMain(tr.seq[0])?G.ym(ST[tr.seq[0]].km):G.yb(ST[tr.seq[0]].bkm);c.arc(G.x(tr.want),y,5,0,7);c.stroke();}
+    [[m,G.ym],[b.length>=4?b:[],G.yb]].forEach(([pts,yf])=>{if(!pts.length)return;c.beginPath();pts.forEach(([t,k],i)=>{const x=G.x(t),y=yf(k);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();});c.restore();}
   // set turnaround links for selected
   if(ss){c.setLineDash([3,3]);c.strokeStyle=TH.accent;c.lineWidth=1.2;for(let k=0;k<ss.trips.length-1;k++){const a=ss.trips[k],b=ss.trips[k+1];const s=a.seq.at(-1);const y=isMain(s)?G.ym(ST[s].km):G.yb(ST[s].bkm);c.beginPath();c.moveTo(G.x(a.arr.at(-1)),y);c.lineTo(G.x(b.dep[0]),y);c.stroke();}c.setLineDash([]);}
   // now
@@ -1878,6 +1951,46 @@ $('#ptbody').addEventListener('click',e=>{if(!e.target.classList.contains('del')
 $('#addp').addEventListener('click',()=>{PAT.push(mkPat({type:'L',route:'CP',from:'07:00',to:'09:00',int:10,cars:8}));renderEditor();rebuildSoon();});
 $('#presets').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;PAT=PRESETS[b.dataset.p].map(mkPat);renderEditor();save();rebuild();});
 
+/* ---------- カスタムモードの画面 ---------- */
+function renderMode(){$('#modetab').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.m==='custom')===CUS.on)));
+  $('#cusPanel').hidden=!CUS.on;$('#autoPanel').hidden=CUS.on;
+  $('#edTitle').textContent=CUS.on?'カスタムダイヤ':'運行パターン';
+  $('#edSub').textContent=CUS.on?'種別・両数・始発駅・行先・発車時刻を決めると、始発から終点までの筋が自動で引かれます。1本ずつ確定してダイヤを組みます':'種別・区間・時間帯・間隔を決めると、待避や交換を考えたダイヤが自動で組まれます';
+  if(CUS.on)renderCustom();}
+function renderCustom(){const f=CUS.form;
+  $('#cslots').innerHTML=CUS.slots.map((l,i)=>`<button data-s="${i}" aria-pressed="${i===CUS.slot}">保存枠${i+1}（${l.length}本）</button>`).join('');
+  $('#cType').innerHTML=Object.entries(TYPES).map(([k,t])=>`<option value="${k}" ${k===f.type?'selected':''}>${t.name}</option>`).join('');
+  const cs=carsFor(f.type);if(!cs.includes(f.cars))f.cars=cs[Math.min(cs.length-1,Math.floor(cs.length/2))];
+  $('#cCars').innerHTML=cs.map(c=>`<option ${c===f.cars?'selected':''}>${c}</option>`).join('');
+  const opt=(v,ex)=>CUS_ST.filter(x=>x!==ex).map(x=>`<option value="${x}" ${x===v?'selected':''}>${ST[x].name}</option>`).join('');
+  if(f.to===f.from)f.to=CUS_ST.find(x=>x!==f.from);
+  $('#cFrom').innerHTML=opt(f.from);$('#cTo').innerHTML=opt(f.to,f.from);$('#cTime').value=toInput(f.t);
+  const list=cusList();
+  $('#cbody').innerHTML=list.length?list.map((c,i)=>{const tr=D&&D.trips.find(t=>t.cix===i);return `<tr data-i="${i}"><td class="cnt">${i+1}</td><td>${chip(c.type)}</td><td>${ST[c.from].name}→${ST[c.to].name}</td><td class="cnt">${fmt(tr?tr.dep[0]:c.t)}</td><td class="cnt">${tr?fmt(tr.arr.at(-1)):''}</td><td class="cnt">${c.cars}</td><td><button class="del" aria-label="この列車を消す">×</button></td></tr>`;}).join('')
+    :`<tr><td colspan="7" class="cnt" style="padding:10px 4px;white-space:normal">まだ列車がありません。上で条件を選んで「この筋を確定する」を押してください。</td></tr>`;
+  cusPreview();}
+// 入力どおりに置けるかを調べ、ダイヤ図に予告の筋を出す
+function cusPreview(){const f=CUS.form,c={type:f.type,cars:f.cars,from:f.from,to:f.to,t:f.t};
+  if(!cusSeq(c.from,c.to)){CUS.prev=null;$('#cMsg').textContent='';drawDia();return;}
+  const r=cusTry(cusList(),c);CUS.prev=r;const tr=r.tr,dest=ST[c.to].name;
+  const wait=tr.dep.reduce((a,d,i)=>a+(i>0&&i<tr.seq.length-1?Math.max(0,d-tr.arr[i]-(tr.stop[i]?TYPES[c.type].dwell+CX.dw:0)):0),0);
+  let h;if(r.ok)h=`<span class="ok">確定できます</span>　${ST[c.from].name} ${fmt(tr.dep[0])}発 → ${dest} ${fmt(tr.arr.at(-1))}着`+(wait>0.3?`（先に置いた列車を待つため、途中で約${Math.round(wait)}分停車）`:'');
+  else{const b=r.blk;h=`<span class="ng">確定できません</span>　${ST[c.from].name}を${fmt(c.t)}に発車すると、`+(b?`${TYPES[b.o.type].name}（${ST[b.o.seq[0]].name} ${fmt(b.o.dep[0])}発）`:'先に置いた列車')+`とぶつかります。`+(r.sug!=null?`<button id="cSug" data-t="${r.sug}">${fmt(r.sug)}発にする</button>`:'この日のうちに置ける時刻がありません。');}
+  $('#cMsg').innerHTML=h;drawDia();}
+$('#modetab').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const on=b.dataset.m==='custom';if(on===CUS.on)return;CUS.on=on;CUS.prev=null;cusSave();renderMode();rebuild();if(CUS.on)renderCustom();});
+$('#cslots').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;CUS.slot=Number(b.dataset.s);cusSave();rebuild();renderCustom();});
+$('#cusPanel').addEventListener('change',e=>{const f=CUS.form,id=e.target.id,v=e.target.value;
+  if(id==='cType')f.type=v;else if(id==='cCars')f.cars=Number(v);else if(id==='cFrom')f.from=v;else if(id==='cTo')f.to=v;
+  else if(id==='cTime'){const t=parseT(v);if(Number.isFinite(t))f.t=Math.max(START,Math.min(END-30,t));}else return;
+  cusSave();renderCustom();});
+$('#cMsg').addEventListener('click',e=>{const b=e.target.closest('#cSug');if(!b)return;CUS.form.t=Number(b.dataset.t);cusSave();renderCustom();});
+$('#cAdd').addEventListener('click',()=>{const f=CUS.form,c={type:f.type,cars:f.cars,from:f.from,to:f.to,t:f.t};if(!cusSeq(c.from,c.to))return;
+  const r=cusTry(cusList(),c);if(!r.ok){cusPreview();return;}
+  cusList().push(c);CUS.prev=null;cusSave();rebuild();renderCustom();
+  $('#cMsg').innerHTML=`<span class="ok">確定しました</span>　${TYPES[c.type].name} ${ST[c.from].name} ${fmt(r.tr.dep[0])}発 → ${ST[c.to].name} ${fmt(r.tr.arr.at(-1))}着`;});
+$('#cbody').addEventListener('click',e=>{if(!e.target.classList.contains('del'))return;const i=Number(e.target.closest('tr').dataset.i);cusList().splice(i,1);cusSave();rebuild();renderCustom();});
+$('#cClear').addEventListener('click',()=>{if(!cusList().length)return;CUS.slots[CUS.slot]=[];cusSave();rebuild();renderCustom();});
+
 /* ---------- controls ---------- */
 const playBtn=$('#play');
 function setPlay(v){const was=playing;playing=v;if(was!==v&&typeof SND!=='undefined')SND.onPlay(v);playBtn.textContent=v?'❚❚ 一時停止':'▶ 運転開始';$('#mplay').textContent=v?'❚❚ 一時停止':'▶ 運転開始';}
@@ -1900,7 +2013,11 @@ map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.
   if(best){sel={kind:'set',set:best.s};}
   else{let bs=null,sd=30;ALL.forEach(s=>{const d=Math.hypot(ST[s].x-x,ST[s].y-y);if(d<sd){sd=d;bs=s;}});if(bs){sel={kind:'station',st:bs};ttStation(bs);psStation(bs);}}
   refreshPanels(true);drawDia();});
-dia.addEventListener('click',e=>{const r=dia.getBoundingClientRect();const tr=diaHit(e.clientX-r.left,e.clientY-r.top);if(tr){sel={kind:'trip',trip:tr};refreshPanels(true);drawDia();}});
+dia.addEventListener('click',e=>{const r=dia.getBoundingClientRect();const tr=diaHit(e.clientX-r.left,e.clientY-r.top);
+  if(!tr&&CUS.on){const px=e.clientX-r.left,py=e.clientY-r.top,G=DIA;if(px<DL)return;let bs=null,bd=14;
+    CUS_ST.forEach(s=>{const ys=[];if(isMain(s))ys.push(G.ym(ST[s].km));if(isBr(s))ys.push(G.yb(ST[s].bkm));ys.forEach(y=>{const d=Math.abs(y-py);if(d<bd){bd=d;bs=s;}});});
+    if(!bs)return;const t=Math.round((G.v0+(px-DL)/(DW-DL-12)*(G.v1-G.v0))*2)/2,f=CUS.form;f.from=bs;if(f.to===bs)f.to=bs==='C'?'P':'C';f.t=Math.max(START,Math.min(END-30,t));cusSave();renderCustom();return;}
+  if(tr){sel={kind:'trip',trip:tr};refreshPanels(true);drawDia();}});
 
 /* ---------- sizing ---------- */
 function resize(){const dpr=window.devicePixelRatio||1;
@@ -2668,7 +2785,7 @@ function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
   drawMap();if(SND.S.on)SND.tick(ts);acc+=dt;if(acc>0.15||!playing&&acc>0.3){acc=0;drawDia();refreshPanels(false);}
   requestAnimationFrame(frame);}
-function start(data){if(data&&typeof data.T==='number')T=data.T;renderCondUI();renderLegend();renderEditor();rebuild();resize();setPlay(true);requestAnimationFrame(frame);}
+function start(data){if(data&&typeof data.T==='number')T=data.T;renderCondUI();renderLegend();renderEditor();rebuild();renderMode();resize();setPlay(true);requestAnimationFrame(frame);}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>
