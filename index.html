@@ -2168,7 +2168,7 @@ const RIDE=(()=>{
     c.clip();windowContent(c,tr,k,bx,by,bw,bh,side,wi,dk,blur);c.restore();}
   function windowContent(c,tr,k,bx,by,bw,bh,side,wi,dk,blur){
     const dir=side==='left'?1:-1,pos=dir*k.km*R.cfg.pxPerKm+wi*157;
-    for(const [key,a] of sceneryMix(tr,k))drawScenery(c,key,a,bx,by,bw,bh,pos,blur*(bh/218),R.ov?R.ov.eye:(R.it.eye==null?by+bh/2:R.it.eye));
+    if(!(R.it&&R.it.persp&&!R.ov))for(const [key,a] of sceneryMix(tr,k))drawScenery(c,key,a,bx,by,bw,bh,pos,blur*(bh/218),R.ov?R.ov.eye:(R.it.eye==null?by+bh/2:R.it.eye));   // 遠近法の車内では景色は drawSceneryP でまとめて描く
     weatherOnGlass(c,bx,by,bw,bh,wi,k);
     if(dk>0.01){c.fillStyle=`rgba(10,16,32,${0.8*dk})`;c.fillRect(bx,by,bw,bh);}
     if(side===R.cfg.platform.side&&!(R.it&&R.it.persp&&!R.ov))drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk);   // 遠近法で描く車内では、ホームは drawStationViewP でまとめて描く
@@ -2342,6 +2342,24 @@ const RIDE=(()=>{
         c.fillStyle='#4f565c';c.fillRect(x-w/2,Y(5.6),Math.abs(X(-PP.W*2)-x)*(sg<0?1:-1)+w/2,Math.max(1,0.18*sc));   // はり（車両の上へ）
         if(dk>0.3){c.fillStyle=`rgba(10,16,32,${0.5*dk})`;c.fillRect(x-w/2,y0,w,y1-y0);}}
       c.restore();}}
+  /* 景色（遠景・中景）を、左右それぞれ窓をまたいだ1枚のパノラマとして遠近法で描く。
+     画面の縦の帯（列）ごとに「前方何mを見ているか」が違う：消失点からの横の距離 d の列は、景色の絵の K/d の位置を、d·f/K の大きさで映す。
+     そのため同じ建物は奥の窓に小さく先に現れ、手前の窓へ大きくなりながら流れてくる（ホームと同じ遠近法） */
+  function drawSceneryP(c,tr,k){const it=R.it,P=it.persp,K=P.scnK||580000,step=2;
+    for(const side of ['left','right']){const ws=it.windows[side]||[];if(!ws.length)continue;const sg=side==='left'?-1:1;
+      const x0=Math.min(...ws.map(w=>w[0])),x1=Math.max(...ws.map(w=>w[0]+w[2])),y0=Math.min(...ws.map(w=>w[1])),y1=Math.max(...ws.map(w=>w[1]+w[3]));
+      const pos=k.km*R.cfg.pxPerKm;
+      c.save();c.beginPath();ws.forEach(([x,y,w,h])=>c.rect(x,y,w,h));c.clip();
+      for(const [key,al] of sceneryMix(tr,k))for(const [sp,a2] of variantsFor(key,T)){const S=R.strips[sp.src];if(!S)continue;const A=al*a2;if(A<=0.002)continue;const hz=S.hz*S.H;
+        S.bands.forEach((b,bi)=>{if(b.f>1)return;const kk=b.k||1,tw=b.cv.width,bh=b.cv.height;c.globalAlpha=A;
+          for(let x=x0;x<x1;x+=step){const d=sg<0?P.vpX-x:x-P.vpX;if(d<6)continue;
+            const v=d*P.f/K,sx0=((pos*b.f+K/d)/kk%tw+tw)%tw,sw=Math.max(1,Math.min(tw-sx0,(K/d-K/(d+step))/kk));
+            const top=P.vpY+(b.y-hz)*v,h=bh*kk*v,dx=sg<0?x:x;
+            if(bi===0&&top>y0)c.drawImage(b.cv,sx0,0,sw,1,dx,y0,step,top-y0+1);              // 空：絵の上の端の色を上へのばす
+            c.drawImage(b.cv,sx0,0,sw,bh,dx,top,step,h);
+            if(bi===S.bands.length-1||S.bands[bi+1].f>1){if(top+h<y1)c.drawImage(b.cv,sx0,bh-1,sw,1,dx,top+h-1,step,y1-top-h+1);}}});   // 地面：下の端の色を下へのばす
+        c.globalAlpha=1;}
+      c.restore();}}
   function drawStationViewP(c,tr,k,dk){const P=R.it.persp,side=R.cfg.platform.side,sg=side==='left'?-1:1,km=kmOf(tr);
     for(let j=0;j<tr.seq.length;j++){const s=tr.seq[j],L=platLenM(s),uw=(k.km-km[j])*1000;if(uw>L/2||-uw>L/2+250)continue;stationLayerP(c,s,L,uw,P,sg,1,dk);}}
   function drawStationView(c,tr,k,bx,by,bw,bh,side,wi,dk){const V=R.cfg.stationView;if(!V||!R.img[V.floor])return;
@@ -2414,6 +2432,7 @@ const RIDE=(()=>{
   // 窓の部分が透明になった車内の絵：先に窓の外を描き、その上に車内を重ねる。混雑度（1〜5）ごとの絵をゆっくり切り替える
   function levelSrc(n){const LV=R.it.levels,L=LV[Math.min(n,LV.length-1)];return Array.isArray(L)?L[(R.tr.num||0)%L.length]:L;}
   function drawLevels(c,dt,k,dk,blur,W,H,bob){const it=R.it;
+    if(it.persp)drawSceneryP(c,R.tr,k);   // 窓の外の景色（遠近法・窓をまたいだ1枚）
     for(const side of ['left','right'])(it.windows[side]||[]).forEach(([x,y,w,h],wi)=>{c.save();c.beginPath();c.rect(x,y,w,h);c.clip();windowContent(c,R.tr,k,x,y,w,h,side,wi,dk,blur);c.restore();});
     if(it.persp&&R.cfg.stationView&&R.img[R.cfg.stationView.floor]){c.save();c.beginPath();(it.windows[R.cfg.platform.side]||[]).forEach(([x,y,w,h])=>c.rect(x,y,w,h));c.clip();drawStationViewP(c,R.tr,k,dk);c.restore();}   // 窓の外の駅（遠近法）
     if(it.persp)drawCatenaryP(c,R.tr,k,dk);   // 架線柱（遠近法）
