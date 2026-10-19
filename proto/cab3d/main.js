@@ -82,6 +82,11 @@ class Batch{
   add(g,m,k,uvf){const Pa=g.attributes.position,Na=g.attributes.normal,Ua=g.attributes.uv,nm=new THREE.Matrix3().getNormalMatrix(m),p=V(),n=V();
     for(let i=0;i<Pa.count;i++){p.fromBufferAttribute(Pa,i).applyMatrix4(m);n.fromBufferAttribute(Na,i).applyMatrix3(nm).normalize();
       this.p.push(p.x,p.y,p.z);this.n.push(n.x,n.y,n.z);this.c.push(k.r,k.g,k.b);if(uvf){const q=uvf(i,Ua.getX(i),Ua.getY(i));this.u.push(q[0],q[1]);}else this.u.push(Ua?Ua.getX(i):0,Ua?Ua.getY(i):0);}}
+  // 三角形を、重心のある区画（chunk m 四方）ごとの別メッシュに分ける。画面に入らない区画は描かれない
+  chunks(mat,size,opt){const cells=new Map(),P=this.p;
+    for(let t=0;t<P.length;t+=9){const k=Math.floor((P[t]+P[t+3]+P[t+6])/3/size)+','+Math.floor((P[t+2]+P[t+5]+P[t+8])/3/size);let c=cells.get(k);if(!c){c=new Batch();cells.set(k,c);}
+      c.p.push(...P.slice(t,t+9));c.n.push(...this.n.slice(t,t+9));c.c.push(...this.c.slice(t,t+9));c.u.push(...this.u.slice(t/3*2,t/3*2+6));}
+    const G=new THREE.Group();cells.forEach(c=>G.add(c.mesh(mat,opt)));return G;}
   mesh(mat,{cast=true,recv=true,ao=false,upN=false}={}){const g=new THREE.BufferGeometry();
     if(upN)for(let i=0;i<this.n.length;i+=3){this.n[i]=0;this.n[i+1]=1;this.n[i+2]=0;}   // 草むらの板は地面と同じ向きの光を受ける
     if(ao)for(let i=0;i<this.c.length;i+=3){const y=this.p[i+1],f=0.74+0.26*Math.min(1,Math.max(0,y/2.4));this.c[i]*=f;this.c[i+1]*=f;this.c[i+2]*=f;}   // 地面に近いほど少し暗く（簡易の接地陰影）
@@ -93,6 +98,8 @@ const GB=new THREE.BoxGeometry(1,1,1).toNonIndexed();
 const GCYL=new THREE.CylinderGeometry(1,1,1,10).toNonIndexed();
 const GPOLE=new THREE.CylinderGeometry(0.13,0.18,1,10).toNonIndexed();
 const GICO=new THREE.IcosahedronGeometry(1,1);
+// 植え込み・雑草用の軽い粒（面数 1/4）。法線を球の向きにして、角ばらずに丸く見せる
+const GICO_LO=new THREE.IcosahedronGeometry(1,0);{const P=GICO_LO.attributes.position,N=GICO_LO.attributes.normal,v=V();for(let i=0;i<P.count;i++){v.fromBufferAttribute(P,i).normalize();N.setXYZ(i,v.x,v.y,v.z);}}
 const _m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_e=new THREE.Euler();
 function put(B,g,M,x,y,z,sx,sy,sz,k,ry=0,rx=0,rz=0){_q.setFromEuler(_e.set(rx,ry,rz));B.add(g,M.clone().multiply(_m.compose(V(x,y,z),_q,V(sx,sy,sz))),k);}
 // 下端の高さ y0 を指定して箱を置く
@@ -140,15 +147,16 @@ const TEX={
 };
 
 /* ---------- 3D の基本 ---------- */
-const renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));renderer.setSize(innerWidth,innerHeight);
+// 対数深度は使わない（使うと奥の物を先に省けず重くなる）。重なる面は polygonOffset でずらしてある
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(1.5,window.devicePixelRatio||1));renderer.setSize(innerWidth,innerHeight);   // 高精細画面でも 1.5 倍まで（描く点の数を抑える）
 renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=LOOK.exposure;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE[LOOK.shadow];
 document.body.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
 const HORIZON=col(LOOK.hor);
 scene.fog=new THREE.FogExp2(HORIZON,LOOK.fog);   // 遠景の霞
-const camera=new THREE.PerspectiveCamera(CFG.fov,innerWidth/innerHeight,0.3,14000);scene.add(camera);
+const camera=new THREE.PerspectiveCamera(CFG.fov,innerWidth/innerHeight,0.5,14000);scene.add(camera);
 
 // セル調の陰影（4段）
 // v1：4段のくっきりしたセル陰影。v2：8段をなめらかにつないだ陰影（明るい面は明るいまま、日陰へは柔らかく移る）
@@ -168,7 +176,8 @@ const MAT={
 scene.add(new THREE.HemisphereLight(col(LOOK.hemi[0]),col(LOOK.hemi[1]),LOOK.hemi[2]));
 const sun=new THREE.DirectionalLight(col(LOOK.sun[0]),LOOK.sun[1]);scene.add(sun,sun.target);
 const SUN_DIR=V(-0.55,0.78,0.42).normalize();
-sun.castShadow=true;sun.shadow.mapSize.set(LOOK.shMap||4096,LOOK.shMap||4096);   // v2 は解像度を半分にして影の輪郭をやわらげる（描画も軽くなる）
+sun.castShadow=true;renderer.shadowMap.autoUpdate=false;   // 影は視点が変わったときだけ描き直す（毎フレーム描くと建物を2回描くことになり重い）
+sun.shadow.mapSize.set(LOOK.shMap||4096,LOOK.shMap||4096);   // v2 は解像度を半分にして影の輪郭をやわらげる（描画も軽くなる）
 Object.assign(sun.shadow.camera,{left:-120,right:120,top:120,bottom:-120,near:1,far:900});sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;sun.shadow.radius=LOOK.shRadius;sun.shadow.intensity=LOOK.shInt;
 
 /* ---------- 空・雲・山 ---------- */
@@ -291,7 +300,7 @@ function tree(B,M,x,z,h,{blobs=[4,7]}={}){const T=M.clone().multiply(new THREE.M
   put(B,GCYL,T,0,h*0.25,0,h*0.022,h*0.5,h*0.022,jit('#6b5442',0.05));const n=Math.floor(rr(blobs[0],blobs[1]+1)),base=jit(pick(PAL.greens),0.03);
   for(let i=0;i<n;i++){const a=R()*7,rad=h*rr(0.16,0.27),rr2=h*rr(0,0.17);const c=base.clone().offsetHSL(rr(-0.015,0.015),0,rr(-0.06,0.07));
     put(B,GICO,T,Math.cos(a)*rr2,h*rr(0.55,0.9),Math.sin(a)*rr2,rad*rr(1,1.25),rad*rr(0.8,1),rad*rr(1,1.25),c,R()*7);}}
-function shrubRow(B,M,x0,x1,z,h=0.8){for(let x=x0;x<x1;x+=rr(0.7,1.1))put(B,GICO,M,x,h*0.5,z,rr(0.45,0.7),h*rr(0.55,0.75),rr(0.45,0.6),jit(pick(PAL.greens),0.05),R()*7);}
+function shrubRow(B,M,x0,x1,z,h=0.8){for(let x=x0;x<x1;x+=rr(0.7,1.1))put(B,GICO_LO,M,x,h*0.5,z,rr(0.45,0.7),h*rr(0.55,0.75),rr(0.45,0.6),jit(pick(PAL.greens),0.05),R()*7);}
 function car(B,M,x,z,ry){const c=jit(pick(PAL.cars),0.02),T=M.clone().multiply(new THREE.Matrix4().makeRotationY(ry).setPosition(x,0,z));
   box(B,T,0,0.32,0,1.72,0.62,4.3,c);box(B,T,0,0.92,-0.25,1.56,0.58,2.3,c);box(B,T,0,0.98,-0.25,1.6,0.42,2.1,col('#3d4752'));
   for(const[a,b]of[[-0.8,1.35],[0.8,1.35],[-0.8,-1.35],[0.8,-1.35]])put(B,GCYL,T,a,0.33,b,0.33,0.22,0.33,col('#2a2b2d'),0,0,Math.PI/2);}
@@ -376,7 +385,7 @@ crossR.forEach(s=>crossRoad(s,10.35,67));crossL.forEach(s=>crossRoad(s,-67,-19.4
 fillRow(10.85,23.9,true,crossR);fillRow(23.9,36.9,false,crossR);fillRow(40.9,53.9,true,crossR);fillRow(53.9,67,false,crossR);
 fillRow(-19.4,-6.6,false,[],{field:true});fillRow(-36.4,-23.4,true,crossL,{field:true});fillRow(-49.4,-36.4,false,crossL);fillRow(-66.4,-53.4,true,crossL);
 // 線路わきの雑草・低木
-for(let s=CFG.pathFrom+5;s<CFG.build;s+=rr(6,22)){const d=chance(.5)?rr(-6.4,-6.1):rr(5.0,5.5);put(BH,GICO,FM(s,d,0),0,0.25,0,rr(0.4,0.9),rr(0.3,0.5),rr(0.5,1.2),jit(pick(PAL.greens),0.05),R()*7);}
+for(let s=CFG.pathFrom+5;s<CFG.build;s+=rr(6,22)){const d=chance(.5)?rr(-6.4,-6.1):rr(5.0,5.5);put(BH,GICO_LO,FM(s,d,0),0,0.25,0,rr(0.4,0.9),rr(0.3,0.5),rr(0.5,1.2),jit(pick(PAL.greens),0.05),R()*7);}
 
 /* ---------- 電柱と電線（線路わきの道路沿い・裏の道路沿い） ---------- */
 function poleLine(d,s0,s1){const pts=[];
@@ -406,7 +415,7 @@ poleLine(10.6,CFG.pathFrom+10,CFG.build);poleLine(-23.65,CFG.pathFrom+20,CFG.bui
 /* ---------- まとめたメッシュをシーンへ ---------- */
 if(ART){
   // 外壁・屋根：絵の明暗に家ごとの色をかける
-  scene.add(BWT.mesh(toon({map:ART.wall,vertexColors:true}),{ao:true}),BRT.mesh(toon({map:ART.roof,vertexColors:true})));
+  scene.add(BWT.chunks(toon({map:ART.wall,vertexColors:true}),120,{ao:true}),BRT.chunks(toon({map:ART.roof,vertexColors:true}),120));
   // 樹木：絵の板をカメラの方へ向けて立てる（3種類の絵ごとに1回の描画）
   const camP=P(CFG.camS,CFG.own+CFG.eyeOff,0),pg=new THREE.PlaneGeometry(1,1).translate(0,0.5,0);
   [ART.tree1,ART.tree2,ART.tree3].forEach((tx,vi)=>{const L=TREES.filter(t=>t.v===vi);if(!L.length)return;const asp=tx.image.width/tx.image.height;
@@ -426,7 +435,7 @@ if(ART){
     const g=new THREE.CylinderGeometry(R0,R0,H,96,1,true,Math.PI-span/2,span);
     const pano=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:ART.pano,transparent:true,fog:false,depthWrite:false,side:THREE.BackSide}));
     pano.renderOrder=-5;pano.userData.y=R0*(Math.tan(hi)+Math.tan(lo))/2;pano.rotation.y=-at(CFG.camS+300)[2];scene.add(pano);window.__pano=pano;}}
-scene.add(BV.mesh(MAT.vc),BH.mesh(MAT.vc,{ao:true}),BW.mesh(MAT.vc,{cast:false}),BBal.mesh(MAT.ballast,{cast:false}),BRoad.mesh(MAT.road,{cast:false}),BField.mesh(MAT.field,{cast:false}),BFence.mesh(MAT.fence,{cast:false}));
+scene.add(BV.chunks(MAT.vc,160),BH.chunks(MAT.vc,120,{ao:true}),BW.mesh(MAT.vc,{cast:false}),BBal.mesh(MAT.ballast,{cast:false}),BRoad.mesh(MAT.road,{cast:false}),BField.mesh(MAT.field,{cast:false}),BFence.mesh(MAT.fence,{cast:false}));
 
 /* ---------- 運転台（簡素） ---------- */
 {const g=new THREE.Group(),m=c=>toon({color:col(c)});
@@ -441,7 +450,7 @@ scene.add(BV.mesh(MAT.vc),BH.mesh(MAT.vc,{ao:true}),BW.mesh(MAT.vc,{cast:false})
 function placeCamera(s){const d=CFG.own+CFG.eyeOff,h=CFG.railTop+CFG.eyeH,M=FM(s,d,h);
   camera.matrix.copy(M).multiply(new THREE.Matrix4().makeRotationX(-0.025));camera.matrix.decompose(camera.position,camera.quaternion,camera.scale);
   sky.position.copy(camera.position);if(window.__pano)window.__pano.position.set(camera.position.x,camera.position.y+window.__pano.userData.y,camera.position.z);
-  const tg=P(s+80,0,0);sun.target.position.copy(tg);sun.position.copy(tg).addScaledVector(SUN_DIR,400);sun.target.updateMatrixWorld();
+  const tg=P(s+80,0,0);sun.target.position.copy(tg);sun.position.copy(tg).addScaledVector(SUN_DIR,400);sun.target.updateMatrixWorld();renderer.shadowMap.needsUpdate=true;
   document.getElementById('pos').textContent=s.toFixed(0);}
 const VIEWS=[['出発直後',40],['曲線の手前',150],['曲線の中',300],['区間の終わり',480]];
 const vb=document.getElementById('views');let curS=CFG.camS;
@@ -479,3 +488,4 @@ renderer.setAnimationLoop(()=>{if(!dirty&&!BENCH)return;dirty=false;draw();windo
   if(!BENCH){document.getElementById('fps').textContent='（静止画）';return;}
   fN++;const t=performance.now();if(t-fT>1000){document.getElementById('fps').textContent=(fN*1000/(t-fT)).toFixed(0);window.__fps=fN*1000/(t-fT);fN=0;fT=t;}});
 window.__info=()=>({calls:renderer.info.render.calls,tris:renderer.info.render.triangles});
+window.__scene=scene;window.__T=THREE;
