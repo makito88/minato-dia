@@ -42,11 +42,11 @@ const XTS=()=>XC+CW*SIZE/2;              // 列車のホーム側の面の横位
 // 列車の大きさの倍率。AIの絵の遠近や縦横比は実寸どおりではないので、見た目で合わせる（画面のスライダーか ?size=0.68&endsize=0.82）
 // SIZE＝側面、SIZE_E＝最後尾の妻面（側面と妻面の絵で車体の縦横比が違うため別々に合わせる）
 const QS=new URLSearchParams(location.search);
-let SIZE=0.68,SIZE_E=0.82;   // 実際の値は車両の絵ごとの初期値（SETS の size / endSize）から入る
+let SIZE=0.77,SIZE_E=0.88;   // 実際の値は車両の絵ごとの初期値（SETS の size / endSize）から入る
 // 車両の絵（2組）：roof＝側面の絵で屋根の行（レール面は絵の最下行）、endBody＝妻面の絵で車体の左右の端の列
 // size / endSize＝その絵で見た目がちょうどよい大きさ（側面・正面）。スライダーで変えると、その絵の値として覚える
-const SETS={gem:{name:'Gemini',side:'gem_side.webp',end:'gem_end.webp',roof:22,endBody:[18,1680],size:0.68,endSize:0.82},
-            gpt:{name:'ChatGPT',side:'gpt_side.webp',end:'gpt_end.webp',roof:19,endBody:[10,872],size:0.62,endSize:0.70}};
+const SETS={gem:{name:'Gemini',side:'gem_side.webp',end:'gem_end.webp',roof:22,endBody:[18,1680],size:0.77,endSize:0.88},
+            gpt:{name:'ChatGPT',side:'gpt_side.webp',end:'gpt_end.webp',roof:19,endBody:[10,872],size:0.77,endSize:0.88}};
 const ROOF_M=3.7,LEN_M=42;   // 気動車：レール面から屋根まで 3.7m、2両で 42m（絵の車両が短いぶんは横にのばして合わせる）
 let cur=new URLSearchParams(location.search).get('train')==='gpt'?'gpt':'gem';
 if(QS.get('size'))SETS[cur].size=Number(QS.get('size'));if(QS.get('endsize'))SETS[cur].endSize=Number(QS.get('endsize'));
