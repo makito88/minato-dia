@@ -42,12 +42,16 @@ const XTS=()=>XC+CW*SIZE/2;              // 列車のホーム側の面の横位
 // 列車の大きさの倍率。AIの絵の遠近や縦横比は実寸どおりではないので、見た目で合わせる（画面のスライダーか ?size=0.68&endsize=0.82）
 // SIZE＝側面、SIZE_E＝最後尾の妻面（側面と妻面の絵で車体の縦横比が違うため別々に合わせる）
 const QS=new URLSearchParams(location.search);
-let SIZE=Number(QS.get('size')||0.68),SIZE_E=Number(QS.get('endsize')||0.82);
+let SIZE=0.68,SIZE_E=0.82;   // 実際の値は車両の絵ごとの初期値（SETS の size / endSize）から入る
 // 車両の絵（2組）：roof＝側面の絵で屋根の行（レール面は絵の最下行）、endBody＝妻面の絵で車体の左右の端の列
-const SETS={gem:{name:'Gemini',side:'gem_side.webp',end:'gem_end.webp',roof:22,endBody:[18,1680]},
-            gpt:{name:'ChatGPT',side:'gpt_side.webp',end:'gpt_end.webp',roof:19,endBody:[10,872]}};
+// size / endSize＝その絵で見た目がちょうどよい大きさ（側面・正面）。スライダーで変えると、その絵の値として覚える
+const SETS={gem:{name:'Gemini',side:'gem_side.webp',end:'gem_end.webp',roof:22,endBody:[18,1680],size:0.68,endSize:0.82},
+            gpt:{name:'ChatGPT',side:'gpt_side.webp',end:'gpt_end.webp',roof:19,endBody:[10,872],size:0.62,endSize:0.70}};
 const ROOF_M=3.7,LEN_M=42;   // 気動車：レール面から屋根まで 3.7m、2両で 42m（絵の車両が短いぶんは横にのばして合わせる）
 let cur=new URLSearchParams(location.search).get('train')==='gpt'?'gpt':'gem';
+if(QS.get('size'))SETS[cur].size=Number(QS.get('size'));if(QS.get('endsize'))SETS[cur].endSize=Number(QS.get('endsize'));
+function useSet(k){cur=k;SIZE=SETS[k].size;SIZE_E=SETS[k].endSize;}
+useSet(cur);
 function TRG(){const im=SETS[cur].sideImg,rail=im.height,ppm=(rail-SETS[cur].roof)/(ROOF_M*SIZE);return{rail,ppm,stretch:LEN_M*SIZE*ppm/im.width,L:LEN_M*SIZE};}
 const C={stopBack:-10,vIn:11,dec:0.9,dwell:14,acc:0.8,gapBefore:6,gapAfter:7};   // 停車位置（stopBack：最後尾がカメラの何m後ろか。負なら前。-10＝最後尾が目の前10mに止まり、編成全体と妻面が見える）、進入 40km/h、減速度、停車時間、加速度、前後の間（秒）
 
@@ -118,9 +122,9 @@ document.querySelectorAll('#ctl button[data-m]').forEach(b=>b.onclick=()=>{mult=
 document.getElementById('again').onclick=()=>{simT=0;};
 // 車両の絵の切り替えと、大きさのスライダー
 function markUI(){document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===cur)));document.getElementById('szv').textContent=SIZE.toFixed(2);document.getElementById('sz').value=SIZE;document.getElementById('szev').textContent=SIZE_E.toFixed(2);document.getElementById('sze').value=SIZE_E;}
-document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.onclick=()=>{cur=b.dataset.t;markUI();});
-document.getElementById('sz').oninput=e=>{SIZE=Number(e.target.value);markUI();};
-document.getElementById('sze').oninput=e=>{SIZE_E=Number(e.target.value);markUI();};
+document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.onclick=()=>{useSet(b.dataset.t);markUI();});
+document.getElementById('sz').oninput=e=>{SIZE=SETS[cur].size=Number(e.target.value);markUI();};
+document.getElementById('sze').oninput=e=>{SIZE_E=SETS[cur].endSize=Number(e.target.value);markUI();};
 window.__setT=v=>{simT=v;};   // 確認用：場面の時刻を指定
 Promise.all([load('toge_base.webp'),load('leaves.webp'),...Object.values(SETS).flatMap(S=>[load(S.side).then(i=>S.sideImg=i),load(S.end).then(i=>S.endImg=i)])]).then(([a,c])=>{base=a;leaves=c;markUI();
   const q=new URLSearchParams(location.search);if(q.get('t'))simT=Number(q.get('t'));requestAnimationFrame(frame);})

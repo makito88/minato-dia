@@ -7,7 +7,7 @@ HTTP で配信して開きます（file:// では画像を読めません）。
 - GitHub Pages：`<公開URL>/proto/plat25d/`
 - 手元：リポジトリのフォルダで `python3 -m http.server` → `http://localhost:8000/proto/plat25d/`
 - `?t=24` … 場面の時刻（秒）を指定して開く
-- `?size=0.68` `?endsize=0.82` … 列車の側面・最後尾の妻面の大きさの倍率（画面のスライダーでも変えられる）
+- `?size=` `?endsize=` … 列車の側面・最後尾の妻面の大きさの倍率（画面のスライダーでも変えられる）。初期値は Gemini 版 0.68・0.82、ChatGPT 版 0.62・0.70
 - `?train=gpt` … ChatGPT 版の車両の絵で開く（初期は Gemini 版。画面のボタンでも切り替えられる）
 
 ## 仕組み
