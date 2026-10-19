@@ -20,15 +20,23 @@ const CFG = {
 CFG.railTop = CFG.sleeperTop + CFG.railH;
 
 /* 見た目の設定。?look=v1 で変更前（最初の試作）の見た目に戻せる */
-const LOOK_ID = new URLSearchParams(location.search).get('look')==='v1' ? 'v1' : 'v2';
-const LOOK = {
+const LOOK_ID = ({v1:'v1',v3:'v3'})[new URLSearchParams(location.search).get('look')] || 'v2';
+const LOOKS = {
   v1:{ lambert:false, exposure:1.0, shadow:'PCFSoftShadowMap', shRadius:1, shInt:1.0,
        hemi:['#c3d7ee','#a99f82',1.0], sun:['#fff0d8',2.9], hor:'#dde8ee', fog:0.00042, sky:['#3f83d0','#8fc0ea'], grade:false },
   // v2：影の輪郭をやわらげる（影の解像度を下げる）、青みのある天空光で日陰を明るく、露出を下げて白飛びを防ぐ、
   //     8段のなめらかな陰影、霞を少し濃く、最後に色調補正
   v2:{ lambert:false, smooth:true, exposure:0.95, shadow:'PCFSoftShadowMap', shRadius:1, shInt:1.0, shMap:2048,
        hemi:['#a8c4ea','#c4b38e',1.2], sun:['#ffe7c6',2.75], hor:'#d2e2ee', fog:0.00046, sky:['#3f86d6','#98c6ee'], grade:true },
-}[LOOK_ID];
+};
+LOOKS.v3 = {...LOOKS.v2, assets:true};   // v3：v2 の光と色に、描いた美術素材（外壁・屋根・樹木・草むら・遠景）を加える
+const LOOK = LOOKS[LOOK_ID];
+
+/* ---------- 美術素材（v3 のみ。assets/images/cab3d/ にある、生成AIで描いた画像） ---------- */
+const ART = LOOK.assets ? await (async()=>{const L=new THREE.TextureLoader(),dir='../../assets/images/cab3d/',o={};
+  const names={wall:'wall_siding',roof:'roof_slate',tree1:'tree1',tree2:'tree2',tree3:'tree3',grass:'grass_strip',pano:'far_panorama'};
+  await Promise.all(Object.entries(names).map(async([k,n])=>{const t=await L.loadAsync(dir+n+'.webp');t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;o[k]=t;}));
+  for(const k of['wall','roof','grass'])o[k].wrapS=o[k].wrapT=THREE.RepeatWrapping;o.pano.wrapS=THREE.MirroredRepeatWrapping;return o;})() : null;
 
 /* ---------- 乱数・色 ---------- */
 function rngF(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -71,10 +79,11 @@ class Batch{
   tri(a,b,c,k,ua,ub,uc,hint){const n=V().subVectors(b,a).cross(V().subVectors(c,a));
     if(hint&&n.dot(hint)<0){[b,c]=[c,b];[ub,uc]=[uc,ub];n.negate();}n.normalize();this.v(a,n,k,ua);this.v(b,n,k,ub);this.v(c,n,k,uc);}
   quad(a,b,c,d,k,uv,hint){this.tri(a,b,c,k,uv&&uv[0],uv&&uv[1],uv&&uv[2],hint);this.tri(a,c,d,k,uv&&uv[0],uv&&uv[2],uv&&uv[3],hint);}
-  add(g,m,k){const Pa=g.attributes.position,Na=g.attributes.normal,Ua=g.attributes.uv,nm=new THREE.Matrix3().getNormalMatrix(m),p=V(),n=V();
+  add(g,m,k,uvf){const Pa=g.attributes.position,Na=g.attributes.normal,Ua=g.attributes.uv,nm=new THREE.Matrix3().getNormalMatrix(m),p=V(),n=V();
     for(let i=0;i<Pa.count;i++){p.fromBufferAttribute(Pa,i).applyMatrix4(m);n.fromBufferAttribute(Na,i).applyMatrix3(nm).normalize();
-      this.p.push(p.x,p.y,p.z);this.n.push(n.x,n.y,n.z);this.c.push(k.r,k.g,k.b);this.u.push(Ua?Ua.getX(i):0,Ua?Ua.getY(i):0);}}
-  mesh(mat,{cast=true,recv=true,ao=false}={}){const g=new THREE.BufferGeometry();
+      this.p.push(p.x,p.y,p.z);this.n.push(n.x,n.y,n.z);this.c.push(k.r,k.g,k.b);if(uvf){const q=uvf(i,Ua.getX(i),Ua.getY(i));this.u.push(q[0],q[1]);}else this.u.push(Ua?Ua.getX(i):0,Ua?Ua.getY(i):0);}}
+  mesh(mat,{cast=true,recv=true,ao=false,upN=false}={}){const g=new THREE.BufferGeometry();
+    if(upN)for(let i=0;i<this.n.length;i+=3){this.n[i]=0;this.n[i+1]=1;this.n[i+2]=0;}   // 草むらの板は地面と同じ向きの光を受ける
     if(ao)for(let i=0;i<this.c.length;i+=3){const y=this.p[i+1],f=0.74+0.26*Math.min(1,Math.max(0,y/2.4));this.c[i]*=f;this.c[i+1]*=f;this.c[i+2]*=f;}   // 地面に近いほど少し暗く（簡易の接地陰影）
     g.setAttribute('position',new THREE.Float32BufferAttribute(this.p,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(this.n,3));
     g.setAttribute('color',new THREE.Float32BufferAttribute(this.c,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(this.u,2));
@@ -88,6 +97,9 @@ const _m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_e=new THREE.Euler();
 function put(B,g,M,x,y,z,sx,sy,sz,k,ry=0,rx=0,rz=0){_q.setFromEuler(_e.set(rx,ry,rz));B.add(g,M.clone().multiply(_m.compose(V(x,y,z),_q,V(sx,sy,sz))),k);}
 // 下端の高さ y0 を指定して箱を置く
 const box=(B,M,x,y0,z,sx,sy,sz,k,ry=0)=>put(B,GB,M,x,y0+sy/2,z,sx,sy,sz,k,ry);
+// 面の大きさに合わせてテクスチャを繰り返す箱（per m ごとに1回）。BoxGeometry の面の順：+x,-x,+y,-y,+z,-z
+function texBox(B,M,x,y0,z,sx,sy,sz,k,per){const S=[[sz,sy],[sz,sy],[sx,sz],[sx,sz],[sx,sy],[sx,sy]];
+  B.add(GB,M.clone().multiply(_m.compose(V(x,y0+sy/2,z),_q.identity(),V(sx,sy,sz))),k,(i,u,v)=>{const f=S[Math.floor(i/6)];return[u*f[0]/per,v*f[1]/per];});}
 // 2点を結ぶ細い角棒（電線・支柱など）
 function seg(B,a,b,r,k){const d=V().subVectors(b,a),L=d.length();if(L<1e-4)return;_q.setFromUnitVectors(V(0,1,0),d.multiplyScalar(1/L));
   B.add(GB,new THREE.Matrix4().compose(V().addVectors(a,b).multiplyScalar(0.5),_q,V(r*2,L,r*2)),k);}
@@ -190,7 +202,7 @@ function cloudTex(seed){return canvasTex(512,256,(g,w,h)=>{const r=rngF(seed),ba
       if(prev){const hint=V(o.x-b.x,0,o.z-b.z).normalize().add(V(0,1,0));
         const cB=col(cb),cT=col(ct);B.tri(prev[0],b,t,cB,null,null,null,hint);B.tri(prev[0],t,prev[1],cT,null,null,null,hint);}
       prev=[b,t];}});
-  scene.add(B.mesh(MAT.far,{cast:false,recv:false}));}
+  const mtn=B.mesh(MAT.far,{cast:false,recv:false});mtn.visible=!ART;scene.add(mtn);}   // v3 では描いた遠景に置きかえる
 
 // 地面
 {const g=new THREE.PlaneGeometry(9000,9000);g.rotateX(-Math.PI/2);const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*900,uv.getY(i)*900);
@@ -254,22 +266,28 @@ function windowAt(B,Fm,u,y,ww,wh,wallC){const gl=chance(0.28)?col(PAL.curtain):j
   if(ww>1.0)box(B,Fm,u,y-wh/2,0.08,0.045,wh,0.03,fr);                              // 引き違いの召し合わせ
   if(wh<1.6)box(B,Fm,u,y-wh/2-0.12,0.06,ww+0.25,0.06,0.12,col('#bfc2c2'));          // 水切り
   if(chance(0.3))box(B,Fm,u+ww/2+0.42,y-wh/2-0.05,0.07,0.6,wh+0.1,0.14,wallC.clone().offsetHSL(0,0,-0.12));}  // 戸袋
-function roof(B,M,w,d,y0,pitch,over,type,rc,wc){
+function roof(B,M,w,d,y0,pitch,over,type,rc,wc,RB=null){
   const W=w/2+over,D=d/2+over,L=(x,y,z)=>V(x,y,z).applyMatrix4(M),up=V(0,1,0);
+  const T=RB||B,sf=Math.sqrt(1+pitch*pitch),per=2.2,rcT=RB?rc.clone().multiplyScalar(1.3):rc;   // 屋根材の絵：軒から棟へ per m ごとに1回
+  const uvF=(x,z)=>[x/per,(D-Math.abs(z))*sf/per],uvE=(x,z)=>[z/per,(W-Math.abs(x))*sf/per];
+  const Q=(a,b,c,d2,f)=>T.quad(L(...a),L(...b),L(...c),L(...d2),rcT,RB?[a,b,c,d2].map(p=>f(p[0],p[2])):null,up);
+  const Tr=(a,b,c,f)=>T.tri(L(...a),L(...b),L(...c),rcT,RB?f(a[0],a[2]):null,RB?f(b[0],b[2]):null,RB?f(c[0],c[2]):null,up);
   box(B,M,0,y0-0.14,0,2*W,0.16,2*D,col(PAL.soffit));   // 軒天・鼻隠し
   if(type==='flat'){box(B,M,0,y0,0,w+0.3,0.5,d+0.3,wc);return;}
   const rise=D*pitch,top=y0+rise;
-  if(type==='gable'){B.quad(L(-W,y0,D),L(W,y0,D),L(W,top,0),L(-W,top,0),rc,null,up);B.quad(L(-W,y0,-D),L(W,y0,-D),L(W,top,0),L(-W,top,0),rc,null,up);
+  if(type==='gable'){Q([-W,y0,D],[W,y0,D],[W,top,0],[-W,top,0],uvF);Q([-W,y0,-D],[W,y0,-D],[W,top,0],[-W,top,0],uvF);
     for(const sg of[-1,1]){const x=sg*w/2,hint=V(sg,0,0).transformDirection(M),ye=y0+rise*over/D;
       B.tri(L(x,y0,-d/2),L(x,y0,d/2),L(x,top,0),wc,null,null,null,hint);B.tri(L(x,y0,d/2),L(x,ye,d/2),L(x,top,0),wc,null,null,null,hint);B.tri(L(x,y0,-d/2),L(x,top,0),L(x,ye,-d/2),wc,null,null,null,hint);
       seg(B,L(sg*W,y0-0.05,D),L(sg*W,top+0.03,0),0.06,col(PAL.soffit));seg(B,L(sg*W,y0-0.05,-D),L(sg*W,top+0.03,0),0.06,col(PAL.soffit));}   // 破風
     seg(B,L(-W,top+0.04,0),L(W,top+0.04,0),0.09,rc.clone().offsetHSL(0,0,-0.06));return;}
   // 寄棟
-  const rl=Math.max(0,W-D);B.quad(L(-W,y0,D),L(W,y0,D),L(rl,top,0),L(-rl,top,0),rc,null,up);B.quad(L(-W,y0,-D),L(W,y0,-D),L(rl,top,0),L(-rl,top,0),rc,null,up);
-  B.tri(L(-W,y0,-D),L(-W,y0,D),L(-rl,top,0),rc,null,null,null,up);B.tri(L(W,y0,-D),L(W,y0,D),L(rl,top,0),rc,null,null,null,up);
+  const rl=Math.max(0,W-D);Q([-W,y0,D],[W,y0,D],[rl,top,0],[-rl,top,0],uvF);Q([-W,y0,-D],[W,y0,-D],[rl,top,0],[-rl,top,0],uvF);
+  Tr([-W,y0,-D],[-W,y0,D],[-rl,top,0],uvE);Tr([W,y0,-D],[W,y0,D],[rl,top,0],uvE);
   const rk=rc.clone().offsetHSL(0,0,-0.06);if(rl>0)seg(B,L(-rl,top+0.04,0),L(rl,top+0.04,0),0.08,rk);
   for(const[sx,sz]of[[-1,-1],[-1,1],[1,-1],[1,1]])seg(B,L(sx*W,y0+0.03,sz*D),L(sx*rl,top+0.04,0),0.06,rk);}
+const TREES=[],DUMMY={add(){},quad(){},tri(){}};   // v3：樹木は描いた絵の板として、あとでまとめて置く
 function tree(B,M,x,z,h,{blobs=[4,7]}={}){const T=M.clone().multiply(new THREE.Matrix4().makeTranslation(x,0,z));
+  if(ART){TREES.push({p:V().setFromMatrixPosition(T),h:h*1.15,v:TREES.length%3});B=DUMMY;}   // 乱数の引き方を v2 と揃えるため、立体の木も計算だけして捨てる
   put(B,GCYL,T,0,h*0.25,0,h*0.022,h*0.5,h*0.022,jit('#6b5442',0.05));const n=Math.floor(rr(blobs[0],blobs[1]+1)),base=jit(pick(PAL.greens),0.03);
   for(let i=0;i<n;i++){const a=R()*7,rad=h*rr(0.16,0.27),rr2=h*rr(0,0.17);const c=base.clone().offsetHSL(rr(-0.015,0.015),0,rr(-0.06,0.07));
     put(B,GICO,T,Math.cos(a)*rr2,h*rr(0.55,0.9),Math.sin(a)*rr2,rad*rr(1,1.25),rad*rr(0.8,1),rad*rr(1,1.25),c,R()*7);}}
@@ -284,7 +302,7 @@ function house(B,M,lotW,lotD){
   const w=Math.min(lotW-1.8,rr(7.2,9.6)),d=rr(6.6,Math.min(8.6,w)),fh=rr(2.75,2.95),base=0.45,yard=rr(2.6,3.8);
   const zc=lotD/2-yard-d/2,xo=rr(-0.4,0.4)*Math.max(0,lotW-w-1.8),H=M.clone().multiply(new THREE.Matrix4().makeTranslation(xo,0,zc));
   const wc=jit(pick(PAL.walls)),rc=jit(pick(PAL.roofs),0.03);
-  box(B,H,0,0,0,w+0.1,base,d+0.1,jit(PAL.base,0.02));box(B,H,0,base,0,w,2*fh,d,wc);
+  box(B,H,0,0,0,w+0.1,base,d+0.1,jit(PAL.base,0.02));if(ART)texBox(BWT,H,0,base,0,w,2*fh,d,wc.clone().multiplyScalar(1.12),2.6);else box(B,H,0,base,0,w,2*fh,d,wc);
   box(B,H,0,base+fh-0.06,0,w+0.06,0.12,d+0.06,wc.clone().offsetHSL(0,0,-0.08));   // 胴差しの帯
   const balF=chance(0.6)?'F':'B',balW=Math.min(w-0.8,rr(2.8,4.6)),balU=rr(-1,1)*(w-balW)/2*0.8;
   for(const f of['F','B','L','R']){const fw=f==='F'||f==='B'?w:d,Fm=faceM(H,w,d,f),n=Math.max(1,Math.floor(fw/2.4));
@@ -299,7 +317,7 @@ function house(B,M,lotW,lotD){
       for(const sg of[-1,1])box(B,Fm,balU+sg*(balW/2-0.03),y+0.08,0.55,0.06,1.0,1.1,rcol);
       if(chance(0.35))box(B,Fm,balU+rr(-0.6,0.6),y+0.65,1.12,rr(1,1.6),0.55,0.08,col(pick(['#f4f1ea','#e9c9c4','#cfdbe8','#efe2b8'])));}}  // 干した布団
   if(chance(0.7)){const Fm=faceM(H,w,d,pick(['L','R']));box(B,Fm,rr(-1,1),0,0.25,0.8,0.6,0.32,col('#eeeeea'));}   // 室外機
-  roof(B,H,w,d,base+2*fh,rr(0.42,0.56),rr(0.45,0.65),chance(0.55)?'hip':'gable',rc,wc);
+  roof(B,H,w,d,base+2*fh,rr(0.42,0.56),rr(0.45,0.65),chance(0.55)?'hip':'gable',rc,wc,ART?BRT:null);
   return{w,d,xo,zc};}
 
 /* ---------- 低層マンション（3〜4階） ---------- */
@@ -327,6 +345,7 @@ function apart(B,M,lotW,lotD){
 
 /* ---------- 区画（宅地）を並べる ---------- */
 const BH=new Batch();   // 建物・樹木など（影あり）
+const BWT=new Batch(), BRT=new Batch();   // v3：外壁・屋根（絵のテクスチャ付き）
 function lotM(s,dc,faceTrack){return FM(s,dc,0,dc>0?(faceTrack?-Math.PI/2:Math.PI/2):(faceTrack?Math.PI/2:-Math.PI/2));}
 function fillRow(d0,d1,faceTrack,crosses,opts={}){
   const depth=Math.abs(d1-d0),dc=(d0+d1)/2;let s=CFG.pathFrom+20;
@@ -385,6 +404,28 @@ poleLine(10.6,CFG.pathFrom+10,CFG.build);poleLine(-23.65,CFG.pathFrom+20,CFG.bui
   scene.add(B.mesh(MAT.far,{cast:false,recv:false}));}
 
 /* ---------- まとめたメッシュをシーンへ ---------- */
+if(ART){
+  // 外壁・屋根：絵の明暗に家ごとの色をかける
+  scene.add(BWT.mesh(toon({map:ART.wall,vertexColors:true}),{ao:true}),BRT.mesh(toon({map:ART.roof,vertexColors:true})));
+  // 樹木：絵の板をカメラの方へ向けて立てる（3種類の絵ごとに1回の描画）
+  const camP=P(CFG.camS,CFG.own+CFG.eyeOff,0),pg=new THREE.PlaneGeometry(1,1).translate(0,0.5,0);
+  [ART.tree1,ART.tree2,ART.tree3].forEach((tx,vi)=>{const L=TREES.filter(t=>t.v===vi);if(!L.length)return;const asp=tx.image.width/tx.image.height;
+    const mat=new THREE.MeshBasicMaterial({map:tx,alphaTest:0.45,side:THREE.DoubleSide,color:col('#eeeeee')});
+    const im=new THREE.InstancedMesh(pg,mat,L.length);
+    L.forEach((t,i)=>{const yaw=Math.atan2(camP.x-t.p.x,camP.z-t.p.z);im.setMatrixAt(i,new THREE.Matrix4().compose(t.p,new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw),V(t.h*asp,t.h,1)));});
+    im.castShadow=true;im.customDepthMaterial=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:tx,alphaTest:0.45});scene.add(im);});
+  // 草むら：さくの両側に、線路に沿った帯として
+  {const G=new Batch(),asp=ART.grass.image.width/ART.grass.image.height;
+    for(const[d,H]of[[-5.78,0.8],[5.78,0.8],[-6.12,1.0],[6.12,0.95]]){const per=H*asp,off=Math.abs(d)*7.3;
+      for(let s=CFG.pathFrom;s<CFG.build;s+=2){const a=P(s,d,0),b=P(s+2,d,0),c=P(s+2,d,H),e=P(s,d,H),u0=(s+off)/per,u1=(s+2+off)/per;
+        G.quad(a,b,c,e,col('#ffffff'),[[u0,0],[u1,0],[u1,1],[u0,1]],null);}}
+    scene.add(G.mesh(toon({map:ART.grass,vertexColors:true,alphaTest:0.4,side:THREE.DoubleSide}),{cast:false,upN:true}));}
+  // 遠景：カメラを中心にした大きな円筒の内側に、絵を左右反転しながら3回並べる（空はプログラムの空のまま）
+  {const R0=3000,span=THREE.MathUtils.degToRad(190),tiles=3,asp=ART.pano.image.width/ART.pano.image.height,ang=span/tiles/asp,lo=THREE.MathUtils.degToRad(-1.1),hi=lo+ang;
+    ART.pano.repeat.set(tiles,1);const H=R0*(Math.tan(hi)-Math.tan(lo));
+    const g=new THREE.CylinderGeometry(R0,R0,H,96,1,true,Math.PI-span/2,span);
+    const pano=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:ART.pano,transparent:true,fog:false,depthWrite:false,side:THREE.BackSide}));
+    pano.renderOrder=-5;pano.userData.y=R0*(Math.tan(hi)+Math.tan(lo))/2;pano.rotation.y=-at(CFG.camS+300)[2];scene.add(pano);window.__pano=pano;}}
 scene.add(BV.mesh(MAT.vc),BH.mesh(MAT.vc,{ao:true}),BW.mesh(MAT.vc,{cast:false}),BBal.mesh(MAT.ballast,{cast:false}),BRoad.mesh(MAT.road,{cast:false}),BField.mesh(MAT.field,{cast:false}),BFence.mesh(MAT.fence,{cast:false}));
 
 /* ---------- 運転台（簡素） ---------- */
@@ -399,7 +440,7 @@ scene.add(BV.mesh(MAT.vc),BH.mesh(MAT.vc,{ao:true}),BW.mesh(MAT.vc,{cast:false})
 /* ---------- 視点 ---------- */
 function placeCamera(s){const d=CFG.own+CFG.eyeOff,h=CFG.railTop+CFG.eyeH,M=FM(s,d,h);
   camera.matrix.copy(M).multiply(new THREE.Matrix4().makeRotationX(-0.025));camera.matrix.decompose(camera.position,camera.quaternion,camera.scale);
-  sky.position.copy(camera.position);
+  sky.position.copy(camera.position);if(window.__pano)window.__pano.position.set(camera.position.x,camera.position.y+window.__pano.userData.y,camera.position.z);
   const tg=P(s+80,0,0);sun.target.position.copy(tg);sun.position.copy(tg).addScaledVector(SUN_DIR,400);sun.target.updateMatrixWorld();
   document.getElementById('pos').textContent=s.toFixed(0);}
 const VIEWS=[['出発直後',40],['曲線の手前',150],['曲線の中',300],['区間の終わり',480]];
@@ -408,7 +449,7 @@ VIEWS.forEach(([n,s])=>{const b=document.createElement('button');b.textContent=n
 function mark(){vb.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.s)===curS)));}
 placeCamera(curS);mark();
 document.getElementById('sec').textContent=`${CFG.from} → ${CFG.to}（仮想${CFG.sec}m区間・仮設定）`;
-document.getElementById('look').textContent=LOOK_ID==='v1'?'変更前（look=v1）':'改善版（v2）';
+document.getElementById('look').textContent={v1:'変更前（look=v1）',v2:'プログラムのみ（v2）',v3:'美術素材版（look=v3）'}[LOOK_ID];
 
 // 第1段階は静止画なので、視点や画面の大きさが変わったときだけ描く。?bench=1 のときは毎フレーム描いて fps を測る
 const BENCH=Q.get('bench')==='1';let dirty=true;
