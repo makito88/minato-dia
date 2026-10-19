@@ -34,7 +34,9 @@ const VX=1035,VY=505,F=1760,E=1.52;      // 背景画から測った遠近（ホ
 const KP=-0.81;                          // ホームの縁の線の傾き（Δx/Δy）。これより右下はホームに隠れる
 const XT=-0.64,CW=2.9;                   // 列車のホーム側の面の横位置、車体の幅（m）
 // 列車の絵：レール面の行 317、車体の高さ 223px＝3.65m。絵の車両は短いので横を 1.4 倍にのばす
-const TR={rail:317,ppm:223/3.65,stretch:1.4};
+// SIZE：列車の大きさの倍率。AIの絵の遠近は実寸どおりではないので、見た目で合わせる（?size=0.8 などで変えられる）
+const SIZE=Number(new URLSearchParams(location.search).get('size')||0.78);
+const TR={rail:317,ppm:223/(3.65*SIZE),stretch:1.4};
 const C={stopBack:6,vIn:11,dec:0.9,dwell:14,acc:0.8,gapBefore:6,gapAfter:7};   // 停車位置（最後尾がカメラの 6m 後ろ＝列車が目の前に横付けになる）、進入 40km/h、減速度、停車時間、加速度、前後の間（秒）
 
 const cv=document.getElementById('cv'),g=cv.getContext('2d');
@@ -60,14 +62,14 @@ const cycleLen=()=>{const L=train.width*TR.stretch/TR.ppm;return C.gapBefore+C.v
 function drawTrain(zf,L){const zr=zf-L,W=train.width,H=train.height,hTop=TR.rail/TR.ppm,hBot=(TR.rail-H)/TR.ppm,pxm=TR.ppm/TR.stretch;
   g.save();g.beginPath();g.moveTo(-4000,-4000);g.lineTo(VX,-4000);g.lineTo(VX,VY);g.lineTo(VX+KP*(4000-VY),4000);g.lineTo(-4000,4000);g.closePath();g.clip();   // ホームに隠れる所は描かない
   const step=2;
-  for(let u=-60;u<VX-1;u+=step){const z=F*XT/(u-VX);if(z<0.3||z<zr||z>zf)continue;
+  for(let u=-60;u<VX-1;u+=step){const z=F*XT/(u-VX);if(z<0.3||z<zr||z>zf)continue;   // （横位置 XT はホームの縁に合わせたまま、高さと長さだけ縮める）
     const z2=F*XT/(u+step-VX),tx=(z-zr)*pxm,tw=Math.max(1,Math.abs(z2-z)*pxm);if(tx>=W)continue;
     const yT=VY+F*(E-hTop)/z,yB=VY+F*(E-hBot)/z;
     g.drawImage(train,Math.min(tx,W-1),0,Math.min(tw,W-tx),H,u,yT,step+0.6,yB-yT);}
   if(zr>0.4)drawEnd(zr);   // 最後尾の妻面（こちらを向いている）
   g.restore();}
 // 最後尾の妻面：絵が無いので、車体の色に合わせて簡単に描く
-function drawEnd(z){const P=(X,h)=>[VX+F*X/z,VY+F*(E-h)/z],a=P(XT,0.2),b=P(XT-CW,0.2),c=P(XT-CW,3.55),d=P(XT,3.55),k=F/z;
+function drawEnd(z){const P=(X,h)=>[VX+F*(XT-(XT-X)*SIZE)/z,VY+F*(E-h*SIZE)/z],a=P(XT,0.2),b=P(XT-CW,0.2),c=P(XT-CW,3.55),d=P(XT,3.55),k=F/z;
   const rr=(x0,h0,x1,h1,r)=>{const p=P(XT-x0,h1),q=P(XT-x1,h0);g.beginPath();g.roundRect(p[0],p[1],q[0]-p[0],q[1]-p[1],r*k);};
   // 車体（日の当たるホーム側が明るく、奥へ少し陰る）
   let gr=g.createLinearGradient(a[0],0,b[0],0);gr.addColorStop(0,'#d8dbdd');gr.addColorStop(0.7,'#b9bec2');gr.addColorStop(1,'#9ea4a9');g.fillStyle=gr;rr(0,0.15,CW,3.6,0.18);g.fill();
