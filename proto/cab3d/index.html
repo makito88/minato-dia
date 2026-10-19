@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D運転席 試作</title>
+<style>
+  :root{--panel:rgba(20,26,34,.72);--ink:#f3f1ea;--sub:#b9c3cc}
+  html,body{margin:0;height:100%;background:#cfe0ea;overflow:hidden;font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif}
+  canvas{display:block}
+  #hud{position:fixed;left:12px;top:12px;background:var(--panel);color:var(--ink);padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6;max-width:min(360px,calc(100vw - 48px))}
+  #hud b{font-size:14px}
+  #hud small{color:var(--sub)}
+  #views{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+  #views button{font:inherit;font-size:12px;background:#3b4652;color:var(--ink);border:1px solid #56626e;border-radius:5px;padding:2px 8px;cursor:pointer}
+  #views button[aria-pressed=true]{background:#c9a35c;color:#1d1a14;border-color:#c9a35c}
+</style>
+</head>
+<body>
+<div id="hud">
+  <b>3D運転席 試作｜第1段階（静止画）</b><br>
+  <span id="sec">中央 → 桜町（仮想500m区間・仮設定）</span><br>
+  <small>位置 <span id="pos">-</span> m ／ <span id="fps">-</span></small>
+  <div id="views"></div>
+</div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
