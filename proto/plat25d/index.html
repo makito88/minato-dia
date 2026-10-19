@@ -11,8 +11,9 @@
   #hud{position:fixed;left:12px;top:12px;background:var(--panel);color:var(--ink);padding:10px 14px;border-radius:8px;font-size:13px;line-height:1.6;max-width:min(340px,calc(100vw - 48px))}
   #hud b{font-size:14px}#hud small{color:var(--sub)}
   #ctl{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
-  #ctl button{font:inherit;font-size:12px;background:#3b4652;color:var(--ink);border:1px solid #56626e;border-radius:5px;padding:2px 8px;cursor:pointer}
-  #ctl button[aria-pressed=true]{background:var(--acc);color:#1d1a14;border-color:var(--acc)}
+  #ctl button,#ctl2 button{font:inherit;font-size:12px;background:#3b4652;color:var(--ink);border:1px solid #56626e;border-radius:5px;padding:2px 8px;cursor:pointer}
+  #ctl button[aria-pressed=true],#ctl2 button[aria-pressed=true]{background:var(--acc);color:#1d1a14;border-color:var(--acc)}
+  .row{margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}.row input{flex:1;min-width:120px;accent-color:var(--acc)}
 </style>
 </head>
 <body>
@@ -22,6 +23,8 @@
   <span id="st">読み込み中…</span><br>
   <small>ダイヤとは未連動（一定時間ごとにくり返し）</small>
   <div id="ctl"><button data-m="1" aria-pressed="true">×1</button><button data-m="4">×4</button><button id="again">最初から</button></div>
+  <div id="ctl2" class="row">車両の絵 <button data-t="gem">Gemini</button><button data-t="gpt">ChatGPT</button></div>
+  <div class="row"><label for="sz">大きさ</label> <input id="sz" type="range" min="0.5" max="1.1" step="0.01"> <span id="szv"></span></div>
 </div>
 <script>
 /* 峠駅 ホームの場面（2.5D 試作）
@@ -34,21 +37,26 @@ const VX=1035,VY=505,F=1760,E=1.52;      // 背景画から測った遠近（ホ
 const KP=-0.81;                          // ホームの縁の線の傾き（Δx/Δy）。これより右下はホームに隠れる
 const XT=-0.64,CW=2.9;                   // 列車のホーム側の面の横位置、車体の幅（m）
 // 列車の絵：レール面の行 317、車体の高さ 223px＝3.65m。絵の車両は短いので横を 1.4 倍にのばす
-// SIZE：列車の大きさの倍率。AIの絵の遠近は実寸どおりではないので、見た目で合わせる（?size=0.8 などで変えられる）
-const SIZE=Number(new URLSearchParams(location.search).get('size')||0.78);
-const TR={rail:317,ppm:223/(3.65*SIZE),stretch:1.4};
-const C={stopBack:6,vIn:11,dec:0.9,dwell:14,acc:0.8,gapBefore:6,gapAfter:7};   // 停車位置（最後尾がカメラの 6m 後ろ＝列車が目の前に横付けになる）、進入 40km/h、減速度、停車時間、加速度、前後の間（秒）
+// SIZE：列車の大きさの倍率。AIの絵の遠近は実寸どおりではないので、見た目で合わせる（画面のスライダーか ?size=0.8 など）
+let SIZE=Number(new URLSearchParams(location.search).get('size')||0.78);
+// 車両の絵（2組）：roof＝側面の絵で屋根の行（レール面は絵の最下行）、endBody＝妻面の絵で車体の左右の端の列
+const SETS={gem:{name:'Gemini',side:'gem_side.webp',end:'gem_end.webp',roof:22,endBody:[18,1680]},
+            gpt:{name:'ChatGPT',side:'gpt_side.webp',end:'gpt_end.webp',roof:19,endBody:[10,872]}};
+const ROOF_M=3.7,LEN_M=42;   // 気動車：レール面から屋根まで 3.7m、2両で 42m（絵の車両が短いぶんは横にのばして合わせる）
+let cur=new URLSearchParams(location.search).get('train')==='gpt'?'gpt':'gem';
+function TRG(){const im=SETS[cur].sideImg,rail=im.height,ppm=(rail-SETS[cur].roof)/(ROOF_M*SIZE);return{rail,ppm,stretch:LEN_M*SIZE*ppm/im.width,L:LEN_M*SIZE};}
+const C={stopBack:-10,vIn:11,dec:0.9,dwell:14,acc:0.8,gapBefore:6,gapAfter:7};   // 停車位置（stopBack：最後尾がカメラの何m後ろか。負なら前。-10＝最後尾が目の前10mに止まり、編成全体と妻面が見える）、進入 40km/h、減速度、停車時間、加速度、前後の間（秒）
 
 const cv=document.getElementById('cv'),g=cv.getContext('2d');
 const load=n=>new Promise((ok,ng)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=ng;i.src=IMG+n;});
-let base,train,leaves,mult=1,t0=0,simT=0,last=0,ptr={x:0,y:0},pp={x:0,y:0};
+let base,leaves,mult=1,t0=0,simT=0,last=0,ptr={x:0,y:0},pp={x:0,y:0};
 
 function resize(){const d=Math.min(2,devicePixelRatio||1);cv.width=Math.round(innerWidth*d);cv.height=Math.round(innerHeight*d);}
 addEventListener('resize',resize);resize();
 addEventListener('pointermove',e=>{ptr.x=e.clientX/innerWidth*2-1;ptr.y=e.clientY/innerHeight*2-1;});
 
 /* 列車の動き：奥行き z（先頭）を時刻から求める。後ろから入ってきて減速・停車し、加速して奥へ去る */
-function trainState(t){const L=train.width*TR.stretch/TR.ppm,stopZ=L-C.stopBack,dIn=C.vIn*C.vIn/(2*C.dec),tIn=C.vIn/C.dec,tOut=Math.sqrt(2*(500+L)/C.acc);
+function trainState(t){const L=TRG().L,stopZ=L-C.stopBack,dIn=C.vIn*C.vIn/(2*C.dec),tIn=C.vIn/C.dec,tOut=Math.sqrt(2*(500+L)/C.acc);
   let s=t-C.gapBefore;
   if(s<0)return{z:null,msg:'列車を待っています',L};
   if(s<tIn){const v=C.vIn-C.dec*s;return{z:stopZ-v*v/(2*C.dec),msg:'列車が到着します',L};}
@@ -56,10 +64,10 @@ function trainState(t){const L=train.width*TR.stretch/TR.ppm,stopZ=L-C.stopBack,
   s-=C.dwell;if(s<tOut)return{z:stopZ+0.5*C.acc*s*s,msg:'発車しました',L};
   s-=tOut;if(s<C.gapAfter)return{z:null,msg:'列車を待っています',L};
   return{reset:true,L};}
-const cycleLen=()=>{const L=train.width*TR.stretch/TR.ppm;return C.gapBefore+C.vIn/C.dec+C.dwell+Math.sqrt(2*(500+L)/C.acc)+C.gapAfter;};
+const cycleLen=()=>{const L=TRG().L;return C.gapBefore+C.vIn/C.dec+C.dwell+Math.sqrt(2*(500+L)/C.acc)+C.gapAfter;};
 
 /* 列車の側面：画面の縦の列ごとに「その列に映る奥行き z」を求め、絵のその位置を縦に引きのばして描く */
-function drawTrain(zf,L){const zr=zf-L,W=train.width,H=train.height,hTop=TR.rail/TR.ppm,hBot=(TR.rail-H)/TR.ppm,pxm=TR.ppm/TR.stretch;
+function drawTrain(zf,L){const TR=TRG(),train=SETS[cur].sideImg,zr=zf-L,W=train.width,H=train.height,hTop=TR.rail/TR.ppm,hBot=(TR.rail-H)/TR.ppm,pxm=TR.ppm/TR.stretch;
   g.save();g.beginPath();g.moveTo(-4000,-4000);g.lineTo(VX,-4000);g.lineTo(VX,VY);g.lineTo(VX+KP*(4000-VY),4000);g.lineTo(-4000,4000);g.closePath();g.clip();   // ホームに隠れる所は描かない
   const step=2;
   for(let u=-60;u<VX-1;u+=step){const z=F*XT/(u-VX);if(z<0.3||z<zr||z>zf)continue;   // （横位置 XT はホームの縁に合わせたまま、高さと長さだけ縮める）
@@ -68,20 +76,10 @@ function drawTrain(zf,L){const zr=zf-L,W=train.width,H=train.height,hTop=TR.rail
     g.drawImage(train,Math.min(tx,W-1),0,Math.min(tw,W-tx),H,u,yT,step+0.6,yB-yT);}
   if(zr>0.4)drawEnd(zr);   // 最後尾の妻面（こちらを向いている）
   g.restore();}
-// 最後尾の妻面：絵が無いので、車体の色に合わせて簡単に描く
-function drawEnd(z){const P=(X,h)=>[VX+F*(XT-(XT-X)*SIZE)/z,VY+F*(E-h*SIZE)/z],a=P(XT,0.2),b=P(XT-CW,0.2),c=P(XT-CW,3.55),d=P(XT,3.55),k=F/z;
-  const rr=(x0,h0,x1,h1,r)=>{const p=P(XT-x0,h1),q=P(XT-x1,h0);g.beginPath();g.roundRect(p[0],p[1],q[0]-p[0],q[1]-p[1],r*k);};
-  // 車体（日の当たるホーム側が明るく、奥へ少し陰る）
-  let gr=g.createLinearGradient(a[0],0,b[0],0);gr.addColorStop(0,'#d8dbdd');gr.addColorStop(0.7,'#b9bec2');gr.addColorStop(1,'#9ea4a9');g.fillStyle=gr;rr(0,0.15,CW,3.6,0.18);g.fill();
-  g.fillStyle='rgba(255,255,255,.35)';rr(0.05,3.45,CW-0.05,3.58,0.05);g.fill();                       // 屋根の縁の照り
-  g.fillStyle='#d24a3c';rr(0,1.22,CW,1.42,0);g.fill();                                              // 赤い帯
-  // 窓（空を映して上が明るい）
-  for(const[x0,x1]of[[0.22,0.92],[1.98,2.68]]){const p=P(XT-x0,2.62),q=P(XT-x1,1.72);gr=g.createLinearGradient(0,p[1],0,q[1]);gr.addColorStop(0,'#8fb3cf');gr.addColorStop(1,'#3d5468');g.fillStyle=gr;rr(x0,1.72,x1,2.62,0.06);g.fill();}
-  g.fillStyle='#8d9398';rr(1.08,0.55,1.82,2.95,0.05);g.fill();                                     // 貫通扉
-  {const p=P(XT-1.2,2.6),q=P(XT-1.7,1.8);gr=g.createLinearGradient(0,p[1],0,q[1]);gr.addColorStop(0,'#8fb3cf');gr.addColorStop(1,'#3d5468');g.fillStyle=gr;rr(1.2,1.8,1.7,2.6,0.04);g.fill();}
-  g.fillStyle='#c0392b';for(const x of[0.35,2.4]){rr(x,0.85,x+0.22,0.98,0.03);g.fill();}             // 尾灯
-  g.fillStyle='#3a3d40';rr(0.1,0.15,CW-0.1,0.42,0.04);g.fill();                                    // スカート
-  g.strokeStyle='rgba(70,74,78,.55)';g.lineWidth=Math.max(1,0.025*k);rr(0,0.15,CW,3.6,0.18);g.stroke();}
+// 最後尾の妻面：真後ろから描いた絵を、その奥行きの大きさに縮めて置く（こちらを向いた面なので、ただの拡大縮小でよい）
+function drawEnd(z){const S=SETS[cur],im=S.endImg,bw=S.endBody[1]-S.endBody[0],mpp=CW*SIZE/bw,k=F/z;
+  const xL=VX+F*(XT-CW*SIZE-S.endBody[0]*mpp)/z,yB=VY+F*(E-0.05)/z,w=im.width*mpp*k,h=im.height*mpp*k;
+  g.drawImage(im,xL,yB-h,w,h);}
 
 /* 木漏れ日：ホームの床に、ゆっくり動く光のまだら */
 function komorebi(t){g.save();g.beginPath();g.moveTo(VX,VY);g.lineTo(VX+KP*(BH+200-VY),BH+200);g.lineTo(BW+200,BH+200);g.lineTo(BW+200,VY);g.closePath();g.clip();
@@ -114,8 +112,12 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min(0.1,(now-(las
 
 document.querySelectorAll('#ctl button[data-m]').forEach(b=>b.onclick=()=>{mult=Number(b.dataset.m);document.querySelectorAll('#ctl button[data-m]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
 document.getElementById('again').onclick=()=>{simT=0;};
+// 車両の絵の切り替えと、大きさのスライダー
+function markUI(){document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===cur)));document.getElementById('szv').textContent=SIZE.toFixed(2);document.getElementById('sz').value=SIZE;}
+document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.onclick=()=>{cur=b.dataset.t;markUI();});
+document.getElementById('sz').oninput=e=>{SIZE=Number(e.target.value);markUI();};
 window.__setT=v=>{simT=v;};   // 確認用：場面の時刻を指定
-Promise.all([load('toge_base.webp'),load('train_side.webp'),load('leaves.webp')]).then(([a,b,c])=>{base=a;train=b;leaves=c;
+Promise.all([load('toge_base.webp'),load('leaves.webp'),...Object.values(SETS).flatMap(S=>[load(S.side).then(i=>S.sideImg=i),load(S.end).then(i=>S.endImg=i)])]).then(([a,c])=>{base=a;leaves=c;markUI();
   const q=new URLSearchParams(location.search);if(q.get('t'))simT=Number(q.get('t'));requestAnimationFrame(frame);})
   .catch(()=>{document.getElementById('st').textContent='画像を読み込めませんでした（HTTP で開いてください）';});
 </script>
