@@ -2485,8 +2485,10 @@ void main(){float lx=(gl_FragCoord.x-uT.z)/uT.x,ly=(uH-gl_FragCoord.y-uT.w)/uT.y
     if(it.persp)drawCatenaryP(c,R.tr,k,dk);   // 架線柱（遠近法）
     if(it.doorway)drawDoorway(c,k,dk,blur);
     if(it.door){const [x,y,w,h]=it.door,ref=R.img[levelSrc(0)];
-      // となりの車両はこの車両と別に揺れる：車内の揺れの半分くらいの大きさで、少しずらした周期で上下・左右に
-      const tt=performance.now()/1000,A=k.moving?0.5*0.35*clamp(Math.abs(k.v)/1.2)*(W/419):0,ox=Math.sin(tt*2*Math.PI*0.7+1.3)*A*0.7,oy=Math.sin(tt*2*Math.PI*1.25+2.1)*A;
+      // となりの車両は連結器ごしに、この車両の揺れ（bob）をばね＋ダンパーのように少し遅れて追いかける（揺れない地面と、自分の揺れの間）
+      const FN=1.3,ZT=0.5,w0=2*Math.PI*FN;if(R.fy==null||R.fyIt!==it){R.fy=bob;R.fv=0;R.fyIt=it;}
+      for(let st=Math.min(0.2,dt||0);st>0;st-=0.02){const h2=Math.min(0.02,st);R.fv+=(w0*w0*(bob-R.fy)-2*ZT*w0*R.fv)*h2;R.fy+=R.fv*h2;}
+      const ox=0,oy=R.fy-bob;   // 絵全体は bob だけ動いているので、その差だけずらす
       c.save();c.beginPath();c.rect(x,y,w,h);c.clip();c.drawImage(ref,x-w*0.6+ox,y-w*0.49+oy,w*2.2,w*2.24);c.fillStyle='rgba(30,24,18,.35)';c.fillRect(x,y,w,h);c.restore();}   // 貫通扉の窓の向こう＝となりの車両
     const tgt=level(k.load/R.tr.cap);if(R.lvShow==null)R.lvShow=tgt;R.lvShow+=(tgt-R.lvShow)*Math.min(1,dt*2.5);if(Math.abs(tgt-R.lvShow)<0.003)R.lvShow=tgt;
     const a=Math.max(1,Math.min(5,Math.floor(R.lvShow))),f=R.lvShow-a;
