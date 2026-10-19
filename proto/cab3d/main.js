@@ -19,6 +19,17 @@ const CFG = {
 };
 CFG.railTop = CFG.sleeperTop + CFG.railH;
 
+/* 見た目の設定。?look=v1 で変更前（最初の試作）の見た目に戻せる */
+const LOOK_ID = new URLSearchParams(location.search).get('look')==='v1' ? 'v1' : 'v2';
+const LOOK = {
+  v1:{ lambert:false, exposure:1.0, shadow:'PCFSoftShadowMap', shRadius:1, shInt:1.0,
+       hemi:['#c3d7ee','#a99f82',1.0], sun:['#fff0d8',2.9], hor:'#dde8ee', fog:0.00042, sky:['#3f83d0','#8fc0ea'], grade:false },
+  // v2：影の輪郭をやわらげる（影の解像度を下げる）、青みのある天空光で日陰を明るく、露出を下げて白飛びを防ぐ、
+  //     8段のなめらかな陰影、霞を少し濃く、最後に色調補正
+  v2:{ lambert:false, smooth:true, exposure:0.95, shadow:'PCFSoftShadowMap', shRadius:1, shInt:1.0, shMap:2048,
+       hemi:['#a8c4ea','#c4b38e',1.2], sun:['#ffe7c6',2.75], hor:'#d2e2ee', fog:0.00046, sky:['#3f86d6','#98c6ee'], grade:true },
+}[LOOK_ID];
+
 /* ---------- 乱数・色 ---------- */
 function rngF(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const R = rngF(CFG.seed);
@@ -97,9 +108,17 @@ function canvasTex(w,h,draw,{repeat=true}={}){const c=document.createElement('ca
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;if(repeat){t.wrapS=t.wrapT=THREE.RepeatWrapping;}t.anisotropy=8;return t;}
 function speckle(g,w,h,r,n,cols,sz){for(let i=0;i<n;i++){g.fillStyle=cols[Math.floor(r()*cols.length)];const s=sz[0]+r()*(sz[1]-sz[0]);g.globalAlpha=0.35+r()*0.5;g.fillRect(r()*w,r()*h,s,s*(0.5+r()));}g.globalAlpha=1;}
 const TEX={
-  grass:canvasTex(256,256,(g,w,h,r)=>{g.fillStyle='#93a56f';g.fillRect(0,0,w,h);speckle(g,w,h,r,2600,['#7f9660','#a5b47c','#879e63','#b3b98a','#6f8a55'],[1,3]);
+  grass:LOOK_ID==='v2'?canvasTex(256,256,(g,w,h,r)=>{g.fillStyle='#9aad7c';g.fillRect(0,0,w,h);speckle(g,w,h,r,1800,['#8ea472','#a8b886','#93a978','#b4bd93'],[2,5]);
+      g.strokeStyle='rgba(95,125,70,.22)';for(let i=0;i<260;i++){const x=r()*w,y=r()*h;g.beginPath();g.moveTo(x,y);g.lineTo(x+r()*2-1,y-2-r()*4);g.stroke();}})
+   :canvasTex(256,256,(g,w,h,r)=>{g.fillStyle='#93a56f';g.fillRect(0,0,w,h);speckle(g,w,h,r,2600,['#7f9660','#a5b47c','#879e63','#b3b98a','#6f8a55'],[1,3]);
     g.strokeStyle='rgba(70,100,50,.35)';for(let i=0;i<300;i++){const x=r()*w,y=r()*h;g.beginPath();g.moveTo(x,y);g.lineTo(x+r()*2-1,y-2-r()*4);g.stroke();}}),
-  ballast:canvasTex(256,256,(g,w,h,r)=>{g.fillStyle='#8f8a82';g.fillRect(0,0,w,h);speckle(g,w,h,r,5200,['#a8a39a','#77726b','#b5afa4','#6a655f','#9b9286','#857a6e'],[2,5]);}),
+  ballast:LOOK_ID==='v2'?canvasTex(512,512,(g,w,h,r)=>{   // v2：角の丸い砕石を1つずつ描く。上が明るく下が影。色は灰色に少し茶色をまぜる
+      g.fillStyle='#8e857a';g.fillRect(0,0,w,h);const cs=['#a59c90','#978d81','#ada497','#8c8277','#a29380','#b3ab9d','#877c70'];
+      for(let i=0;i<5200;i++){const x=r()*w,y=r()*h,a=3+r()*4.5,b=a*(0.6+r()*0.35),t=r()*3.14,c=cs[Math.floor(r()*cs.length)];
+        g.fillStyle='rgba(60,54,48,.35)';g.beginPath();g.ellipse(x+1,y+1.4,a,b,t,0,7);g.fill();
+        g.fillStyle=c;g.beginPath();g.ellipse(x,y,a,b,t,0,7);g.fill();
+        g.fillStyle='rgba(255,250,240,.22)';g.beginPath();g.ellipse(x-a*.25,y-b*.3,a*.55,b*.45,t,0,7);g.fill();}})
+   :canvasTex(256,256,(g,w,h,r)=>{g.fillStyle='#8f8a82';g.fillRect(0,0,w,h);speckle(g,w,h,r,5200,['#a8a39a','#77726b','#b5afa4','#6a655f','#9b9286','#857a6e'],[2,5]);}),
   asphalt:canvasTex(256,256,(g,w,h,r)=>{g.fillStyle='#7c7f80';g.fillRect(0,0,w,h);speckle(g,w,h,r,3500,['#6e7173','#8a8d8e','#73767a','#959897'],[1,2]);
     g.fillStyle='#e9e8e0';g.fillRect(w*0.05,0,w*0.035,h);g.fillRect(w*0.915,0,w*0.035,h);}),
   fence:canvasTex(64,64,(g,w,h)=>{g.clearRect(0,0,w,h);g.strokeStyle='rgba(120,135,120,1)';g.lineWidth=2.2;
@@ -111,17 +130,19 @@ const TEX={
 /* ---------- 3D の基本 ---------- */
 const renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));renderer.setSize(innerWidth,innerHeight);
-renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1.0;
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=LOOK.exposure;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE[LOOK.shadow];
 document.body.appendChild(renderer.domElement);
 const scene=new THREE.Scene();
-const HORIZON=col('#dde8ee');
-scene.fog=new THREE.FogExp2(HORIZON,0.00042);   // 遠景の霞
+const HORIZON=col(LOOK.hor);
+scene.fog=new THREE.FogExp2(HORIZON,LOOK.fog);   // 遠景の霞
 const camera=new THREE.PerspectiveCamera(CFG.fov,innerWidth/innerHeight,0.3,14000);scene.add(camera);
 
 // セル調の陰影（4段）
-const grad=new THREE.DataTexture(new Uint8Array([92,155,212,255]),4,1,THREE.RedFormat);grad.minFilter=grad.magFilter=THREE.NearestFilter;grad.needsUpdate=true;
-const toon=(o={})=>new THREE.MeshToonMaterial({gradientMap:grad,...o});
+// v1：4段のくっきりしたセル陰影。v2：8段をなめらかにつないだ陰影（明るい面は明るいまま、日陰へは柔らかく移る）
+const grad=LOOK.smooth?new THREE.DataTexture(new Uint8Array([82,118,160,198,224,240,250,255]),8,1,THREE.RedFormat):new THREE.DataTexture(new Uint8Array([92,155,212,255]),4,1,THREE.RedFormat);
+grad.minFilter=grad.magFilter=LOOK.smooth?THREE.LinearFilter:THREE.NearestFilter;grad.needsUpdate=true;
+const toon=(o={})=>LOOK.lambert?new THREE.MeshLambertMaterial(o):new THREE.MeshToonMaterial({gradientMap:grad,...o});   // v2 は段のない、なめらかな陰影
 const MAT={
   vc:toon({vertexColors:true}),
   ground:toon({map:TEX.grass,polygonOffset:true,polygonOffsetFactor:4,polygonOffsetUnits:4}),
@@ -132,15 +153,15 @@ const MAT={
   far:new THREE.MeshLambertMaterial({vertexColors:true}),
 };
 // 光：やわらかい天空光＋暖かい日差し（左後ろ上から）
-scene.add(new THREE.HemisphereLight(col('#c3d7ee'),col('#a99f82'),1.0));
-const sun=new THREE.DirectionalLight(col('#fff0d8'),2.9);scene.add(sun,sun.target);
+scene.add(new THREE.HemisphereLight(col(LOOK.hemi[0]),col(LOOK.hemi[1]),LOOK.hemi[2]));
+const sun=new THREE.DirectionalLight(col(LOOK.sun[0]),LOOK.sun[1]);scene.add(sun,sun.target);
 const SUN_DIR=V(-0.55,0.78,0.42).normalize();
-sun.castShadow=true;sun.shadow.mapSize.set(4096,4096);
-Object.assign(sun.shadow.camera,{left:-120,right:120,top:120,bottom:-120,near:1,far:900});sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;
+sun.castShadow=true;sun.shadow.mapSize.set(LOOK.shMap||4096,LOOK.shMap||4096);   // v2 は解像度を半分にして影の輪郭をやわらげる（描画も軽くなる）
+Object.assign(sun.shadow.camera,{left:-120,right:120,top:120,bottom:-120,near:1,far:900});sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.03;sun.shadow.radius=LOOK.shRadius;sun.shadow.intensity=LOOK.shInt;
 
 /* ---------- 空・雲・山 ---------- */
 const sky=new THREE.Mesh(new THREE.SphereGeometry(12000,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
-  uniforms:{top:{value:col('#3f83d0')},mid:{value:col('#8fc0ea')},hor:{value:HORIZON}},
+  uniforms:{top:{value:col(LOOK.sky[0])},mid:{value:col(LOOK.sky[1])},hor:{value:HORIZON}},
   vertexShader:'varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
   fragmentShader:`uniform vec3 top,mid,hor;varying vec3 vD;void main(){float h=max(vD.y,0.);vec3 c=mix(hor,mid,smoothstep(0.,.16,h));c=mix(c,top,smoothstep(.12,.7,h));
     gl_FragColor=vec4(c,1.);
@@ -283,7 +304,7 @@ function house(B,M,lotW,lotD){
 
 /* ---------- 低層マンション（3〜4階） ---------- */
 function apart(B,M,lotW,lotD){
-  const fl=pick([3,3,4]),fh=2.9,w=Math.min(lotW-2.2,rr(16,26)),d=Math.min(lotD-5.2,rr(7.4,8.6)),base=0.4;
+  const fl=pick([3,3,4]),fh=2.9,w=Math.min(lotW-2.2,rr(16,26)),d=Math.min(lotD-5.2,rr(7.4,8.6)),base=0.4;rr(0,1);   // 乱数を引く回数を最初の版と揃える（街並みの配置を変えないため）
   const zc=((lotD/2-0.8-d/2-1.35)+(-lotD/2+0.5+d/2+1.45))/2,   // 前のバルコニーと後ろの廊下まで区画に収める
        H=M.clone().multiply(new THREE.Matrix4().makeTranslation(0,0,zc));
   const wc=jit(pick(PAL.apart),0.02),dark=wc.clone().offsetHSL(0,0,-0.1),n=Math.max(3,Math.round(w/4.2)),uw=w/n;
@@ -387,13 +408,33 @@ VIEWS.forEach(([n,s])=>{const b=document.createElement('button');b.textContent=n
 function mark(){vb.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.s)===curS)));}
 placeCamera(curS);mark();
 document.getElementById('sec').textContent=`${CFG.from} → ${CFG.to}（仮想${CFG.sec}m区間・仮設定）`;
+document.getElementById('look').textContent=LOOK_ID==='v1'?'変更前（look=v1）':'改善版（v2）';
 
 // 第1段階は静止画なので、視点や画面の大きさが変わったときだけ描く。?bench=1 のときは毎フレーム描いて fps を測る
 const BENCH=Q.get('bench')==='1';let dirty=true;
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);dirty=true;});
+// v2：いったん画面外に描き、最後に色調補正（彩度を少し抑え、暗部を青みのある色に持ち上げる）してから画面へ
+let RT=null,postScene=null,postCam=null;
+if(LOOK.grade){RT=new THREE.WebGLRenderTarget(1,1,{type:THREE.HalfFloatType,samples:4});
+  const q=new THREE.Mesh(new THREE.PlaneGeometry(2,2),new THREE.ShaderMaterial({uniforms:{tex:{value:RT.texture}},depthTest:false,depthWrite:false,
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
+    fragmentShader:`uniform sampler2D tex;varying vec2 vUv;
+      void main(){vec3 c=texture2D(tex,vUv).rgb;float l=dot(c,vec3(.2126,.7152,.0722));
+        c=mix(vec3(l),c,.96);                      // 彩度をわずかに抑える
+        c=c*.97+vec3(.006,.011,.024);               // 暗い所を青みのある色へ持ち上げる（黒つぶれ防止）
+        c+=vec3(.035,.022,0.)*smoothstep(.35,1.,l); // 日の当たる所をほんのり暖色に
+        vec2 d=vUv-.5;c*=1.-dot(d,d)*.2;            // ごく弱い周辺減光
+        gl_FragColor=vec4(c,1.);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`}));
+  q.frustumCulled=false;postScene=new THREE.Scene();postScene.add(q);postCam=new THREE.Camera();}
+function sizeRT(){if(RT){const pr=renderer.getPixelRatio();RT.setSize(Math.round(innerWidth*pr),Math.round(innerHeight*pr));}}
+sizeRT();
+function draw(){if(RT){renderer.setRenderTarget(RT);renderer.render(scene,camera);renderer.setRenderTarget(null);renderer.render(postScene,postCam);}else renderer.render(scene,camera);}
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);sizeRT();dirty=true;});
 vb.addEventListener('click',()=>{dirty=true;});
 let fN=0,fT=performance.now();
-renderer.setAnimationLoop(()=>{if(!dirty&&!BENCH)return;dirty=false;renderer.render(scene,camera);window.__ready=true;
+renderer.setAnimationLoop(()=>{if(!dirty&&!BENCH)return;dirty=false;draw();window.__ready=true;
   if(!BENCH){document.getElementById('fps').textContent='（静止画）';return;}
   fN++;const t=performance.now();if(t-fT>1000){document.getElementById('fps').textContent=(fN*1000/(t-fT)).toFixed(0);window.__fps=fN*1000/(t-fT);fN=0;fT=t;}});
 window.__info=()=>({calls:renderer.info.render.calls,tris:renderer.info.render.triangles});
