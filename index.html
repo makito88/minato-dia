@@ -3,7 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>html,body{margin:0}body{font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>html,body{margin:0}body{font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}  /* 場面（コレクション）の小窓 */
+  #sceneBox{position:fixed;inset:0;z-index:80;background:rgba(10,14,18,.62);display:flex;align-items:center;justify-content:center;padding:16px}
+  #sceneBox .sc-in{width:min(1200px,100%);background:#1b222a;border-radius:10px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  #sceneBox .sc-hd{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;color:#f3f1ea;font-size:14px}
+  #sceneBox .sc-hd span{display:flex;gap:10px;align-items:center}#sceneBox a{color:#c9a35c;font-size:13px}
+  #sceneBox button{font:inherit;font-size:13px;background:#3b4652;color:#f3f1ea;border:1px solid #56626e;border-radius:5px;padding:3px 10px;cursor:pointer}
+  #sceneBox iframe{display:block;width:100%;aspect-ratio:16/9;max-height:80vh;border:0;background:#151a20}
+</style>
 </head>
 <body>
 <title>みなと川電鉄 ダイヤ工房</title>
@@ -1325,6 +1332,7 @@ function drawMap(){
     const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);c.arc(st.x+n.x*9*side,st.y+n.y*9*side,2.8,0,Math.PI*2);c.fill();}});
   // selection
   if(LAYERS.events)drawEventIcons(c,snap,dk);
+  drawScenePins(c);   // 場面（コレクション）のピン
   const ss=LAYERS.trains?selSet():null;if(ss){const v=VIS.find(v=>v.s===ss);if(v){const tr=v.st.trip;c.strokeStyle=TH.accent;c.lineWidth=2;c.beginPath();c.arc(v.st.x,v.st.y,14,0,Math.PI*2);c.stroke();
     const want=sel.kind==='trip'?sel.trip:null;const txt=v.st.dead?'回送':(want&&want!==tr?`${want.num}は${fmt(want.dep[0])}発・この編成で運転`:`${TYPES[tr.type].name} ${tr.num}　${fmtN(v.st.load||0)}人・${Math.round((v.st.load||0)/tr.cap*100)}%`);c.font='700 12px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(txt).width+14;let bx=v.st.x-w/2,by=v.st.y-38;bx=Math.max(4,Math.min(996-w,bx));if(by<4)by=v.st.y+18;
     c.fillStyle=TH.ink;c.beginPath();c.roundRect(bx,by,w,20,5);c.fill();c.fillStyle=TH.panel;c.textAlign='left';c.fillText(txt,bx+7,by+14.5);}}
@@ -2037,6 +2045,7 @@ const scrub=$('#scrub');scrub.addEventListener('input',()=>{T=Number(scrub.value
 document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))return;if(e.code==='Space'){e.preventDefault();setPlay(!playing);}});
 
 map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.clientX-r.left)/MS,y=(e.clientY-r.top)/MS;
+  {const h=SCPIN.find(v=>Math.hypot(v.x-x,v.y-14-y)<13);if(h){openScene(h.s);return;}}   // 場面のピン
   if(LAYERS.events){const h=EVHIT.find(v=>Math.hypot(v.x-x,v.y-y)<18);if(h){selectEvent(h.id);return;}}
   let best=null,bd=16;if(LAYERS.trains)VIS.forEach(v=>{const d=Math.hypot(v.st.x-x,v.st.y-y);if(d<bd){bd=d;best=v;}});
   if(best){sel={kind:'set',set:best.s};}
@@ -2936,6 +2945,25 @@ function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
   drawMap();if(SND.S.on)SND.tick(ts);acc+=dt;if(acc>0.15||!playing&&acc>0.3){acc=0;drawDia();refreshPanels(false);}
   requestAnimationFrame(frame);}
+/* ---------- 場面（コレクション）：data/scenes.json の場面を地図のピンにし、押すと小窓で開く ---------- */
+let SCENES=[],SCPIN=[];
+fetch('data/scenes.json').then(r=>r.ok?r.json():null).then(d=>{if(d&&Array.isArray(d.scenes))SCENES=d.scenes;}).catch(()=>{});
+function scenePos(sc){let x,y;if(sc.st&&ST[sc.st]){x=ST[sc.st].x;y=ST[sc.st].y;}else if(sc.between&&ST[sc.between[0]]&&ST[sc.between[1]]){const a=ST[sc.between[0]],b=ST[sc.between[1]];x=(a.x+b.x)/2;y=(a.y+b.y)/2;}else return null;
+  return{x:x+(sc.dx||0),y:y+(sc.dy||0)};}
+function drawScenePins(c){SCPIN=[];if(!SCENES.length)return;const t=performance.now()/1000;
+  SCENES.forEach((sc,i)=>{const p=scenePos(sc);if(!p)return;SCPIN.push({x:p.x,y:p.y,s:sc});const cy=p.y-14,pl=0.5+0.5*Math.sin(t*2+i);
+    c.save();c.globalAlpha=0.25*(1-pl);c.strokeStyle='#c9a35c';c.lineWidth=2;c.beginPath();c.arc(p.x,cy,10+pl*6,0,7);c.stroke();c.restore();   // ゆっくり広がる輪
+    c.fillStyle='rgba(0,0,0,.22)';c.beginPath();c.ellipse(p.x,p.y+1,4,1.6,0,0,7);c.fill();
+    c.fillStyle='#c9a35c';c.strokeStyle='#fff';c.lineWidth=1.4;c.beginPath();c.moveTo(p.x,p.y);c.lineTo(p.x-6.5,cy+5);c.arc(p.x,cy,9,Math.PI*0.78,Math.PI*0.22);c.closePath();c.fill();c.stroke();
+    c.fillStyle='#fff';c.font='700 7px "Zen Kaku Gothic New",sans-serif';c.textAlign='center';c.fillText(sc.kind||'▶',p.x,cy+2.5);});}
+function openScene(sc){let box=document.getElementById('sceneBox');
+  if(!box){box=document.createElement('div');box.id='sceneBox';
+    box.innerHTML='<div class="sc-in"><div class="sc-hd"><b></b><span><a target="_blank" rel="noopener">別タブで開く</a><button type="button">閉じる</button></span></div><iframe title="場面"></iframe></div>';
+    document.body.appendChild(box);const close=()=>{box.hidden=true;box.querySelector('iframe').src='about:blank';};
+    box.querySelector('button').onclick=close;box.addEventListener('click',e=>{if(e.target===box)close();});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!box.hidden)close();});}
+  box.querySelector('b').textContent=sc.title;box.querySelector('a').href=sc.url;box.querySelector('iframe').src=sc.url;box.hidden=false;}
+
 function start(data){if(data&&typeof data.T==='number')T=data.T;renderCondUI();renderLegend();renderEditor();rebuild();renderMode();resize();setPlay(true);requestAnimationFrame(frame);}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
