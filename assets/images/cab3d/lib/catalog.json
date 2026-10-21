@@ -1,0 +1,941 @@
+{
+ "sleeper_concrete": {
+  "from": "v5/アニメ風コンクリート枕木と固定金具.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "sleeper_concrete.webp",
+    "w": 1024,
+    "h": 341
+   }
+  ]
+ },
+ "sleeper_wood": {
+  "from": "v5/二つの錆びた金具が付いた枕木.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "sleeper_wood.webp",
+    "w": 1024,
+    "h": 341
+   }
+  ]
+ },
+ "field_veg": {
+  "from": "v5/シームレスな夏の野菜畑.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "field_veg.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "field_fallow": {
+  "from": "v5/休耕畑の土と野草.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "field_fallow.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "field_paddy": {
+  "from": "v5/初夏の水田、青苗の縦列.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "field_paddy.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "field_cabbage": {
+  "from": "v5/真上からの整然としたキャベツ畑.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "field_cabbage.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "wall_dark_siding": {
+  "from": "v5/ダークグレーの木目調横張り外壁.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "wall_dark_siding.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "wall_mortar": {
+  "from": "v5/雨筋と細かなひびの淡色モルタル壁.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "wall_mortar.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "wall_tile": {
+  "from": "v5/和風ベージュタイルのシームレス外壁.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "wall_tile.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "wall_totan": {
+  "from": "v5/錆びた青緑のトタン壁.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "wall_totan.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "rail_side": {
+  "from": "v5/錆びた鉄道レールのシームレスな質感.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "rail_side.webp",
+    "w": 1024,
+    "h": 341
+   }
+  ]
+ },
+ "pole_steel": {
+  "from": "v5/雨筋が残る亜鉛メッキ鋼面.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "pole_steel.webp",
+    "w": 512,
+    "h": 1536
+   }
+  ]
+ },
+ "tree_round_a": {
+  "from": "v5/マゼンタ背景に並ぶ三本の常緑樹.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "tree_round_a_1.webp",
+    "w": 512,
+    "h": 511
+   },
+   {
+    "file": "tree_round_a_2.webp",
+    "w": 512,
+    "h": 506
+   },
+   {
+    "file": "tree_round_a_3.webp",
+    "w": 512,
+    "h": 509
+   }
+  ]
+ },
+ "tree_round_b": {
+  "from": "v5/三本の常緑樹、マゼンタの余白.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "tree_round_b_1.webp",
+    "w": 512,
+    "h": 507
+   },
+   {
+    "file": "tree_round_b_2.webp",
+    "w": 512,
+    "h": 524
+   },
+   {
+    "file": "tree_round_b_3.webp",
+    "w": 512,
+    "h": 499
+   }
+  ]
+ },
+ "tree_cherry": {
+  "from": "v5/新緑の桜木三本セット.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "tree_cherry_1.webp",
+    "w": 512,
+    "h": 499
+   },
+   {
+    "file": "tree_cherry_2.webp",
+    "w": 512,
+    "h": 488
+   },
+   {
+    "file": "tree_cherry_3.webp",
+    "w": 512,
+    "h": 490
+   }
+  ]
+ },
+ "tree_conifer": {
+  "from": "v5/日本の針葉樹三種.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "tree_conifer_1.webp",
+    "w": 374,
+    "h": 695
+   },
+   {
+    "file": "tree_conifer_2.webp",
+    "w": 512,
+    "h": 498
+   },
+   {
+    "file": "tree_conifer_3.webp",
+    "w": 500,
+    "h": 667
+   }
+  ]
+ },
+ "bld_shop3": {
+  "from": "v6/三階建て商店兼オフィスの外観.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_shop3.webp",
+    "w": 1024,
+    "h": 1536
+   }
+  ]
+ },
+ "bld_mansion5": {
+  "from": "v6/五階建てマンションのバルコニー正面.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_mansion5.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "bld_apart2": {
+  "from": "v6/四戸二階の木造アパート正面.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_apart2.webp",
+    "w": 1024,
+    "h": 683
+   }
+  ]
+ },
+ "bld_retro4": {
+  "from": "v6/昭和レトロな四階建て商業ビル.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_retro4.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "bld_zakkyo5": {
+  "from": "v6/色彩看板の五階建て雑居ビル.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_zakkyo5.webp",
+    "w": 887,
+    "h": 1774
+   }
+  ]
+ },
+ "bld_construction": {
+  "from": "v6/灰緑の養生シートに包まれた工事中の建物.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_construction.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "fence_construction": {
+  "from": "v6/緑帯の白い仮囲いテクスチャ.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "fence_construction.webp",
+    "w": 1024,
+    "h": 512
+   }
+  ]
+ },
+ "ground_park": {
+  "from": "v6/日本の公園の砂地テクスチャ.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "ground_park.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "park_items": {
+  "from": "v6/日本の公園遊具五点セット.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "park_items_1.webp",
+    "w": 330,
+    "h": 565
+   },
+   {
+    "file": "park_items_2.webp",
+    "w": 512,
+    "h": 434
+   },
+   {
+    "file": "park_items_3.webp",
+    "w": 389,
+    "h": 475
+   },
+   {
+    "file": "park_items_4.webp",
+    "w": 246,
+    "h": 258
+   },
+   {
+    "file": "park_items_5.webp",
+    "w": 389,
+    "h": 218
+   }
+  ]
+ },
+ "car_rear": {
+  "from": "v6/日本車4台のリアビュー助手.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "car_rear_1.webp",
+    "w": 256,
+    "h": 234
+   },
+   {
+    "file": "car_rear_2.webp",
+    "w": 256,
+    "h": 198
+   },
+   {
+    "file": "car_rear_3.webp",
+    "w": 256,
+    "h": 241
+   },
+   {
+    "file": "car_rear_4.webp",
+    "w": 256,
+    "h": 283
+   }
+  ]
+ },
+ "bridge_road": {
+  "from": "v6/緑背景の小さなコンクリート橋.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "bridge_road.webp",
+    "w": 2048,
+    "h": 619
+   }
+  ]
+ },
+ "bridge_rail": {
+  "from": "v6/緑背景の赤茶色鋼鉄鉄道橋.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "bridge_rail.webp",
+    "w": 2048,
+    "h": 650
+   }
+  ]
+ },
+ "crossing_signal": {
+  "from": "v6/踏切警報機の正面図.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "crossing_signal.webp",
+    "w": 512,
+    "h": 1559
+   }
+  ]
+ },
+ "fence_chainlink": {
+  "from": "v7/マゼンタ背景の金網フェンス.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "fence_chainlink.webp",
+    "w": 1024,
+    "h": 341
+   }
+  ]
+ },
+ "fence_alu": {
+  "from": "v7/茶色のアルミフェンスと低いブロック塀.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "fence_alu.webp",
+    "w": 1024,
+    "h": 341
+   }
+  ]
+ },
+ "bld_school": {
+  "from": "v7/三階建て日本の学校校舎正面.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_school.webp",
+    "w": 2048,
+    "h": 683
+   }
+  ]
+ },
+ "bld_shop2": {
+  "from": "v7/昭和風商店の二階建てファサード.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_shop2.webp",
+    "w": 1024,
+    "h": 683
+   }
+  ]
+ },
+ "bld_conbini": {
+  "from": "v7/街角の小さなコンビニ正面.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_conbini.webp",
+    "w": 1024,
+    "h": 345
+   }
+  ]
+ },
+ "tunnel_wall": {
+  "from": "v7/古い鉄道トンネルの湿った壁面.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "tunnel_wall.webp",
+    "w": 1024,
+    "h": 512
+   }
+  ]
+ },
+ "tunnel_portal": {
+  "from": "v7/森に佇む古びた鉄道トンネル.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "tunnel_portal.webp",
+    "w": 1536,
+    "h": 1024
+   }
+  ]
+ },
+ "embank_grass": {
+  "from": "v7/日本の鉄道盛土に茂る夏草.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "embank_grass.webp",
+    "w": 1024,
+    "h": 512
+   }
+  ]
+ },
+ "wall_stone": {
+  "from": "v7/苔と蔦の古い日本石垣.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "wall_stone.webp",
+    "w": 1024,
+    "h": 512
+   }
+  ]
+ },
+ "wall_retaining": {
+  "from": "v7/雨染みと苔むすコンクリート擁壁.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "wall_retaining.webp",
+    "w": 1024,
+    "h": 512
+   }
+  ]
+ },
+ "cyclist": {
+  "from": "v7/日本の街を走る4人の自転車乗り.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "cyclist_1.webp",
+    "w": 256,
+    "h": 266
+   },
+   {
+    "file": "cyclist_2.webp",
+    "w": 256,
+    "h": 256
+   },
+   {
+    "file": "cyclist_3.webp",
+    "w": 256,
+    "h": 272
+   },
+   {
+    "file": "cyclist_4.webp",
+    "w": 256,
+    "h": 275
+   }
+  ]
+ },
+ "guardrail": {
+  "from": "v7/緑背景の白い日本式ガードレール.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "guardrail.webp",
+    "w": 1024,
+    "h": 151
+   }
+  ]
+ },
+ "vending": {
+  "from": "v7/赤白青の三台の自動販売機.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "vending.webp",
+    "w": 512,
+    "h": 333
+   }
+  ]
+ },
+ "traffic_signal": {
+  "from": "v7/青信号と歩行者灯の信号ポール.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "traffic_signal.webp",
+    "w": 512,
+    "h": 1580
+   }
+  ]
+ },
+ "wall_warehouse": {
+  "from": "v8/428a632c-3b14-4ca1-93ba-c2b173eba106.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "wall_warehouse.webp",
+    "w": 1024,
+    "h": 512
+   }
+  ]
+ },
+ "shrine_front": {
+  "from": "v8/53dfbf03-f7d5-45d8-8083-4a7cbd8ef3c6.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "shrine_front.webp",
+    "w": 1536,
+    "h": 1024
+   }
+  ]
+ },
+ "bld_warehouse": {
+  "from": "v8/cccbfc9c-f7b7-4c6f-affd-eb2943607aad.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_warehouse.webp",
+    "w": 1536,
+    "h": 768
+   }
+  ]
+ },
+ "river_water": {
+  "from": "v8/夏空を映す静かな川面.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "river_water.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "river_bank": {
+  "from": "v8/川辺の小石と草のシームレス模様.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "river_bank.webp",
+    "w": 1024,
+    "h": 1024
+   }
+  ]
+ },
+ "river_wall_a": {
+  "from": "v8/苔と水跡のコンクリート護岸壁.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "river_wall_a.webp",
+    "w": 1024,
+    "h": 512
+   }
+  ]
+ },
+ "river_wall_b": {
+  "from": "v8/苔むすコンクリート護岸壁.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "river_wall_b.webp",
+    "w": 1024,
+    "h": 512
+   }
+  ]
+ },
+ "bld_showa_house": {
+  "from": "v8/昭和の木造住宅正面.png",
+  "kind": "tex",
+  "files": [
+   {
+    "file": "bld_showa_house.webp",
+    "w": 1024,
+    "h": 683
+   }
+  ]
+ },
+ "tank_roof": {
+  "from": "v8/日本の屋上給水タンク三種.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "tank_roof_1.webp",
+    "w": 512,
+    "h": 499
+   },
+   {
+    "file": "tank_roof_2.webp",
+    "w": 407,
+    "h": 630
+   },
+   {
+    "file": "tank_roof_3.webp",
+    "w": 334,
+    "h": 606
+   }
+  ]
+ },
+ "tank_port": {
+  "from": "v8/港湾の三基タンク.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "tank_port_1.webp",
+    "w": 512,
+    "h": 591
+   },
+   {
+    "file": "tank_port_2.webp",
+    "w": 512,
+    "h": 316
+   },
+   {
+    "file": "tank_port_3.webp",
+    "w": 290,
+    "h": 531
+   }
+  ]
+ },
+ "tree_sacred": {
+  "from": "v8/神社の森の三本の御神木.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "tree_sacred_1.webp",
+    "w": 512,
+    "h": 485
+   },
+   {
+    "file": "tree_sacred_2.webp",
+    "w": 471,
+    "h": 703
+   },
+   {
+    "file": "tree_sacred_3.webp",
+    "w": 512,
+    "h": 426
+   }
+  ]
+ },
+ "substation": {
+  "from": "v8/金網越しの鉄道用変電所.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "substation.webp",
+    "w": 1536,
+    "h": 486
+   }
+  ]
+ },
+ "train_local_side": {
+  "from": "v9/緑の背景に並ぶ通勤電車二両.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "train_local_side.webp",
+    "w": 2048,
+    "h": 309
+   }
+  ]
+ },
+ "train_local_front": {
+  "from": "v9/緑背景の通勤電車正面.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "train_local_front.webp",
+    "w": 512,
+    "h": 767
+   }
+  ]
+ },
+ "train_rapid_side": {
+  "from": "v9/オレンジ帯の快速電車2両.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "train_rapid_side_1.webp",
+    "w": 1095,
+    "h": 359
+   },
+   {
+    "file": "train_rapid_side_2.webp",
+    "w": 1034,
+    "h": 288
+   }
+  ]
+ },
+ "train_rapid_front": {
+  "from": "v9/銀色オレンジの快速電車正面.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "train_rapid_front.webp",
+    "w": 512,
+    "h": 662
+   }
+  ]
+ },
+ "train_exp_side": {
+  "from": "v9/横から見る深紅帯の特急二両.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "train_exp_side.webp",
+    "w": 2048,
+    "h": 299
+   }
+  ]
+ },
+ "train_exp_front": {
+  "from": "v9/白と深紅の特急列車正面.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "train_exp_front.webp",
+    "w": 512,
+    "h": 622
+   }
+  ]
+ },
+ "train_tour_side": {
+  "from": "v9/紫金の豪華観光特急二両.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "train_tour_side_1.webp",
+    "w": 1057,
+    "h": 336
+   },
+   {
+    "file": "train_tour_side_2.webp",
+    "w": 1063,
+    "h": 336
+   }
+  ]
+ },
+ "train_tour_front": {
+  "from": "v9/紫金の観光特急展望車.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "train_tour_front.webp",
+    "w": 512,
+    "h": 615
+   }
+  ]
+ },
+ "bus_side": {
+  "from": "v9/日本の青帯路線バス.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "bus_side.webp",
+    "w": 1024,
+    "h": 295
+   }
+  ]
+ },
+ "bus_frontrear": {
+  "from": "v9/同じ日本の路線バス、前後ビュー.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "bus_frontrear_1.webp",
+    "w": 512,
+    "h": 513
+   },
+   {
+    "file": "bus_frontrear_2.webp",
+    "w": 512,
+    "h": 589
+   }
+  ]
+ },
+ "truck_side": {
+  "from": "v9/横一列に並ぶ日本のトラック三台.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "truck_side_1.webp",
+    "w": 571,
+    "h": 330
+   },
+   {
+    "file": "truck_side_2.webp",
+    "w": 724,
+    "h": 338
+   },
+   {
+    "file": "truck_side_3.webp",
+    "w": 744,
+    "h": 394
+   }
+  ]
+ },
+ "truck_rear": {
+  "from": "v9/三台の日本トラック、背面の整列.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "truck_rear_1.webp",
+    "w": 473,
+    "h": 539
+   },
+   {
+    "file": "truck_rear_2.webp",
+    "w": 512,
+    "h": 482
+   },
+   {
+    "file": "truck_rear_3.webp",
+    "w": 512,
+    "h": 576
+   }
+  ]
+ },
+ "road_signs": {
+  "from": "v9/緑背景の日本道路標識六種.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "road_signs_1.webp",
+    "w": 256,
+    "h": 526
+   },
+   {
+    "file": "road_signs_2.webp",
+    "w": 256,
+    "h": 599
+   },
+   {
+    "file": "road_signs_3.webp",
+    "w": 256,
+    "h": 574
+   },
+   {
+    "file": "road_signs_4.webp",
+    "w": 256,
+    "h": 492
+   },
+   {
+    "file": "road_signs_5.webp",
+    "w": 256,
+    "h": 596
+   },
+   {
+    "file": "road_signs_6.webp",
+    "w": 256,
+    "h": 512
+   }
+  ]
+ },
+ "phone_booth": {
+  "from": "v9/陽だまりの公衆電話ボックス.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "phone_booth.webp",
+    "w": 512,
+    "h": 1421
+   }
+  ]
+ }
+}
