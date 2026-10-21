@@ -625,6 +625,7 @@ const VIEWS=[['出発直後',40],['曲線の手前',150],['曲線の中',300],['
 const vb=document.getElementById('views');let curS=CFG.camS;
 VIEWS.forEach(([n,s])=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>{curS=s;placeCamera(s);mark();};b.dataset.s=s;vb.appendChild(b);});
 function mark(){vb.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.s)===curS)));}
+if(!ROUTE){const a=document.createElement('button');a.textContent='▶ 中央→桜町を走る';a.style.cssText='background:#c9a35c;color:#1d1a14;border-color:#c9a35c;font-weight:700';a.onclick=()=>{location.href='?route=cs&look=v6';};vb.appendChild(a);}   // 静止画版から走る版へ
 placeCamera(curS);mark();
 if(!ROUTE)document.getElementById('sec').textContent=`${CFG.from} → ${CFG.to}（仮想${CFG.sec}m区間・仮設定）`;
 document.getElementById('look').textContent={v1:'変更前（look=v1）',v2:'プログラムのみ（v2）',v3:'美術素材版（look=v3）',v4:'美術素材版＋道床・道路・塀・窓（look=v4）',v5:'＋木・外壁・畑の種類、枕木・架線柱・レール（look=v5）',v6:'＋マンションの住戸区画・戸建ての横の壁・汚れ（look=v6）'}[LOOK_ID];
