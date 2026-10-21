@@ -49,7 +49,7 @@ const ART = LOOK.assets ? await (async()=>{const L=new THREE.TextureLoader(),dir
   if(LOOK.assets4)Object.assign(names,{ballast:'ballast',road:'road',blockwall:'blockwall',window:'window'});
   const POOL5=['tree_round_a_1','tree_round_a_2','tree_round_a_3','tree_cherry_1','tree_cherry_2','tree_cherry_3','tree_conifer_1','tree_conifer_2','tree_conifer_3'];
   const WALL5=['wall_mortar','wall_tile','wall_dark_siding'],FIELD5=['field_veg','field_cabbage','field_paddy','field_fallow'];
-  if(LOOK.assets6){for(const n of['apt_bal_a','apt_bal_b','apt_cor','apt_ground','apt_end','apt_roof','house_side','facade_grime',...[1,2,3,4].flatMap(i=>['car_side_'+i,'car_rear_'+i])])names[n]='lib/'+n;}
+  if(LOOK.assets6){for(const n of['apt_bal_a','apt_bal_b','apt_cor','apt_ground','apt_end','apt_roof','house_side','facade_grime'])names[n]='lib/'+n;}
   if(LOOK.assets5){for(const n of[...POOL5,...WALL5,...FIELD5,'sleeper_concrete','pole_steel','rail_detail_gray'])names[n]='lib/'+n;}
   await Promise.all(Object.entries(names).map(async([k,n])=>{const t=await L.loadAsync(dir+n+'.webp');t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;o[k]=t;}));
   for(const k of['wall','roof','grass','ballast','road','blockwall','apt_ground','apt_end','house_side','facade_grime'])if(o[k])o[k].wrapS=o[k].wrapT=THREE.RepeatWrapping;
@@ -336,19 +336,7 @@ function tree(B,M,x,z,h,{blobs=[4,7]}={}){const T=M.clone().multiply(new THREE.M
   for(let i=0;i<n;i++){const a=R()*7,rad=h*rr(0.16,0.27),rr2=h*rr(0,0.17);const c=base.clone().offsetHSL(rr(-0.015,0.015),0,rr(-0.06,0.07));
     put(B,GICO,T,Math.cos(a)*rr2,h*rr(0.55,0.9),Math.sin(a)*rr2,rad*rr(1,1.25),rad*rr(0.8,1),rad*rr(1,1.25),c,R()*7);}}
 function shrubRow(B,M,x0,x1,z,h=0.8){for(let x=x0;x<x1;x+=rr(0.7,1.1))put(B,GICO_LO,M,x,h*0.5,z,rr(0.45,0.7),h*rr(0.55,0.75),rr(0.45,0.6),jit(pick(PAL.greens),0.05),R()*7);}
-// v6：車は描いた絵（真横・後ろ）を箱の面に貼り、中に車体の色の箱を入れる。[長さ,幅,高さ,車体の色,窓下の高さの割合,屋根の前端,屋根の後端（長さの割合、前が−）]
-const CAR6=[[3.4,1.48,1.68,'#e4e3dd',0.5,-0.3,0.48],[4.6,1.75,1.45,'#bcc0c5',0.55,-0.18,0.3],[4.7,1.72,1.85,'#2a4782',0.5,-0.3,0.48],[3.4,1.48,1.8,'#e6e6e0',0.48,-0.5,-0.12]];
-const R7=rngF(CFG.seed*13+9);   // 車の絵の選び分け（ほかの乱数を変えない）
 function car(B,M,x,z,ry){const c=jit(pick(PAL.cars),0.02),T=M.clone().multiply(new THREE.Matrix4().makeRotationY(ry).setPosition(x,0,z));
-  if(ART&&ART.car_side_1){const i=Math.floor(R7()*4),[L,W,H,bc,bl,r0,r1]=CAR6[i],k=col(bc),w=col('#ffffff'),Lp=(a,b,cz)=>V(a,b,cz).applyMatrix4(T),
-      S=BT('car_side_'+(i+1)),E=BT('car_rear_'+(i+1)),h2=L/2,w2=W/2;
-    for(const sx of[-1,1]){const n=V(sx,0,0).transformDirection(T),X=sx*w2;   // 横（前は −z。両側とも同じ向きに貼ると、反対側は左右が逆になって正しい向きになる）
-      S.quad(Lp(X,0,h2),Lp(X,0,-h2),Lp(X,H,-h2),Lp(X,H,h2),w,[[0,0],[1,0],[1,1],[0,1]],n);}
-    for(const sz of[-1,1]){const n=V(0,0,sz).transformDirection(T),Z=sz*h2;   // 後ろ（前の面にも同じ絵）
-      E.quad(Lp(-w2,0,Z),Lp(w2,0,Z),Lp(w2,H*1.02,Z),Lp(-w2,H*1.02,Z),w,[[0,0],[1,0],[1,1],[0,1]],n);}
-    box(B,T,0,0.28,0,W-0.08,H*bl-0.28,L-0.1,k);   // 車体の下半分
-    box(B,T,0,H*bl,(r0+r1)/2*L,W-0.16,H*(0.97-bl),(r1-r0)*L,k);   // 屋根まで（上から見たときの屋根）
-    return;}
   box(B,T,0,0.32,0,1.72,0.62,4.3,c);box(B,T,0,0.92,-0.25,1.56,0.58,2.3,c);box(B,T,0,0.98,-0.25,1.6,0.42,2.1,col('#3d4752'));
   for(const[a,b]of[[-0.8,1.35],[0.8,1.35],[-0.8,-1.35],[0.8,-1.35]])put(B,GCYL,T,a,0.33,b,0.33,0.22,0.33,col('#2a2b2d'),0,0,Math.PI/2);}
 function blockWall(B,M,x0,x1,z,h=1.15){if(x1-x0<0.2)return;const k=jit(PAL.block,0.02);
@@ -361,7 +349,7 @@ function house(B,M,lotW,lotD){
   const zc=lotD/2-yard-d/2,xo=rr(-0.4,0.4)*Math.max(0,lotW-w-1.8),H=M.clone().multiply(new THREE.Matrix4().makeTranslation(xo,0,zc));
   const wc=jit(pick(PAL.walls)),rc=jit(pick(PAL.roofs),0.03);
   box(B,H,0,0,0,w+0.1,base,d+0.1,jit(PAL.base,0.02));if(ART){const wt=ART.walls?pick5(Object.keys(ART.walls)):'wall',wcol=wt==='wall_dark_siding'?col(pick5(['#6d6660','#5e6468','#7a6a5c'])):wc.clone().multiplyScalar(1.12);texBox(BWTS(wt),H,0,base,0,w,2*fh,d,wcol,wt==='wall_tile'?1.6:2.6);}else box(B,H,0,base,0,w,2*fh,d,wc);
-  box(B,H,0,base+fh-0.06,0,w+0.06,0.12,d+0.06,wc.clone().offsetHSL(0,0,-0.08));   // 胴差しの帯
+  if(!(ART&&ART.house_side))box(B,H,0,base+fh-0.06,0,w+0.06,0.12,d+0.06,wc.clone().offsetHSL(0,0,-0.08));   // 胴差しの帯（v6 では描かない：細い帯が遠くで1本の線になり、走るとちらつく）
   const balF=chance(0.6)?'F':'B',balW=Math.min(w-0.8,rr(2.8,4.6)),balU=rr(-1,1)*(w-balW)/2*0.8;
   for(const f of['F','B','L','R']){const fw=f==='F'||f==='B'?w:d,Fm=faceM(H,w,d,f),n=Math.max(1,Math.floor(fw/2.4));
     const BF=ART&&ART.house_side&&(f==='L'||f==='R')?DUMMY:B;   // v6：横の壁は描いた壁の絵にするので、立体の窓は計算だけして捨てる
@@ -378,7 +366,7 @@ function house(B,M,lotW,lotD){
   if(chance(0.7)){const Fm=faceM(H,w,d,pick(['L','R']));box(ART&&ART.house_side?DUMMY:B,Fm,rr(-1,1),0,0.25,0.8,0.6,0.32,col('#eeeeea'));}   // 室外機
   roof(B,H,w,d,base+2*fh,rr(0.42,0.56),rr(0.45,0.65),chance(0.55)?'hip':'gable',rc,wc,ART?BRT:null);
   if(ART&&ART.house_side){const hh=2*fh;   // v6：横の壁（小窓・雨どい・室外機の絵）と、4面の汚れ・軒の影
-    for(const f of['L','R'])faceQuad(BT('house_side'),faceM(H,w,d,f),-d/2,d/2,base,base+hh,0.03,wc.clone().lerp(col('#ffffff'),0.55),[0,d/6.2,0,hh/4.1]);
+    for(const f of['L','R'])faceQuad(BT('house_side'),faceM(H,w,d,f),-d/2,d/2,base,base+hh,0.03,wc.clone().lerp(col('#ffffff'),0.55),[0,d/(hh*1.5),0,1]);   // 絵は縦に1回だけ（縦に繰り返すと、つなぎ目が横線に見える）
     for(const f of['F','B','L','R']){const fw=f==='F'||f==='B'?w:d;faceQuad(BGRIME,faceM(H,w,d,f),-fw/2,fw/2,base,base+hh,0.06,col('#ffffff'),[0,1,0,1]);}}
   return{w,d,xo,zc};}
 
@@ -519,7 +507,7 @@ if(ROUTE){const cTop=col('#bdb6aa'),cSide=col('#9d968b'),cRoof=col('#6f7f86'),cP
 if(ART){
   // 外壁・屋根：絵の明暗に家ごとの色をかける
   if(ART.blockwall)scene.add(BBW.chunks(toon({map:ART.blockwall,vertexColors:true}),120,{ao:true}),BWIN.chunks(toon({map:ART.window,vertexColors:true}),120,{cast:false}));
-  if(ART.apt_bal_a){for(const[k,b]of Object.entries(BTD)){const cr=k.startsWith('car_');scene.add(b.chunks(toon({map:ART[k],vertexColors:true,alphaTest:cr?0.5:0}),120,{ao:k==='house_side',cast:!cr}));}   // 車の絵は透明部分を抜き、影は中の箱が落とす
+  if(ART.apt_bal_a){for(const[k,b]of Object.entries(BTD))scene.add(b.chunks(toon({map:ART[k],vertexColors:true}),120,{ao:k==='house_side'}));
     scene.add(BROOF.mesh(toon({map:ART.apt_roof,alphaTest:0.4,side:THREE.DoubleSide}),{cast:true}));
     scene.add(BGRIME.chunks(new THREE.MeshBasicMaterial({map:ART.facade_grime,transparent:true,depthWrite:false,fog:false,blending:THREE.CustomBlending,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),120,{cast:false,recv:false}));}   // 汚れ・軒の影は掛け合わせで重ねる
   if(ART.walls){for(const[k,b]of Object.entries(BWTD))scene.add(b.chunks(toon({map:ART.walls[k],vertexColors:true}),120,{ao:true}));
