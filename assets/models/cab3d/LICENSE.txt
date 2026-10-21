@@ -1,0 +1,6 @@
+cars.bin / cars.json / colormap.png
+
+元のモデル：Kenney「Car Kit」（https://kenney.nl/assets/car-kit）
+  sedan, hatchback-sports, suv-luxury, truck-flat
+ライセンス：Creative Commons Zero 1.0（CC0）… 作者表示なしで、個人・商用とも自由に使える
+変換：GLB から位置・法線・UV・面だけを取り出し、日本の車の大きさ（幅・高さ・長さ）に合わせて伸ばしたもの。車輪は丸いまま
