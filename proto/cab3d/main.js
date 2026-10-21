@@ -49,7 +49,7 @@ const ART = LOOK.assets ? await (async()=>{const L=new THREE.TextureLoader(),dir
   if(LOOK.assets4)Object.assign(names,{ballast:'ballast',road:'road',blockwall:'blockwall',window:'window'});
   const POOL5=['tree_round_a_1','tree_round_a_2','tree_round_a_3','tree_cherry_1','tree_cherry_2','tree_cherry_3','tree_conifer_1','tree_conifer_2','tree_conifer_3'];
   const WALL5=['wall_mortar','wall_tile','wall_dark_siding'],FIELD5=['field_veg','field_cabbage','field_paddy','field_fallow'];
-  if(LOOK.assets6){for(const n of['apt_bal_a','apt_bal_b','apt_cor','apt_ground','apt_end','apt_roof','house_side','facade_grime'])names[n]='lib/'+n;}
+  if(LOOK.assets6){for(const n of['apt_bal_a','apt_bal_b','apt_cor','apt_ground','apt_end','apt_roof','house_side','facade_grime',...[1,2,3,4].flatMap(i=>['car_side_'+i,'car_rear_'+i])])names[n]='lib/'+n;}
   if(LOOK.assets5){for(const n of[...POOL5,...WALL5,...FIELD5,'sleeper_concrete','pole_steel','rail_detail_gray'])names[n]='lib/'+n;}
   await Promise.all(Object.entries(names).map(async([k,n])=>{const t=await L.loadAsync(dir+n+'.webp');t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;o[k]=t;}));
   for(const k of['wall','roof','grass','ballast','road','blockwall','apt_ground','apt_end','house_side','facade_grime'])if(o[k])o[k].wrapS=o[k].wrapT=THREE.RepeatWrapping;
@@ -336,7 +336,19 @@ function tree(B,M,x,z,h,{blobs=[4,7]}={}){const T=M.clone().multiply(new THREE.M
   for(let i=0;i<n;i++){const a=R()*7,rad=h*rr(0.16,0.27),rr2=h*rr(0,0.17);const c=base.clone().offsetHSL(rr(-0.015,0.015),0,rr(-0.06,0.07));
     put(B,GICO,T,Math.cos(a)*rr2,h*rr(0.55,0.9),Math.sin(a)*rr2,rad*rr(1,1.25),rad*rr(0.8,1),rad*rr(1,1.25),c,R()*7);}}
 function shrubRow(B,M,x0,x1,z,h=0.8){for(let x=x0;x<x1;x+=rr(0.7,1.1))put(B,GICO_LO,M,x,h*0.5,z,rr(0.45,0.7),h*rr(0.55,0.75),rr(0.45,0.6),jit(pick(PAL.greens),0.05),R()*7);}
+// v6：車は描いた絵（真横・後ろ）を箱の面に貼り、中に車体の色の箱を入れる。[長さ,幅,高さ,車体の色,窓下の高さの割合,屋根の前端,屋根の後端（長さの割合、前が−）]
+const CAR6=[[3.4,1.48,1.68,'#e4e3dd',0.5,-0.3,0.48],[4.6,1.75,1.45,'#bcc0c5',0.55,-0.18,0.3],[4.7,1.72,1.85,'#2a4782',0.5,-0.3,0.48],[3.4,1.48,1.8,'#e6e6e0',0.48,-0.5,-0.12]];
+const R7=rngF(CFG.seed*13+9);   // 車の絵の選び分け（ほかの乱数を変えない）
 function car(B,M,x,z,ry){const c=jit(pick(PAL.cars),0.02),T=M.clone().multiply(new THREE.Matrix4().makeRotationY(ry).setPosition(x,0,z));
+  if(ART&&ART.car_side_1){const i=Math.floor(R7()*4),[L,W,H,bc,bl,r0,r1]=CAR6[i],k=col(bc),w=col('#ffffff'),Lp=(a,b,cz)=>V(a,b,cz).applyMatrix4(T),
+      S=BT('car_side_'+(i+1)),E=BT('car_rear_'+(i+1)),h2=L/2,w2=W/2;
+    for(const sx of[-1,1]){const n=V(sx,0,0).transformDirection(T),X=sx*w2;   // 横（前は −z。両側とも同じ向きに貼ると、反対側は左右が逆になって正しい向きになる）
+      S.quad(Lp(X,0,h2),Lp(X,0,-h2),Lp(X,H,-h2),Lp(X,H,h2),w,[[0,0],[1,0],[1,1],[0,1]],n);}
+    for(const sz of[-1,1]){const n=V(0,0,sz).transformDirection(T),Z=sz*h2;   // 後ろ（前の面にも同じ絵）
+      E.quad(Lp(-w2,0,Z),Lp(w2,0,Z),Lp(w2,H*1.02,Z),Lp(-w2,H*1.02,Z),w,[[0,0],[1,0],[1,1],[0,1]],n);}
+    box(B,T,0,0.28,0,W-0.08,H*bl-0.28,L-0.1,k);   // 車体の下半分
+    box(B,T,0,H*bl,(r0+r1)/2*L,W-0.16,H*(0.97-bl),(r1-r0)*L,k);   // 屋根まで（上から見たときの屋根）
+    return;}
   box(B,T,0,0.32,0,1.72,0.62,4.3,c);box(B,T,0,0.92,-0.25,1.56,0.58,2.3,c);box(B,T,0,0.98,-0.25,1.6,0.42,2.1,col('#3d4752'));
   for(const[a,b]of[[-0.8,1.35],[0.8,1.35],[-0.8,-1.35],[0.8,-1.35]])put(B,GCYL,T,a,0.33,b,0.33,0.22,0.33,col('#2a2b2d'),0,0,Math.PI/2);}
 function blockWall(B,M,x0,x1,z,h=1.15){if(x1-x0<0.2)return;const k=jit(PAL.block,0.02);
@@ -496,15 +508,18 @@ if(ROUTE){const cTop=col('#bdb6aa'),cSide=col('#9d968b'),cRoof=col('#6f7f86'),cP
     for(let i=0;i<Math.floor(bl/4);i++)box(BH,M,bw/2+0.02,big?4.6:1.0,-bl/2+2+i*4,0.04,big?2.2:1.8,2.6,jit(pick(PAL.glass),0.03));
     box(BH,M,bw/2+0.4,bh-0.8,0,0.5,0.6,bl*0.6,col('#2f5d8a'));}   // 駅名の帯
   // 踏切：線路の上の路面（レール面の高さ）と、両側の坂
-  {const M=FM(XS),L=(x,y,z)=>V(x,y,z).applyMatrix4(M),W2=2.3,up=V(0,1,0),y1=CFG.railTop-0.006,c=col('#ffffff');
-    BRoad.quad(L(-5.4,y1,W2),L(5.4,y1,W2),L(5.4,y1,-W2),L(-5.4,y1,-W2),c,[[0,0],[1,0],[1,0.8],[0,0.8]],up);
+  {const M=FM(XS),L=(x,y,z)=>V(x,y,z).applyMatrix4(M),W2=2.3,up=V(0,1,0),y1=CFG.railTop-0.012,c=col('#c4c4be');
+    // 路面はレールの所（溝）を空けて敷く。1枚で敷くとレールが隠れ、遠くから横線に見える
+    const gp=[];for(const tc of[CFG.own,-CFG.own])for(const r of[-1,1]){const x=tc+r*(CFG.gauge/2+0.033);gp.push(x-0.08,x+0.08);}
+    const ed=[-5.4,...gp,5.4];for(let i=0;i<ed.length;i+=2){const a=ed[i],b=ed[i+1],u=x=>(x+5.4)/10.8;
+      BRoad.quad(L(a,y1,W2),L(b,y1,W2),L(b,y1,-W2),L(a,y1,-W2),c,[[u(a),0],[u(b),0],[u(b),0.8],[u(a),0.8]],up);}
     for(const sg of[-1,1]){const x0=sg*5.4,x1=sg*7.2;BRoad.quad(L(x0,y1,W2),L(x1,0.03,W2),L(x1,0.03,-W2),L(x0,y1,-W2),c,[[0,0],[0.3,0],[0.3,0.8],[0,0.8]],up);}}}
 
 /* ---------- まとめたメッシュをシーンへ ---------- */
 if(ART){
   // 外壁・屋根：絵の明暗に家ごとの色をかける
   if(ART.blockwall)scene.add(BBW.chunks(toon({map:ART.blockwall,vertexColors:true}),120,{ao:true}),BWIN.chunks(toon({map:ART.window,vertexColors:true}),120,{cast:false}));
-  if(ART.apt_bal_a){for(const[k,b]of Object.entries(BTD))scene.add(b.chunks(toon({map:ART[k],vertexColors:true}),120,{ao:k==='house_side'}));
+  if(ART.apt_bal_a){for(const[k,b]of Object.entries(BTD)){const cr=k.startsWith('car_');scene.add(b.chunks(toon({map:ART[k],vertexColors:true,alphaTest:cr?0.5:0}),120,{ao:k==='house_side',cast:!cr}));}   // 車の絵は透明部分を抜き、影は中の箱が落とす
     scene.add(BROOF.mesh(toon({map:ART.apt_roof,alphaTest:0.4,side:THREE.DoubleSide}),{cast:true}));
     scene.add(BGRIME.chunks(new THREE.MeshBasicMaterial({map:ART.facade_grime,transparent:true,depthWrite:false,fog:false,blending:THREE.CustomBlending,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),120,{cast:false,recv:false}));}   // 汚れ・軒の影は掛け合わせで重ねる
   if(ART.walls){for(const[k,b]of Object.entries(BWTD))scene.add(b.chunks(toon({map:ART.walls[k],vertexColors:true}),120,{ao:true}));
@@ -543,9 +558,11 @@ if(ROUTE){
     m.matrixAutoUpdate=false;m.matrix.copy(FM(s,d,y,yaw));m.castShadow=true;m.customDepthMaterial=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:t,alphaTest:0.45});scene.add(m);return {m,W,h};}
   // 踏切：警報機（十字に2枚）、遮断かん（線路に沿う向き）、点滅する赤い灯
   const LAMPS=[];
+  // 警報灯の光：中心が明るく、外へなめらかに消える丸（四角い板のふちを見せない）
+  const GLOW=canvasTex(128,128,(g,w,h)=>{const r=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(0.25,'rgba(255,255,255,0.85)');r.addColorStop(0.55,'rgba(255,255,255,0.25)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,w,h);},{repeat:false});
   for(const[sx,sd]of[[XS+3.1,-7.7],[XS-3.1,7.7]]){const h=3.6;board(txSig,sx,sd,0,h,Math.PI/2);const b=board(txSig,sx,sd,0,h,0);
-    for(const k of[-1,1]){const sp=new THREE.Sprite(new THREE.SpriteMaterial({color:0xff3020,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));
-      sp.position.copy(P(sx,sd+k*b.W*0.26,h*0.7));sp.scale.set(0.55,0.55,1);sp.visible=false;scene.add(sp);LAMPS.push({sp,k});}}
+    for(const k of[-1,1]){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW,color:0xff3020,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));
+      sp.position.copy(P(sx-0.15,sd+k*b.W*0.325,h*0.705));sp.scale.set(0.8,0.8,1);sp.visible=false;scene.add(sp);LAMPS.push({sp,k});}}
   board(txGate,XS,-8.0,0.15,0.95,Math.PI/2,5.4);board(txGate,XS,8.0,0.15,0.95,-Math.PI/2,5.4);
   // 電車の信号機（列車の方を向く）
   for(const rs of RSIG)board(txRS,rs,CFG.own-2.7,0,6.2,0);
