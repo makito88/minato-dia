@@ -937,5 +937,95 @@
     "h": 1421
    }
   ]
+ },
+ "tree_bamboo": {
+  "from": "v10/マゼンタの余白に並ぶ三つの竹の群れ.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "tree_bamboo_1.webp",
+    "w": 512,
+    "h": 583
+   },
+   {
+    "file": "tree_bamboo_2.webp",
+    "w": 512,
+    "h": 562
+   },
+   {
+    "file": "tree_bamboo_3.webp",
+    "w": 512,
+    "h": 631
+   }
+  ]
+ },
+ "car_side": {
+  "from": "v10/鮮やかな緑に並ぶ日本車4台.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "car_side_1.webp",
+    "w": 384,
+    "h": 245
+   },
+   {
+    "file": "car_side_2.webp",
+    "w": 512,
+    "h": 188
+   },
+   {
+    "file": "car_side_3.webp",
+    "w": 512,
+    "h": 241
+   },
+   {
+    "file": "car_side_4.webp",
+    "w": 396,
+    "h": 253
+   }
+  ]
+ },
+ "crossing_gate": {
+  "from": "v10/黒黄ストライプの遮断機.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "crossing_gate.webp",
+    "w": 1536,
+    "h": 248
+   }
+  ]
+ },
+ "rail_signal": {
+  "from": "v10/四灯式の緑色鉄道信号.png",
+  "kind": "cut",
+  "files": [
+   {
+    "file": "rail_signal.webp",
+    "w": 208,
+    "h": 2097
+   }
+  ]
+ },
+ "bridge_pier": {
+  "from": "v10/緑背景の三本のコンクリート橋脚.png",
+  "kind": "split",
+  "files": [
+   {
+    "file": "bridge_pier_1.webp",
+    "w": 303,
+    "h": 692
+   },
+   {
+    "file": "bridge_pier_2.webp",
+    "w": 294,
+    "h": 689
+   },
+   {
+    "file": "bridge_pier_3.webp",
+    "w": 295,
+    "h": 689
+   }
+  ]
  }
 }
