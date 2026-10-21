@@ -20,7 +20,7 @@ const CFG = {
 CFG.railTop = CFG.sleeperTop + CFG.railH;
 
 /* 見た目の設定。?look=v1 で変更前（最初の試作）の見た目に戻せる */
-const LOOK_ID = ({v1:'v1',v3:'v3'})[new URLSearchParams(location.search).get('look')] || 'v2';
+const LOOK_ID = ({v1:'v1',v3:'v3',v4:'v4'})[new URLSearchParams(location.search).get('look')] || 'v2';
 const LOOKS = {
   v1:{ lambert:false, exposure:1.0, shadow:'PCFSoftShadowMap', shRadius:1, shInt:1.0,
        hemi:['#c3d7ee','#a99f82',1.0], sun:['#fff0d8',2.9], hor:'#dde8ee', fog:0.00042, sky:['#3f83d0','#8fc0ea'], grade:false },
@@ -30,13 +30,18 @@ const LOOKS = {
        hemi:['#a8c4ea','#c4b38e',1.2], sun:['#ffe7c6',2.75], hor:'#d2e2ee', fog:0.00046, sky:['#3f86d6','#98c6ee'], grade:true },
 };
 LOOKS.v3 = {...LOOKS.v2, assets:true};   // v3：v2 の光と色に、描いた美術素材（外壁・屋根・樹木・草むら・遠景）を加える
+LOOKS.v4 = {...LOOKS.v3, assets4:true};  // v4：v3 に、道床・道路・ブロック塀・窓の描いた素材を加える
 const LOOK = LOOKS[LOOK_ID];
 
 /* ---------- 美術素材（v3 のみ。assets/images/cab3d/ にある、生成AIで描いた画像） ---------- */
 const ART = LOOK.assets ? await (async()=>{const L=new THREE.TextureLoader(),dir='../../assets/images/cab3d/',o={};
   const names={wall:'wall_siding',roof:'roof_slate',tree1:'tree1',tree2:'tree2',tree3:'tree3',grass:'grass_strip',pano:'far_panorama'};
+  if(LOOK.assets4)Object.assign(names,{ballast:'ballast',road:'road',blockwall:'blockwall',window:'window'});
   await Promise.all(Object.entries(names).map(async([k,n])=>{const t=await L.loadAsync(dir+n+'.webp');t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;o[k]=t;}));
-  for(const k of['wall','roof','grass'])o[k].wrapS=o[k].wrapT=THREE.RepeatWrapping;o.pano.wrapS=THREE.MirroredRepeatWrapping;return o;})() : null;
+  for(const k of['wall','roof','grass','ballast','road','blockwall'])if(o[k])o[k].wrapS=o[k].wrapT=THREE.RepeatWrapping;
+  if(o.ballast)o.ballast.repeat.set(1.8,1.8);   // 道床の絵は1枚で約1.2m四方（線路の貼り方は2.2mごとなので縮める）
+  if(o.road)o.road.repeat.set(1,1.5);            // 道路の絵は正方形＝道幅4mで4m分（貼り方は6mごと）
+  o.pano.wrapS=THREE.MirroredRepeatWrapping;return o;})() : null;
 
 /* ---------- 乱数・色 ---------- */
 function rngF(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -166,8 +171,8 @@ const toon=(o={})=>LOOK.lambert?new THREE.MeshLambertMaterial(o):new THREE.MeshT
 const MAT={
   vc:toon({vertexColors:true}),
   ground:toon({map:TEX.grass,polygonOffset:true,polygonOffsetFactor:4,polygonOffsetUnits:4}),
-  ballast:toon({map:TEX.ballast,vertexColors:true}),
-  road:toon({map:TEX.asphalt,vertexColors:true,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),
+  ballast:toon({map:ART&&ART.ballast||TEX.ballast,vertexColors:true}),
+  road:toon({map:ART&&ART.road||TEX.asphalt,vertexColors:true,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),
   field:toon({map:TEX.field,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),
   fence:toon({map:TEX.fence,transparent:true,alphaTest:0.04,side:THREE.DoubleSide,depthWrite:false}),
   far:new THREE.MeshLambertMaterial({vertexColors:true}),
@@ -271,8 +276,11 @@ roadAlong(6.35,10.35);roadAlong(36.9,40.9);roadAlong(-23.4,-19.4);roadAlong(-53.
 function faceM(M,w,d,f){const t={F:[0,d/2,0],B:[0,-d/2,Math.PI],R:[w/2,0,Math.PI/2],L:[-w/2,0,-Math.PI/2]}[f];
   const m=new THREE.Matrix4().makeRotationY(t[2]);m.setPosition(f==='R'||f==='L'?t[0]:0,0,f==='F'||f==='B'?t[1]:0);return M.clone().multiply(m);}
 function windowAt(B,Fm,u,y,ww,wh,wallC){const gl=chance(0.28)?col(PAL.curtain):jit(pick(PAL.glass),0.04),fr=col(PAL.frame);
-  box(B,Fm,u,y-wh/2-0.07,0.03,ww+0.14,wh+0.14,0.06,fr);box(B,Fm,u,y-wh/2,0.05,ww,wh,0.05,gl);
+  box(B,Fm,u,y-wh/2-0.07,0.03,ww+0.14,wh+0.14,0.06,fr);
+  if(ART&&ART.window){box(BWIN,Fm,u,y-wh/2,0.05,ww,wh,0.05,gl.clone().lerp(col('#ffffff'),0.8));}   // v4：窓は描いた窓の絵（ガラス色はわずかに残す）
+  else{box(B,Fm,u,y-wh/2,0.05,ww,wh,0.05,gl);
   if(ww>1.0)box(B,Fm,u,y-wh/2,0.08,0.045,wh,0.03,fr);                              // 引き違いの召し合わせ
+  }
   if(wh<1.6)box(B,Fm,u,y-wh/2-0.12,0.06,ww+0.25,0.06,0.12,col('#bfc2c2'));          // 水切り
   if(chance(0.3))box(B,Fm,u+ww/2+0.42,y-wh/2-0.05,0.07,0.6,wh+0.1,0.14,wallC.clone().offsetHSL(0,0,-0.12));}  // 戸袋
 function roof(B,M,w,d,y0,pitch,over,type,rc,wc,RB=null){
@@ -304,7 +312,9 @@ function shrubRow(B,M,x0,x1,z,h=0.8){for(let x=x0;x<x1;x+=rr(0.7,1.1))put(B,GICO
 function car(B,M,x,z,ry){const c=jit(pick(PAL.cars),0.02),T=M.clone().multiply(new THREE.Matrix4().makeRotationY(ry).setPosition(x,0,z));
   box(B,T,0,0.32,0,1.72,0.62,4.3,c);box(B,T,0,0.92,-0.25,1.56,0.58,2.3,c);box(B,T,0,0.98,-0.25,1.6,0.42,2.1,col('#3d4752'));
   for(const[a,b]of[[-0.8,1.35],[0.8,1.35],[-0.8,-1.35],[0.8,-1.35]])put(B,GCYL,T,a,0.33,b,0.33,0.22,0.33,col('#2a2b2d'),0,0,Math.PI/2);}
-function blockWall(B,M,x0,x1,z,h=1.15){if(x1-x0<0.2)return;box(B,M,(x0+x1)/2,0,z,x1-x0,h,0.15,jit(PAL.block,0.02));box(B,M,(x0+x1)/2,h,z,x1-x0+0.04,0.06,0.2,col('#d3cec4'));}
+function blockWall(B,M,x0,x1,z,h=1.15){if(x1-x0<0.2)return;const k=jit(PAL.block,0.02);
+  if(ART&&ART.blockwall)texBox(BBW,M,(x0+x1)/2,0,z,x1-x0,h,0.15,col('#f2f0ea'),1.8);else box(B,M,(x0+x1)/2,0,z,x1-x0,h,0.15,k);   // v4：描いたブロック塀（絵1枚で約1.8m四方）
+  box(B,M,(x0+x1)/2,h,z,x1-x0+0.04,0.06,0.2,col('#d3cec4'));}
 
 /* ---------- 戸建て住宅（2階建て）。ローカル座標：幅 x、奥行 z、正面 +z ---------- */
 function house(B,M,lotW,lotD){
@@ -355,6 +365,7 @@ function apart(B,M,lotW,lotD){
 /* ---------- 区画（宅地）を並べる ---------- */
 const BH=new Batch();   // 建物・樹木など（影あり）
 const BWT=new Batch(), BRT=new Batch();   // v3：外壁・屋根（絵のテクスチャ付き）
+const BBW=new Batch(), BWIN=new Batch();  // v4：ブロック塀・窓（絵のテクスチャ付き）
 function lotM(s,dc,faceTrack){return FM(s,dc,0,dc>0?(faceTrack?-Math.PI/2:Math.PI/2):(faceTrack?Math.PI/2:-Math.PI/2));}
 function fillRow(d0,d1,faceTrack,crosses,opts={}){
   const depth=Math.abs(d1-d0),dc=(d0+d1)/2;let s=CFG.pathFrom+20;
@@ -415,6 +426,7 @@ poleLine(10.6,CFG.pathFrom+10,CFG.build);poleLine(-23.65,CFG.pathFrom+20,CFG.bui
 /* ---------- まとめたメッシュをシーンへ ---------- */
 if(ART){
   // 外壁・屋根：絵の明暗に家ごとの色をかける
+  if(ART.blockwall)scene.add(BBW.chunks(toon({map:ART.blockwall,vertexColors:true}),120,{ao:true}),BWIN.chunks(toon({map:ART.window,vertexColors:true}),120,{cast:false}));
   scene.add(BWT.chunks(toon({map:ART.wall,vertexColors:true}),120,{ao:true}),BRT.chunks(toon({map:ART.roof,vertexColors:true}),120));
   // 樹木：絵の板をカメラの方へ向けて立てる（3種類の絵ごとに1回の描画）
   const camP=P(CFG.camS,CFG.own+CFG.eyeOff,0),pg=new THREE.PlaneGeometry(1,1).translate(0,0.5,0);
@@ -458,7 +470,7 @@ VIEWS.forEach(([n,s])=>{const b=document.createElement('button');b.textContent=n
 function mark(){vb.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.s)===curS)));}
 placeCamera(curS);mark();
 document.getElementById('sec').textContent=`${CFG.from} → ${CFG.to}（仮想${CFG.sec}m区間・仮設定）`;
-document.getElementById('look').textContent={v1:'変更前（look=v1）',v2:'プログラムのみ（v2）',v3:'美術素材版（look=v3）'}[LOOK_ID];
+document.getElementById('look').textContent={v1:'変更前（look=v1）',v2:'プログラムのみ（v2）',v3:'美術素材版（look=v3）',v4:'美術素材版＋道床・道路・塀・窓（look=v4）'}[LOOK_ID];
 
 // 第1段階は静止画なので、視点や画面の大きさが変わったときだけ描く。?bench=1 のときは毎フレーム描いて fps を測る
 const BENCH=Q.get('bench')==='1';let dirty=true;
