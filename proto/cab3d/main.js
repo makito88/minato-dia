@@ -20,7 +20,7 @@ const CFG = {
 CFG.railTop = CFG.sleeperTop + CFG.railH;
 
 /* 見た目の設定。?look=v1 で変更前（最初の試作）の見た目に戻せる */
-const LOOK_ID = ({v1:'v1',v3:'v3',v4:'v4',v5:'v5'})[new URLSearchParams(location.search).get('look')] || 'v2';
+const LOOK_ID = ({v1:'v1',v3:'v3',v4:'v4',v5:'v5',v6:'v6'})[new URLSearchParams(location.search).get('look')] || 'v2';
 const LOOKS = {
   v1:{ lambert:false, exposure:1.0, shadow:'PCFSoftShadowMap', shRadius:1, shInt:1.0,
        hemi:['#c3d7ee','#a99f82',1.0], sun:['#fff0d8',2.9], hor:'#dde8ee', fog:0.00042, sky:['#3f83d0','#8fc0ea'], grade:false },
@@ -31,7 +31,8 @@ const LOOKS = {
 };
 LOOKS.v3 = {...LOOKS.v2, assets:true};   // v3：v2 の光と色に、描いた美術素材（外壁・屋根・樹木・草むら・遠景）を加える
 LOOKS.v4 = {...LOOKS.v3, assets4:true};  // v4：v3 に、道床・道路・ブロック塀・窓の描いた素材を加える
-LOOKS.v5 = {...LOOKS.v4, assets5:true};  // v5：v4 に、木の種類・外壁の種類・畑の種類・枕木・架線柱・レールの描いた素材を加える
+LOOKS.v5 = {...LOOKS.v4, assets5:true};
+LOOKS.v6 = {...LOOKS.v5, assets6:true};  // v6：マンションを住戸区画の絵で組み、戸建ての横の壁・汚れと軒の影を加える  // v5：v4 に、木の種類・外壁の種類・畑の種類・枕木・架線柱・レールの描いた素材を加える
 const LOOK = LOOKS[LOOK_ID];
 
 /* ---------- 美術素材（v3 のみ。assets/images/cab3d/ にある、生成AIで描いた画像） ---------- */
@@ -40,9 +41,10 @@ const ART = LOOK.assets ? await (async()=>{const L=new THREE.TextureLoader(),dir
   if(LOOK.assets4)Object.assign(names,{ballast:'ballast',road:'road',blockwall:'blockwall',window:'window'});
   const POOL5=['tree_round_a_1','tree_round_a_2','tree_round_a_3','tree_cherry_1','tree_cherry_2','tree_cherry_3','tree_conifer_1','tree_conifer_2','tree_conifer_3'];
   const WALL5=['wall_mortar','wall_tile','wall_dark_siding'],FIELD5=['field_veg','field_cabbage','field_paddy','field_fallow'];
+  if(LOOK.assets6){for(const n of['apt_bal_a','apt_bal_b','apt_cor','apt_ground','apt_end','apt_roof','house_side','facade_grime'])names[n]='lib/'+n;}
   if(LOOK.assets5){for(const n of[...POOL5,...WALL5,...FIELD5,'sleeper_concrete','pole_steel','rail_detail_gray'])names[n]='lib/'+n;}
   await Promise.all(Object.entries(names).map(async([k,n])=>{const t=await L.loadAsync(dir+n+'.webp');t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;o[k]=t;}));
-  for(const k of['wall','roof','grass','ballast','road','blockwall'])if(o[k])o[k].wrapS=o[k].wrapT=THREE.RepeatWrapping;
+  for(const k of['wall','roof','grass','ballast','road','blockwall','apt_ground','apt_end','house_side','facade_grime'])if(o[k])o[k].wrapS=o[k].wrapT=THREE.RepeatWrapping;
   if(LOOK.assets5){   // v5：木は 3種＋9種、外壁は 板張り＋3種、畑は 4種から選ぶ
     o.treePool=[o.tree1,o.tree2,o.tree3,...POOL5.map(n=>o[n])];
     o.walls={wall:o.wall};for(const n of WALL5){o[n].wrapS=o[n].wrapT=THREE.RepeatWrapping;o.walls[n]=o[n];}
@@ -56,7 +58,8 @@ const ART = LOOK.assets ? await (async()=>{const L=new THREE.TextureLoader(),dir
 /* ---------- 乱数・色 ---------- */
 function rngF(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const R = rngF(CFG.seed);
-const R5 = rngF(CFG.seed*7+3);   // v5 の素材の選び分け用（街並みの配置に使う乱数 R とは別にして、配置を変えない）
+const R5 = rngF(CFG.seed*7+3);
+const R6 = rngF(CFG.seed*11+5);   // v6 の住戸区画の選び分け用（v5 の選び分けを変えない）   // v5 の素材の選び分け用（街並みの配置に使う乱数 R とは別にして、配置を変えない）
 const rr=(a,b)=>a+(b-a)*R(), pick=a=>a[Math.floor(R()*a.length)], chance=p=>R()<p;
 const V=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
 const col=h=>new THREE.Color(h);
@@ -289,7 +292,7 @@ function faceM(M,w,d,f){const t={F:[0,d/2,0],B:[0,-d/2,Math.PI],R:[w/2,0,Math.PI
   const m=new THREE.Matrix4().makeRotationY(t[2]);m.setPosition(f==='R'||f==='L'?t[0]:0,0,f==='F'||f==='B'?t[1]:0);return M.clone().multiply(m);}
 function windowAt(B,Fm,u,y,ww,wh,wallC){const gl=chance(0.28)?col(PAL.curtain):jit(pick(PAL.glass),0.04),fr=col(PAL.frame);
   box(B,Fm,u,y-wh/2-0.07,0.03,ww+0.14,wh+0.14,0.06,fr);
-  if(ART&&ART.window){box(BWIN,Fm,u,y-wh/2,0.05,ww,wh,0.05,gl.clone().lerp(col('#ffffff'),0.8));}   // v4：窓は描いた窓の絵（ガラス色はわずかに残す）
+  if(ART&&ART.window){box(B===DUMMY?DUMMY:BWIN,Fm,u,y-wh/2,0.05,ww,wh,0.05,gl.clone().lerp(col('#ffffff'),0.8));}   // v4：窓は描いた窓の絵（ガラス色はわずかに残す）
   else{box(B,Fm,u,y-wh/2,0.05,ww,wh,0.05,gl);
   if(ww>1.0)box(B,Fm,u,y-wh/2,0.08,0.045,wh,0.03,fr);                              // 引き違いの召し合わせ
   }
@@ -337,22 +340,40 @@ function house(B,M,lotW,lotD){
   box(B,H,0,base+fh-0.06,0,w+0.06,0.12,d+0.06,wc.clone().offsetHSL(0,0,-0.08));   // 胴差しの帯
   const balF=chance(0.6)?'F':'B',balW=Math.min(w-0.8,rr(2.8,4.6)),balU=rr(-1,1)*(w-balW)/2*0.8;
   for(const f of['F','B','L','R']){const fw=f==='F'||f==='B'?w:d,Fm=faceM(H,w,d,f),n=Math.max(1,Math.floor(fw/2.4));
+    const BF=ART&&ART.house_side&&(f==='L'||f==='R')?DUMMY:B;   // v6：横の壁は描いた壁の絵にするので、立体の窓は計算だけして捨てる
     for(let fl=0;fl<2;fl++)for(let i=0;i<n;i++){const u=-fw/2+(i+0.5)*fw/n;
       if(f==='F'&&fl===0&&i===0){box(B,Fm,u,base,0.04,0.95,2.05,0.08,jit('#6a5141',0.04));box(B,Fm,u,base+2.25,0.45,1.5,0.08,0.9,col('#9a9a96'));continue;}  // 玄関とひさし
       if(!chance(f==='L'||f==='R'?0.55:0.8))continue;
       const sweepWin=fl===0&&f!=='L'&&f!=='R'&&chance(0.45),onBal=f===balF&&fl===1&&Math.abs(u-balU)<balW/2;
       const ww=sweepWin||onBal?rr(1.5,1.75):pick([0.75,1.15,1.6]),wh=sweepWin||onBal?1.85:rr(0.9,1.15),y=base+fl*fh+(wh>1.6?0.1+wh:1.95);
-      windowAt(B,Fm,u,y,Math.min(ww,fw/n-0.4),wh,wc);}
+      windowAt(BF,Fm,u,y,Math.min(ww,fw/n-0.4),wh,wc);}
     if(f===balF){const y=base+fh;box(B,Fm,balU,y-0.08,0.55,balW,0.16,1.1,col('#d9d6cf'));
       const rcol=pick([wc.clone().offsetHSL(0,0,-0.05),col('#eceae4'),col('#8f969c')]);box(B,Fm,balU,y+0.08,1.08,balW,1.0,0.06,rcol);
       for(const sg of[-1,1])box(B,Fm,balU+sg*(balW/2-0.03),y+0.08,0.55,0.06,1.0,1.1,rcol);
       if(chance(0.35))box(B,Fm,balU+rr(-0.6,0.6),y+0.65,1.12,rr(1,1.6),0.55,0.08,col(pick(['#f4f1ea','#e9c9c4','#cfdbe8','#efe2b8'])));}}  // 干した布団
-  if(chance(0.7)){const Fm=faceM(H,w,d,pick(['L','R']));box(B,Fm,rr(-1,1),0,0.25,0.8,0.6,0.32,col('#eeeeea'));}   // 室外機
+  if(chance(0.7)){const Fm=faceM(H,w,d,pick(['L','R']));box(ART&&ART.house_side?DUMMY:B,Fm,rr(-1,1),0,0.25,0.8,0.6,0.32,col('#eeeeea'));}   // 室外機
   roof(B,H,w,d,base+2*fh,rr(0.42,0.56),rr(0.45,0.65),chance(0.55)?'hip':'gable',rc,wc,ART?BRT:null);
+  if(ART&&ART.house_side){const hh=2*fh;   // v6：横の壁（小窓・雨どい・室外機の絵）と、4面の汚れ・軒の影
+    for(const f of['L','R'])faceQuad(BT('house_side'),faceM(H,w,d,f),-d/2,d/2,base,base+hh,0.03,wc.clone().lerp(col('#ffffff'),0.55),[0,d/6.2,0,hh/4.1]);
+    for(const f of['F','B','L','R']){const fw=f==='F'||f==='B'?w:d;faceQuad(BGRIME,faceM(H,w,d,f),-fw/2,fw/2,base,base+hh,0.06,col('#ffffff'),[0,1,0,1]);}}
   return{w,d,xo,zc};}
 
 /* ---------- 低層マンション（3〜4階） ---------- */
-function apart(B,M,lotW,lotD){
+// 面（faceM の座標：x＝面の左右、y＝高さ、z＝外向き）に、uv 範囲 [u0,u1,v0,v1] の絵を貼った四角形を置く
+function faceQuad(B,Fm,x0,x1,y0,y1,z,c,uv){const L=(x,y)=>V(x,y,z).applyMatrix4(Fm),n=V(0,0,1).transformDirection(Fm);
+  B.quad(L(x0,y0),L(x1,y0),L(x1,y1),L(x0,y1),c,[[uv[0],uv[2]],[uv[1],uv[2]],[uv[1],uv[3]],[uv[0],uv[3]]],n);}
+// v6：マンションの面を住戸区画の絵で組む（区画1つ＝1住戸×1階。ベランダ側は2種類を混ぜる）
+function aptFacades(H,w,d,fl,fh,base,n,uw,balF,corF){const Fb=faceM(H,w,d,balF),Fc=faceM(H,w,d,corF),W=col('#ffffff'),hh=fl*fh+0.3;
+  for(let i=0;i<fl;i++)for(let u=0;u<n;u++){const x=-w/2+u*uw,y=base+i*fh;
+    faceQuad(BT(R6()<0.45?'apt_bal_b':'apt_bal_a'),Fb,x,x+uw,y,y+fh,0.03,W,[0,1,0,1]);
+    if(i>0)faceQuad(BT('apt_cor'),Fc,x,x+uw,y,y+fh,0.03,W,[0,1,0,1]);}
+  faceQuad(BT('apt_ground'),Fc,-w/2,w/2,base,base+fh,0.03,W,[0,Math.max(1,Math.round(w/(fh*3))),0,1]);   // 廊下側の1階：エントランスと駐輪場
+  for(const f of['L','R'])faceQuad(BT('apt_end'),faceM(H,w,d,f),-d/2,d/2,base,base+hh,0.03,W,[0,d/6,0,hh/6]);   // 妻側
+  for(const f of[balF,corF])faceQuad(BGRIME,faceM(H,w,d,f),-w/2,w/2,base,base+hh,0.07,W,[0,Math.max(1,Math.round(w/12)),0,1]);
+  for(const f of['L','R'])faceQuad(BGRIME,faceM(H,w,d,f),-d/2,d/2,base,base+hh,0.07,W,[0,1,0,1]);
+  const top=base+hh,rw=w*0.92,rh=rw*ART.apt_roof.image.height/ART.apt_roof.image.width;   // 屋上：パラペットと設備の絵を、建物の中ほどに立てる
+  faceQuad(BROOF,faceM(H,w,0,'F'),-rw/2,rw/2,top-0.35,top-0.35+rh,0,W,[0,1,0,1]);}
+function apart(B,M,lotW,lotD){const B0=B;
   const fl=pick([3,3,4]),fh=2.9,w=Math.min(lotW-2.2,rr(16,26)),d=Math.min(lotD-5.2,rr(7.4,8.6)),base=0.4;rr(0,1);   // 乱数を引く回数を最初の版と揃える（街並みの配置を変えないため）
   const zc=((lotD/2-0.8-d/2-1.35)+(-lotD/2+0.5+d/2+1.45))/2,   // 前のバルコニーと後ろの廊下まで区画に収める
        H=M.clone().multiply(new THREE.Matrix4().makeTranslation(0,0,zc));
@@ -360,6 +381,7 @@ function apart(B,M,lotW,lotD){
   box(B,H,0,0,0,w+0.1,base,d+0.1,col(PAL.base));box(B,H,0,base,0,w,fl*fh+0.3,d,wc);
   const balF=chance(0.6)?'F':'B',corF=balF==='F'?'B':'F',railC=pick([col('#f2f0ea'),col('#c9ced2'),col('#8fa3b2'),dark]);
   const Fb=faceM(H,w,d,balF),Fc=faceM(H,w,d,corF);
+  if(ART&&ART.apt_bal_a)B=DUMMY;   // v6：ベランダ・廊下の立体は計算だけして捨て、住戸区画の絵で組み直す（乱数の引き方は同じ）
   for(let i=0;i<fl;i++){const y=base+i*fh;
     for(let u=0;u<n;u++){const x=-w/2+(u+0.5)*uw;
       box(B,Fb,x,y+0.2,0.04,uw*0.72,2.0,0.06,jit(pick(PAL.glass),0.03));box(B,Fb,x,y+0.2,0.07,0.05,2.0,0.03,col(PAL.frame));
@@ -369,6 +391,8 @@ function apart(B,M,lotW,lotD){
     const yr=i>0?y+0.08:y;box(B,Fb,0,yr,1.27,w,1.05,0.1,railC);box(B,Fc,0,yr,1.38,w,1.1,0.16,wc);
     for(let u=0;u<=n;u++)box(B,Fb,-w/2+u*uw,yr,0.65,0.07,i>0?2.6:1.05,1.3,dark);   // 隔て板
     for(let u=0;u<n;u++)if(chance(0.22))box(B,Fb,-w/2+(u+0.5)*uw+rr(-0.5,0.5),yr+0.55,1.33,rr(1,1.5),0.55,0.07,col(pick(['#f4f1ea','#e9c9c4','#cfdbe8','#efe2b8'])));}
+  B=B0;
+  if(ART&&ART.apt_bal_a)aptFacades(H,w,d,fl,fh,base,n,uw,balF,corF);
   box(B,H,w/2+1.6,0,0,3.2,fl*fh+1.4,3.6,wc);box(B,H,w/2+1.6,fl*fh+1.4,0,3.4,0.15,3.8,dark);   // 階段室
   const top=base+fl*fh+0.3;for(const[x,z,sx,sz]of[[0,d/2,w,0.2],[0,-d/2,w,0.2],[w/2,0,0.2,d],[-w/2,0,0.2,d]])box(B,H,x,top,z,sx,0.55,sz,dark);   // パラペット
   box(B,H,-w/4,top,0,2.8,2.4,2.6,wc);put(B,GCYL,H,w/5,top+0.9,-1,0.9,1.8,0.9,col('#cfd3d4'));   // 塔屋・受水槽
@@ -377,7 +401,8 @@ function apart(B,M,lotW,lotD){
 /* ---------- 区画（宅地）を並べる ---------- */
 const BH=new Batch();   // 建物・樹木など（影あり）
 const BWT=new Batch(), BRT=new Batch();   // v3：外壁・屋根（絵のテクスチャ付き）
-const BBW=new Batch(), BWIN=new Batch();  // v4：ブロック塀・窓（絵のテクスチャ付き）
+const BBW=new Batch(), BWIN=new Batch();
+const BTD={},BT=k=>BTD[k]||(BTD[k]=new Batch()),BGRIME=new Batch(),BROOF=new Batch();   // v6：絵ごとのまとめ描き、汚れ・軒の影、屋上設備  // v4：ブロック塀・窓（絵のテクスチャ付き）
 // v5：外壁・畑は種類ごとに、レール・架線柱はそれぞれ別のまとめ描き
 const pick5=a=>a[Math.floor(R5()*a.length)],BWTD={},BFD={},BWTS=k=>k==='wall'?BWT:(BWTD[k]||(BWTD[k]=new Batch())),BFS=k=>BFD[k]||(BFD[k]=new Batch());
 function lotM(s,dc,faceTrack){return FM(s,dc,0,dc>0?(faceTrack?-Math.PI/2:Math.PI/2):(faceTrack?Math.PI/2:-Math.PI/2));}
@@ -441,6 +466,9 @@ poleLine(10.6,CFG.pathFrom+10,CFG.build);poleLine(-23.65,CFG.pathFrom+20,CFG.bui
 if(ART){
   // 外壁・屋根：絵の明暗に家ごとの色をかける
   if(ART.blockwall)scene.add(BBW.chunks(toon({map:ART.blockwall,vertexColors:true}),120,{ao:true}),BWIN.chunks(toon({map:ART.window,vertexColors:true}),120,{cast:false}));
+  if(ART.apt_bal_a){for(const[k,b]of Object.entries(BTD))scene.add(b.chunks(toon({map:ART[k],vertexColors:true}),120,{ao:k==='house_side'}));
+    scene.add(BROOF.mesh(toon({map:ART.apt_roof,alphaTest:0.4,side:THREE.DoubleSide}),{cast:true}));
+    scene.add(BGRIME.chunks(new THREE.MeshBasicMaterial({map:ART.facade_grime,transparent:true,depthWrite:false,fog:false,blending:THREE.CustomBlending,blendSrc:THREE.DstColorFactor,blendDst:THREE.ZeroFactor,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2}),120,{cast:false,recv:false}));}   // 汚れ・軒の影は掛け合わせで重ねる
   if(ART.walls){for(const[k,b]of Object.entries(BWTD))scene.add(b.chunks(toon({map:ART.walls[k],vertexColors:true}),120,{ao:true}));
     for(const[k,b]of Object.entries(BFD))scene.add(b.mesh(toon({map:ART.fields[k],polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}),{cast:false}));
     scene.add(BRAIL.chunks(toon({map:ART.rail_detail_gray,vertexColors:true}),160,{cast:false}),BPOLE.chunks(toon({map:ART.pole_steel,vertexColors:true}),160));}
@@ -487,7 +515,7 @@ VIEWS.forEach(([n,s])=>{const b=document.createElement('button');b.textContent=n
 function mark(){vb.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.s)===curS)));}
 placeCamera(curS);mark();
 document.getElementById('sec').textContent=`${CFG.from} → ${CFG.to}（仮想${CFG.sec}m区間・仮設定）`;
-document.getElementById('look').textContent={v1:'変更前（look=v1）',v2:'プログラムのみ（v2）',v3:'美術素材版（look=v3）',v4:'美術素材版＋道床・道路・塀・窓（look=v4）',v5:'＋木・外壁・畑の種類、枕木・架線柱・レール（look=v5）'}[LOOK_ID];
+document.getElementById('look').textContent={v1:'変更前（look=v1）',v2:'プログラムのみ（v2）',v3:'美術素材版（look=v3）',v4:'美術素材版＋道床・道路・塀・窓（look=v4）',v5:'＋木・外壁・畑の種類、枕木・架線柱・レール（look=v5）',v6:'＋マンションの住戸区画・戸建ての横の壁・汚れ（look=v6）'}[LOOK_ID];
 
 // 第1段階は静止画なので、視点や画面の大きさが変わったときだけ描く。?bench=1 のときは毎フレーム描いて fps を測る
 const BENCH=Q.get('bench')==='1';let dirty=true;
