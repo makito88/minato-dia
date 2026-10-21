@@ -4,6 +4,7 @@
 import * as THREE from './lib/three.module.min.js';
 
 const Q = new URLSearchParams(location.search);
+const ROUTE = Q.get('route')==='cs';   // ?route=cs：中央→桜町の約3.2kmを、駅・踏切・信号つきで走らせる版
 const CFG = {
   // ---- 仮設定（本体のデータに無いもの）----
   from: '中央', to: '桜町',        // 本体 index.html の STATIONS（中央 0km・桜町 3.2km）を参照。区間内の位置は仮
@@ -13,11 +14,18 @@ const CFG = {
   sleeperTop: 0.58, railH: 0.153,  // 地面からまくらぎ上面、レールの高さ
   eyeH: 2.45, eyeOff: -0.45,       // レール面から運転士の目の高さ、線路中心から左へのずれ
   fov: 44,
-  pathFrom: -150, pathTo: 2100, build: 1550, sec: 500,
-  camS: Number(Q.get('s') ?? 40),
+  pathFrom: -150, pathTo: ROUTE?3750:2100, build: ROUTE?3420:1550, sec: ROUTE?3200:500,
+  camS: Number(Q.get('s') ?? (ROUTE?15:40)),
   seed: Number(Q.get('seed') ?? 7),
 };
 CFG.railTop = CFG.sleeperTop + CFG.railH;
+/* 区間モードの駅・踏切（s は中央駅の停止位置付近を 0 とした距離 m。仮設定） */
+const STA = ROUTE ? [{key:'C',s0:-125,s1:25,stop:15},{key:'S',s0:3085,s1:3235,stop:3220}] : [];
+const XS = ROUTE ? 1720 : null;                       // 踏切の位置
+const RSIG = ROUTE ? [880,2300,2930] : [];            // 電車の信号機の位置
+const inZone=(a,b,pad=0)=>STA.some(z=>b>z.s0-pad&&a<z.s1+pad);
+const nearX=(a,b,pad=0)=>XS!=null&&b>XS-3.5-pad&&a<XS+3.5+pad;
+const skipSide=s=>ROUTE&&(inZone(s,s,2)||nearX(s,s));   // 線路わきのさく・ケーブルトラフ・草むらを置かない所
 
 /* 見た目の設定。?look=v1 で変更前（最初の試作）の見た目に戻せる */
 const LOOK_ID = ({v1:'v1',v3:'v3',v4:'v4',v5:'v5',v6:'v6'})[new URLSearchParams(location.search).get('look')] || 'v2';
@@ -79,7 +87,7 @@ const PAL = {
 
 /* ---------- 線路の中心線（緩和曲線つきの曲線） ---------- */
 // 曲率 κ（1/半径）を s の折れ線で決める：直線 → 緩和曲線 → 右R700 → 緩和 → 直線 → 左R900 → …
-const KN=[[-1e9,0],[180,0],[260,1/700],[420,1/700],[500,0],[900,0],[980,-1/900],[1150,-1/900],[1230,0],[1e9,0]];
+const KN=[[-1e9,0],[180,0],[260,1/700],[420,1/700],[500,0],[900,0],[980,-1/900],[1150,-1/900],[1230,0],...(ROUTE?[[1980,0],[2060,1/1200],[2380,1/1200],[2460,0]]:[]),[1e9,0]];
 function kap(s){for(let i=1;i<KN.length;i++)if(s<=KN[i][0]){const[s0,k0]=KN[i-1],[s1,k1]=KN[i];return k0+(k1-k0)*(s-s0)/(s1-s0);}return 0;}
 const DS=0.5, PN=Math.ceil((CFG.pathTo-CFG.pathFrom)/DS)+1;
 const PX=new Float64Array(PN), PZ=new Float64Array(PN), PT=new Float64Array(PN);
@@ -92,6 +100,7 @@ function FM(s,d=0,h=0,yaw=0){const[x,z,t]=at(s);const c=Math.cos(t),n=Math.sin(t
   if(yaw)m.multiply(new THREE.Matrix4().makeRotationY(yaw));return m;}
 
 /* ---------- まとめ描き（同じ材質の部品を1つのメッシュにまとめて描画回数を減らす） ---------- */
+const CHUNKS=[];   // 区画に分けたメッシュ（区間モードでは遠い区画を描かない）
 class Batch{
   constructor(){this.p=[];this.n=[];this.c=[];this.u=[];}
   v(p,n,c,u){this.p.push(p.x,p.y,p.z);this.n.push(n.x,n.y,n.z);this.c.push(c.r,c.g,c.b);this.u.push(u?u[0]:0,u?u[1]:0);}
@@ -105,7 +114,7 @@ class Batch{
   chunks(mat,size,opt){const cells=new Map(),P=this.p;
     for(let t=0;t<P.length;t+=9){const k=Math.floor((P[t]+P[t+3]+P[t+6])/3/size)+','+Math.floor((P[t+2]+P[t+5]+P[t+8])/3/size);let c=cells.get(k);if(!c){c=new Batch();cells.set(k,c);}
       c.p.push(...P.slice(t,t+9));c.n.push(...this.n.slice(t,t+9));c.c.push(...this.c.slice(t,t+9));c.u.push(...this.u.slice(t/3*2,t/3*2+6));}
-    const G=new THREE.Group();cells.forEach(c=>G.add(c.mesh(mat,opt)));return G;}
+    const G=new THREE.Group();cells.forEach(c=>G.add(c.mesh(mat,opt)));G.children.forEach(m=>CHUNKS.push(m));return G;}
   mesh(mat,{cast=true,recv=true,ao=false,upN=false}={}){const g=new THREE.BufferGeometry();
     if(upN)for(let i=0;i<this.n.length;i+=3){this.n[i]=0;this.n[i+1]=1;this.n[i+2]=0;}   // 草むらの板は地面と同じ向きの光を受ける
     if(ao)for(let i=0;i<this.c.length;i+=3){const y=this.p[i+1],f=0.74+0.26*Math.min(1,Math.max(0,y/2.4));this.c[i]*=f;this.c[i+1]*=f;this.c[i+2]*=f;}   // 地面に近いほど少し暗く（簡易の接地陰影）
@@ -222,8 +231,8 @@ function cloudTex(seed){return canvasTex(512,256,(g,w,h)=>{const r=rngF(seed),ba
     s.position.set(o.x+Math.sin(a)*dist,dist*rr(0.04,0.13)+W*0.25+180,o.z-Math.cos(a)*dist);s.scale.set(W,W/2,1);scene.add(s);}}
 
 // 遠くの山なみ（2列。霞で青く溶ける）
-{const B=new Batch(),o=P(700);const ph=[...Array(6)].map(()=>rr(0,7));
-  [[3600,110,260,'#5d7c6c','#7c9a88'],[5600,220,520,'#6f8d8f','#93abb0']].forEach(([R0,h0,h1,cb,ct],li)=>{
+{const B=new Batch(),o=P(ROUTE?1700:700),MR=ROUTE?1700:0;const ph=[...Array(6)].map(()=>rr(0,7));
+  [[3600+MR,110,260,'#5d7c6c','#7c9a88'],[5600+MR,220,520,'#6f8d8f','#93abb0']].forEach(([R0,h0,h1,cb,ct],li)=>{
     let prev=null;for(let a=0;a<=Math.PI*2+0.001;a+=0.012){const n=Math.sin(a*3+ph[0]+li)*.5+Math.sin(a*7.3+ph[1])*.3+Math.sin(a*17+ph[2])*.15+Math.sin(a*31+ph[3])*.06;
       const h=h0+(h1-h0)*Math.max(0,n*.5+.5)**1.6,r=R0+Math.sin(a*5+ph[4])*400;
       const b=V(o.x+Math.sin(a)*r,-10,o.z-Math.cos(a)*r),t=V(o.x+Math.sin(a)*(r+h*2.2),h,o.z-Math.cos(a)*(r+h*2.2));
@@ -233,8 +242,8 @@ function cloudTex(seed){return canvasTex(512,256,(g,w,h)=>{const r=rngF(seed),ba
   const mtn=B.mesh(MAT.far,{cast:false,recv:false});mtn.visible=!ART;scene.add(mtn);}   // v3 では描いた遠景に置きかえる
 
 // 地面
-{const g=new THREE.PlaneGeometry(9000,9000);g.rotateX(-Math.PI/2);const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*900,uv.getY(i)*900);
-  const m=new THREE.Mesh(g,MAT.ground);const o=P(600);m.position.set(o.x,0,o.z);m.receiveShadow=true;scene.add(m);}
+{const GS=ROUTE?14000:9000;const g=new THREE.PlaneGeometry(GS,GS);g.rotateX(-Math.PI/2);const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*GS/10,uv.getY(i)*GS/10);
+  const m=new THREE.Mesh(g,MAT.ground);const o=P(ROUTE?1700:600);m.position.set(o.x,0,o.z);m.receiveShadow=true;scene.add(m);}
 
 /* ---------- 線路・架線 ---------- */
 const BRAIL=new Batch(),BPOLE=new Batch();   // v5：レール・架線柱（絵のテクスチャ付き）
@@ -254,10 +263,13 @@ sweep(BBal,CFG.pathFrom,S_END,4,0,0.02,[[5.1,0],[5.8,0]],col('#b9b3a6'),[2.2,2.2
   let i=0;for(const d0 of TR)for(let k=0;k<n;k++){im.setMatrixAt(i++,FM(CFG.pathFrom+k*pitch,d0,CFG.sleeperTop-0.08));}
   im.receiveShadow=true;scene.add(im);}
 // ケーブルトラフ・線路わきのさく
-sweep(BV,CFG.pathFrom,S_END,3,-5.35,0,[[-0.22,0],[-0.22,0.22],[0.22,0.22],[0.22,0]],col('#b7b3aa'));
-for(const fd of[-5.95,5.95]){sweep(BFence,CFG.pathFrom,S_END,3,fd,0,[[0,0.05],[0,1.75]],col('#ffffff'),[1.0,1.0]);
-  for(let s=CFG.pathFrom;s<CFG.build;s+=2.5){const M=FM(s,fd,0);put(BV,GCYL,M,0,0.9,0,0.03,1.8,0.03,col('#7b877a'));}
-  sweep(BV,CFG.pathFrom,CFG.build,3,fd,1.78,[[-0.025,0],[-0.025,0.05],[0.025,0.05],[0.025,0]],col('#7b877a'));}
+// 区間モードでは、駅と踏切の所を除いた区間ごとに置く
+function sideSegs(a,b){if(!ROUTE)return[[a,b]];const ex=[...STA.map(z=>[z.s0-2,z.s1+2]),...(XS!=null?[[XS-3.5,XS+3.5]]:[])].sort((p,q)=>p[0]-q[0]);
+  const out=[];let c=a;for(const[e0,e1]of ex){if(e1<=c||e0>=b)continue;if(e0>c)out.push([c,e0]);c=Math.max(c,e1);}if(c<b)out.push([c,b]);return out;}
+for(const[a,b]of sideSegs(CFG.pathFrom,S_END))sweep(BV,a,b,3,-5.35,0,[[-0.22,0],[-0.22,0.22],[0.22,0.22],[0.22,0]],col('#b7b3aa'));
+for(const fd of[-5.95,5.95]){for(const[a,b]of sideSegs(CFG.pathFrom,S_END))sweep(BFence,a,b,3,fd,0,[[0,0.05],[0,1.75]],col('#ffffff'),[1.0,1.0]);
+  for(let s=CFG.pathFrom;s<CFG.build;s+=2.5){if(skipSide(s))continue;const M=FM(s,fd,0);put(BV,GCYL,M,0,0.9,0,0.03,1.8,0.03,col('#7b877a'));}
+  for(const[a,b]of sideSegs(CFG.pathFrom,CFG.build))sweep(BV,a,b,3,fd,1.78,[[-0.025,0],[-0.025,0.05],[0.025,0.05],[0.025,0]],col('#7b877a'));}
 // 架線柱（門形：柱2本＋トラス状のはり）、ちょう架線・トロリ線・ハンガー・き電線
 {const SP=50,cMetal=col('#8e9598'),cDark=col('#5b6164'),cIns=col('#c9b9a0');
   const HC=CFG.railTop+5.0, HM=CFG.railTop+6.1, HB=CFG.railTop+7.4, HF=CFG.railTop+8.3, PD=4.75;
@@ -412,6 +424,7 @@ function fillRow(d0,d1,faceTrack,crosses,opts={}){
     let kind=R(),W;
     if(kind<0.12)W=rr(20,28);else if(kind<0.16)W=rr(24,34);else if(kind<0.22)W=rr(14,20);else if(kind<0.26&&opts.field)W=rr(30,48);else W=rr(9.5,12.5);
     if(cx!=null&&s+W>cx-2.3){W=cx-2.3-s;kind=0.9;if(W<8){s=cx+3.2;continue;}}
+    if(ROUTE&&Math.min(Math.abs(d0),Math.abs(d1))<26&&inZone(s,s+W,6)){s+=W;continue;}   // 駅の前は空ける
     const sc=s+W/2,M=lotM(sc,dc,faceTrack);
     if(kind<0.12&&W>=18)apart(BH,M,W,depth);
     else if(kind<0.16){for(let i=0;i<Math.floor(W/4);i++)tree(BH,M,rr(-W/2+2,W/2-2),rr(-depth/2+2,depth/2-2),rr(5,9));   // 公園・空き地の木立
@@ -432,10 +445,11 @@ const crossR=[], crossL=[];
 for(let s=60;s<CFG.build;s+=rr(85,140))crossR.push(s);
 for(let s=110;s<CFG.build;s+=rr(120,190))crossL.push(s);
 crossR.forEach(s=>crossRoad(s,10.35,67));crossL.forEach(s=>crossRoad(s,-67,-19.4));
+if(XS!=null){crossR.push(XS);crossL.push(XS);crossRoad(XS,-19.4,-7.2);crossRoad(XS,7.2,10.35);}   // 踏切の道
 fillRow(10.85,23.9,true,crossR);fillRow(23.9,36.9,false,crossR);fillRow(40.9,53.9,true,crossR);fillRow(53.9,67,false,crossR);
-fillRow(-19.4,-6.6,false,[],{field:true});fillRow(-36.4,-23.4,true,crossL,{field:true});fillRow(-49.4,-36.4,false,crossL);fillRow(-66.4,-53.4,true,crossL);
+fillRow(-19.4,-6.6,false,XS!=null?[XS]:[],{field:true});fillRow(-36.4,-23.4,true,crossL,{field:true});fillRow(-49.4,-36.4,false,crossL);fillRow(-66.4,-53.4,true,crossL);
 // 線路わきの雑草・低木
-for(let s=CFG.pathFrom+5;s<CFG.build;s+=rr(6,22)){const d=chance(.5)?rr(-6.4,-6.1):rr(5.0,5.5);put(BH,GICO_LO,FM(s,d,0),0,0.25,0,rr(0.4,0.9),rr(0.3,0.5),rr(0.5,1.2),jit(pick(PAL.greens),0.05),R()*7);}
+for(let s=CFG.pathFrom+5;s<CFG.build;s+=rr(6,22)){const d=chance(.5)?rr(-6.4,-6.1):rr(5.0,5.5);put(skipSide(s)?DUMMY:BH,GICO_LO,FM(s,d,0),0,0.25,0,rr(0.4,0.9),rr(0.3,0.5),rr(0.5,1.2),jit(pick(PAL.greens),0.05),R()*7);}
 
 /* ---------- 電柱と電線（線路わきの道路沿い・裏の道路沿い） ---------- */
 function poleLine(d,s0,s1){const pts=[];
@@ -453,7 +467,7 @@ poleLine(10.6,CFG.pathFrom+10,CFG.build);poleLine(-23.65,CFG.pathFrom+20,CFG.bui
 
 /* ---------- 遠景の街（霞の中の建物） ---------- */
 {const B=new Batch();
-  for(let i=0;i<1400;i++){const s=rr(-100,CFG.pathTo+200),sg=chance(.5)?1:-1,d=sg*(70+Math.pow(R(),1.4)*560);
+  for(let i=0;i<(ROUTE?2600:1400);i++){const s=rr(-100,CFG.pathTo+200),sg=chance(.5)?1:-1,d=sg*(70+Math.pow(R(),1.4)*560);
     if(s>CFG.build+40&&Math.abs(d)<75)continue;
     const tall=chance(0.1),h=tall?rr(16,34):rr(5,11),w=rr(7,tall?24:13),dd=rr(7,tall?16:11),M=FM(s,d,0,rr(-0.15,0.15));
     const c=jit(pick(tall?['#e6e3dc','#d4d6d6','#ece6d8','#c7cbcf']:PAL.walls),0.03);box(B,M,0,0,0,w,h,dd,c);
@@ -461,6 +475,30 @@ poleLine(10.6,CFG.pathFrom+10,CFG.build);poleLine(-23.65,CFG.pathFrom+20,CFG.bui
     else{const rc=jit(pick(PAL.roofs),0.03),L=(x,y,z)=>V(x,y,z).applyMatrix4(M);B.quad(L(-w/2-.3,h,dd/2+.3),L(w/2+.3,h,dd/2+.3),L(w/2,h+dd*.25,0),L(-w/2,h+dd*.25,0),rc,null,V(0,1,0));B.quad(L(-w/2-.3,h,-dd/2-.3),L(w/2+.3,h,-dd/2-.3),L(w/2,h+dd*.25,0),L(-w/2,h+dd*.25,0),rc,null,V(0,1,0));}
     if(chance(0.25))tree(B,M,w/2+rr(1,3),rr(-3,3),rr(6,11),{blobs:[3,4]});}
   scene.add(B.mesh(MAT.far,{cast:false,recv:false}));}
+
+/* ---------- 区間モード：駅（ホーム・屋根・ベンチ・駅舎）と踏切の道 ---------- */
+const PLT=CFG.railTop+1.0;   // ホームの高さ（レール面から約1m）
+if(ROUTE){const cTop=col('#bdb6aa'),cSide=col('#9d968b'),cRoof=col('#6f7f86'),cPil=col('#8b9296');
+  for(const z of STA){
+    for(const[a,b,sg]of[[-7.6,-3.55,-1],[3.55,6.3,1]]){   // 左＝自列車側、右＝反対側のホーム
+      const pr=sg<0?[[a,0],[a,PLT],[b,PLT],[b,0]]:[[a,0],[a,PLT],[b,PLT],[b,0]];
+      sweep(BV,z.s0,z.s1,5,0,0,pr,[cSide,cTop,cSide]);
+      const e=sg<0?b:a,inn=sg<0?-1:1;   // e＝線路側の縁、inn＝ホームの内側へ向かう向き
+      sweep(BV,z.s0,z.s1,5,0,PLT+0.008,sg<0?[[e+inn*0.95,0],[e+inn*0.65,0]].reverse():[[e+inn*0.65,0],[e+inn*0.95,0]],col('#d9b23a'));   // 点字ブロック
+      sweep(BV,z.s0,z.s1,5,0,PLT+0.008,sg<0?[[e+inn*0.12,0],[e+inn*0.02,0]].reverse():[[e+inn*0.02,0],[e+inn*0.12,0]],col('#efefe8'));   // 縁の白線
+      const r0=z.s0+(z.s1-z.s0)*0.25,r1=z.s0+(z.s1-z.s0)*0.75,pd=sg<0?-6.6:5.5;   // 屋根は中ほどに
+      for(let t=r0;t<=r1+0.1;t+=9){const M=FM(t,pd,0);box(BV,M,0,PLT,0,0.28,3.25,0.28,cPil);box(BV,M,0,PLT,0,0.45,0.35,0.45,cSide);}
+      const ra=sg<0?a-0.3:a+0.35,rb=sg<0?b-0.35:b+0.3;
+      sweep(BV,r0-3,r1+3,4,0,PLT+3.2,[[ra,0],[ra,0.22],[rb,0.4],[rb,0.18],[ra,0]],cRoof);
+      for(let t=r0+4;t<r1;t+=12){const M=FM(t,sg<0?-7.0:5.85,0);box(BV,M,0,PLT+0.42,0,0.45,0.06,1.8,col('#7a5c43'));box(BV,M,0,PLT,0,0.4,0.42,0.12,col('#55585c'));box(BV,M,-sg*0.2,PLT+0.48,0,0.06,0.45,1.8,col('#7a5c43'));}}   // ベンチ
+    const big=z.key==='C',M=FM((z.s0+z.s1)/2+(big?-10:0),big?-17:-12,0),bw=big?13:8,bl=big?70:22,bh=big?8.5:4.2;   // 駅舎（左側の奥）
+    box(BH,M,0,0,0,bw,bh,bl,col(big?'#e2ddd2':'#e6dccb'));box(BH,M,0,bh,0,bw+0.6,0.35,bl+0.6,col('#6b6f73'));
+    for(let i=0;i<Math.floor(bl/4);i++)box(BH,M,bw/2+0.02,big?4.6:1.0,-bl/2+2+i*4,0.04,big?2.2:1.8,2.6,jit(pick(PAL.glass),0.03));
+    box(BH,M,bw/2+0.4,bh-0.8,0,0.5,0.6,bl*0.6,col('#2f5d8a'));}   // 駅名の帯
+  // 踏切：線路の上の路面（レール面の高さ）と、両側の坂
+  {const M=FM(XS),L=(x,y,z)=>V(x,y,z).applyMatrix4(M),W2=2.3,up=V(0,1,0),y1=CFG.railTop-0.006,c=col('#ffffff');
+    BRoad.quad(L(-5.4,y1,W2),L(5.4,y1,W2),L(5.4,y1,-W2),L(-5.4,y1,-W2),c,[[0,0],[1,0],[1,0.8],[0,0.8]],up);
+    for(const sg of[-1,1]){const x0=sg*5.4,x1=sg*7.2;BRoad.quad(L(x0,y1,W2),L(x1,0.03,W2),L(x1,0.03,-W2),L(x0,y1,-W2),c,[[0,0],[0.3,0],[0.3,0.8],[0,0.8]],up);}}}
 
 /* ---------- まとめたメッシュをシーンへ ---------- */
 if(ART){
@@ -477,13 +515,13 @@ if(ART){
   const camP=P(CFG.camS,CFG.own+CFG.eyeOff,0),pg=new THREE.PlaneGeometry(1,1).translate(0,0.5,0);
   (ART.treePool||[ART.tree1,ART.tree2,ART.tree3]).forEach((tx,vi)=>{const L=TREES.filter(t=>t.v===vi);if(!L.length)return;const asp=tx.image.width/tx.image.height;
     const mat=new THREE.MeshBasicMaterial({map:tx,alphaTest:0.45,side:THREE.DoubleSide,color:col('#eeeeee')});
-    const im=new THREE.InstancedMesh(pg,mat,L.length);
-    L.forEach((t,i)=>{const yaw=Math.atan2(camP.x-t.p.x,camP.z-t.p.z);im.setMatrixAt(i,new THREE.Matrix4().compose(t.p,new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw),V(t.h*asp,t.h,1)));});
+    const K=ROUTE?2:1,im=new THREE.InstancedMesh(pg,mat,L.length*K);   // 区間モード：走ると向きが変わるので、2枚を十字に組む
+    L.forEach((t,i)=>{const yaw=Math.atan2(camP.x-t.p.x,camP.z-t.p.z);for(let k=0;k<K;k++)im.setMatrixAt(i*K+k,new THREE.Matrix4().compose(t.p,new THREE.Quaternion().setFromAxisAngle(V(0,1,0),yaw+k*Math.PI/2+(ROUTE?Math.PI/4:0)),V(t.h*asp,t.h,1)));});
     im.castShadow=true;im.customDepthMaterial=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:tx,alphaTest:0.45});scene.add(im);});
   // 草むら：さくの両側に、線路に沿った帯として
   {const G=new Batch(),asp=ART.grass.image.width/ART.grass.image.height;
     for(const[d,H]of[[-5.78,0.8],[5.78,0.8],[-6.12,1.0],[6.12,0.95]]){const per=H*asp,off=Math.abs(d)*7.3;
-      for(let s=CFG.pathFrom;s<CFG.build;s+=2){const a=P(s,d,0),b=P(s+2,d,0),c=P(s+2,d,H),e=P(s,d,H),u0=(s+off)/per,u1=(s+2+off)/per;
+      for(let s=CFG.pathFrom;s<CFG.build;s+=2){if(skipSide(s)||skipSide(s+2))continue;const a=P(s,d,0),b=P(s+2,d,0),c=P(s+2,d,H),e=P(s,d,H),u0=(s+off)/per,u1=(s+2+off)/per;
         G.quad(a,b,c,e,col('#ffffff'),[[u0,0],[u1,0],[u1,1],[u0,1]],null);}}
     scene.add(G.mesh(toon({map:ART.grass,vertexColors:true,alphaTest:0.4,side:THREE.DoubleSide}),{cast:false,upN:true}));}
   // 遠景：カメラを中心にした大きな円筒の内側に、絵を左右反転しながら3回並べる（空はプログラムの空のまま）
@@ -494,6 +532,79 @@ if(ART){
     pano.renderOrder=-5;pano.userData.y=R0*(Math.tan(hi)+Math.tan(lo))/2;pano.rotation.y=-at(CFG.camS+300)[2];scene.add(pano);window.__pano=pano;}}
 scene.add(BV.chunks(MAT.vc,160),BH.chunks(MAT.vc,120,{ao:true}),BW.mesh(MAT.vc,{cast:false}),BBal.mesh(MAT.ballast,{cast:false}),BRoad.mesh(MAT.road,{cast:false}),BField.mesh(MAT.field,{cast:false}),BFence.mesh(MAT.fence,{cast:false}));
 
+
+/* ---------- 区間モード：踏切・信号の絵、駅名標、走行 ---------- */
+if(ROUTE){
+  const TL=new THREE.TextureLoader(),ld=n=>TL.loadAsync('../../assets/images/cab3d/lib/'+n+'.webp').then(t=>{t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;});
+  const [txSig,txGate,txRS]=await Promise.all([ld('crossing_signal'),ld('crossing_gate'),ld('rail_signal')]);
+  const spriteMat=t=>new THREE.MeshLambertMaterial({map:t,alphaTest:0.45,side:THREE.DoubleSide});
+  // 絵の板を置く。yaw は FM の座標での向き（0＝列車の方を向く）
+  function board(t,s,d,y,h,yaw,w){const asp=t.image.width/t.image.height,W=w||h*asp,g=new THREE.PlaneGeometry(W,h).translate(0,h/2,0),m=new THREE.Mesh(g,spriteMat(t));
+    m.matrixAutoUpdate=false;m.matrix.copy(FM(s,d,y,yaw));m.castShadow=true;m.customDepthMaterial=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map:t,alphaTest:0.45});scene.add(m);return {m,W,h};}
+  // 踏切：警報機（十字に2枚）、遮断かん（線路に沿う向き）、点滅する赤い灯
+  const LAMPS=[];
+  for(const[sx,sd]of[[XS+3.1,-7.7],[XS-3.1,7.7]]){const h=3.6;board(txSig,sx,sd,0,h,Math.PI/2);const b=board(txSig,sx,sd,0,h,0);
+    for(const k of[-1,1]){const sp=new THREE.Sprite(new THREE.SpriteMaterial({color:0xff3020,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,fog:false}));
+      sp.position.copy(P(sx,sd+k*b.W*0.26,h*0.7));sp.scale.set(0.55,0.55,1);sp.visible=false;scene.add(sp);LAMPS.push({sp,k});}}
+  board(txGate,XS,-8.0,0.15,0.95,Math.PI/2,5.4);board(txGate,XS,8.0,0.15,0.95,-Math.PI/2,5.4);
+  // 電車の信号機（列車の方を向く）
+  for(const rs of RSIG)board(txRS,rs,CFG.own-2.7,0,6.2,0);
+  // 駅名標・停止位置目標（文字は絵ではなく、その場で描く）
+  let ST={};try{ST=(await (await fetch('../../data/ride.json')).json()).stations||{};}catch(e){}
+  const KJ={C:'中央',S:'桜町',U:'大学前'},ORD=['C','S','U'];
+  function signTex(k){const c=document.createElement('canvas');c.width=1024;c.height=384;const g=c.getContext('2d');
+    g.fillStyle='#fbfaf6';g.fillRect(0,0,1024,384);g.fillStyle='#2f5d8a';g.fillRect(0,268,1024,116);g.fillStyle='#3d7f63';g.fillRect(0,252,1024,16);
+    g.fillStyle='#1d2329';g.textAlign='center';g.font='700 150px "Hiragino Sans","Noto Sans JP",sans-serif';g.fillText(KJ[k],512,170);
+    g.font='500 46px "Hiragino Sans","Noto Sans JP",sans-serif';g.fillText((ST[k]&&ST[k].kana)||'',512,232);
+    const i=ORD.indexOf(k);g.fillStyle='#fff';g.font='500 44px "Hiragino Sans","Noto Sans JP",sans-serif';
+    if(ORD[i-1]){g.textAlign='left';g.fillText('← '+KJ[ORD[i-1]],34,342);}if(ORD[i+1]){g.textAlign='right';g.fillText(KJ[ORD[i+1]]+' →',990,342);}
+    g.textAlign='center';g.font='400 36px sans-serif';g.fillText((ST[k]&&ST[k].roma)||'',512,342);
+    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;return t;}
+  for(const z of STA){const t=signTex(z.key),mat=new THREE.MeshLambertMaterial({map:t});
+    for(const f of[0.18,0.5,0.82,0.96]){const sp=z.s0+(z.s1-z.s0)*f;
+      for(const[d,yaw]of[[-7.25,Math.PI/2],[5.95,-Math.PI/2]]){const m=new THREE.Mesh(new THREE.PlaneGeometry(2.6,0.98),mat);m.matrixAutoUpdate=false;m.matrix.copy(FM(sp,d,PLT+1.75,yaw));scene.add(m);
+        for(const o of[-1.1,1.1]){const pm=new THREE.Mesh(new THREE.BoxGeometry(0.07,1.3,0.07),MAT.vc);const q=FM(sp,d,0,yaw).multiply(new THREE.Matrix4().makeTranslation(o,PLT+0.65,-0.04));pm.matrixAutoUpdate=false;pm.matrix.copy(q);scene.add(pm);}}}}
+  {const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');g.fillStyle='#f2c230';g.fillRect(0,0,256,256);g.strokeStyle='#222';g.lineWidth=14;g.strokeRect(7,7,242,242);
+    g.fillStyle='#111';g.font='700 190px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('6',128,140);
+    const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;const z=STA[1],m=new THREE.Mesh(new THREE.PlaneGeometry(0.55,0.55),new THREE.MeshLambertMaterial({map:t}));
+    m.matrixAutoUpdate=false;m.matrix.copy(FM(z.stop+5,-3.95,PLT+1.45));scene.add(m);const pm=new THREE.Mesh(new THREE.BoxGeometry(0.05,1.2,0.05),MAT.vc);pm.matrixAutoUpdate=false;pm.matrix.copy(FM(z.stop+5,-3.95,PLT+0.6).multiply(new THREE.Matrix4().makeTranslation(0,0,0.03)));scene.add(pm);}
+
+  // 走行：中央を発車 → 加速 → 惰行 → 桜町の停止位置に止まる（時間の進みは実時間×倍速。フレームの速さに左右されない）
+  const RUN={s:STA[0].stop,v:0,play:false,mult:1,vmax:70/3.6,acc:0.75,dec:0.72,shake:true,state:'中央 停車中',wait:0,arrived:false};
+  window.__RUN=RUN;
+  const hud=document.getElementById('hud');document.getElementById('views').style.display='none';
+  hud.querySelector('b').textContent='3D運転席 試作｜中央 → 桜町（走行）';document.getElementById('sec').textContent='約3.2km・駅・踏切・信号つき（線形・街並みは仮設定）';
+  const box2=document.createElement('div');box2.innerHTML=`<div id="rv" style="font-size:22px;font-weight:700;margin:4px 0">0 km/h</div><small id="rd"></small><br><small id="rst"></small>
+    <div class="rrow"><button id="rp">▶ 出発</button><button id="rr">最初から</button><button data-m="1" aria-pressed="true">×1</button><button data-m="2">×2</button><button data-m="4">×4</button></div>
+    <div class="rrow"><label>最高速度 <input id="rmax" type="range" min="0" max="80" step="5" value="70"> <span id="rmaxv">70</span> km/h</label></div>
+    <div class="rrow"><label><input id="rsh" type="checkbox" checked> 揺れ</label></div>`;hud.appendChild(box2);
+  const st=document.createElement('style');st.textContent='#hud .rrow{margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}#hud .rrow button{font:inherit;font-size:12px;background:#3b4652;color:#f3f1ea;border:1px solid #56626e;border-radius:5px;padding:2px 8px;cursor:pointer}#hud .rrow button[aria-pressed=true]{background:#c9a35c;color:#1d1a14;border-color:#c9a35c}#hud input[type=range]{width:120px;accent-color:#c9a35c;vertical-align:middle}';document.head.appendChild(st);
+  const $=id=>document.getElementById(id);
+  $('rp').onclick=()=>{if(RUN.arrived)return;RUN.play=!RUN.play;if(RUN.play&&RUN.v===0&&RUN.s<STA[0].stop+1)RUN.wait=2;$('rp').textContent=RUN.play?'⏸ 一時停止':'▶ 再開';};
+  $('rr').onclick=()=>{Object.assign(RUN,{s:STA[0].stop,v:0,play:false,arrived:false,wait:0});$('rp').textContent='▶ 出発';placeCamera(RUN.s,true);};
+  box2.querySelectorAll('button[data-m]').forEach(b=>b.onclick=()=>{RUN.mult=Number(b.dataset.m);box2.querySelectorAll('button[data-m]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
+  $('rmax').oninput=e=>{RUN.vmax=Number(e.target.value)/3.6;$('rmaxv').textContent=e.target.value;};
+  $('rsh').onchange=e=>{RUN.shake=e.target.checked;};
+  let lastCull=-1e9;
+  function cull(force){if(!force&&Math.abs(RUN.s-lastCull)<10)return;lastCull=RUN.s;const c=camera.position;for(const m of CHUNKS){const b=m.geometry.boundingSphere;m.visible=b.center.distanceTo(c)-b.radius<1300;}}
+  window.__step=function(dt){const tgt=STA[1].stop;let t=dt*RUN.mult;const moving=RUN.play||RUN.wait>0;if(!moving&&!(RUN.s>XS-450&&RUN.s<XS+15))return false;   // 止まっている間は描き直さない
+    while(t>0){const h=Math.min(t,0.05);t-=h;
+      if(!RUN.play||RUN.arrived)break;
+      if(RUN.wait>0){RUN.wait-=h;RUN.state='発車します';continue;}
+      const rem=tgt-RUN.s,brk=RUN.v*RUN.v/(2*RUN.dec);
+      if(rem<=0.02){RUN.v=0;RUN.s=tgt;RUN.arrived=true;RUN.play=false;RUN.state='桜町 到着';$('rp').textContent='到着';break;}
+      if(rem<=brk+0.3){RUN.v=Math.max(0,Math.min(RUN.v,Math.sqrt(2*RUN.dec*Math.max(0,rem-0.05))));RUN.state='ブレーキ';}
+      else if(RUN.v<RUN.vmax-0.05){RUN.v=Math.min(RUN.vmax,RUN.v+RUN.acc*h);RUN.state='加速';}
+      else{RUN.v=Math.max(RUN.vmax,RUN.v-0.05*h);RUN.state='惰行';}
+      if(RUN.vmax<0.1&&RUN.v<0.01){RUN.state='停止（最高速度0）';}
+      RUN.s+=RUN.v*h;if(rem>0&&RUN.v<0.2&&rem<0.6){RUN.s=tgt;}}
+    const now=performance.now()/1000,sh=RUN.shake&&RUN.v>0.3?RUN.v/20:0,joint=((RUN.s%25)+25)%25<0.6?0.004*sh:0;
+    placeCamera(RUN.s,false,sh?{y:Math.sin(now*9.1)*0.004*sh+Math.sin(now*13.7)*0.002*sh-joint,r:Math.sin(now*3.3)*0.0012*sh}:null);cull(false);
+    const near=RUN.s>XS-450&&RUN.s<XS+15,on=Math.floor(now*1.6)%2;LAMPS.forEach(L=>L.sp.visible=near&&((L.k>0)===(on===1)));
+    $('rv').textContent=(RUN.v*3.6).toFixed(0)+' km/h';$('rd').textContent=`走行 ${Math.max(0,RUN.s-STA[0].stop).toFixed(0)} m ／ 桜町まで ${Math.max(0,tgt-RUN.s).toFixed(0)} m`;
+    $('rst').textContent=RUN.play||RUN.arrived||RUN.wait>0?RUN.state:(RUN.s<STA[0].stop+1?'中央 停車中':'一時停止');return true;};
+  window.__setS=v=>{RUN.s=v;placeCamera(v,true);cull(true);dirty=true;};
+  cull(true);}
 /* ---------- 運転台（簡素） ---------- */
 {const g=new THREE.Group(),m=c=>toon({color:col(c)});
   const dash=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.5,0.7),m('#353b42'));dash.position.set(0.2,-0.74,-0.95);dash.rotation.x=0.08;g.add(dash);
@@ -504,17 +615,18 @@ scene.add(BV.chunks(MAT.vc,160),BH.chunks(MAT.vc,120,{ao:true}),BW.mesh(MAT.vc,{
   camera.add(g);}
 
 /* ---------- 視点 ---------- */
-function placeCamera(s){const d=CFG.own+CFG.eyeOff,h=CFG.railTop+CFG.eyeH,M=FM(s,d,h);
-  camera.matrix.copy(M).multiply(new THREE.Matrix4().makeRotationX(-0.025));camera.matrix.decompose(camera.position,camera.quaternion,camera.scale);
-  sky.position.copy(camera.position);if(window.__pano)window.__pano.position.set(camera.position.x,camera.position.y+window.__pano.userData.y,camera.position.z);
-  const tg=P(s+80,0,0);sun.target.position.copy(tg);sun.position.copy(tg).addScaledVector(SUN_DIR,400);sun.target.updateMatrixWorld();renderer.shadowMap.needsUpdate=true;
+let lastShadowS=-1e9;
+function placeCamera(s,force,shk){const d=CFG.own+CFG.eyeOff,h=CFG.railTop+CFG.eyeH+(shk?shk.y:0),M=FM(s,d,h);
+  camera.matrix.copy(M).multiply(new THREE.Matrix4().makeRotationX(-0.025)).multiply(new THREE.Matrix4().makeRotationZ(shk?shk.r:0));camera.matrix.decompose(camera.position,camera.quaternion,camera.scale);
+  sky.position.copy(camera.position);if(window.__pano){window.__pano.position.set(camera.position.x,camera.position.y+window.__pano.userData.y,camera.position.z);if(ROUTE)window.__pano.rotation.y=-at(s+300)[2];}
+  const tg=P(s+80,0,0);sun.target.position.copy(tg);sun.position.copy(tg).addScaledVector(SUN_DIR,400);sun.target.updateMatrixWorld();if(force!==false||Math.abs(s-lastShadowS)>6){renderer.shadowMap.needsUpdate=true;lastShadowS=s;}
   document.getElementById('pos').textContent=s.toFixed(0);}
 const VIEWS=[['出発直後',40],['曲線の手前',150],['曲線の中',300],['区間の終わり',480]];
 const vb=document.getElementById('views');let curS=CFG.camS;
 VIEWS.forEach(([n,s])=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>{curS=s;placeCamera(s);mark();};b.dataset.s=s;vb.appendChild(b);});
 function mark(){vb.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.s)===curS)));}
 placeCamera(curS);mark();
-document.getElementById('sec').textContent=`${CFG.from} → ${CFG.to}（仮想${CFG.sec}m区間・仮設定）`;
+if(!ROUTE)document.getElementById('sec').textContent=`${CFG.from} → ${CFG.to}（仮想${CFG.sec}m区間・仮設定）`;
 document.getElementById('look').textContent={v1:'変更前（look=v1）',v2:'プログラムのみ（v2）',v3:'美術素材版（look=v3）',v4:'美術素材版＋道床・道路・塀・窓（look=v4）',v5:'＋木・外壁・畑の種類、枕木・架線柱・レール（look=v5）',v6:'＋マンションの住戸区画・戸建ての横の壁・汚れ（look=v6）'}[LOOK_ID];
 
 // 第1段階は静止画なので、視点や画面の大きさが変わったときだけ描く。?bench=1 のときは毎フレーム描いて fps を測る
@@ -541,7 +653,10 @@ function draw(){if(RT){renderer.setRenderTarget(RT);renderer.render(scene,camera
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);sizeRT();dirty=true;});
 vb.addEventListener('click',()=>{dirty=true;});
 let fN=0,fT=performance.now();
-renderer.setAnimationLoop(()=>{if(!dirty&&!BENCH)return;dirty=false;draw();window.__ready=true;
+let lastT=performance.now();
+renderer.setAnimationLoop(()=>{const tn=performance.now(),dt=Math.min(0.1,(tn-lastT)/1000);lastT=tn;if(ROUTE&&window.__step&&window.__step(dt))dirty=true;
+  if(!dirty&&!BENCH)return;dirty=false;draw();window.__ready=true;
+  if(ROUTE){fN++;if(tn-fT>1000){document.getElementById('fps').textContent=(fN*1000/(tn-fT)).toFixed(0)+' fps';window.__fps=fN*1000/(tn-fT);fN=0;fT=tn;}return;}
   if(!BENCH){document.getElementById('fps').textContent='（静止画）';return;}
   fN++;const t=performance.now();if(t-fT>1000){document.getElementById('fps').textContent=(fN*1000/(t-fT)).toFixed(0);window.__fps=fN*1000/(t-fT);fN=0;fT=t;}});
 window.__info=()=>({calls:renderer.info.render.calls,tris:renderer.info.render.triangles});

@@ -1,7 +1,26 @@
 {
   "about": "地図のピンから開く場面（コレクション）の一覧。新しい場面を作ったら、ここに1行足すと地図にピンが立つ。st＝ピンを立てる駅（駅の記号）、between＝2駅の間に立てるときの駅の組、dx/dy＝そこからのずれ（地図の座標）、kind＝ピンに書く種類、url＝開くページ",
   "scenes": [
-    { "id": "toge-platform", "title": "峠駅 ホームの場面", "kind": "2.5D", "st": "T", "dx": 22, "dy": -8, "url": "proto/plat25d/" },
-    { "id": "cab-chuo-sakura", "title": "3D運転席（中央→桜町）", "kind": "3D", "between": ["C", "S"], "dx": 0, "dy": -14, "url": "proto/cab3d/?look=v6" }
+    {
+      "id": "toge-platform",
+      "title": "峠駅 ホームの場面",
+      "kind": "2.5D",
+      "st": "T",
+      "dx": 22,
+      "dy": -8,
+      "url": "proto/plat25d/"
+    },
+    {
+      "id": "cab-chuo-sakura",
+      "title": "3D運転席（中央→桜町・走行）",
+      "kind": "3D",
+      "between": [
+        "C",
+        "S"
+      ],
+      "dx": 0,
+      "dy": -14,
+      "url": "proto/cab3d/?route=cs&look=v6"
+    }
   ]
 }
