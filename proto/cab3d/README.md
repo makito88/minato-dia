@@ -61,8 +61,8 @@ URL パラメータ
 - 未使用：戸建ての1階正面（house_front_ground）
 
 ## 車の3Dモデル（look=v6）
-- 駐車場・車庫の車を、Kenney「Car Kit」（CC0）の3Dモデル4種（セダン・小型車・ミニバン風・トラック）で置く。画面左上の「車：…（押すと切り替え）」で、これまでの箱の車と見比べられる。`?car=box` で箱から始まる
-- モデルは assets/models/cab3d/（cars.bin・cars.json・colormap.png・LICENSE.txt）。大きさは日本の車に合わせて伸ばし、車体の色は白・銀・紺に塗り替えた
+- 駐車場・車庫の車のうち、4台に1台くらいを Kenney「Car Kit」（CC0）の3Dモデルの紺の車にする（ほかはこれまでの箱の車）
+- モデルは assets/models/cab3d/（cars.bin・cars.json・colormap.png・LICENSE.txt）。大きさは日本の車に合わせて伸ばし、色は紺に塗り替えた。使っているのは suv-luxury のみ
 - 描いた絵（真横・後ろ）を箱に貼る方法は、斜めから見ると切り貼りに見えるのでやめた
 
 ## 仮設定
