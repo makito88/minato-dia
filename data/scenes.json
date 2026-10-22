@@ -21,6 +21,15 @@
       "dx": 0,
       "dy": -14,
       "url": "proto/cab3d/?route=cs&look=v6"
+    },
+    {
+      "id": "kawabe-ctc",
+      "title": "川辺駅 運転指令盤",
+      "kind": "指令",
+      "st": "K",
+      "dx": 22,
+      "dy": -10,
+      "url": "proto/kawabe/"
     }
   ]
 }
