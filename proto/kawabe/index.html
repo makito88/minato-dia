@@ -76,7 +76,9 @@ g.sig.sel text{text-decoration:underline}
       <span><i style="background:var(--route)"></i>進路ができた（白）</span>
       <span><i style="background:var(--R);opacity:.6;height:8px"></i>列車がいる区間（赤）</span>
       <span><span class="dot" style="background:var(--R)"></span>止まれ <span class="dot" style="background:var(--Y)"></span>注意 <span class="dot" style="background:var(--G)"></span>進め</span>
-      <span><i style="background:var(--sw)"></i>ポイントがつながっている向き（反対側はすき間）　🔒＝動かせない</span>
+      <span><i style="background:var(--sw)"></i>ポイントがつながっている向き（反対側はすき間）　点滅＝転換中　🔒＝鎖錠</span>
+      <span><i style="background:none;border-top:2px dashed var(--route);height:0"></i>進路を作っているところ（点線）</span>
+      <span>▶▶ 単線区間を使っている列車の向き</span>
       <span>信号機やポイント（①〜⑦）を押すと、理由が見られます</span>
     </div>
   </div>
@@ -104,6 +106,8 @@ g.sig.sel text{text-decoration:underline}
       <p>ホームの先に立ち、「駅から出てよいか」を知らせます。発車時刻の少し前に開きます。先の区間に前の列車がいると黄、あいていれば緑。1番線の下りの出発信号には「進路表示機」があり、「港」か「温」（温泉支線）かを文字で知らせます。</p>
       <h4>ポイント（分かれ道）</h4>
       <p>線路の分かれ道です。川辺駅には①〜⑦の7か所あります。ふだんの向きを「定位」、反対を「反位」といいます。指令が進路を作ると、その進路に合わせてポイントが自動で切りかわり、列車の最後尾がそのポイントを通りすぎるまで動かせなくなります（鎖錠）。鎖錠がとけたポイントは、すぐ定位にもどります。指令盤では、つながっている向きを水色の線で、つながっていない側をすき間で見せています。</p>
+      <h4>進路ができるまでの順番</h4>
+      <p>指令が進路を頼むと、①ポイントが数秒かけて切りかわり（指令盤では点滅）、②レールにぴったりくっついたかを電気で確かめ、③連動装置が鎖錠（🔒）します。この3つがすんでから、はじめて信号が開きます。そのあいだ、進路は点線で表示しています。向きが変わっただけでは、まだ信号は開けません。</p>
       <h4>区分進路解錠（くぶん しんろ かいじょう）</h4>
       <p>進路は、列車が全部を通りおわってから一度にとくのではありません。列車の最後尾が分かれ道や交わる所を1つ通りすぎるたびに、そこから順番にとけていきます。だから後ろの列車や、交わる列車の進路を、早く作れます。指令盤の白い線が、列車の後ろから消えていくのがその様子です。</p>
       <h4>合流の順番</h4>
@@ -143,14 +147,16 @@ Object.values(KW.PATHS).forEach(p => mk('path', { d: dstr(p), fill: 'none', stro
 // 方面
 const lab = (x, y, t, anchor = 'start') => { mk('text', { x, y, fill: '#7f98b2', 'font-size': 12, 'text-anchor': anchor }, gStatic).textContent = t; };
 lab(6, 176, '← 緑ヶ丘・中央方面');
-mk('text', { x: 868, y: 271, fill: '#4fd8ff', 'font-size': 10.5, 'text-anchor': 'middle' }, gStatic).textContent = '合流点';
+mk('text', { x: 868, y: 284, fill: '#4fd8ff', 'font-size': 10.5, 'text-anchor': 'middle' }, gStatic).textContent = '合流点';
 mk('text', { x: 898, y: 172, fill: '#7f98b2', 'font-size': 10.5 }, gStatic).textContent = '平面交差';
 lab(994, 300, '新田・港方面 →', 'end');
 lab(994, 40, '森下・温泉方面（単線）↗', 'end');
 lab(6, 320, '下り＝左から右へ（上の2本）　上り＝右から左へ（下の2本）');
 // 単線区間ランプ
-const brOcc = mk('path', { d: 'M780 55L1000 55', stroke: 'var(--R)', 'stroke-width': 9, opacity: 0, 'stroke-linecap': 'round' }, svg);
-const brTxt = mk('text', { x: 830, y: 22, fill: '#9fb6cc', 'font-size': 11.5 }, svg);
+/* 単線区間：色はつけず、白いふちどりの矢印で「使っている列車の向き」を見せる */
+const brArrow = mk('g', {}, svg), brChev = [];
+for (let i = 0; i < 3; i++) brChev.push(mk('path', { fill: 'none', stroke: '#f4f7fb', 'stroke-width': 2.2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, brArrow));
+const brTxt = mk('text', { x: 994, y: 22, fill: '#9fb6cc', 'font-size': 11.5, 'text-anchor': 'end' }, svg);
 
 const gRoute = mk('g', {}, svg), gSw = mk('g', {}, svg), gOcc = mk('g', {}, svg), gTrain = mk('g', {}, svg), gSig = mk('g', {}, svg);
 
@@ -167,6 +173,7 @@ for (const [id, w] of Object.entries(KW.SW)) {
   }
   const [lx, ly] = SWLAB[id];
   el.lab = mk('text', { x: lx, y: ly, fill: 'var(--sw)', 'font-size': 13, 'text-anchor': 'middle', 'font-weight': 700 }, g);
+  el.sub = mk('text', { x: lx, y: ly + 12, fill: '#ffe08a', 'font-size': 9.5, 'text-anchor': 'middle' }, g);
   mk('circle', { cx: w.pt[0], cy: w.pt[1], r: 14, fill: 'transparent' }, g);
   mk('circle', { cx: lx, cy: ly - 4, r: 11, fill: 'transparent' }, g);
   g.addEventListener('click', () => { selSig = id; showTab('sig'); drawInfo(true); });
@@ -175,9 +182,12 @@ for (const [id, w] of Object.entries(KW.SW)) {
 function drawSwitches() {
   for (const id in swEl) {
     const st = KW.swState(id, now), e = swEl[id], off = st.pos === 'N' ? 'R' : 'N';
-    e.on[st.pos].style.display = ''; e.on[off].style.display = 'none';
-    e.gap[off].style.display = ''; e.gap[st.pos].style.display = 'none';
+    const moving = st.phase === 'move' || st.phase === 'back', blink = Math.floor(performance.now() / 220) % 2 === 0;
+    e.on[st.pos].style.display = moving && !blink ? 'none' : ''; e.on[off].style.display = 'none';
+    e.on[st.pos].setAttribute('stroke-dasharray', moving ? '3 3' : 'none');
+    e.gap[off].style.display = ''; e.gap[st.pos].style.display = moving ? '' : 'none';
     e.lab.textContent = KW.SW[id].no + (st.lock ? '🔒' : '');
+    e.sub.textContent = moving ? '転換中' : st.phase === 'check' ? '密着確認' : '';
     e.g.classList.toggle('sel', id === selSig);
   }
 }
@@ -231,7 +241,7 @@ function drawTrains() {
 
 function drawRoutes() {
   gRoute.innerHTML = '';
-  KW.routeLines(now).forEach(p => mk('path', { d: dstr(p), fill: 'none', stroke: 'var(--route)', 'stroke-width': 4, opacity: .85, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, gRoute));
+  KW.routeLines(now).forEach(q => mk('path', { d: dstr(q.p), fill: 'none', stroke: 'var(--route)', 'stroke-width': q.prep ? 3 : 4, opacity: q.prep ? .55 : .85, 'stroke-dasharray': q.prep ? '7 6' : 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, gRoute));
 }
 
 function drawSignals() {
@@ -242,8 +252,14 @@ function drawSignals() {
     if (e.ind) e.ind.textContent = a.a !== 'R' && a.ind ? a.ind : '';
   }
   const b = KW.branchUse(now);
-  brOcc.setAttribute('opacity', b ? .55 : 0);
-  brTxt.textContent = b ? `単線区間 使用中：${b.name}` : '単線区間：あき';
+  brArrow.style.display = b ? '' : 'none';
+  if (b) {
+    const right = b.down, step = Math.floor(performance.now() / 300) % 3;
+    brChev.forEach((c, i) => { const x = 940 + i * 12, k = right ? 1 : -1;
+      c.setAttribute('d', `M${x - 4 * k} 48L${x + 4 * k} 55L${x - 4 * k} 62`);
+      c.setAttribute('opacity', (right ? i : 2 - i) === step ? 1 : .35); });
+  }
+  brTxt.textContent = b ? `単線区間（川辺〜森下） 使用中 ${b.down ? '▶ 森下へ' : '◀ 川辺へ'}：${b.name}` : '単線区間（川辺〜森下）：あき';
 }
 
 /* ---------- 下のタブ ---------- */
@@ -257,7 +273,7 @@ function trackLines() {
     const nx = on.find(t => t.arr > now);
     const tag = t => `<span class="tag" style="background:${t.ty.color}">${t.ty.name}</span>${t.label.split(' ')[1]} ${t.dest}行`;
     let html;
-    if (st) html = `${tag(st)} <b>停車中</b><div class="st">発車 ${KW.clock(st.dep)}（あと ${mmss(st.dep - now)}）${st.wait ? '・' + st.wait : ''}${st.held && now >= st.held.plan - 0.3 ? `<br><span style="color:#ffd77a">⏸ ${st.held.why === 'route' ? st.held.by.name + ' の進路と交わるので待っています' : '前の列車が先の区間を出るのを待っています'}</span>` : ''}</div>`;
+    if (st) html = `${tag(st)} <b>停車中</b><div class="st">発車 ${KW.clock(st.dep)}（あと ${mmss(st.dep - now)}）${st.wait ? '・' + st.wait : ''}${st.held && now >= st.held.plan - KW.RD_LEAD ? `<br><span style="color:#ffd77a">⏸ ${st.held.why === 'route' ? st.held.by.name + ' の進路と交わるので待っています' : '前の列車が先の区間を出るのを待っています'}</span>` : ''}</div>`;
     else if (inn) html = `${tag(inn)} 到着するところ<div class="st">${KW.clock(inn.arr)} 着${inn.heldIn && now < inn.heldIn.go ? `<br><span style="color:#ffd77a">⏸ ${inn.heldIn.by.down ? '下りの ' + inn.heldIn.by.name + ' が平面交差を通りすぎるまで' : inn.heldIn.by.name + ' が先に⑦の合流点を通るので'}、場内信号の手前で待っています</span>` : ''}</div>`;
     else if (outg) html = `${tag(outg)} 発車したところ`;
     else html = `<span style="color:var(--sub)">あき</span><div class="st">つぎ：${nx ? `${nx.name}　${KW.clock(nx.arr)} 着（あと ${mmss(nx.arr - now)}）` : 'なし'}</div>`;
@@ -319,14 +335,23 @@ const ROLE = {
   block: '駅の外の線路を区切る信号です。この信号から場内信号までが1つの区間です。',
   blockOut: '駅を出た先の線路を区切る信号です。この先の区間（画面の外）に前の列車がいるかを見ています。',
 };
+function prepText(t, r) {
+  const sw = KW.routeSw(r), mv = sw.filter(x => x.pos === 'R'), dt = now - r.set;
+  const step = dt < KW.T_MOVE && mv.length ? 1 : dt < KW.T_MOVE + KW.T_CHECK ? 2 : 3;
+  const names = sw.map(x => KW.SW[x.id].no).join('');
+  const st = ['', mv.length ? `① ポイント${mv.map(x => KW.SW[x.id].no).join('')}をななめに切りかえる` : '① 切りかえるポイントはなし（定位のまま使う）', `② ポイント${names}がレールにぴったりくっついたか、電気で確かめる`, `③ ポイント${names}を鎖錠（🔒）する`];
+  return `赤のまま。いま ${t.name} の進路を作っているところです。<br>${[1, 2, 3].map(i => `<span style="opacity:${i === step ? 1 : .45}">${i === step ? '▶ ' : '　'}${st[i]}</span>`).join('<br>')}<br>この3つがすんでから、信号が開きます。`;
+}
 function reason(id) {
   const s = KW.SIG[id], A = KW.aspect(id, now), a = A.a, T = KW.trains;
   if (s.kind === 'home') {
     if (a === 'Y') return `${A.t.name} を ${A.t.tr}番線へ入れる進路ができました。川辺駅に止まる列車なので黄（注意）。運転士はスピードを落とし、ホームの止まる位置で止めます。`;
+    const pa = T.find(t => t.ra.sig === id && t.ra.set <= now && now < t.ra.open);
+    if (pa) return prepText(pa, pa.ra);
     const wt = T.find(t => t.ra.sig === id && t.heldIn && t.heldIn.at - 0.3 <= now && now < t.heldIn.go);
     if (wt) return wt.heldIn.by.down
       ? `赤のまま。下りの ${wt.heldIn.by.name} が平面交差を通っているので、${wt.name} を入れる進路はまだ作れません。${wt.name} はこの信号の手前で止まって待っています。`
-      : `赤のまま。${wt.heldIn.by.name} が先に⑦の合流点を通っているので、${wt.name} を入れる進路はまだ作れません。${wt.name} はこの信号の手前で止まって待ち、${wt.heldIn.by.name} が⑦と⑤を通りすぎたら（${KW.clock(wt.ra.set)}ごろ）黄になります。`;
+      : `赤のまま。${wt.heldIn.by.name} が先に⑦の合流点を通っているので、${wt.name} を入れる進路はまだ作れません。${wt.name} はこの信号の手前で止まって待ち、${wt.heldIn.by.name} が⑦と⑤を通りすぎたら（${KW.clock(wt.ra.open)}ごろ）黄になります。`;
     const past = T.filter(t => t.ra.sig === id && t.ra.pass <= now && now - t.ra.pass < 1).pop();
     if (past) return `${past.name} が通りすぎたので、すぐ赤にもどりました。後ろから別の列車がまちがって入らないためです。`;
     const nx = T.find(t => t.ra.sig === id && t.ra.set > now);
@@ -340,8 +365,10 @@ function reason(id) {
       return a === 'G' ? `${t.name} が出る進路ができました。この先の区間があいているので緑。${A.ind ? '進路表示機は「港」。' : ''}` :
         `${t.name} が出る進路ができましたが、前を走る ${nx.t ? nx.t.name : '列車'} がまだ1つ先の区間にいるので黄。スピードをおさえて走ります。${A.ind ? '進路表示機は「港」。' : ''}`;
     }
+    const pr = T.find(t => t.rd.sig === id && t.rd.set <= now && now < t.rd.open);
+    if (pr) return prepText(pr, pr.rd);
     const st = T.find(t => t.rd.sig === id && t.arr <= now && now < t.rd.set);
-    if (st && st.held && now >= st.held.plan - 0.3) return st.held.why === 'route'
+    if (st && st.held && now >= st.held.plan - KW.RD_LEAD) return st.held.why === 'route'
       ? `${st.name} は、予定では ${KW.clock(st.held.plan)} に出るはずでした。でも ${st.held.by.name} が先に進路を作り、交わる分かれ道を通っているので、ぶつからないように赤のままです。${st.held.by.name} が分かれ道を通りすぎて進路が解けたら開きます（${KW.clock(st.rd.set)}ごろ）。`
       : `前を走る ${st.held.by.name} がまだ1つ先の区間にいるので、赤のまま待っています。`;
     if (st) return `${st.name} が ${st.tr}番線に止まっています。発車 ${KW.clock(st.dep)} の少し前に開きます。${st.wait ? '（' + st.wait + '）' : ''}`;
@@ -365,11 +392,15 @@ const NAMES = { R: '赤（止まれ）', Y: '黄（注意）', G: '緑（進め�
 function swInfo(id) {
   const w = KW.SW[id], st = KW.swState(id, now);
   const pos = st.pos === 'N' ? '定位（まっすぐ）' : '反位（ななめ）';
+  const posTxt = st.phase === 'move' ? '反位（ななめ）へ切りかえ中' : st.phase === 'back' ? '定位（まっすぐ）へもどし中' : st.phase === 'check' ? pos + '・密着を確認中' : pos;
   let why;
-  if (st.lock) why = `${st.t.name} の進路を作ったので、この向きにして鎖錠しました。${st.t.name} の最後尾がこのポイントを通りすぎるまで動かせません（まちがって切りかえて脱線しないため）。通りすぎたら、すぐに鎖錠がとけます。`;
+  if (st.phase === 'move') why = `${st.t.name} の進路のために、いま切りかえています（数秒かかります）。終わるまで、信号は開けません。`;
+  else if (st.phase === 'back') why = `${st.t.name} が通りすぎて鎖錠がとけたので、いま定位（まっすぐ）へもどしています。`;
+  else if (st.phase === 'check') why = `${st.t.name} の進路のために、この向きでレールにぴったりくっついたかを確かめています。確かめたら鎖錠します。`;
+  else if (st.lock) why = `${st.t.name} の進路を作ったので、この向きにして鎖錠しました。${st.t.name} の最後尾がこのポイントを通りすぎるまで動かせません（まちがって切りかえて脱線しないため）。通りすぎたら、すぐに鎖錠がとけます。`;
   else if (st.back !== null && st.back !== undefined && now - st.back < 3) why = `${st.t.name} が通りすぎて鎖錠がとけたので、${KW.clock(st.back)} に定位（まっすぐ）へもどしました。使い終わったポイントは定位にもどすきまりです。`;
   else why = 'いまは使っていないので、定位（まっすぐ）で待っています。次の列車の進路を作るときに、必要なら反位（ななめ）に切りかえます。';
-  $('sigcard').innerHTML = `<div class="big"><span style="color:var(--sw)">${w.no}</span> ポイント${w.no}：いま ${pos}${st.lock ? ' 🔒' : ''}</div><p style="margin:6px 0 4px">${w.txt[st.pos]}の向きです。${why}</p><p class="note" style="margin:0">まっすぐ＝${w.txt.N}／ななめ＝${w.txt.R}</p>`;
+  $('sigcard').innerHTML = `<div class="big"><span style="color:var(--sw)">${w.no}</span> ポイント${w.no}：いま ${posTxt}${st.lock ? ' 🔒' : ''}</div><p style="margin:6px 0 4px">${w.txt[st.pos]}の向きです。${why}</p><p class="note" style="margin:0">まっすぐ＝${w.txt.N}／ななめ＝${w.txt.R}</p>`;
 }
 function drawInfo(force) {
   if (!force && $('p-sig').hidden) return;
