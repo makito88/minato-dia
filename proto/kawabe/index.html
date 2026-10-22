@@ -104,6 +104,8 @@ g.sig.sel text{text-decoration:underline}
       <p>ホームの先に立ち、「駅から出てよいか」を知らせます。発車時刻の少し前に開きます。先の区間に前の列車がいると黄、あいていれば緑。1番線の下りの出発信号には「進路表示機」があり、「港」か「温」（温泉支線）かを文字で知らせます。</p>
       <h4>ポイント（分かれ道）</h4>
       <p>線路の分かれ道です。川辺駅には①〜⑦の7か所あります。ふだんの向きを「定位」、反対を「反位」といいます。指令が進路を作ると、その進路に合わせてポイントが自動で切りかわり、列車が通りおわるまで動かせなくなります（鎖錠）。指令盤では、つながっている向きを水色の線で、つながっていない側をすき間で見せています。</p>
+      <h4>合流の順番</h4>
+      <p>温泉支線（森下）から来た上り列車は、③の合流点で、港から来た上り列車と同じ線路に入ります。2本が同時に③へ向かうとぶつかるので、先に進路を作った列車だけを通し、もう1本は出発信号を赤のままにして待たせます。前の列車が③を通りすぎて進路が解けると、待っていた列車の進路が作られ、後ろについて出発します。7:15ごろの観光特急と快速で見られます。</p>
       <h4>進路と連動（れんどう）</h4>
       <p>分かれ道と信号はつながっていて、交わる進路は同時には作れません。たとえば温泉から来た上り列車が1番線を出て下りの線路をななめに横切るあいだ、下りの場内信号は赤のままです。横切りおわってから、次の下り列車の進路が作られます。</p>
       <h4>単線区間</h4>
@@ -139,6 +141,7 @@ Object.values(KW.PATHS).forEach(p => mk('path', { d: dstr(p), fill: 'none', stro
 // 方面
 const lab = (x, y, t, anchor = 'start') => { mk('text', { x, y, fill: '#7f98b2', 'font-size': 12, 'text-anchor': anchor }, gStatic).textContent = t; };
 lab(6, 176, '← 緑ヶ丘・中央方面');
+mk('text', { x: 152, y: 270, fill: '#4fd8ff', 'font-size': 10.5 }, gStatic).textContent = '合流点';
 lab(994, 214, '新田・港方面 →', 'end');
 lab(994, 40, '森下・温泉方面（単線）↗', 'end');
 lab(6, 320, '下り＝左から右へ（上の2本）　上り＝右から左へ（下の2本）');
@@ -250,7 +253,7 @@ function trackLines() {
     const nx = on.find(t => t.arr > now);
     const tag = t => `<span class="tag" style="background:${t.ty.color}">${t.ty.name}</span>${t.label.split(' ')[1]} ${t.dest}行`;
     let html;
-    if (st) html = `${tag(st)} <b>停車中</b><div class="st">発車 ${KW.clock(st.dep)}（あと ${mmss(st.dep - now)}）${st.wait ? '・' + st.wait : ''}</div>`;
+    if (st) html = `${tag(st)} <b>停車中</b><div class="st">発車 ${KW.clock(st.dep)}（あと ${mmss(st.dep - now)}）${st.wait ? '・' + st.wait : ''}${st.held && now >= st.held.plan - 0.3 ? `<br><span style="color:#ffd77a">⏸ ${st.held.why === 'merge' ? st.held.by.name + ' が先に③で合流するのを待っています' : '前の列車が先の区間を出るのを待っています'}</span>` : ''}</div>`;
     else if (inn) html = `${tag(inn)} 到着するところ<div class="st">${KW.clock(inn.arr)} 着</div>`;
     else if (outg) html = `${tag(outg)} 発車したところ`;
     else html = `<span style="color:var(--sub)">あき</span><div class="st">つぎ：${nx ? `${nx.name}　${KW.clock(nx.arr)} 着（あと ${mmss(nx.arr - now)}）` : 'なし'}</div>`;
@@ -300,7 +303,8 @@ function drawTable() {
   const ms = m => `${String(Math.floor(m)).padStart(2, '0')}分${String(Math.round((m % 1) * 60)).padStart(2, '0')}秒`;
   const from = p => p.ent === 'W' ? '中央方面' : p.ent === 'E' ? '港方面' : '温泉支線';
   const rows = [...KW.PAT].sort((a, b) => a.arr - b.arr).map(p => { const ty = KW.TYPES[p.type];
-    return `<tr><td class="m">${ms(p.arr)}</td><td class="m">${ms(p.dep)}</td><td>${p.tr}番線</td><td><span class="tag" style="background:${ty.color}">${ty.name}</span></td><td>${p.dest}行</td><td>${from(p)}から</td><td style="color:#b9c9d8">${p.note || ''}</td></tr>`; }).join('');
+    const real = KW.trains.find(t => t.k === p.k && t.c === 0), late = real.held ? `<br><span style="color:#ffd77a">→ ${ms(real.dep)}（${real.held.why === 'merge' ? '合流待ち' : '前の列車待ち'}）</span>` : '';
+    return `<tr><td class="m">${ms(p.arr)}</td><td class="m">${ms(p.dep)}${late}</td><td>${p.tr}番線</td><td><span class="tag" style="background:${ty.color}">${ty.name}</span></td><td>${p.dest}行</td><td>${from(p)}から</td><td style="color:#b9c9d8">${p.note || ''}</td></tr>`; }).join('');
   $('tt').innerHTML = `<p class="note" style="margin-top:0">毎時、下の時刻と、その30分後に同じ列車が来ます（例：01分00秒 → 7:01、7:31、8:01…）。</p><table><tr><th>着</th><th>発</th><th>番線</th><th>種別</th><th>行先</th><th>来る方向</th><th>メモ</th></tr>${rows}</table>`;
 }
 
@@ -329,6 +333,9 @@ function reason(id) {
         `${t.name} が出る進路ができましたが、前を走る ${nx.t ? nx.t.name : '列車'} がまだ1つ先の区間にいるので黄。スピードをおさえて走ります。${A.ind ? '進路表示機は「港」。' : ''}`;
     }
     const st = T.find(t => t.rd.sig === id && t.arr <= now && now < t.rd.set);
+    if (st && st.held && now >= st.held.plan - 0.3) return st.held.why === 'merge'
+      ? `${st.name} は、予定では ${KW.clock(st.held.plan)} に出るはずでした。でも ${st.held.by.name} が先に進路を作り、③の合流点を通っているので、ぶつからないように赤のままです。${st.held.by.name} が③を通りすぎて進路が解けたら開きます（${KW.clock(st.rd.set)}ごろ）。`
+      : `前を走る ${st.held.by.name} がまだ1つ先の区間にいるので、赤のまま待っています。`;
     if (st) return `${st.name} が ${st.tr}番線に止まっています。発車 ${KW.clock(st.dep)} の少し前に開きます。${st.wait ? '（' + st.wait + '）' : ''}`;
     const past = T.filter(t => t.rd.sig === id && t.rd.pass <= now && now - t.rd.pass < 1.2).pop();
     if (past) return `${past.name} が出ていったので、赤にもどりました。`;

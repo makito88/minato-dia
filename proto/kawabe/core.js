@@ -6,7 +6,7 @@
 const KW = (() => {
   const CYCLE = 30, TA = 1.5, TB = 1.3, BASE = 7 * 60;
   const BRANCH_RUN = 4;          // 川辺→森下の走る時間（分）
-  const OUT_R = 2.5, OUT_Y = 5;  // 駅を出た列車が、外の閉塞区間を通りぬけるまでの目安（分）
+  const OUT_R = 1.2, OUT_Y = 2.6;  // 駅を出た列車が、外の閉塞区間（1つ先・2つ先）を通りぬけるまでの目安（分）
 
   const TYPES = {
     L: { name: '普通', color: '#a9b8c7', len: 150 },
@@ -64,8 +64,8 @@ const KW = (() => {
     { k: 'D6', type: 'R', dest: '港', ent: 'W', tr: 2, ex: 'E', arr: 25.0, dep: 25.5 },
     { k: 'U1', type: 'L', dest: '中央', ent: 'E', tr: 4, ex: 'W', arr: 3.0, dep: 8.0, wait: '特急の追い越し待ち', note: '4番線で特急に追い越してもらいます。同じホームの3番線に来る特急へ乗り換えできます。' },
     { k: 'U2', type: 'E', dest: '中央', ent: 'E', tr: 3, ex: 'W', arr: 5.5, dep: 6.5, note: '4番線で待っている普通を追い越します。' },
-    { k: 'UB', type: 'X', dest: '中央', from: '温泉', ent: 'B', tr: 1, ex: 'W', arr: 14.0, dep: 15.0, note: '温泉支線から来た列車です。発車すると、下りの線路（2番線の先）をななめに横切って、上りの線路へ移ります。横切るあいだ、下りの場内信号は赤のままです。' },
-    { k: 'U3', type: 'R', dest: '中央', ent: 'E', tr: 3, ex: 'W', arr: 17.0, dep: 17.5 },
+    { k: 'UB', type: 'X', dest: '中央', from: '温泉', ent: 'B', tr: 1, ex: 'W', arr: 14.0, dep: 15.0, merge: true, note: '温泉支線（森下）から来た列車です。発車すると、下りの線路をななめに横切り、③の合流点で上りの線路に入ります。横切るあいだ下りの場内信号は赤、合流するあいだ3番線・4番線の出発信号は赤のままです。' },
+    { k: 'U3', type: 'R', dest: '中央', ent: 'E', tr: 3, ex: 'W', arr: 14.6, dep: 15.2, merge: true, note: '温泉支線（森下）から来た観光特急と、③の合流点を取り合います。観光特急が先に進路を作ったので、快速は3番線で出発信号が赤のまま待ち、観光特急が③を通りすぎてから、後ろについて出発します。' },
     { k: 'U4', type: 'L', dest: '中央', ent: 'E', tr: 3, ex: 'W', arr: 24.0, dep: 24.5 },
   ];
 
@@ -118,9 +118,9 @@ const KW = (() => {
       const hs = HOME_OF[p.ent], dh = sAt(ap, SIG[hs].pt), relA = sAt(ap, REL[ak]);
       t.ra = { sig: hs, s0: dh, s1: relA, key: ak, set: t.headA(dh) - 0.8, pass: t.headA(dh), rel: t.tailA(relA) };
       const ss = START_OF[dk], dd = sAt(dp, SIG[ss].pt), relD = sAt(dp, REL[dk]);
-      t.rd = { sig: ss, s0: 0, s1: relD, key: dk, set: t.dep - 0.3, pass: t.headD(dd), rel: t.tailD(relD) };
+      t.rd = { sig: ss, s0: 0, s1: relD, key: dk, dd, set: t.dep - 0.3, pass: t.headD(dd), rel: t.tailD(relD) };
       if (OUTER_IN[p.ent]) { const d = sAt(ap, SIG[OUTER_IN[p.ent]].pt); t.oin = { sig: OUTER_IN[p.ent], head: t.headA(d), tail: t.tailA(d) }; }
-      if (OUTER_OUT[p.ex]) { const d = sAt(dp, SIG[OUTER_OUT[p.ex]].pt); t.oout = { sig: OUTER_OUT[p.ex], head: t.headD(d), tail: t.tailD(d) }; }
+      if (OUTER_OUT[p.ex]) { const d = sAt(dp, SIG[OUTER_OUT[p.ex]].pt); t.oout = { sig: OUTER_OUT[p.ex], d, head: t.headD(d), tail: t.tailD(d) }; }
       if (p.ex === 'B') t.br = [t.dep, t.dep + BRANCH_RUN];
       if (p.ent === 'B') t.br = [t.arr - TA - BRANCH_RUN + 0.5, t.tailA(sAt(ap, SIG.BH.pt))];
       trains.push(t);
@@ -214,6 +214,8 @@ const KW = (() => {
       const a = trains[i], b = trains[j]; if (a === b || a.tr !== b.tr) continue;
       if (a.ra.set > b.arr - 0.01 && a.ra.set < b.rd.rel) probs.push(`番線に先客 ${a.id}→${a.tr}番線 ${a.ra.set.toFixed(2)} に ${b.id}`);
     }
+    const oo = trains.filter(t => t.oout).sort((a, b) => a.oout.head - b.oout.head);
+    for (let i = 1; i < oo.length; i++) { const t = oo[i], o = oo.slice(0, i).reverse().find(x => x.oout.sig === t.oout.sig); if (o && t.oout.head < o.oout.tail + OUT_R) probs.push(`赤の閉塞へ ${o.id}→${t.id}`); }
     const br = trains.filter(t => t.br);
     for (let i = 0; i < br.length; i++) for (let j = i + 1; j < br.length; j++) { const a = br[i], b = br[j]; if (a.br[0] < b.br[1] && b.br[0] < a.br[1]) probs.push(`単線で重なる ${a.id} ${b.id}`); }
     ['DH', 'UH', 'BH'].forEach(h => { trains.filter(t => t.ra.sig === h).forEach(t => { const pr = trains.find(o => o !== t && o.ra.sig === h && o.ra.pass < t.ra.pass && t.oin && t.oin.head < o.tailA(o.ra.s0)); if (pr) probs.push(`近すぎる ${pr.id}→${t.id}`); }); });
@@ -221,6 +223,37 @@ const KW = (() => {
   }
 
 
+
+  /* ---- 合流の順番 ----
+     交わる進路は、先に進路を頼んだ列車から通す。後の列車は出発信号が赤のまま待つ。
+     駅の外の区間も、前の列車が1つ先の区間を出るまで、出発信号を開けない */
+  (function hold() {
+    const reqs = [];
+    trains.forEach(t => { reqs.push([t.ra, t]); reqs.push([t.rd, t]); });
+    reqs.sort((a, b) => a[0].set - b[0].set);
+    const done = [];
+    for (const [r, t] of reqs) {
+      if (r === t.rd) {
+        const plan = r.set; let need = plan, by = null, why = null, moved = true;
+        while (moved) {
+          moved = false;
+          for (const [q, o] of done) if (o !== t && q.rel > need + 1e-6 && conflict(r, t, q, o)) { need = q.rel; by = o; why = 'merge'; moved = true; }
+          if (t.oout) for (const [q, o] of done) if (q === o.rd && o.oout && o.oout.sig === t.oout.sig && o.oout.head < need + 3) {
+            const ok = o.oout.tail + OUT_R - (t.oout.head - r.set) + 0.15;
+            if (ok > need + 1e-6) { need = ok; if (!by) { by = o; why = 'block'; } moved = true; }
+          }
+        }
+        if (need > plan + 0.01) {
+          const d = need - plan;
+          t.dep += d; t.t1 = t.dep + TB; r.set = need; r.pass = t.headD(r.dd); r.rel = t.tailD(r.s1);
+          if (t.oout) { t.oout.head = t.headD(t.oout.d); t.oout.tail = t.tailD(t.oout.d); }
+          if (t.ex === 'B') t.br = [t.dep, t.dep + BRANCH_RUN];
+          if (d > 0.15) t.held = { by, why, min: d, plan: t.dep - d };
+        }
+      }
+      done.push([r, t]);
+    }
+  })();
   /* ---- ポイント（分かれ道）----
      legs：N＝定位（まっすぐ）、R＝反位（ななめ）。向きは分かれ道から見た先の点
      use：その進路がこのポイントをどちらで通るか */
@@ -253,6 +286,7 @@ const KW = (() => {
   for (const t of trains) {
     events.push({ t: t.ra.set, k: 'route', tr: t, txt: `${SIG[t.ra.sig].name}：${t.name} を ${t.tr}番線へ入れる進路ができ、黄になりました${after(t.ra, t)}` });
     events.push({ t: t.arr, k: 'arr', tr: t, txt: `${t.name} が ${t.tr}番線に着きました${t.wait ? '（' + t.wait + '）' : ''}` });
+    if (t.held) events.push({ t: t.held.plan - 0.3, k: 'hold', tr: t, txt: t.held.why === 'merge' ? `${t.name} は、${t.held.by.name} が先に合流するので、${t.tr}番線で待ちます（出発信号は赤のまま。予定より約${Math.round(t.held.min * 60)}秒おくれ）` : `${t.name} は、前を走る ${t.held.by.name} がまだ1つ先の区間にいるので、${t.tr}番線で待ちます` });
     events.push({ t: t.rd.set, k: 'route', tr: t, txt: `${t.tr}番線の出発信号が開きました（${t.name}）${after(t.rd, t)}` });
     events.push({ t: t.dep, k: 'dep', tr: t, txt: `${t.name} が ${t.tr}番線を出ました` });
     if (t.ex === 'B') events.push({ t: t.dep + 0.6, k: 'branch', tr: t, txt: `${t.name} が単線区間（川辺〜森下）に入りました。森下に着くまで、反対からの列車は入れません` });
