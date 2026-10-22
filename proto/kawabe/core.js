@@ -124,9 +124,9 @@ const KW = (() => {
       t.label = `${ty.name} ${no > 0 ? no : no + 2000}`;
       t.name = `${t.label} ${p.dest}行`;
       const hs = HOME_OF[p.ent], dh = sAt(ap, SIG[hs].pt), relA = sAt(ap, REL[ak]);
-      t.ra = { sig: hs, s0: dh, s1: relA, key: ak, set: t.headA(dh) - 0.8, pass: t.headA(dh), rel: t.tailA(relA) };
+      t.ra = { sig: hs, s0: dh, s1: relA, key: ak, set: t.headA(dh) - 0.8, pass: t.headA(dh), rel: t.tailA(relA), tr: t, ph: 'a' };
       const ss = START_OF[dk], dd = sAt(dp, SIG[ss].pt), relD = sAt(dp, REL[dk]);
-      t.rd = { sig: ss, s0: 0, s1: relD, key: dk, dd, set: t.dep - 0.3, pass: t.headD(dd), rel: t.tailD(relD) };
+      t.rd = { sig: ss, s0: 0, s1: relD, key: dk, dd, set: t.dep - 0.3, pass: t.headD(dd), rel: t.tailD(relD), tr: t, ph: 'd' };
       if (OUTER_IN[p.ent]) { const d = sAt(ap, SIG[OUTER_IN[p.ent]].pt); t.oin = { sig: OUTER_IN[p.ent], d, head: t.headA(d), tail: t.tailA(d) }; }
       if (OUTER_OUT[p.ex]) { const d = sAt(dp, SIG[OUTER_OUT[p.ex]].pt); t.oout = { sig: OUTER_OUT[p.ex], d, head: t.headD(d), tail: t.tailD(d) }; }
       if (p.ex === 'B') t.br = [t.dep, t.dep + BRANCH_RUN];
@@ -212,12 +212,24 @@ const KW = (() => {
     }
     return conflictCache[k];
   }
+  /* 区分解錠：q の列車の最後尾が、r と交わる所のいちばん先を通りすぎた時刻 */
+  const tailAt = (q, d) => q.ph === 'a' ? q.tr.tailA(d) : q.tr.tailD(d);
+  const lastCache = {};
+  function secRel(q, r) {
+    const k = q.key + '>' + r.key;
+    if (!(k in lastCache)) {
+      const P = PATHS[q.key], B = samples(PATHS[r.key], r.s0, r.s1); let m = null;
+      for (let d = q.s0; d <= q.s1; d += 2) { const a = ptAt(P, d); if (B.some(b => Math.hypot(a[0] - b[0], a[1] - b[1]) < 3)) m = d; }
+      lastCache[k] = m;
+    }
+    return lastCache[k] === null ? -Infinity : tailAt(q, lastCache[k] + 8);
+  }
   function check() {
     const probs = [];
     const R = []; trains.forEach(t => { R.push([t.ra, t]); R.push([t.rd, t]); });
     for (let i = 0; i < R.length; i++) for (let j = i + 1; j < R.length; j++) {
       const [a, ta] = R[i], [b, tb] = R[j]; if (ta === tb) continue;
-      if (a.set < b.rel && b.set < a.rel && conflict(a, ta, b, tb)) probs.push(`進路が重なる ${ta.id}(${a.key}) ${tb.id}(${b.key}) ${a.set.toFixed(2)}-${a.rel.toFixed(2)} / ${b.set.toFixed(2)}-${b.rel.toFixed(2)}`);
+      if (conflict(a, ta, b, tb) && a.set < secRel(b, a) && b.set < secRel(a, b)) probs.push(`進路が重なる ${ta.id}(${a.key}) ${tb.id}(${b.key}) ${a.set.toFixed(2)}-${a.rel.toFixed(2)} / ${b.set.toFixed(2)}-${b.rel.toFixed(2)}`);
     }
     for (let i = 0; i < trains.length; i++) for (let j = 0; j < trains.length; j++) {
       const a = trains[i], b = trains[j]; if (a === b || a.tr !== b.tr) continue;
@@ -240,7 +252,7 @@ const KW = (() => {
     const pending = []; trains.forEach(t => { pending.push([t.ra, t]); pending.push([t.rd, t]); });
     const done = [];
     const blockers = (r, t, need) => { let by = null;
-      for (const [q, o] of done) if (o !== t && q.rel > need + 1e-6 && conflict(r, t, q, o)) { need = q.rel; by = o; }
+      for (const [q, o] of done) if (o !== t && conflict(r, t, q, o)) { const rl = secRel(q, r); if (rl > need + 1e-6) { need = rl; by = o; } }
       return [need, by]; };
     while (pending.length) {
       let bi = 0; for (let i = 1; i < pending.length; i++) if (pending[i][0].set < pending[bi][0].set) bi = i;
@@ -291,19 +303,31 @@ const KW = (() => {
   };
 
   /* いまの向き：いちばん最近に作られた進路の向き。進路があるあいだは鎖錠（動かせない） */
-  function swState(id, now) {
-    const sw = SW[id]; let best = null;
-    for (const t of trains) for (const r of [t.ra, t.rd]) {
-      const pos = sw.use[r.key]; if (!pos || r.set > now) continue;
-      if (!best || r.set > best.r.set) best = { r, t, pos };
-    }
-    if (!best) return { pos: 'N', lock: false, t: null };
-    return { pos: best.pos, lock: now < best.r.rel, t: best.t, r: best.r };
+  /* いまの向き：進路が作られてから、列車の最後尾がこのポイントを通りすぎるまで鎖錠。
+     鎖錠がとけたら定位（まっすぐ）にもどす */
+  const swRelCache = new Map();
+  function swRel(id, r) {
+    const k = id + r.key + r.ph; let d = swRelCache.get(k);
+    if (d === undefined) { d = sAt(PATHS[r.key], SW[id].pt); swRelCache.set(k, d); }
+    return tailAt(r, d + 8);
   }
+  function swState(id, now) {
+    const sw = SW[id]; let cur = null, last = null;
+    for (const t of trains) { if (t.t1 < now - 3 || t.t0 > now + 5) continue;
+      for (const r of [t.ra, t.rd]) {
+        const pos = sw.use[r.key]; if (!pos || r.set > now) continue;
+        const rel = swRel(id, r);
+        if (now < rel) { if (!cur || r.set > cur.r.set) cur = { r, t, pos, rel }; }
+        else if (!last || rel > last.rel) last = { r, t, pos, rel };
+      } }
+    if (cur) return { pos: cur.pos, lock: true, t: cur.t, r: cur.r, rel: cur.rel };
+    return { pos: 'N', lock: false, t: last ? last.t : null, back: last && last.pos === 'R' ? last.rel : null };
+  }
+
   /* ---- 出来事の一覧 ---- */
   /* 交わる進路を使っていた列車が通りすぎた直後なら、そのことを書く */
   function after(r, t) {
-    for (const o of trains) for (const q of [o.ra, o.rd]) if (o !== t && q.rel <= r.set && q.rel > r.set - 0.7 && conflict(r, t, q, o)) return `。${o.name} が分かれ道を通りすぎるのを待っていました`;
+    for (const o of trains) for (const q of [o.ra, o.rd]) if (o !== t && conflict(r, t, q, o) && secRel(q, r) <= r.set + 1e-6 && secRel(q, r) > r.set - 0.7) return `。${o.name} が分かれ道を通りすぎるのを待っていました`;
     return '';
   }
   const events = [];
