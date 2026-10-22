@@ -220,6 +220,29 @@ const KW = (() => {
     return probs;
   }
 
+
+  /* ---- ポイント（分かれ道）----
+     legs：N＝定位（まっすぐ）、R＝反位（ななめ）。向きは分かれ道から見た先の点
+     use：その進路がこのポイントをどちらで通るか */
+  const SW = {
+    P1: { no: '①', pt: [240, 150], legs: { N: [300, 150], R: [300, 100] }, use: { W1: 'R', '1W': 'R', W2: 'N' }, txt: { N: '2番線へまっすぐ', R: '1番線へ（ななめ）' } },
+    P2: { no: '②', pt: [200, 150], legs: { N: [140, 150], R: [140, 230] }, use: { '1W': 'R', W1: 'N', W2: 'N' }, txt: { N: '下りの線路のまま', R: '上りの線路へ渡る（ななめ）' } },
+    P3: { no: '③', pt: [140, 230], legs: { N: [200, 230], R: [200, 150] }, use: { '1W': 'R', '3W': 'N', '4W': 'N' }, txt: { N: '上りの線路のまま', R: '下りの線路から渡ってくる（ななめ）' } },
+    P4: { no: '④', pt: [250, 230], legs: { N: [300, 230], R: [300, 280] }, use: { '4W': 'R', '3W': 'N' }, txt: { N: '3番線からまっすぐ', R: '4番線から（ななめ）' } },
+    P5: { no: '⑤', pt: [700, 100], legs: { N: [760, 150], R: [780, 55] }, use: { '1E': 'N', '1B': 'R', B1: 'R' }, txt: { N: '1番線から本線（港方面）へ', R: '1番線と温泉支線をつなぐ' } },
+    P6: { no: '⑥', pt: [760, 150], legs: { N: [700, 150], R: [700, 100] }, use: { '2E': 'N', '1E': 'R' }, txt: { N: '2番線からまっすぐ', R: '1番線から（ななめ）' } },
+    P7: { no: '⑦', pt: [760, 230], legs: { N: [700, 230], R: [700, 280] }, use: { E3: 'N', E4: 'R' }, txt: { N: '3番線へまっすぐ', R: '4番線へ（ななめ）' } },
+  };
+  /* いまの向き：いちばん最近に作られた進路の向き。進路があるあいだは鎖錠（動かせない） */
+  function swState(id, now) {
+    const sw = SW[id]; let best = null;
+    for (const t of trains) for (const r of [t.ra, t.rd]) {
+      const pos = sw.use[r.key]; if (!pos || r.set > now) continue;
+      if (!best || r.set > best.r.set) best = { r, t, pos };
+    }
+    if (!best) return { pos: 'N', lock: false, t: null };
+    return { pos: best.pos, lock: now < best.r.rel, t: best.t, r: best.r };
+  }
   /* ---- 出来事の一覧 ---- */
   /* 交わる進路を使っていた列車が通りすぎた直後なら、そのことを書く */
   function after(r, t) {
@@ -239,6 +262,6 @@ const KW = (() => {
   const clock = m => { const x = ((BASE + m) % 1440 + 1440) % 1440, s = Math.round(x * 60); return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
   const hm = m => clock(m).slice(0, 5);
 
-  return { CYCLE, TYPES, PATHS, SIG, PAT, trains, events, body, routeLines, aspect, branchUse, check, clock, hm, sub, BRANCH_RUN, OUT_R, OUT_Y };
+  return { CYCLE, TYPES, PATHS, SIG, SW, swState, PAT, trains, events, body, routeLines, aspect, branchUse, check, clock, hm, sub, BRANCH_RUN, OUT_R, OUT_Y };
 })();
 if (typeof module !== 'undefined') module.exports = KW;

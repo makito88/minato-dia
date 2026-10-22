@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>川辺駅 運転指令盤｜みなと川電鉄</title>
 <style>
-:root{--bg:#0b1420;--panel:#0f1d2c;--line:#1f3247;--ink:#e6eef6;--sub:#8ea3b8;--track:#4a5d72;--plat:#22364b;--R:#ff3b3b;--Y:#ffcc33;--G:#3ddc84;--route:#f4f7fb}
+:root{--bg:#0b1420;--panel:#0f1d2c;--line:#1f3247;--ink:#e6eef6;--sub:#8ea3b8;--track:#4a5d72;--plat:#22364b;--R:#ff3b3b;--Y:#ffcc33;--G:#3ddc84;--route:#f4f7fb;--sw:#4fd8ff}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic UI",sans-serif;line-height:1.6}
 .wrap{max-width:1180px;margin:0 auto;padding:12px 16px 40px}
@@ -52,6 +52,7 @@ td.m{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
 .note{font-size:12px;color:var(--sub);margin-top:10px}
 g.sig{cursor:pointer}
 g.sig.sel circle.hd{stroke:#fff;stroke-width:2.5}
+g.sig.sel text{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -75,7 +76,8 @@ g.sig.sel circle.hd{stroke:#fff;stroke-width:2.5}
       <span><i style="background:var(--route)"></i>進路ができた（白）</span>
       <span><i style="background:var(--R);opacity:.6;height:8px"></i>列車がいる区間（赤）</span>
       <span><span class="dot" style="background:var(--R)"></span>止まれ <span class="dot" style="background:var(--Y)"></span>注意 <span class="dot" style="background:var(--G)"></span>進め</span>
-      <span>信号機を押すと、いまの色の理由が見られます</span>
+      <span><i style="background:var(--sw)"></i>ポイントがつながっている向き（反対側はすき間）　🔒＝動かせない</span>
+      <span>信号機やポイント（①〜⑦）を押すと、理由が見られます</span>
     </div>
   </div>
 
@@ -83,7 +85,7 @@ g.sig.sel circle.hd{stroke:#fff;stroke-width:2.5}
     <button data-t="now" class="on">いまの動き</button>
     <button data-t="gantt">番線の予定</button>
     <button data-t="table">時刻表</button>
-    <button data-t="sig">信号のしくみ</button>
+    <button data-t="sig">信号とポイント</button>
   </div>
   <section class="pane" id="p-now"><div class="grid2"><div><h3>番線のようす</h3><div id="tracks"></div></div><div><h3>出来事（青い行がいま・うすい行はこれから）</h3><div id="evs"></div></div></div></section>
   <section class="pane" id="p-gantt" hidden><h3>どの番線に、いつ、どの列車がいるか（前6分〜後24分）</h3><svg id="gantt" viewBox="0 0 1000 220"></svg><p class="note">同じ列にならんだ2本が重なっている所が「待ち合わせ」です。1番線と2番線、3番線と4番線は同じホームなので、向かいの列車へ歩いて乗り換えられます。いちばん下は、川辺〜森下の単線区間。ここは1本ずつしか入れません。</p></section>
@@ -100,6 +102,8 @@ g.sig.sel circle.hd{stroke:#fff;stroke-width:2.5}
       <p>駅の入り口に立ち、「駅に入ってよいか」を知らせます。指令が「何番線に入れるか」を決めて分かれ道（ポイント）を切りかえ、進路ができると開きます。川辺駅にはすべての列車が止まるので、開くときは黄です。列車が通りすぎると、すぐ赤にもどります。</p>
       <h4>出発信号機（しゅっぱつ）</h4>
       <p>ホームの先に立ち、「駅から出てよいか」を知らせます。発車時刻の少し前に開きます。先の区間に前の列車がいると黄、あいていれば緑。1番線の下りの出発信号には「進路表示機」があり、「港」か「温」（温泉支線）かを文字で知らせます。</p>
+      <h4>ポイント（分かれ道）</h4>
+      <p>線路の分かれ道です。川辺駅には①〜⑦の7か所あります。ふだんの向きを「定位」、反対を「反位」といいます。指令が進路を作ると、その進路に合わせてポイントが自動で切りかわり、列車が通りおわるまで動かせなくなります（鎖錠）。指令盤では、つながっている向きを水色の線で、つながっていない側をすき間で見せています。</p>
       <h4>進路と連動（れんどう）</h4>
       <p>分かれ道と信号はつながっていて、交わる進路は同時には作れません。たとえば温泉から来た上り列車が1番線を出て下りの線路をななめに横切るあいだ、下りの場内信号は赤のままです。横切りおわってから、次の下り列車の進路が作られます。</p>
       <h4>単線区間</h4>
@@ -142,7 +146,35 @@ lab(6, 320, '下り＝左から右へ（上の2本）　上り＝右から左へ
 const brOcc = mk('path', { d: 'M780 55L1000 55', stroke: 'var(--R)', 'stroke-width': 9, opacity: 0, 'stroke-linecap': 'round' }, svg);
 const brTxt = mk('text', { x: 830, y: 22, fill: '#9fb6cc', 'font-size': 11.5 }, svg);
 
-const gRoute = mk('g', {}, svg), gOcc = mk('g', {}, svg), gTrain = mk('g', {}, svg), gSig = mk('g', {}, svg);
+const gRoute = mk('g', {}, svg), gSw = mk('g', {}, svg), gOcc = mk('g', {}, svg), gTrain = mk('g', {}, svg), gSig = mk('g', {}, svg);
+
+/* ---------- ポイント ---------- */
+const SWLAB = { P1: [240, 174], P2: [200, 138], P3: [132, 254], P4: [238, 254], P5: [716, 82], P6: [772, 172], P7: [774, 216] };
+const swEl = {};
+const toward = (a, b, d) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]); return [a[0] + (b[0] - a[0]) / L * d, a[1] + (b[1] - a[1]) / L * d]; };
+for (const [id, w] of Object.entries(KW.SW)) {
+  const g = mk('g', { class: 'sig' }, gSw), el = { g, gap: {}, on: {} };
+  for (const k of ['N', 'R']) {
+    const a = toward(w.pt, w.legs[k], 3), b = toward(w.pt, w.legs[k], 13), c = toward(w.pt, w.legs[k], 28);
+    el.gap[k] = mk('path', { d: dstr([a, b]), stroke: '#0c1826', 'stroke-width': 7 }, g);
+    el.on[k] = mk('path', { d: dstr([w.pt, c]), stroke: 'var(--sw)', 'stroke-width': 5, 'stroke-linecap': 'round' }, g);
+  }
+  const [lx, ly] = SWLAB[id];
+  el.lab = mk('text', { x: lx, y: ly, fill: 'var(--sw)', 'font-size': 13, 'text-anchor': 'middle', 'font-weight': 700 }, g);
+  mk('circle', { cx: w.pt[0], cy: w.pt[1], r: 14, fill: 'transparent' }, g);
+  mk('circle', { cx: lx, cy: ly - 4, r: 11, fill: 'transparent' }, g);
+  g.addEventListener('click', () => { selSig = id; showTab('sig'); drawInfo(true); });
+  swEl[id] = el;
+}
+function drawSwitches() {
+  for (const id in swEl) {
+    const st = KW.swState(id, now), e = swEl[id], off = st.pos === 'N' ? 'R' : 'N';
+    e.on[st.pos].style.display = ''; e.on[off].style.display = 'none';
+    e.gap[off].style.display = ''; e.gap[st.pos].style.display = 'none';
+    e.lab.textContent = KW.SW[id].no + (st.lock ? '🔒' : '');
+    e.g.classList.toggle('sel', id === selSig);
+  }
+}
 
 /* ---------- 信号機 ---------- */
 const sigEl = {};
@@ -315,13 +347,21 @@ function reason(id) {
   return 'この先2つの区間があいているので緑。';
 }
 const NAMES = { R: '赤（止まれ）', Y: '黄（注意）', G: '緑（進め）' };
+function swInfo(id) {
+  const w = KW.SW[id], st = KW.swState(id, now);
+  const pos = st.pos === 'N' ? '定位（まっすぐ）' : '反位（ななめ）';
+  let why = st.t ? `いちばん最近、${st.t.name} の進路を作るときにこの向きにしました。` : 'まだ動かしていないので、ふだんの向き（定位）です。';
+  why += st.lock ? `${st.t.name} が通りおわるまで、この向きのまま動かせません（鎖錠）。まちがって切りかえて脱線しないためです。` : 'いまは鎖錠されていないので、次の進路のために動かせます。次の列車まで、この向きのまま待っています。';
+  $('sigcard').innerHTML = `<div class="big"><span style="color:var(--sw)">${w.no}</span> ポイント${w.no}：いま ${pos}${st.lock ? ' 🔒' : ''}</div><p style="margin:6px 0 4px">${w.txt[st.pos]}の向きです。${why}</p><p class="note" style="margin:0">まっすぐ＝${w.txt.N}／ななめ＝${w.txt.R}</p>`;
+}
 function drawInfo(force) {
   if (!force && $('p-sig').hidden) return;
+  if (KW.SW[selSig]) return swInfo(selSig);
   const s = KW.SIG[selSig], a = KW.aspect(selSig, now).a;
   $('sigcard').innerHTML = `<div class="big"><span class="dot" style="background:${COL[a]};width:14px;height:14px"></span> ${s.name}：いま ${NAMES[a]}</div><p style="margin:6px 0 4px">${reason(selSig)}</p><p class="note" style="margin:0">この信号の役目：${ROLE[s.kind]}</p>`;
 }
-$('sigbtns').innerHTML = Object.entries(KW.SIG).map(([id, s]) => `<button data-s="${id}">${s.name}</button>`).join('');
-$('sigbtns').onclick = e => { const id = e.target.dataset.s; if (id) { selSig = id; drawInfo(true); drawSignals(); } };
+$('sigbtns').innerHTML = Object.entries(KW.SIG).map(([id, s]) => `<button data-s="${id}">${s.name}</button>`).join('') + Object.entries(KW.SW).map(([id, w]) => `<button data-s="${id}">ポイント${w.no}</button>`).join('');
+$('sigbtns').onclick = e => { const id = e.target.dataset.s; if (id) { selSig = id; drawInfo(true); drawSignals(); drawSwitches(); } };
 
 /* タブ */
 function showTab(t) {
@@ -345,7 +385,7 @@ $('next').onclick = () => { const e = KW.events.find(e => e.t > now + 0.02); if 
 let last = performance.now(), lastUi = 0;
 function frame(force) {
   $('clock').textContent = KW.clock(now);
-  drawRoutes(); drawTrains(); drawSignals();
+  drawRoutes(); drawSwitches(); drawTrains(); drawSignals();
   const tt = performance.now();
   if (force === true || tt - lastUi > 250) { refresh(); lastUi = tt; }
 }
