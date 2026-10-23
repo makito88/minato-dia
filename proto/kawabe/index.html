@@ -53,7 +53,38 @@ td.m{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
 g.sig{cursor:pointer}
 g.sig.sel circle.hd{stroke:#fff;stroke-width:2.5}
 g.sig.sel text{text-decoration:underline}
+/* ---- 電光掲示板 ---- */
+.leds{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:900px){.leds{grid-template-columns:1fr}}
+.led{background:#050505;border:6px solid #2b2f36;border-radius:8px;box-shadow:inset 0 0 0 2px #000,0 6px 18px #0008;overflow:hidden;position:relative;font-family:"DotGothic16",ui-monospace,"MS Gothic",monospace}
+.led::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle,transparent 55%,#000c 62%);background-size:3px 3px;opacity:.55}
+.led .hd{display:flex;justify-content:space-between;align-items:center;background:#101318;color:#cfd6df;font:600 13px system-ui,sans-serif;padding:5px 10px;border-bottom:1px solid #222}
+.led .hd b{color:#fff;font-size:14px}
+.led .cols{display:grid;grid-template-columns:104px 70px 1fr 64px 40px 92px;gap:0 6px;padding:2px 10px;color:#7a8794;font:11px system-ui,sans-serif}
+.led .row{display:grid;grid-template-columns:104px 70px 1fr 64px 40px 92px;gap:0 6px;align-items:center;padding:5px 10px;font-size:18px;line-height:1.25;border-top:1px solid #151515}
+.led .row.first{font-size:20px}
+.led .row>span{white-space:nowrap}
+.led .sb{font-weight:700;letter-spacing:.05em}
+.led .tm{color:#3dff7a}
+.led .ds{color:#ffa020;white-space:nowrap;overflow:hidden}
+.led .ds small{color:#ffcf6a;font-size:.72em;margin-left:6px}
+.led .tr{color:#fff}
+.led .cr{color:#9fe8ff;font-size:.8em}
+.led .stt{font-size:.78em;color:#fff;text-align:right;white-space:nowrap}
+.led .stt.ap{color:#ffe14a;animation:ledb 1s steps(1) infinite}
+.led .stt.lt{color:#ff6a6a}
+@keyframes ledb{50%{opacity:.15}}
+.led .tick{border-top:1px solid #222;height:30px;overflow:hidden;position:relative;color:#ffa020;font-size:17px}
+.led .tick span{position:absolute;white-space:nowrap;top:4px;left:100%;animation:ledm linear infinite}
+@keyframes ledm{from{transform:translateX(0)}to{transform:translateX(calc(-100% - 100vw))}}
+.led .near{display:none;background:#1a0c00;color:#ffe14a;font-size:17px;padding:6px 10px;border-top:1px solid #332000;animation:ledb 1.2s steps(1) infinite}
+.led .near.on{display:block}
+.led .train{display:none;height:22px;position:relative;border-top:1px solid #222}
+.led .train.on{display:block}
+.led .train i{position:absolute;top:4px;height:12px;width:120px;border-radius:7px 2px 2px 7px;animation:ledt 3.5s linear infinite}
+@keyframes ledt{from{left:105%}to{left:-130px}}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
 </head>
 <body>
 <div class="wrap">
@@ -88,10 +119,15 @@ g.sig.sel text{text-decoration:underline}
     <button data-t="gantt">番線の予定</button>
     <button data-t="table">時刻表</button>
     <button data-t="sig">信号とポイント</button>
+    <button data-t="led">電光掲示板</button>
   </div>
   <section class="pane" id="p-now"><div class="grid2"><div><h3>番線のようす</h3><div id="tracks"></div></div><div><h3>出来事（青い行がいま・うすい行はこれから）</h3><div id="evs"></div></div></div></section>
   <section class="pane" id="p-gantt" hidden><h3>どの番線に、いつ、どの列車がいるか（前6分〜後24分）</h3><svg id="gantt" viewBox="0 0 1000 220"></svg><p class="note">同じ列にならんだ2本が重なっている所が「待ち合わせ」です。1番線と2番線、3番線と4番線は同じホームなので、向かいの列車へ歩いて乗り換えられます。いちばん下は、川辺〜森下の単線区間。ここは1本ずつしか入れません。</p></section>
   <section class="pane" id="p-table" hidden><h3>川辺駅の時刻表（30分ごとに同じ並び）</h3><div id="tt"></div><p class="note">このページのダイヤは、川辺駅のしくみを見るための見本です。地図のシミュレーションの列車とはつながっていません。</p></section>
+  <section class="pane" id="p-led" hidden>
+    <div class="leds"><div class="led" id="ledA"></div><div class="led" id="ledB"></div></div>
+    <p class="note">ホームに立つお客さんが見る掲示板です。発車時刻は時刻表の時刻。合流待ちなどで遅れるときは、赤い字で知らせます。愛称（特急「みなと」・観光特急「ゆけむり」）と両数は、このページの見本です。</p>
+  </section>
   <section class="pane" id="p-sig" hidden>
     <div class="card" id="sigcard"></div>
     <div class="sigbtns" id="sigbtns"></div>
@@ -328,6 +364,72 @@ function drawTable() {
   $('tt').innerHTML = `<p class="note" style="margin-top:0">毎時、下の時刻と、その30分後に同じ列車が来ます（例：01分00秒 → 7:01、7:31、8:01…）。</p><table><tr><th>着</th><th>発</th><th>番線</th><th>種別</th><th>行先</th><th>来る方向</th><th>メモ</th></tr>${rows}</table>`;
 }
 
+/* ---------- 電光掲示板 ---------- */
+const LED = {
+  L: { cars: 4, col: '#e8eef5', nick: '' }, R: { cars: 6, col: '#ff9a2e', nick: '' },
+  E: { cars: 6, col: '#ff4d5e', nick: 'みなと' }, X: { cars: 3, col: '#c79bff', nick: 'ゆけむり' },
+};
+const STOPS = { // 川辺から先の停車駅
+  '港': { L: ['新田', '港'], R: ['港'], E: ['港'] },
+  '温泉': { X: ['峠', '温泉'], L: ['森下', '峠', '温泉'], R: ['森下', '峠', '温泉'] },
+  '中央': { L: ['緑ヶ丘', '大学前', '桜町', '中央'], R: ['大学前', '中央'], E: ['中央'], X: ['中央'] },
+};
+const PERKS = {
+  E: '特急「みなと」は、全車指定席。川辺の次は終点の港までノンストップ！',
+  X: '観光特急「ゆけむり」は、前と後ろが展望席。川の上の鉄橋と、峠の渓谷が見どころです！',
+  R: '快速は、停車駅が少なくて速い！',
+};
+const ledTicks = {};
+function boardFor(tracks, side) {
+  const list = KW.trains.filter(t => tracks.includes(t.tr) && t.t1 > now && t.dep > now - 0.05).sort((a, b) => a.dep - b.dep).slice(0, 3);
+  const plan = t => KW.PAT.find(p => p.k === t.k).dep + t.c * KW.CYCLE;
+  const rows = list.map((t, i) => {
+    const d = LED[t.type], late = Math.round((t.dep - plan(t)) * 60);
+    let stt = '', cls = '';
+    if (now >= t.arr && now <= t.dep) { stt = t.dep - now < 0.5 ? 'まもなく発車' : '停車中'; cls = t.dep - now < 0.5 ? 'ap' : ''; }
+    else if (now >= t.t0 - 1) { stt = '接近'; cls = 'ap'; }
+    if (late >= 30) { stt = `約${Math.max(1, Math.round(late / 60))}分遅れ`; cls = 'lt'; }
+    return `<div class="row${i ? '' : ' first'}"><span class="sb" style="color:${d.col}">${t.ty.name}</span><span class="tm">${KW.hm(plan(t))}</span><span class="ds">${t.dest}${d.nick ? `<small>${d.nick}</small>` : ''}</span><span class="tr">${t.tr}番線</span><span class="cr">${d.cars}両</span><span class="stt ${cls}">${stt}</span></div>`;
+  }).join('');
+  // 流れる案内
+  const msgs = [];
+  list.slice(0, 2).forEach(t => {
+    const st = (STOPS[t.dest] || {})[t.type];
+    if (st) msgs.push(`◆ ${KW.hm(plan(t))}発 ${t.ty.name}${LED[t.type].nick ? '「' + LED[t.type].nick + '」' : ''} ${t.dest}行　停車駅は ${st.join('・')} です`);
+    if (PERKS[t.type]) msgs.push('★ ' + PERKS[t.type]);
+    const pair = KW.trains.find(o => o !== t && o.down === t.down && [1, 2, 3, 4].includes(o.tr) && Math.abs(o.tr - t.tr) === 1 && Math.min(o.tr, t.tr) % 2 === 1 && o.arr < t.dep && t.arr < o.dep);
+    if (pair && pair.dest === t.dest && pair.dep < t.dep) msgs.push(`◆ この${t.ty.name}は、川辺で ${pair.ty.name} の通過待ちをします。${t.dest}へお急ぎの方は、向かいの ${pair.tr}番線の ${pair.ty.name} が先に着きます`);
+    else if (pair && pair.dest !== t.dest && pair.arr < t.arr) msgs.push(`◆ ${pair.tr}番線の ${pair.ty.name} ${pair.dest}行から、同じホームで乗り換えられます。この ${t.ty.name} は乗り換えのお客さまを待って発車します`);
+    if (t.heldIn || t.held) msgs.push(`◆ ${t.ty.name} ${t.dest}行は、ほかの列車との合流を待つため、少し遅れて発車します。ご了承ください`);
+  });
+  msgs.push(side === 'A' ? '♨ 温泉へは、川辺から温泉支線へ。森下・峠を通って、湯けむりの温泉駅へ！' : '🏙 中央方面へは、このホームから。大学前・中央へお越しの方は快速が便利です');
+  const text = msgs.join('　　　　');
+  // 接近案内
+  const nt = list.find(t => now >= t.t0 - 1 && now < t.arr);
+  const near = nt ? `🔔 まもなく ${nt.tr}番線に ${nt.ty.name} ${nt.dest}行が まいります。黄色い線の内側まで お下がりください` : '';
+  return { rows, text, near, nt };
+}
+function drawLED() {
+  [['ledA', [1, 2], 'A', '1・2番線　港・温泉方面（下り）'], ['ledB', [3, 4], 'B', '3・4番線　中央方面（上り）']].forEach(([el, tr, side, title]) => {
+    const b = boardFor(tr, side), box = $(el);
+    if (!box.dataset.built) {
+      box.innerHTML = `<div class="hd"><b>${title}</b><span class="ck"></span></div><div class="cols"><span>種別</span><span>発車</span><span>行先</span><span>のりば</span><span>両数</span><span></span></div><div class="rows"></div><div class="train"><i></i></div><div class="near"></div><div class="tick"><span></span></div>`;
+      box.dataset.built = 1;
+    }
+    box.querySelector('.ck').textContent = '川辺駅　' + KW.clock(now).slice(0, 5);
+    box.querySelector('.rows').innerHTML = b.rows;
+    const n = box.querySelector('.near'); n.textContent = b.near; n.classList.toggle('on', !!b.near);
+    const tr2 = box.querySelector('.train'); tr2.classList.toggle('on', !!b.nt);
+    if (b.nt) { const i = tr2.querySelector('i'); i.style.background = `linear-gradient(90deg,${LED[b.nt.type].col},${LED[b.nt.type].col}aa)`; i.style.animationDirection = b.nt.down ? 'reverse' : 'normal'; }
+    if (ledTicks[el] !== b.text) {
+      ledTicks[el] = b.text;
+      const s = box.querySelector('.tick span'); s.textContent = b.text;
+      s.style.animationDuration = Math.max(12, b.text.length * 0.22) + 's';
+      s.style.animation = 'none'; void s.offsetWidth; s.style.animation = ''; s.style.animationDuration = Math.max(12, b.text.length * 0.22) + 's';
+    }
+  });
+}
+
 /* 信号の理由 */
 const ROLE = {
   home: '駅の入り口に立ち、駅に入ってよいか、どの番線に入るかを知らせます。',
@@ -414,13 +516,14 @@ $('sigbtns').onclick = e => { const id = e.target.dataset.s; if (id) { selSig = 
 /* タブ */
 function showTab(t) {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  ['now', 'gantt', 'table', 'sig'].forEach(k => $('p-' + k).hidden = k !== t);
+  ['now', 'gantt', 'table', 'sig', 'led'].forEach(k => $('p-' + k).hidden = k !== t);
   refresh();
 }
 $('tabs').onclick = e => { if (e.target.dataset.t) showTab(e.target.dataset.t); };
 function refresh() {
   if (!$('p-now').hidden) { trackLines(); evList(); }
   if (!$('p-gantt').hidden) drawGantt();
+  if (!$('p-led').hidden) drawLED();
   drawInfo();
 }
 
