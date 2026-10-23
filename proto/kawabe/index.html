@@ -110,6 +110,7 @@ g.sig.sel text{text-decoration:underline}
       <span><i style="background:var(--sw)"></i>ポイントがつながっている向き（反対側はすき間）　点滅＝転換中　🔒＝鎖錠</span>
       <span><i style="background:none;border-top:2px dashed var(--route);height:0"></i>進路を作っているところ（点線）</span>
       <span>▶▶ 単線区間を使っている列車の向き</span>
+      <span>名札の％＝乗車率：<b style="color:#9fe8ff">〜99%</b> <b style="color:#ffe14a">100〜149%</b> <b style="color:#ffb35c">150〜179%</b> <b style="color:#ff7ad9">180%〜</b>（見本の値）</span>
       <span>信号機やポイント（①〜⑦）を押すと、理由が見られます</span>
     </div>
   </div>
@@ -260,12 +261,15 @@ function drawTrains() {
       const occ = mk('path', { fill: 'none', stroke: 'var(--R)', 'stroke-width': 15, opacity: .38, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, gOcc);
       const g = mk('g', {}, gTrain);
       const p = mk('path', { fill: 'none', stroke: t.ty.color, 'stroke-width': 8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
-      const w = t.label.length * 10 + 8;
+      const w = t.label.length * 10 + 40;
       const lg = mk('g', {}, g);
       mk('rect', { x: -w / 2, y: -8, width: w, height: 16, rx: 3, fill: '#05090e', stroke: t.ty.color }, lg);
-      mk('text', { x: 0, y: 4, fill: '#fff', 'font-size': 11, 'text-anchor': 'middle' }, lg).textContent = t.label.replace(' ', '');
-      e = { occ, g, p, lg, w }; trEl.set(t.id, e);
+      const tx = mk('text', { x: 0, y: 4, fill: '#fff', 'font-size': 11, 'text-anchor': 'middle' }, lg);
+      mk('tspan', {}, tx).textContent = t.label.replace(' ', '') + ' ';
+      const pc = mk('tspan', { 'font-weight': 700 }, tx);
+      e = { occ, g, p, lg, w, pc }; trEl.set(t.id, e);
     }
+    { const r = KW.loadAt(t, now); e.pc.textContent = Math.round(r * 100) + '%'; e.pc.setAttribute('fill', crowdCol(r)); }
     const d = b.parts.map(dstr).join('');
     e.p.setAttribute('d', d); e.occ.setAttribute('d', d);
     const [hx, hy] = b.head, dy = hy < 125 ? -17 : hy < 190 ? 19 : hy < 255 ? -17 : 19;
@@ -309,9 +313,9 @@ function trackLines() {
     const nx = on.find(t => t.arr > now);
     const tag = t => `<span class="tag" style="background:${t.ty.color}">${t.ty.name}</span>${t.label.split(' ')[1]} ${t.dest}行`;
     let html;
-    if (st) html = `${tag(st)} <b>停車中</b><div class="st">発車 ${KW.clock(st.dep)}（あと ${mmss(st.dep - now)}）${st.wait ? '・' + st.wait : ''}${st.held && now >= st.held.plan - KW.RD_LEAD ? `<br><span style="color:#ffd77a">⏸ ${st.held.why === 'route' ? st.held.by.name + ' の進路と交わるので待っています' : '前の列車が先の区間を出るのを待っています'}</span>` : ''}</div>`;
-    else if (inn) html = `${tag(inn)} 到着するところ<div class="st">${KW.clock(inn.arr)} 着${inn.heldIn && now < inn.heldIn.go ? `<br><span style="color:#ffd77a">⏸ ${inn.heldIn.by.down ? '下りの ' + inn.heldIn.by.name + ' が平面交差を通りすぎるまで' : inn.heldIn.by.name + ' が先に⑦の合流点を通るので'}、場内信号の手前で待っています</span>` : ''}</div>`;
-    else if (outg) html = `${tag(outg)} 発車したところ`;
+    if (st) html = `${tag(st)} <b>停車中</b><div class="st">発車 ${KW.clock(st.dep)}（あと ${mmss(st.dep - now)}）${st.wait ? '・' + st.wait : ''}${st.held && now >= st.held.plan - KW.RD_LEAD ? `<br><span style="color:#ffd77a">⏸ ${st.held.why === 'route' ? st.held.by.name + ' の進路と交わるので待っています' : '前の列車が先の区間を出るのを待っています'}</span>` : ''}</div>` + loadLine(st);
+    else if (inn) html = `${tag(inn)} 到着するところ<div class="st">${KW.clock(inn.arr)} 着${inn.heldIn && now < inn.heldIn.go ? `<br><span style="color:#ffd77a">⏸ ${inn.heldIn.by.down ? '下りの ' + inn.heldIn.by.name + ' が平面交差を通りすぎるまで' : inn.heldIn.by.name + ' が先に⑦の合流点を通るので'}、場内信号の手前で待っています</span>` : ''}</div>` + loadLine(inn);
+    else if (outg) html = `${tag(outg)} 発車したところ${loadLine(outg)}`;
     else html = `<span style="color:var(--sub)">あき</span><div class="st">つぎ：${nx ? `${nx.name}　${KW.clock(nx.arr)} 着（あと ${mmss(nx.arr - now)}）` : 'なし'}</div>`;
     out.push(`<div class="tline"><b class="n">${n}番線</b><div>${html}</div></div>`);
   }
@@ -363,6 +367,12 @@ function drawTable() {
     return `<tr><td class="m">${ms(p.arr)}</td><td class="m">${ms(p.dep)}${late}</td><td>${p.tr}番線</td><td><span class="tag" style="background:${ty.color}">${ty.name}</span></td><td>${p.dest}行</td><td>${from(p)}から</td><td style="color:#b9c9d8">${p.note || ''}</td></tr>`; }).join('');
   $('tt').innerHTML = `<p class="note" style="margin-top:0">毎時、下の時刻と、その30分後に同じ列車が来ます（例：01分00秒 → 7:01、7:31、8:01…）。</p><table><tr><th>着</th><th>発</th><th>番線</th><th>種別</th><th>行先</th><th>来る方向</th><th>メモ</th></tr>${rows}</table>`;
 }
+
+/* 乗車率の色：赤や緑は信号に使うので避ける */
+const crowdCol = r => r < 1 ? '#9fe8ff' : r < 1.5 ? '#ffe14a' : r < 1.8 ? '#ffb35c' : '#ff7ad9';
+const crowdWord = r => r < 0.5 ? '空いている' : r < 1 ? '座席がうまる程度' : r < 1.5 ? '立つ人が多い' : r < 1.8 ? '肩がふれあう' : r < 2 ? '新聞をたたんで読む' : '体がふれあい、苦しい';
+const pctSpan = r => `<b style="color:${crowdCol(r)}">${Math.round(r * 100)}%</b>`;
+const loadLine = t => `<div class="st">乗車率 着 ${pctSpan(t.load.arr)} → 発 ${pctSpan(t.load.dep)}（${t.cars}両・定員${t.cap}人、いま約${Math.round(KW.loadAt(t, now) * t.cap)}人・${crowdWord(KW.loadAt(t, now))}）</div>`;
 
 /* ---------- 電光掲示板 ---------- */
 const LED = {

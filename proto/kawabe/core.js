@@ -139,6 +139,36 @@ const KW = (() => {
   }
   trains.sort((a, b) => a.arr - b.arr);
 
+  /* ---- 乗車率（見本の計算。本体のシミュレーションとはつながっていない） ----
+     定員：通勤車1両140人、特急車64人、観光車48人。時間帯（朝は中央行、夕方は港行が混む）と種別で決める */
+  const CAP = { L: 140, R: 140, E: 64, X: 48 }, CARS = { L: 4, R: 6, E: 6, X: 3 };
+  const gs = (h, mu, sd) => Math.exp(-0.5 * ((h - mu) / sd) ** 2);
+  const jit = n => { const x = Math.sin(n * 12.9898) * 43758.5453; return (x - Math.floor(x)) * 0.16 - 0.08; };
+  function demand(t, m) {
+    const h = 7 + m / 60, up = !t.down;
+    if (t.type === 'X') return t.dest === '温泉' ? 0.35 + 0.6 * gs(h, 10, 1.5) + 0.2 * gs(h, 14, 2) : t.from === '温泉' ? 0.3 + 0.65 * gs(h, 16.5, 1.5) : 0.4;
+    let d = up ? 0.3 + 1.3 * gs(h, 8, 0.7) + 0.35 * gs(h, 18, 1.5) : 0.3 + 0.45 * gs(h, 8, 0.8) + 1.0 * gs(h, 18.3, 1.0);
+    d *= { L: 0.85, R: 1.15, E: 0.8 }[t.type];
+    if (t.type === 'E') d = Math.min(d, 1.0) ; // 特急は全車指定席なので100%まで
+    return d;
+  }
+  trains.forEach(t => {
+    t.cap = CAP[t.type] * CARS[t.type]; t.cars = CARS[t.type];
+    const j = jit(t.no), lim = t.type === 'E' || t.type === 'X' ? 1.0 : 2.5;
+    const a = Math.min(lim, Math.max(0.05, demand(t, t.arr) + j));
+    // 川辺で降りる人・乗る人（分かれ道の駅なので、乗り換えが多い）
+    const off = t.type === 'X' ? 0.15 : 0.3, on = t.type === 'X' ? 0.2 : t.down ? 0.18 : 0.28;
+    const d = Math.min(lim, Math.max(0.05, a * (1 - off) + on * demand(t, t.dep)));
+    t.load = { arr: a, dep: d };
+  });
+  /* いまの乗車率（止まっているあいだに、降りてから乗る） */
+  function loadAt(t, now) {
+    if (now <= t.arr) return t.load.arr;
+    if (now >= t.dep) return t.load.dep;
+    const u = (now - t.arr) / Math.max(0.01, t.dep - t.arr), lo = t.load.arr * (t.type === 'X' ? 0.85 : 0.7);
+    return u < 0.4 ? t.load.arr + (lo - t.load.arr) * (u / 0.4) : lo + (t.load.dep - lo) * Math.min(1, (u - 0.4) / 0.4);
+  }
+
   /* ---- ある時刻の列車の形 ---- */
   function body(t, now) {
     if (now < t.t0 || now > t.t1) return null;
@@ -358,6 +388,6 @@ const KW = (() => {
   const clock = m => { const x = ((BASE + m) % 1440 + 1440) % 1440, s = Math.round(x * 60); return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
   const hm = m => clock(m).slice(0, 5);
 
-  return { CYCLE, TYPES, PATHS, SIG, SW, swState, routeSw, T_MOVE, T_CHECK, T_OPEN, RD_LEAD, PAT, trains, events, body, routeLines, aspect, branchUse, check, clock, hm, sub, BRANCH_RUN, OUT_R, OUT_Y };
+  return { loadAt, CYCLE, TYPES, PATHS, SIG, SW, swState, routeSw, T_MOVE, T_CHECK, T_OPEN, RD_LEAD, PAT, trains, events, body, routeLines, aspect, branchUse, check, clock, hm, sub, BRANCH_RUN, OUT_R, OUT_Y };
 })();
 if (typeof module !== 'undefined') module.exports = KW;
