@@ -4,3 +4,8 @@ cars.bin / cars.json / colormap.png
   sedan, hatchback-sports, suv-luxury, truck-flat
 ライセンス：Creative Commons Zero 1.0（CC0）… 作者表示なしで、個人・商用とも自由に使える
 変換：GLB から位置・法線・UV・面だけを取り出し、日本の車の大きさ（幅・高さ・長さ）に合わせて伸ばしたもの。車輪は丸いまま
+
+kei.bin / kei.json / kei.webp（白い軽自動車）
+
+作り方：リポジトリ所有者が生成AIで描いた車の絵から、Microsoft TRELLIS（Hugging Face のデモ、MIT License）で3Dにしたもの（2026-10-24、素材 v12）
+変換：GLB から位置・UV・面を取り出し、軽自動車の大きさ（幅1.62m〔ミラー込み〕・高さ1.68m・長さ3.4m）に合わせた。法線は画面で計算する

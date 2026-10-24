@@ -339,7 +339,7 @@ function shrubRow(B,M,x0,x1,z,h=0.8){for(let x=x0;x<x1;x+=rr(0.7,1.1))put(B,GICO
 // v6：4台に1台くらいを 3Dモデルの紺の車（Kenney Car Kit、CC0）にする。ほかはこれまでの箱の車
 const CAR3D=!!LOOK.assets6,CARS3=[],R7=rngF(CFG.seed*13+9);   // R7＝車の種類の選び分け（ほかの乱数を変えない）
 function car(B,M,x,z,ry){const c=jit(pick(PAL.cars),0.02),T=M.clone().multiply(new THREE.Matrix4().makeRotationY(ry).setPosition(x,0,z));
-  if(CAR3D&&Math.floor(R7()*4)===2){CARS3.push({T,i:2});return;}
+  if(CAR3D){const i=Math.floor(R7()*4);if(i===2||i===0){CARS3.push({T,i});return;}}   // 2＝紺の車、0＝白い軽（画像から作った3D）
   box(B,T,0,0.32,0,1.72,0.62,4.3,c);box(B,T,0,0.92,-0.25,1.56,0.58,2.3,c);box(B,T,0,0.98,-0.25,1.6,0.42,2.1,col('#3d4752'));
   for(const[a,b]of[[-0.8,1.35],[0.8,1.35],[-0.8,-1.35],[0.8,-1.35]])put(B,GCYL,T,a,0.33,b,0.33,0.22,0.33,col('#2a2b2d'),0,0,Math.PI/2);}
 function blockWall(B,M,x0,x1,z,h=1.15){if(x1-x0<0.2)return;const k=jit(PAL.block,0.02);
@@ -537,13 +537,16 @@ if(ART){
     const pano=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:ART.pano,transparent:true,fog:false,depthWrite:false,side:THREE.BackSide}));
     pano.renderOrder=-5;pano.userData.y=R0*(Math.tan(hi)+Math.tan(lo))/2;pano.rotation.y=-at(CFG.camS+300)[2];scene.add(pano);window.__pano=pano;}}
 scene.add(BV.chunks(MAT.vc,160),BH.chunks(MAT.vc,120,{ao:true}),BW.mesh(MAT.vc,{cast:false}),BBal.mesh(MAT.ballast,{cast:false}),BRoad.mesh(MAT.road,{cast:false}),BField.mesh(MAT.field,{cast:false}),BFence.mesh(MAT.fence,{cast:false}));
-if(CAR3D&&CARS3.length){const dir='../../assets/models/cab3d/';   // 紺の車（suv-luxury を日本の車の大きさに合わせたもの）
-  const [meta,buf,cm]=await Promise.all([fetch(dir+'cars.json').then(r=>r.json()),fetch(dir+'cars.bin').then(r=>r.arrayBuffer()),new THREE.TextureLoader().loadAsync(dir+'colormap.png')]);
-  cm.colorSpace=THREE.SRGBColorSpace;cm.flipY=false;   // glTF の UV の向き
-  const F=new Float32Array(buf),UI=new Uint32Array(buf),sl=(a,[o,n])=>a.subarray(o,o+n),e=meta['suv-luxury'],g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.BufferAttribute(sl(F,e.p),3));g.setAttribute('normal',new THREE.BufferAttribute(sl(F,e.n),3));
-  g.setAttribute('uv',new THREE.BufferAttribute(sl(F,e.u),2));g.setIndex(new THREE.BufferAttribute(sl(UI,e.i),1));
-  const m=new THREE.InstancedMesh(g,toon({map:cm}),CARS3.length);CARS3.forEach((c,j)=>m.setMatrixAt(j,c.T));m.castShadow=m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);}
+if(CAR3D&&CARS3.length){const dir='../../assets/models/cab3d/',TL3=new THREE.TextureLoader();
+  // i＝車の種類、bin/key＝形のファイルと名前、tex＝色の絵。紺＝Kenney Car Kit の suv-luxury（CC0）、白い軽＝TRELLIS で画像から作った3D
+  const MODELS=[{i:2,bin:'cars',key:'suv-luxury',tex:'colormap.png'},{i:0,bin:'kei',key:'kei',tex:'kei.webp'}];
+  await Promise.all(MODELS.map(async md=>{const L=CARS3.filter(c=>c.i===md.i);if(!L.length)return;
+    const [meta,buf,cm]=await Promise.all([fetch(dir+md.bin+'.json').then(r=>r.json()),fetch(dir+md.bin+'.bin').then(r=>r.arrayBuffer()),TL3.loadAsync(dir+md.tex)]);
+    cm.colorSpace=THREE.SRGBColorSpace;cm.flipY=false;cm.anisotropy=8;   // glTF の UV の向き
+    const F=new Float32Array(buf),UI=new Uint32Array(buf),sl=(a,[o,n])=>a.subarray(o,o+n),e=meta[md.key],g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(sl(F,e.p),3));g.setAttribute('uv',new THREE.BufferAttribute(sl(F,e.u),2));g.setIndex(new THREE.BufferAttribute(sl(UI,e.i),1));
+    if(e.n)g.setAttribute('normal',new THREE.BufferAttribute(sl(F,e.n),3));else g.computeVertexNormals();
+    const m=new THREE.InstancedMesh(g,toon({map:cm}),L.length);L.forEach((c,j)=>m.setMatrixAt(j,c.T));m.castShadow=m.receiveShadow=true;m.computeBoundingSphere();scene.add(m);}));}
 
 
 /* ---------- 区間モード：踏切・信号の絵、駅名標、走行 ---------- */
