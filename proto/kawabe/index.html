@@ -167,6 +167,10 @@ const COL = { R: 'var(--R)', Y: 'var(--Y)', G: 'var(--G)' };
 const mmss = m => { const s = Math.max(0, Math.round(m * 60)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 let now = 0.4, speed = 10, playing = true, selSig = 'DH';
+// 始まりの時刻：地図から開いたときは、地図の時刻（?t=分、0:00＝0）。単独で開いたときは、いまの日本時間。ダイヤのある 7:00〜26:00 の外なら 7:00 から
+{ const q = Number(new URLSearchParams(location.search).get('t'));
+  let m = q > 0 ? q : (() => { const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Tokyo', hourCycle: 'h23', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date()).map(x => [x.type, x.value])); let v = Number(p.hour) * 60 + Number(p.minute) + Number(p.second) / 60; return v < 270 ? v + 1440 : v; })();
+  const n = m - 7 * 60; if (n >= 0.4 && n < KW.CYCLE * 38) now = n; }
 
 /* ---------- 指令盤（静かな部分） ---------- */
 const svg = $('ctc');

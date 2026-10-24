@@ -401,6 +401,7 @@ canvas{display:block;touch-action:manipulation}
     <div class="condrow">
       <h2>この日の条件</h2>
       <div class="condsel" id="condsel"></div>
+      <small id="liveNote" style="color:var(--sub,#8a96a3)"></small>
     </div>
     <div class="condrow">
       <div class="presets" id="scen">
@@ -2962,9 +2963,29 @@ function openScene(sc){let box=document.getElementById('sceneBox');
     document.body.appendChild(box);const close=()=>{box.hidden=true;box.querySelector('iframe').src='about:blank';};
     box.querySelector('button').onclick=close;box.addEventListener('click',e=>{if(e.target===box)close();});
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!box.hidden)close();});}
-  box.querySelector('b').textContent=sc.title;box.querySelector('a').href=sc.url;box.querySelector('iframe').src=sc.url;box.hidden=false;}
+  const u=sc.url+(sc.url.includes('?')?'&':'?')+'t='+Math.round(T*10)/10;   // 開いた時点の時刻（分）を場面へ渡す。指令盤はこの時刻から始まる
+  box.querySelector('b').textContent=sc.title;box.querySelector('a').href=u;box.querySelector('iframe').src=u;box.hidden=false;}
 
-function start(data){if(data&&typeof data.T==='number')T=data.T;renderCondUI();renderLegend();renderEditor();rebuild();renderMode();resize();setPlay(true);requestAnimationFrame(frame);}
+/* ---------- いまの時刻と天気（日本時間・東京都立川市）につなぐ ---------- */
+// 時刻は端末の時計を日本時間に直して使う（端末の時計はインターネットで自動合わせされている）。0:00〜2:00 は 24:00〜26:00 として扱う
+function jstParts(ms){return Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(ms)).map(x=>[x.type,x.value]));}
+function liveT(){const p=jstParts(Date.now());let m=Number(p.hour)*60+Number(p.minute);if(m<START)m+=1440;return m>END?START:m;}
+// 曜日・季節・天気。運行日は朝4:30で切りかわる（深夜1時は前の日の運行）。天気は Open-Meteo、祝日は holidays-jp（どちらも無料・登録なし）
+async function liveCond(){const note=document.getElementById('liveNote');
+  const p=jstParts(Date.now()-START*60000),ymd=`${p.year}-${p.month}-${p.day}`,mo=Number(p.month);
+  const c={season:mo>=3&&mo<=5?'spr':mo>=6&&mo<=8?'sum':mo>=9&&mo<=11?'aut':'win',day:p.weekday==='Sat'?'sat':p.weekday==='Sun'?'hol':'wd'};
+  const [wr,hr]=await Promise.allSettled([
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6939&longitude=139.4194&current=weather_code,temperature_2m&timezone=Asia%2FTokyo').then(r=>r.ok?r.json():Promise.reject(r.status)),
+    fetch('https://holidays-jp.github.io/api/v1/date.json').then(r=>r.ok?r.json():Promise.reject(r.status))]);
+  let hol='';if(hr.status==='fulfilled'&&hr.value[ymd]){hol=hr.value[ymd];c.day='hol';}
+  let wtxt='天気は取得できませんでした';
+  if(wr.status==='fulfilled'&&wr.value.current){const w=wr.value.current.weather_code,tc=wr.value.current.temperature_2m;
+    // WMO の天気コード → 晴れ・くもり・雨・大雪
+    c.wx=w<=1?'sun':w<=48?'cld':(w>=71&&w<=77)||w===85||w===86?'snow':'rain';
+    wtxt=`${CONDS.wx.opts[c.wx].n}${c.wx==='snow'?'（雪）':''} ${Math.round(tc)}℃`;}
+  setCond({...COND,...c});saveCond();renderCondUI();rebuildSoon();
+  if(note)note.textContent=`いまの立川市：${wtxt}・${CONDS.day.opts[c.day].n}${hol?'（'+hol+'）':''}（起動時に自動で設定。下のボタンで変えられます）`;}
+function start(data){if(data&&typeof data.T==='number')T=data.T;else T=liveT();liveCond().catch(()=>{});renderCondUI();renderLegend();renderEditor();rebuild();renderMode();resize();setPlay(true);requestAnimationFrame(frame);}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>
