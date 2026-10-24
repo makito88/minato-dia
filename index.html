@@ -1303,6 +1303,7 @@ function drawMap(){
     c.fillStyle=sn?'#ffffff':TH.muted;c.globalAlpha=sn?0.16:0.06;c.fillRect(-20,-20,1040,460);c.globalAlpha=sn?0.9:0.5;c.lineWidth=1;c.strokeStyle=sn?TH.muted:TH.water;c.fillStyle='#ffffff';
     for(let i=0;i<(sn?110:150);i++){const y=((i*71.3)%430+now*(sn?20:240))%440-10;let x=((i*137.5)%1000+(sn?Math.sin(now*0.8+i)*8:-y*0.25)+1000)%1000;
       c.beginPath();if(sn){c.arc(x,y,1.6,0,6.3);c.fill();c.lineWidth=0.4;c.stroke();}else{c.moveTo(x,y);c.lineTo(x-3,y+10);c.stroke();}}c.globalAlpha=1;}
+  drawClouds(c,dk);   // 薄い雲（天気で量と色が変わる）
   const snap=trafficSnapshot(T);
   if(LAYERS.heat)drawHeat(c,snap);
   if(LAYERS.stations)drawStationLayer(c,snap);
@@ -1660,6 +1661,19 @@ function drawStationLayer(c,snap){
     c.fillStyle=TH.accent;c.globalAlpha=0.16;c.beginPath();c.arc(st.x,st.y,r,0,6.284);c.fill();c.globalAlpha=0.9;c.strokeStyle=TH.accent;c.lineWidth=1.5;c.stroke();c.globalAlpha=1;
     const below=s==='O'||s==='T'||st.y-r-9<12;pillText(c,`${fmtN(v.onoffHour)}人/時`,s==='O'||s==='T'?st.x+r+26:st.x,below?st.y+(s==='O'||s==='T'?0:r+10):st.y-r-9,TH.ink,TH.panel);});}
 function evPos(ev){return ev.pos?{x:ev.pos[0],y:ev.pos[1]}:{x:ST[ev.place].x+22,y:ST[ev.place].y-46};}
+/* ---------- 地図の上の薄い雲：ふわっとした雲の絵を数種類作っておき、ゆっくり流す。地面に薄い影も落とす ---------- */
+const CLOUDSPR=(()=>{const out=[];for(let k=0;k<4;k++){const cv=document.createElement('canvas');cv.width=320;cv.height=150;const g=cv.getContext('2d');let x=(k*9301+49297)%233280;const r=()=>(x=(x*9301+49297)%233280)/233280;
+  for(let i=0;i<14;i++){const cx=50+r()*220,cy=70+(r()-0.5)*40*(1-Math.abs(cx-160)/160),rad=24+r()*34*(1-Math.abs(cx-160)/220);
+    const gr=g.createRadialGradient(cx,cy,0,cx,cy,rad);gr.addColorStop(0,'rgba(255,255,255,.55)');gr.addColorStop(0.6,'rgba(255,255,255,.28)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.beginPath();g.arc(cx,cy,rad,0,6.3);g.fill();}
+  const sh=document.createElement('canvas');sh.width=320;sh.height=150;const gs=sh.getContext('2d');gs.drawImage(cv,0,0);gs.globalCompositeOperation='source-in';gs.fillStyle='#1d2a33';gs.fillRect(0,0,320,150);   // 影用の暗い雲（毎回色を変えると重いので先に作る）
+  cv.shadow=sh;out.push(cv);}return out;})();
+function drawClouds(c,dk){const wx=COND.wx,n=wx==='sun'?5:wx==='cld'?11:12,a=wx==='sun'?0.6:wx==='cld'?0.7:0.75,t=performance.now()/1000;
+  c.save();
+  for(let i=0;i<n;i++){const sp=CLOUDSPR[i%4],sc=0.9+((i*37)%10)/10*0.9,w=320*sc,h=150*sc,
+      x=((i*263.7+t*(3+(i%3)))%(1000+w+200))-w-100,y=((i*97.3)%420)-h*0.4;
+    c.globalAlpha=a*0.12*(1-dk*0.5);c.drawImage(sp.shadow,x+26,y+30,w,h);   // 地面に落ちる薄い影
+    c.globalAlpha=a*(1-dk*0.6);if(wx==='rain'||dk>0.3)c.filter=`brightness(${wx==='rain'?0.82:1-dk*0.4})`;c.drawImage(sp,x,y,w,h);c.filter='none';}
+  c.restore();}
 function drawEventIcons(c,snap,dk){EVHIT=[];const now=performance.now()/1000;
   snap.events.forEach(({ev,state})=>{const p=evPos(ev);EVHIT.push({id:ev.id,x:p.x,y:p.y});
     if(state==='during'&&ev.anim==='fireworks'&&dk>0.2){const cols=[TH.E,TH.glow,TH.X,TH.R];for(let k=0;k<3;k++){const ph=(now*0.7+k*0.33)%1,cx=p.x-40+k*38,cy=p.y-30-k*12-ph*14,r=6+ph*24;c.strokeStyle=cols[(k+Math.floor(now))%4];c.globalAlpha=1-ph;c.lineWidth=1.6;
