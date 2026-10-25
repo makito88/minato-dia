@@ -414,11 +414,13 @@ const ledTicks = {};
 function boardFor(tracks, side) {
   const list = KW.trains.filter(t => tracks.includes(t.tr) && t.t1 > now && t.dep > now - 0.05).sort((a, b) => a.dep - b.dep).slice(0, 3);
   const plan = t => KW.PAT.find(p => p.k === t.k).dep + t.c * KW.CYCLE;
+  // 接近を知らせるのは、同じ方向で先に着く1本だけ。その列車が止まったら次の列車へ
+  const appr = KW.trains.filter(t => tracks.includes(t.tr) && now >= t.t0 - 1 && now < t.arr).sort((a, b) => a.arr - b.arr)[0] || null;
   const rows = list.map((t, i) => {
     const d = LED[t.type], late = KW.lateOf(t, now);
     let stt = '', cls = '';
     if (now >= t.arr && now <= t.dep) { stt = t.dep - now < 0.5 ? 'まもなく発車' : '停車中'; cls = t.dep - now < 0.5 ? 'ap' : ''; }
-    else if (now >= t.t0 - 1) { stt = '接近'; cls = 'ap'; }
+    else if (t === appr) { stt = '接近'; cls = 'ap'; }
     if (late >= 3) { stt = `${Math.floor(late)}分遅れ`; cls = 'lt'; }
     return `<div class="row${i ? '' : ' first'}"><span class="sb" style="color:${d.col}">${t.ty.name}</span><span class="tm">${KW.hm(plan(t))}</span><span class="ds">${t.dest}${d.nick ? `<small>${d.nick}</small>` : ''}</span><span class="tr">${t.tr}番線</span><span class="cr">${d.cars}両</span><span class="stt ${cls}">${stt}</span></div>`;
   }).join('');
@@ -435,7 +437,7 @@ function boardFor(tracks, side) {
   msgs.push(side === 'A' ? '♨ 温泉へは、川辺から温泉支線へ。森下・峠を通って、湯けむりの温泉駅へ！' : '🏙 中央方面へは、このホームから。大学前・中央へお越しの方は快速が便利です');
   const text = msgs.join('　　　　');
   // 接近案内
-  const nt = list.find(t => now >= t.t0 - 1 && now < t.arr);
+  const nt = appr;
   const near = nt ? `🔔 まもなく ${nt.tr}番線に ${nt.ty.name} ${nt.dest}行が まいります。黄色い線の内側まで お下がりください` : '';
   return { rows, text, near, nt };
 }
