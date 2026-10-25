@@ -141,7 +141,7 @@ g.sig.sel text{text-decoration:underline}
   <section class="pane" id="p-table" hidden><h3>川辺駅の時刻表（30分ごとに同じ並び）</h3><div id="tt"></div><p class="note">このページのダイヤは、川辺駅のしくみを見るための見本です。地図のシミュレーションの列車とはつながっていません。</p></section>
   <section class="pane" id="p-led" hidden>
     <div class="leds"><div class="led" id="ledA"></div><div class="led" id="ledB"></div></div>
-    <p class="note">ホームに立つお客さんが見る掲示板です。発車時刻は時刻表の時刻。合流待ちなどで遅れるときは、赤い字で知らせます。愛称（特急「みなと」・観光特急「ゆけむり」）と両数は、このページの見本です。</p>
+    <p class="note">ホームに立つお客さんが見る掲示板です。発車時刻は時刻表の時刻。着く列車が3分以上遅れているときは、赤い字で「〇分遅れ」と出します。愛称（特急「みなと」・観光特急「ゆけむり」）と両数は、このページの見本です。</p>
   </section>
   <section class="pane" id="p-sig" hidden>
     <div class="card" id="sigcard"></div>
@@ -415,11 +415,11 @@ function boardFor(tracks, side) {
   const list = KW.trains.filter(t => tracks.includes(t.tr) && t.t1 > now && t.dep > now - 0.05).sort((a, b) => a.dep - b.dep).slice(0, 3);
   const plan = t => KW.PAT.find(p => p.k === t.k).dep + t.c * KW.CYCLE;
   const rows = list.map((t, i) => {
-    const d = LED[t.type], late = Math.round((t.dep - plan(t)) * 60);
+    const d = LED[t.type], late = KW.lateOf(t, now);
     let stt = '', cls = '';
     if (now >= t.arr && now <= t.dep) { stt = t.dep - now < 0.5 ? 'まもなく発車' : '停車中'; cls = t.dep - now < 0.5 ? 'ap' : ''; }
     else if (now >= t.t0 - 1) { stt = '接近'; cls = 'ap'; }
-    if (late >= 30) { stt = `約${Math.max(1, Math.round(late / 60))}分遅れ`; cls = 'lt'; }
+    if (late >= 3) { stt = `${Math.floor(late)}分遅れ`; cls = 'lt'; }
     return `<div class="row${i ? '' : ' first'}"><span class="sb" style="color:${d.col}">${t.ty.name}</span><span class="tm">${KW.hm(plan(t))}</span><span class="ds">${t.dest}${d.nick ? `<small>${d.nick}</small>` : ''}</span><span class="tr">${t.tr}番線</span><span class="cr">${d.cars}両</span><span class="stt ${cls}">${stt}</span></div>`;
   }).join('');
   // 流れる案内
@@ -431,9 +431,6 @@ function boardFor(tracks, side) {
     const pair = KW.trains.find(o => o !== t && o.down === t.down && [1, 2, 3, 4].includes(o.tr) && Math.abs(o.tr - t.tr) === 1 && Math.min(o.tr, t.tr) % 2 === 1 && o.arr < t.dep && t.arr < o.dep);
     if (pair && pair.dest === t.dest && pair.dep < t.dep) msgs.push(`◆ この${t.ty.name}は、川辺で ${pair.ty.name} の通過待ちをします。${t.dest}へお急ぎの方は、向かいの ${pair.tr}番線の ${pair.ty.name} が先に着きます`);
     else if (pair && pair.dest !== t.dest && pair.arr < t.arr) msgs.push(`◆ ${pair.tr}番線の ${pair.ty.name} ${pair.dest}行から、同じホームで乗り換えられます。この ${t.ty.name} は乗り換えのお客さまを待って発車します`);
-    const lt = KW.lateOf(t, now);
-    if (lt >= 0.5) msgs.unshift(`⚠ ${KW.delayWhy(t) || '遅れのため'}、${KW.hm(plan(t))}発の ${t.ty.name} ${t.dest}行は、約${Math.max(1, Math.round(lt))}分遅れて運転しています。ご迷惑をおかけしております`);
-    else if (t.heldIn || t.held) msgs.push(`◆ ${t.ty.name} ${t.dest}行は、ほかの列車との合流を待つため、少し遅れて発車します。ご了承ください`);
   });
   msgs.push(side === 'A' ? '♨ 温泉へは、川辺から温泉支線へ。森下・峠を通って、湯けむりの温泉駅へ！' : '🏙 中央方面へは、このホームから。大学前・中央へお越しの方は快速が便利です');
   const text = msgs.join('　　　　');
