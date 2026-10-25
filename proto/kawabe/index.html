@@ -19,6 +19,10 @@ button{font:inherit;font-size:14px;background:#17293c;color:var(--ink);border:1p
 button:hover{background:#1e3550}
 button.on{background:#2a6fdb;border-color:#2a6fdb;color:#fff}
 .grp{display:flex;gap:4px}
+.bar.dly{font-size:13.5px;gap:6px}
+.bar.dly select{font:inherit;font-size:13px;background:#17293c;color:var(--ink);border:1px solid #2c4560;border-radius:7px;padding:4px 6px;max-width:100%}
+.dsum{color:#ffcf6a;font-size:13px}
+.late{color:#ffb070}
 .board{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px;position:relative}
 svg{display:block;width:100%;height:auto}
 .legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--sub);padding:6px 6px 2px}
@@ -99,6 +103,16 @@ g.sig.sel text{text-decoration:underline}
     <button id="play">❚❚ 止める</button>
     <div class="grp" id="speeds"></div>
     <button id="next">⏭ つぎの出来事へ</button>
+  </div>
+  <div class="bar dly">
+    <b>遅れを起こす</b>
+    <select id="dTrain" aria-label="遅らせる列車"></select>
+    <select id="dMin" aria-label="遅れる時間"><option value="2">2分</option><option value="3" selected>3分</option><option value="5">5分</option><option value="10">10分</option><option value="15">15分</option></select>
+    <select id="dWhy" aria-label="理由"><option>急病人の救護</option><option>車両の点検</option><option>線路内の安全確認</option><option>ドアの点検</option><option>混雑による乗り降りの遅れ</option><option>信号の確認</option></select>
+    <button id="dGo">遅れを起こす</button>
+    <button id="dRnd">🎲 おまかせ</button>
+    <button id="dClr">遅れを消す</button>
+    <span id="dSum" class="dsum"></span>
   </div>
 
   <div class="board">
@@ -265,15 +279,17 @@ function drawTrains() {
       const occ = mk('path', { fill: 'none', stroke: 'var(--R)', 'stroke-width': 15, opacity: .38, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, gOcc);
       const g = mk('g', {}, gTrain);
       const p = mk('path', { fill: 'none', stroke: t.ty.color, 'stroke-width': 8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
-      const w = t.label.length * 10 + 40;
+      const late0 = Math.max(t.arr - t.pArr, t.dep - t.pDep) > 0.4, w = t.label.length * 10 + 40 + (late0 ? 30 : 0);
       const lg = mk('g', {}, g);
       mk('rect', { x: -w / 2, y: -8, width: w, height: 16, rx: 3, fill: '#05090e', stroke: t.ty.color }, lg);
       const tx = mk('text', { x: 0, y: 4, fill: '#fff', 'font-size': 11, 'text-anchor': 'middle' }, lg);
       mk('tspan', {}, tx).textContent = t.label.replace(' ', '') + ' ';
       const pc = mk('tspan', { 'font-weight': 700 }, tx);
-      e = { occ, g, p, lg, w, pc }; trEl.set(t.id, e);
+      const dl = mk('tspan', { fill: '#ffb070', 'font-weight': 700 }, tx);
+      e = { occ, g, p, lg, w, pc, dl }; trEl.set(t.id, e);
     }
-    { const r = KW.loadAt(t, now); e.pc.textContent = Math.round(r * 100) + '%'; e.pc.setAttribute('fill', crowdCol(r)); }
+    { const r = KW.loadAt(t, now); e.pc.textContent = Math.round(r * 100) + '%'; e.pc.setAttribute('fill', crowdCol(r));
+      const lt = KW.lateOf(t, now); e.dl.textContent = lt > 0.4 ? ` +${Math.round(lt)}分` : ''; }
     const d = b.parts.map(dstr).join('');
     e.p.setAttribute('d', d); e.occ.setAttribute('d', d);
     const [hx, hy] = b.head, dy = hy < 125 ? -17 : hy < 190 ? 19 : hy < 255 ? -17 : 19;
@@ -376,7 +392,8 @@ function drawTable() {
 const crowdCol = r => r < 1 ? '#9fe8ff' : r < 1.5 ? '#ffe14a' : r < 1.8 ? '#ffb35c' : '#ff7ad9';
 const crowdWord = r => r < 0.5 ? '空いている' : r < 1 ? '座席がうまる程度' : r < 1.5 ? '立つ人が多い' : r < 1.8 ? '肩がふれあう' : r < 2 ? '新聞をたたんで読む' : '体がふれあい、苦しい';
 const pctSpan = r => `<b style="color:${crowdCol(r)}">${Math.round(r * 100)}%</b>`;
-const loadLine = t => `<div class="st">乗車率 着 ${pctSpan(t.load.arr)} → 発 ${pctSpan(t.load.dep)}（${t.cars}両・定員${t.cap}人、いま約${Math.round(KW.loadAt(t, now) * t.cap)}人・${crowdWord(KW.loadAt(t, now))}）</div>`;
+const delayLine = t => { const lt = KW.lateOf(t, now); return lt > 0.4 ? `<div class="st late">⚠ 約${Math.round(lt)}分遅れ（${KW.delayWhy(t) || '遅れ'}）</div>` : ''; };
+const loadLine = t => delayLine(t) + `<div class="st">乗車率 着 ${pctSpan(t.load.arr)} → 発 ${pctSpan(t.load.dep)}（${t.cars}両・定員${t.cap}人、いま約${Math.round(KW.loadAt(t, now) * t.cap)}人・${crowdWord(KW.loadAt(t, now))}）</div>`;
 
 /* ---------- 電光掲示板 ---------- */
 const LED = {
@@ -414,7 +431,9 @@ function boardFor(tracks, side) {
     const pair = KW.trains.find(o => o !== t && o.down === t.down && [1, 2, 3, 4].includes(o.tr) && Math.abs(o.tr - t.tr) === 1 && Math.min(o.tr, t.tr) % 2 === 1 && o.arr < t.dep && t.arr < o.dep);
     if (pair && pair.dest === t.dest && pair.dep < t.dep) msgs.push(`◆ この${t.ty.name}は、川辺で ${pair.ty.name} の通過待ちをします。${t.dest}へお急ぎの方は、向かいの ${pair.tr}番線の ${pair.ty.name} が先に着きます`);
     else if (pair && pair.dest !== t.dest && pair.arr < t.arr) msgs.push(`◆ ${pair.tr}番線の ${pair.ty.name} ${pair.dest}行から、同じホームで乗り換えられます。この ${t.ty.name} は乗り換えのお客さまを待って発車します`);
-    if (t.heldIn || t.held) msgs.push(`◆ ${t.ty.name} ${t.dest}行は、ほかの列車との合流を待つため、少し遅れて発車します。ご了承ください`);
+    const lt = KW.lateOf(t, now);
+    if (lt >= 0.5) msgs.unshift(`⚠ ${KW.delayWhy(t) || '遅れのため'}、${KW.hm(plan(t))}発の ${t.ty.name} ${t.dest}行は、約${Math.max(1, Math.round(lt))}分遅れて運転しています。ご迷惑をおかけしております`);
+    else if (t.heldIn || t.held) msgs.push(`◆ ${t.ty.name} ${t.dest}行は、ほかの列車との合流を待つため、少し遅れて発車します。ご了承ください`);
   });
   msgs.push(side === 'A' ? '♨ 温泉へは、川辺から温泉支線へ。森下・峠を通って、湯けむりの温泉駅へ！' : '🏙 中央方面へは、このホームから。大学前・中央へお越しの方は快速が便利です');
   const text = msgs.join('　　　　');
@@ -560,6 +579,29 @@ function loop(ts) {
   frame();
   requestAnimationFrame(loop);
 }
+/* ---------- 遅れを起こす ---------- */
+let delays = [];
+function fillTrains() {
+  const sel = $('dTrain'), cur = sel.value;
+  const list = KW.trains.filter(t => t.pArr - 1.5 > now + 0.3).sort((a, b) => a.pArr - b.pArr).slice(0, 10);
+  sel.innerHTML = list.map(t => `<option value="${t.id}">${KW.hm(t.pArr)}着 ${t.name}（${t.tr}番線）</option>`).join('');
+  if (list.some(t => t.id === cur)) sel.value = cur;
+}
+function applyDelays() {
+  KW.setDelays(delays);
+  for (const [, e] of trEl) { e.g.remove(); e.occ.remove(); } trEl.clear();
+  for (const k in ledTicks) delete ledTicks[k];
+  const n = KW.trains.filter(t => t.dep - t.pDep > 0.4 && t.dep > now).length;
+  $('dSum').textContent = delays.length ? `起こした遅れ ${delays.length}件・遅れている列車 ${n}本` : '';
+  fillTrains(); frame(true);
+}
+function addDelay(id, min, reason) { delays = delays.filter(d => d.id !== id); delays.push({ id, min, reason }); applyDelays(); }
+$('dGo').onclick = () => { const id = $('dTrain').value; if (id) addDelay(id, +$('dMin').value, $('dWhy').value); };
+$('dRnd').onclick = () => { const o = [...$('dTrain').options]; if (!o.length) return; const pick = a => a[Math.floor(Math.random() * a.length)];
+  addDelay(pick(o).value, pick([2, 3, 5, 10]), pick([...$('dWhy').options]).value); };
+$('dClr').onclick = () => { delays = []; applyDelays(); };
+setInterval(() => { if (document.activeElement !== $('dTrain')) fillTrains(); }, 1500);
+fillTrains();
 drawTable(); frame(true); requestAnimationFrame(loop);
 </script>
 </body>

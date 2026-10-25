@@ -60,12 +60,12 @@ const KW = (() => {
     { k: 'D1', type: 'L', dest: '港', ent: 'W', tr: 1, ex: 'E', arr: 1.0, dep: 6.5, wait: '特急の追い越し待ち', note: '1番線で特急に追い越してもらいます。同じホームの2番線に来る特急へ乗り換えできます。' },
     { k: 'D2', type: 'E', dest: '港', ent: 'W', tr: 2, ex: 'E', arr: 4.0, dep: 5.0, note: '1番線で待っている普通を追い越します。' },
     { k: 'D3', type: 'R', dest: '港', ent: 'W', tr: 2, ex: 'E', arr: 10.5, dep: 11.0 },
-    { k: 'D4', type: 'X', dest: '温泉', ent: 'W', tr: 1, ex: 'B', arr: 18.5, dep: 20.5, wait: '港行 普通からの乗り換え待ち', note: '2番線に来る普通（港行）からの乗り換えを待ってから、単線の温泉支線へ入ります。' },
+    { k: 'D4', type: 'X', dest: '温泉', ent: 'W', tr: 1, ex: 'B', arr: 18.5, dep: 20.5, wait: '港行 普通からの乗り換え待ち', conn: 'D5', note: '2番線に来る普通（港行）からの乗り換えを待ってから、単線の温泉支線へ入ります。' },
     { k: 'D5', type: 'L', dest: '港', ent: 'W', tr: 2, ex: 'E', arr: 19.8, dep: 20.3, note: '同じホームの1番線にいる観光特急（温泉行）へ乗り換えできます。' },
     { k: 'D6', type: 'R', dest: '港', ent: 'W', tr: 2, ex: 'E', arr: 25.0, dep: 25.5 },
     { k: 'U1', type: 'L', dest: '中央', ent: 'E', tr: 4, ex: 'W', arr: 3.0, dep: 8.0, wait: '特急の追い越し待ち', note: '4番線で特急に追い越してもらいます。同じホームの3番線に来る特急へ乗り換えできます。' },
     { k: 'U2', type: 'E', dest: '中央', ent: 'E', tr: 3, ex: 'W', arr: 5.5, dep: 6.5, note: '4番線で待っている普通を追い越します。' },
-    { k: 'UB', type: 'X', dest: '中央', from: '温泉', ent: 'B', tr: 3, ex: 'W', arr: 14.0, dep: 16.0, wait: '港から来る快速からの乗り換え待ち', note: '温泉支線（森下）から来た列車です。下りの線路を平面交差で横切り、⑦の合流点で上りの線路に入って3番線に着きます。横切るあいだ、下りの出発信号は赤のままです。向かいの4番線に来る快速（港から）からの乗り換えを待って発車します。' },
+    { k: 'UB', type: 'X', dest: '中央', from: '温泉', ent: 'B', tr: 3, ex: 'W', arr: 14.0, dep: 16.0, wait: '港から来る快速からの乗り換え待ち', conn: 'U3', note: '温泉支線（森下）から来た列車です。下りの線路を平面交差で横切り、⑦の合流点で上りの線路に入って3番線に着きます。横切るあいだ、下りの出発信号は赤のままです。向かいの4番線に来る快速（港から）からの乗り換えを待って発車します。' },
     { k: 'U3', type: 'R', dest: '中央', ent: 'E', tr: 4, ex: 'W', arr: 14.0, dep: 17.3, wait: '観光特急の発車待ち', note: '港から来た快速です。森下から来た観光特急が先に⑦の合流点を通るので、上りの場内信号の手前で止まって待ちます。観光特急が⑦を通りすぎてから、4番線へ入ります。3番線の観光特急へ乗り換えでき、観光特急が先に出たあとに発車します。' },
     { k: 'U4', type: 'L', dest: '中央', ent: 'E', tr: 3, ex: 'W', arr: 24.0, dep: 24.5 },
   ];
@@ -98,9 +98,30 @@ const KW = (() => {
   }
   const ptAt = (p, s) => { const q = sub(p, Math.max(0, s - 0.01), s); return q.length ? q[q.length - 1] : p[0]; };
 
-  /* ---- 列車を作る ---- */
+  /* ---- 遅れ ----
+     DL：起こした遅れ [{ id, min, reason }]。EX：行きちがいなどで、あとから足した待ち */
   const NC = 40; // 7:00 から 20 時間ぶん
+  const PLACE = { W: '緑ヶ丘', E: '新田', B: '森下' };
+  let DL = [], EX = { arr: {}, dep: {}, why: {}, whyDep: {} };
+  /* 駅に着く時刻：起こした遅れ＋前の列車の遅れ（同じ方向から来る列車は、2分より近づけない） */
+  function arrivals() {
+    const L = [];
+    for (let c = -1; c < NC; c++) PAT.forEach(p => L.push({ id: p.k + '_' + c, ent: p.ent, pArr: p.arr + c * CYCLE }));
+    L.sort((a, b) => a.pArr - b.pArr);
+    const last = {}, A = {};
+    for (const x of L) {
+      const own = DL.find(d => d.id === x.id), ex = EX.arr[x.id] || 0;
+      let a = x.pArr + (own ? own.min : 0) + ex, why = own ? { k: 'own', d: own } : ex ? EX.why[x.id] : null;
+      const pv = last[x.ent];
+      if (pv) { const need = pv.a + Math.min(2, x.pArr - pv.pArr); if (need > a + 1e-6) { a = need; why = { k: 'follow', by: pv.id }; } }
+      last[x.ent] = { a, pArr: x.pArr, id: x.id }; A[x.id] = { a, why };
+    }
+    return A;
+  }
   const trains = [];
+  function makeTrains() {
+  trains.length = 0;
+  const A = arrivals();
   for (let c = -1; c < NC; c++) {
     let nd = 0, nu = 0;
     PAT.forEach(p => {
@@ -108,7 +129,13 @@ const KW = (() => {
       const ak = p.ent + p.tr, dk = p.tr + p.ex;
       const ap = PATHS[ak], dp = PATHS[dk], sStop = plen(ap), Ld = plen(dp), L = ty.len;
       const no = down ? 101 + c * 40 + 2 * nd++ : 102 + c * 40 + 2 * nu++;
-      const t = { ...p, id: p.k + '_' + c, c, no, ty, down, ak, dk, ap, dp, sStop, Ld, L, arr: p.arr + off, dep: p.dep + off };
+      const id = p.k + '_' + c, pArr = p.arr + off, pDep = p.dep + off, arr = A[id].a;
+      let dep = Math.max(pDep + (EX.dep[id] || 0), arr + (p.type === 'X' ? 1.0 : 0.5)), connWait = null, connCut = null;
+      if (p.conn) { // 乗り換えを待つ列車：相手の遅れが5分までなら待つ
+        const cp = PAT.find(q => q.k === p.conn), cid = p.conn + '_' + c, ca = A[cid].a, late = ca - (cp.arr + off);
+        if (late > 0.3) { if (late <= 5) { const nd = ca + Math.max(0.5, pDep - (cp.arr + off)); if (nd > dep) { dep = nd; connWait = cid; } } else connCut = cid; }
+      }
+      const t = { ...p, id, c, no, ty, down, ak, dk, ap, dp, sStop, Ld, L, arr, dep, pArr, pDep, why: A[id].why, connWait, connCut, whyDep: EX.whyDep[id] || null };
       t.t0 = t.arr - TA; t.t1 = t.dep + TB;
       t.wa = null; // 場内信号の手前で止まって待つとき { hs：止まる位置, tw0：止まった時刻, tw1：動き出す時刻 }
       t.posA = now => {
@@ -138,6 +165,7 @@ const KW = (() => {
     });
   }
   trains.sort((a, b) => a.arr - b.arr);
+  }
 
   /* ---- 乗車率（見本の計算。本体のシミュレーションとはつながっていない） ----
      定員：通勤車1両140人、特急車64人、観光車48人。時間帯（朝は中央行、夕方は港行が混む）と種別で決める */
@@ -152,7 +180,7 @@ const KW = (() => {
     if (t.type === 'E') d = Math.min(d, 1.0) ; // 特急は全車指定席なので100%まで
     return d;
   }
-  trains.forEach(t => {
+  function makeLoads() { trains.forEach(t => {
     t.cap = CAP[t.type] * CARS[t.type]; t.cars = CARS[t.type];
     const j = jit(t.no), lim = t.type === 'E' || t.type === 'X' ? 1.0 : 2.5;
     const a = Math.min(lim, Math.max(0.05, demand(t, t.arr) + j));
@@ -160,7 +188,7 @@ const KW = (() => {
     const off = t.type === 'X' ? 0.15 : 0.3, on = t.type === 'X' ? 0.2 : t.down ? 0.18 : 0.28;
     const d = Math.min(lim, Math.max(0.05, a * (1 - off) + on * demand(t, t.dep)));
     t.load = { arr: a, dep: d };
-  });
+  }); }
   /* いまの乗車率（止まっているあいだに、降りてから乗る） */
   function loadAt(t, now) {
     if (now <= t.arr) return t.load.arr;
@@ -265,7 +293,7 @@ const KW = (() => {
     }
     for (let i = 0; i < trains.length; i++) for (let j = 0; j < trains.length; j++) {
       const a = trains[i], b = trains[j]; if (a === b || a.tr !== b.tr) continue;
-      if (a.ra.set > b.arr - 0.01 && a.ra.set < b.rd.rel) probs.push(`番線に先客 ${a.id}→${a.tr}番線 ${a.ra.set.toFixed(2)} に ${b.id}`);
+      if (b.arr < a.arr && a.ra.set > b.arr - 0.01 && a.ra.set < b.tailD(0) + 0.1) probs.push(`番線に先客 ${a.id}→${a.tr}番線 ${a.ra.set.toFixed(2)} に ${b.id}`);
     }
     trains.forEach(t => [t.ra, t.rd].forEach(r => routeSw(r).forEach(({ id }) => { const st = swState(id, r.open - 1e-4); if (!st.lock || st.r !== r) probs.push(`鎖錠の前に信号 ${t.id} ${r.key} ${SW[id].no} ${st.phase}`); })));
     const oo = trains.filter(t => t.oout).sort((a, b) => a.oout.head - b.oout.head);
@@ -281,30 +309,40 @@ const KW = (() => {
   /* ---- 合流の順番 ----
      交わる進路は、先に進路を頼んだ列車から通す。後の列車は出発信号が赤のまま待つ。
      駅の外の区間も、前の列車が1つ先の区間を出るまで、出発信号を開けない */
-  (function hold() {
+  function hold() {
     const pending = []; trains.forEach(t => { pending.push([t.ra, t]); pending.push([t.rd, t]); });
-    const done = [];
-    const blockers = (r, t, need) => { let by = null;
-      for (const [q, o] of done) if (o !== t && conflict(r, t, q, o)) { const rl = secRel(q, r); if (rl > need + 1e-6) { need = rl; by = o; } }
+    const done = [], doneSet = new Set();
+    let why = null;
+    const blockers = (r, t, need) => { let by = null; why = 'route';
+      for (const [q, o] of done) if (o !== t && o.t1 > t.t0 - 8 && o.t0 < t.t1 + 8 && conflict(r, t, q, o)) { const rl = secRel(q, r); if (rl > need + 1e-6) { need = rl; by = o; why = 'route'; } }
+      if (r === t.ra) for (const o of trains) if (o !== t && o.tr === t.tr && o.arr < t.arr && o.t1 > t.t0 - 8 && doneSet.has(o.rd)) { const clr = o.tailD(0) + 0.15; if (clr > need + 1e-6) { need = clr; by = o; why = 'track'; } }
       return [need, by]; };
+    const key = r => r.defer ?? r.set;
     while (pending.length) {
-      let bi = 0; for (let i = 1; i < pending.length; i++) if (pending[i][0].set < pending[bi][0].set) bi = i;
+      let bi = 0; for (let i = 1; i < pending.length; i++) if (key(pending[i][0]) < key(pending[bi][0])) bi = i;
       const [r, t] = pending.splice(bi, 1)[0];
       if (r === t.ra) {
-        let [need, by] = blockers(r, t, r.set);
+        // 同じ番線に前の列車がいて、まだ出発が決まっていないときは、決まるまであとまわし
+        const occ = trains.find(o => o !== t && o.tr === t.tr && o.arr < t.arr && o.t1 > t.t0 - 2 && !doneSet.has(o.rd));
+        if (occ) { r.defer = key(occ.rd) + 0.001; pending.push([r, t]); continue; }
+        let [need, by] = blockers(r, t, r.set); const whyIn = why;
         if (need > r.set + 0.01) {
           if (need <= r.pass - 0.25 - T_OPEN) r.set = need;          // 少しおそく開くだけ
           else {                                              // 場内信号の手前で止まって待つ
-            const hs = r.s0 - 14, tw0 = t.t0 + TA * hs / t.sStop, tw1 = Math.max(need + T_OPEN + 0.15, tw0 + 0.2);
+            let hs = r.s0 - 14;
+            const ahead = trains.find(o => o !== t && o.ent === t.ent && o.wa && o.t0 < t.t0 && o.wa.tw1 > t.t0); // 前にも待っている列車がいれば、その後ろで止まる
+            if (ahead) hs = Math.min(hs, ahead.wa.hs - ahead.L - 12);
+            const tw0 = t.t0 + TA * hs / t.sStop, tw1 = Math.max(need + T_OPEN + 0.15, tw0 + 0.2);
             const old = t.arr; t.wa = { hs, tw0, tw1 }; t.arr = tw1 + 0.5 + (t.sStop - hs) / 600;
             r.set = need; r.pass = t.headA(r.s0); r.rel = t.tailA(r.s1);
             if (t.oin) { t.oin.head = t.headA(t.oin.d); t.oin.tail = t.tailA(t.oin.d); }
             if (t.dep < t.arr + 0.5) { t.dep = t.arr + 0.5; t.rd.set = t.dep - RD_LEAD; }
-            t.heldIn = { by, min: t.arr - old, at: tw0, go: tw1 };
+            t.heldIn = { by, min: t.arr - old, at: tw0, go: tw1, why: whyIn };
+            t.t1 = t.dep + TB;
           }
         }
       } else {
-        const plan = r.set; let need = plan, by = null, why = null, moved = true;
+        const plan = r.set; let need = plan, by = null, moved = true; why = null;
         while (moved) {
           moved = false;
           const [n2, b2] = blockers(r, t, need); if (n2 > need + 1e-6) { need = n2; by = b2; why = 'route'; moved = true; }
@@ -319,10 +357,47 @@ const KW = (() => {
         if (t.oout) { t.oout.head = t.headD(t.oout.d); t.oout.tail = t.tailD(t.oout.d); }
         if (t.ex === 'B') t.br = [t.dep, t.dep + BRANCH_RUN];
       }
-      done.push([r, t]);
+      done.push([r, t]); doneSet.add(r);
     }
     trains.forEach(t => { t.ra.open = t.ra.set + T_OPEN; t.rd.open = t.rd.set + T_OPEN; });
-  })();
+  }
+  /* 単線区間（川辺〜森下）で、反対向きの列車が重ならないようにする。重なったら、あとの列車を待たせて組み直す */
+  function singleLine() {
+    for (const o of trains) { if (!o.br || o.ex !== 'B') continue;
+      for (const i of trains) { if (!i.br || i.ent !== 'B') continue;
+        if (o.br[0] < i.br[1] && i.br[0] < o.br[1]) {
+          if (i.br[0] <= o.br[0]) { EX.dep[o.id] = (EX.dep[o.id] || 0) + (i.br[1] - o.br[0]) + 0.1; EX.whyDep[o.id] = { k: 'single', by: i.id }; }
+          else { EX.arr[i.id] = (EX.arr[i.id] || 0) + (o.br[1] - i.br[0]) + 0.1; EX.why[i.id] = { k: 'single', by: o.id }; }
+          return true;
+        } } }
+    return false;
+  }
+  /* 駅の外：前の列車が場内信号の手前で待っているあいだ、後ろの列車は閉塞信号の手前（画面の外）で待つ */
+  function approach() {
+    for (const t of trains) { if (!t.oin) continue;
+      for (const o of trains) if (o !== t && o.ra.sig === t.ra.sig && Math.abs(o.t0 - t.t0) < 15 && o.ra.pass < t.ra.pass) {
+        const clr = o.tailA(o.ra.s0); if (t.oin.head < clr - 1e-6 && clr - t.oin.head < 30) { EX.arr[t.id] = (EX.arr[t.id] || 0) + (clr - t.oin.head) + 0.1; EX.why[t.id] = { k: 'follow', by: o.id }; return true; } } }
+    return false;
+  }
+  function build() {
+    for (let k = 0; k < 30; k++) { makeTrains(); hold(); if (!singleLine() && !approach()) break; }
+    makeLoads(); makeEvents();
+  }
+  function setDelays(list) { DL = list.slice(); EX = { arr: {}, dep: {}, why: {}, whyDep: {} }; build(); }
+  const byId = id => trains.find(t => t.id === id);
+  /* 遅れの理由（ことば） */
+  function delayWhy(t) {
+    const w = t.why;
+    if (w && w.k === 'own') return `${PLACE[t.ent]}駅付近での${w.d.reason}のため`;
+    if (w && w.k === 'follow') { const b = byId(w.by); return `前を走る ${b ? b.name : '列車'} の遅れのため`; }
+    if (w && w.k === 'single') { const b = byId(w.by); return `単線区間で ${b ? b.name : '列車'} と行きちがうため`; }
+    if (t.connWait) { const b = byId(t.connWait); return `遅れている ${b ? b.name : '列車'} からの乗り換えを待つため`; }
+    if (t.whyDep && t.whyDep.k === 'single') { const b = byId(t.whyDep.by); return `温泉支線から来る ${b ? b.name : '列車'} が単線区間を出るのを待つため`; }
+    if (t.heldIn && t.heldIn.why === 'track') return `${t.tr}番線の前の列車が出るのを待つため`;
+    if (t.held || t.heldIn) return 'ほかの列車との合流を待つため';
+    return '';
+  }
+  const lateOf = (t, now) => now !== undefined && now < t.arr ? t.arr - t.pArr : t.dep - t.pDep;
   /* ---- ポイント（分かれ道）----
      legs：N＝定位（まっすぐ）、R＝反位（ななめ）。向きは分かれ道から見た先の点
      use：その進路がこのポイントをどちらで通るか */
@@ -372,22 +447,32 @@ const KW = (() => {
   const routeSw = r => Object.keys(SW).filter(id => SW[id].use[r.key] && sAt(PATHS[r.key], SW[id].pt) >= r.s0 - 1).map(id => ({ id, pos: SW[id].use[r.key] }));
   const swList = r => routeSw(r).filter(x => x.pos === 'R').map(x => SW[x.id].no).join('');
   const events = [];
+  function makeEvents() {
+  events.length = 0;
+  for (const d of DL) { const t = byId(d.id); if (t) events.push({ t: t.pArr - TA - 1.5, k: 'delay', tr: t, txt: `【遅れ】${PLACE[t.ent]}駅付近で${d.reason}。${t.name} が約${d.min}分遅れています` }); }
   for (const t of trains) {
+    const la = t.arr - t.pArr, ld = t.dep - t.pDep;
+    if (la > 0.4 && t.why && t.why.k !== 'own') events.push({ t: t.t0 - 0.8, k: 'delay', tr: t, txt: `${t.name} は、${delayWhy(t)}、約${Math.round(la)}分遅れて着きます` });
+    if (t.connWait) events.push({ t: t.arr + 0.1, k: 'delay', tr: t, txt: `${t.name} は、遅れている ${byId(t.connWait).name} からの乗り換えを待って発車します` });
+    if (t.connCut) events.push({ t: t.arr + 0.1, k: 'delay', tr: t, txt: `${t.name} は、${byId(t.connCut).name} の遅れが大きいため、乗り換えを待たずに発車します` });
+    if (t.whyDep && t.whyDep.k === 'single') events.push({ t: t.pDep - 0.6, k: 'delay', tr: t, txt: `${t.name} は、温泉支線から来る ${byId(t.whyDep.by).name} が単線区間を出るまで、${t.tr}番線で待ちます` });
     if (swList(t.ra)) events.push({ t: t.ra.set, k: 'sw', tr: t, txt: `${t.name} の進路を作りはじめました。ポイント${swList(t.ra)}を切りかえ中${after(t.ra, t)}` });
     events.push({ t: t.ra.open, k: 'route', tr: t, txt: `${SIG[t.ra.sig].name}：${t.name} を ${t.tr}番線へ入れる進路ができ、黄になりました${swList(t.ra) ? '' : after(t.ra, t)}` });
     events.push({ t: t.arr, k: 'arr', tr: t, txt: `${t.name} が ${t.tr}番線に着きました${t.wait ? '（' + t.wait + '）' : ''}` });
-    if (t.heldIn) { events.push({ t: t.ra.plan, k: 'hold', tr: t, txt: t.heldIn.by.down ? `${t.name} は、下りの ${t.heldIn.by.name} が平面交差を通りすぎるまで、${SIG[t.ra.sig].name}の手前で止まって待ちます` : `${t.name} は、${t.heldIn.by.name} が先に⑦の合流点を通るので、${SIG[t.ra.sig].name}の手前で止まって待ちます` }); }
+    if (t.heldIn) { events.push({ t: t.ra.plan, k: 'hold', tr: t, txt: t.heldIn.why === 'track' ? `${t.name} は、${t.tr}番線にいる ${t.heldIn.by.name} が出るまで、${SIG[t.ra.sig].name}の手前で止まって待ちます` : t.heldIn.by.down ? `${t.name} は、下りの ${t.heldIn.by.name} が平面交差を通りすぎるまで、${SIG[t.ra.sig].name}の手前で止まって待ちます` : `${t.name} は、${t.heldIn.by.name} が先に⑦の合流点を通るので、${SIG[t.ra.sig].name}の手前で止まって待ちます` }); }
     if (t.held) events.push({ t: t.held.plan - RD_LEAD, k: 'hold', tr: t, txt: t.held.why === 'route' ? `${t.name} は、${t.held.by.name} の進路と交わるので、${t.tr}番線で待ちます（出発信号は赤のまま。予定より約${Math.round(t.held.min * 60)}秒おくれ）` : `${t.name} は、前を走る ${t.held.by.name} がまだ1つ先の区間にいるので、${t.tr}番線で待ちます` });
     if (swList(t.rd)) events.push({ t: t.rd.set, k: 'sw', tr: t, txt: `${t.name} の出発の進路を作りはじめました。ポイント${swList(t.rd)}を切りかえ中${after(t.rd, t)}` });
     events.push({ t: t.rd.open, k: 'route', tr: t, txt: `${t.tr}番線の出発信号が開きました（${t.name}）${swList(t.rd) ? '' : after(t.rd, t)}` });
-    events.push({ t: t.dep, k: 'dep', tr: t, txt: `${t.name} が ${t.tr}番線を出ました` });
+    events.push({ t: t.dep, k: 'dep', tr: t, txt: `${t.name} が ${t.tr}番線を出ました${ld > 0.4 ? `（約${Math.round(ld)}分遅れ）` : ''}` });
     if (t.ex === 'B') events.push({ t: t.dep + 0.6, k: 'branch', tr: t, txt: `${t.name} が単線区間（川辺〜森下）に入りました。森下に着くまで、反対からの列車は入れません` });
   }
   events.sort((a, b) => a.t - b.t);
+  }
+  build();
 
   const clock = m => { const x = ((BASE + m) % 1440 + 1440) % 1440, s = Math.round(x * 60); return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
   const hm = m => clock(m).slice(0, 5);
 
-  return { loadAt, CYCLE, TYPES, PATHS, SIG, SW, swState, routeSw, T_MOVE, T_CHECK, T_OPEN, RD_LEAD, PAT, trains, events, body, routeLines, aspect, branchUse, check, clock, hm, sub, BRANCH_RUN, OUT_R, OUT_Y };
+  return { setDelays, getDelays: () => DL.slice(), delayWhy, lateOf, PLACE, loadAt, CYCLE, TYPES, PATHS, SIG, SW, swState, routeSw, T_MOVE, T_CHECK, T_OPEN, RD_LEAD, PAT, trains, events, body, routeLines, aspect, branchUse, check, clock, hm, sub, BRANCH_RUN, OUT_R, OUT_Y };
 })();
 if (typeof module !== 'undefined') module.exports = KW;
