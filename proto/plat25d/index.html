@@ -23,9 +23,9 @@
   <span id="st">読み込み中…</span><br>
   <small>ダイヤとは未連動（一定時間ごとにくり返し）</small>
   <div id="ctl"><button data-m="1" aria-pressed="true">×1</button><button data-m="4">×4</button><button id="again">最初から</button></div>
-  <div id="ctl2" class="row">車両の絵 <button data-t="gem">Gemini</button><button data-t="gpt">ChatGPT</button></div>
+  <div id="ctl2" class="row">車両 <button data-t="gem">Gemini の絵</button><button data-t="gpt">ChatGPT の絵</button><button data-t="3d">3D</button></div>
   <div class="row"><label for="sz">側面の大きさ</label> <input id="sz" type="range" min="0.5" max="1.1" step="0.01"> <span id="szv"></span></div>
-  <div class="row"><label for="sze">正面の大きさ</label> <input id="sze" type="range" min="0.5" max="1.2" step="0.01"> <span id="szev"></span></div>
+  <div class="row" id="szeRow"><label for="sze">正面の大きさ</label> <input id="sze" type="range" min="0.5" max="1.2" step="0.01"> <span id="szev"></span></div>
 </div>
 <script>
 /* 峠駅 ホームの場面（2.5D 試作）
@@ -46,13 +46,15 @@ let SIZE=0.77,SIZE_E=0.88;   // 実際の値は車両の絵ごとの初期値（
 // 車両の絵（2組）：roof＝側面の絵で屋根の行（レール面は絵の最下行）、endBody＝妻面の絵で車体の左右の端の列
 // size / endSize＝その絵で見た目がちょうどよい大きさ（側面・正面）。スライダーで変えると、その絵の値として覚える
 const SETS={gem:{name:'Gemini',side:'gem_side.webp',end:'gem_end.webp',roof:22,endBody:[18,1680],size:0.77,endSize:0.88},
-            gpt:{name:'ChatGPT',side:'gpt_side.webp',end:'gpt_end.webp',roof:19,endBody:[10,872],size:0.77,endSize:0.88}};
+            gpt:{name:'ChatGPT',side:'gpt_side.webp',end:'gpt_end.webp',roof:19,endBody:[10,872],size:0.77,endSize:0.88},
+            '3d':{name:'3D',size:0.77,endSize:0.88}};   // 3D：画像から作った気動車の立体（assets/models/plat25d/）。大きさは側面のスライダーで全体を縮める
+const CAR_M=21.3,GAP_M=0.6;   // 3D の1両の長さ・連結のすき間（m）
 const ROOF_M=3.7,LEN_M=42;   // 気動車：レール面から屋根まで 3.7m、2両で 42m（絵の車両が短いぶんは横にのばして合わせる）
-let cur=new URLSearchParams(location.search).get('train')==='gpt'?'gpt':'gem';
+let cur=({gpt:'gpt','3d':'3d'})[new URLSearchParams(location.search).get('train')]||'gem';
 if(QS.get('size'))SETS[cur].size=Number(QS.get('size'));if(QS.get('endsize'))SETS[cur].endSize=Number(QS.get('endsize'));
 function useSet(k){cur=k;SIZE=SETS[k].size;SIZE_E=SETS[k].endSize;}
 useSet(cur);
-function TRG(){const im=SETS[cur].sideImg,rail=im.height,ppm=(rail-SETS[cur].roof)/(ROOF_M*SIZE);return{rail,ppm,stretch:LEN_M*SIZE*ppm/im.width,L:LEN_M*SIZE};}
+function TRG(){if(cur==='3d')return{L:(2*CAR_M+GAP_M)*SIZE};const im=SETS[cur].sideImg,rail=im.height,ppm=(rail-SETS[cur].roof)/(ROOF_M*SIZE);return{rail,ppm,stretch:LEN_M*SIZE*ppm/im.width,L:LEN_M*SIZE};}
 const C={stopBack:-10,vIn:11,dec:0.9,dwell:14,acc:0.8,gapBefore:6,gapAfter:7};   // 停車位置（stopBack：最後尾がカメラの何m後ろか。負なら前。-10＝最後尾が目の前10mに止まり、編成全体と妻面が見える）、進入 40km/h、減速度、停車時間、加速度、前後の間（秒）
 
 const cv=document.getElementById('cv'),g=cv.getContext('2d');
@@ -89,6 +91,30 @@ function drawEnd(z){const S=SETS[cur],im=S.endImg,bw=S.endBody[1]-S.endBody[0],m
   const xL=VX+F*(XC-CW*SIZE_E/2-S.endBody[0]*mpp)/z,yB=VY+F*(E-0.05)/z,w=im.width*mpp*k,h=im.height*mpp*k;
   g.drawImage(im,xL,yB-h,w,h);}
 
+/* 3D の気動車：背景画と同じ遠近のカメラで、背景画と同じ大きさの見えない画面に描き、それを貼る
+   カメラはレール面から E の高さで、線路と同じ向き（奥＝−z）を向く。画面の中心のずれ（消失点）と焦点距離を投影行列にそのまま入れる */
+let T3=null;
+async function init3D(){const THREE=await import('../cab3d/lib/three.module.min.js');const dir='../../assets/models/plat25d/';
+  const [meta,buf,tex]=await Promise.all([fetch(dir+'kiha.json').then(r=>r.json()),fetch(dir+'kiha.bin').then(r=>r.arrayBuffer()),new THREE.TextureLoader().loadAsync(dir+'kiha.webp')]);
+  tex.colorSpace=THREE.SRGBColorSpace;tex.flipY=false;tex.anisotropy=8;   // glTF の UV の向き
+  const e=meta.kiha,F32=new Float32Array(buf),U32=new Uint32Array(buf),sl=(a,[o,n])=>a.subarray(o,o+n),geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(sl(F32,e.p),3));geo.setAttribute('uv',new THREE.BufferAttribute(sl(F32,e.u),2));geo.setIndex(new THREE.BufferAttribute(sl(U32,e.i),1));geo.computeVertexNormals();
+  const r=new THREE.WebGLRenderer({antialias:true,alpha:true});r.setSize(BW,BH,false);r.outputColorSpace=THREE.SRGBColorSpace;r.setClearColor(0,0);
+  const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight('#fff6e6','#7d725f',1.85));const sun=new THREE.DirectionalLight('#ffe9c8',1.7);sun.position.set(-6,10,4);sc.add(sun);   // 背景画の光（左上からのやわらかい日差し）に合わせる
+  const mat=new THREE.MeshLambertMaterial({map:tex}),grp=new THREE.Group();
+  const shm=new THREE.MeshBasicMaterial({color:0x1a1408,transparent:true,opacity:0.35,depthWrite:false});   // 車体の下の薄い影
+  for(let i=0;i<2;i++){const m=new THREE.Mesh(geo,mat);m.position.z=CAR_M/2+i*(CAR_M+GAP_M);if(i)m.rotation.y=Math.PI;grp.add(m);
+    const sh=new THREE.Mesh(new THREE.PlaneGeometry(3.1,CAR_M),shm);sh.rotation.x=-Math.PI/2;sh.position.set(0,0.02,m.position.z);grp.add(sh);}
+  sc.add(grp);
+  const cam=new THREE.PerspectiveCamera(30,BW/BH,0.3,3000);cam.position.set(0,E,0);cam.updateMatrixWorld();
+  const n=0.3,f=3000,P=cam.projectionMatrix;   // 画面の点 = (VX + F·x/z, VY − F·y/z) になる投影
+  P.set(2*F/BW,0,1-2*VX/BW,0, 0,2*F/BH,2*VY/BH-1,0, 0,0,-(f+n)/(f-n),-2*f*n/(f-n), 0,0,-1,0);cam.projectionMatrixInverse.copy(P).invert();
+  T3={r,sc,cam,grp};}
+// 先頭の奥行き zf（m）に列車を置いて描き、ホームに隠れる所を除いて背景画に重ねる
+function draw3D(zf){if(!T3)return;T3.grp.scale.setScalar(SIZE);T3.grp.position.set(XC,0,-zf);T3.r.render(T3.sc,T3.cam);
+  g.save();g.beginPath();g.moveTo(-4000,-4000);g.lineTo(VX,-4000);g.lineTo(VX,VY);g.lineTo(VX+KP*(4000-VY),4000);g.lineTo(-4000,4000);g.closePath();g.clip();
+  g.drawImage(T3.r.domElement,0,0,BW,BH);g.restore();}
+
 /* 木漏れ日：ホームの床に、ゆっくり動く光のまだら */
 function komorebi(t){g.save();g.beginPath();g.moveTo(VX,VY);g.lineTo(VX+KP*(BH+200-VY),BH+200);g.lineTo(BW+200,BH+200);g.lineTo(BW+200,VY);g.closePath();g.clip();
   g.globalCompositeOperation='soft-light';
@@ -107,7 +133,7 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min(0.1,(now-(las
   const Z=1.035,bx=-pp.x*9,by=-pp.y*5;g.setTransform(s*Z,0,0,s*Z,ox-BW*s*(Z-1)/2+bx*s,oy-BH*s*(Z-1)/2+by*s);
   g.drawImage(base,0,0,BW,BH);
   let st=trainState(simT);if(st.reset){simT=0;st=trainState(0);}
-  if(st.z!=null)drawTrain(st.z,st.L);
+  if(st.z!=null){if(cur==='3d')draw3D(st.z);else drawTrain(st.z,st.L);}
   komorebi(t);
   g.setTransform(s,0,0,s,ox,oy);
   // 手前の葉：画面の左上から、ゆっくりそよぐ
@@ -121,12 +147,13 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min(0.1,(now-(las
 document.querySelectorAll('#ctl button[data-m]').forEach(b=>b.onclick=()=>{mult=Number(b.dataset.m);document.querySelectorAll('#ctl button[data-m]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
 document.getElementById('again').onclick=()=>{simT=0;};
 // 車両の絵の切り替えと、大きさのスライダー
-function markUI(){document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===cur)));document.getElementById('szv').textContent=SIZE.toFixed(2);document.getElementById('sz').value=SIZE;document.getElementById('szev').textContent=SIZE_E.toFixed(2);document.getElementById('sze').value=SIZE_E;}
-document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.onclick=()=>{useSet(b.dataset.t);markUI();});
+function markUI(){document.getElementById('szeRow').style.display=cur==='3d'?'none':'';document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.t===cur)));document.getElementById('szv').textContent=SIZE.toFixed(2);document.getElementById('sz').value=SIZE;document.getElementById('szev').textContent=SIZE_E.toFixed(2);document.getElementById('sze').value=SIZE_E;}
+document.querySelectorAll('#ctl2 button[data-t]').forEach(b=>b.onclick=()=>{if(b.dataset.t==='3d'&&!T3)return;useSet(b.dataset.t);markUI();});
 document.getElementById('sz').oninput=e=>{SIZE=SETS[cur].size=Number(e.target.value);markUI();};
 document.getElementById('sze').oninput=e=>{SIZE_E=SETS[cur].endSize=Number(e.target.value);markUI();};
 window.__setT=v=>{simT=v;};   // 確認用：場面の時刻を指定
-Promise.all([load('toge_base.webp'),load('leaves.webp'),...Object.values(SETS).flatMap(S=>[load(S.side).then(i=>S.sideImg=i),load(S.end).then(i=>S.endImg=i)])]).then(([a,c])=>{base=a;leaves=c;markUI();
+const ready3D=init3D().catch(e=>{console.warn('3D',e);const b=document.querySelector('#ctl2 button[data-t="3d"]');if(b){b.disabled=true;b.title='3D を読み込めませんでした';}if(cur==='3d')useSet('gem');});
+Promise.all([ready3D,load('toge_base.webp'),load('leaves.webp'),...Object.values(SETS).filter(S=>S.side).flatMap(S=>[load(S.side).then(i=>S.sideImg=i),load(S.end).then(i=>S.endImg=i)])]).then(([,a,c])=>{base=a;leaves=c;markUI();
   const q=new URLSearchParams(location.search);if(q.get('t'))simT=Number(q.get('t'));requestAnimationFrame(frame);})
   .catch(()=>{document.getElementById('st').textContent='画像を読み込めませんでした（HTTP で開いてください）';});
 </script>
