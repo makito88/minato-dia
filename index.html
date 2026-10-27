@@ -10,6 +10,34 @@
   #sceneBox .sc-hd span{display:flex;gap:10px;align-items:center}#sceneBox a{color:#c9a35c;font-size:13px}
   #sceneBox button{font:inherit;font-size:13px;background:#3b4652;color:#f3f1ea;border:1px solid #56626e;border-radius:5px;padding:3px 10px;cursor:pointer}
   #sceneBox iframe{display:block;width:100%;aspect-ratio:16/9;max-height:80vh;border:0;background:#151a20}
+
+/* 沿線暦：運行日・沿線だより・4つの見方 */
+.opday{font-family:var(--f-led);color:var(--led-g);font-size:11px;opacity:.85;white-space:nowrap}
+.tayoribtn{position:relative;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.tayoribtn .dot,.tayorimini .dot{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:9px;background:var(--accent);color:var(--accent-ink,#fff);font-size:11px;line-height:18px;text-align:center;padding:0 4px;font-family:var(--f-mono)}
+.tayorimini{position:relative}
+.tayori{position:fixed;top:0;right:0;bottom:0;width:min(400px,100%);z-index:60;background:var(--panel);border-left:1px solid var(--line);box-shadow:-6px 0 24px rgb(0 0 0 / .18);display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 12px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 12px) 14px}
+.tayori[hidden]{display:none!important}
+.tyhead{display:flex;align-items:center;gap:8px}.tyhead h3{margin:0;font-size:16px;flex:1}
+.tyhead select,.tyhead button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:4px 8px}
+.tylede{font-size:12px;color:var(--muted);margin:6px 0 8px}
+.tylist{overflow:auto;flex:1;display:grid;gap:10px;align-content:start;padding-right:2px}
+.tyitem{border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--paper)}
+.tyitem.new{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.tymeta{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+.tyitem h4{margin:3px 0 4px;font-size:14px;text-wrap:balance}.tyitem p{margin:0;font-size:13px;line-height:1.7}
+.tyempty{color:var(--muted);font-size:13px}
+.tydev{border-top:1px dashed var(--line);margin-top:8px;padding-top:6px;font-size:11.5px;max-height:45%;overflow:auto}
+.tydev pre{white-space:pre-wrap;font-size:10.5px;margin:4px 0}.tydev table{font-size:11px;border-collapse:collapse}.tydev td,.tydev th{padding:1px 5px;text-align:right}
+.tydevbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.tydevbtns button{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:4px 8px}
+.ensenrow{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.ensnote{font-size:12px;color:var(--muted)}.ensflows{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px;align-items:center}.ensl{color:var(--muted);font-size:12px}
+.ensreset{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:6px;padding:4px 8px}
+.evalbox{margin-bottom:10px}.evh{font-weight:700;font-size:13px;margin-bottom:6px}.evh small{color:var(--muted);font-weight:400;margin-left:8px}
+.evg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px;font-variant-numeric:tabular-nums}
+.evg div{border-bottom:1px solid var(--line);padding-bottom:4px;min-width:0}.evg span{display:block;font-size:11.5px;color:var(--muted)}.evg b{font-family:var(--f-mono);font-size:15px}
+.evg i{display:block;font-style:normal;font-size:11px}.evp{color:var(--ok)}.evn{color:var(--bad)}.ev0{color:var(--muted)}
+.evnote{font-size:11px;color:var(--muted);margin:4px 0 0}
 </style>
 </head>
 <body>
@@ -784,12 +812,168 @@ function evDwell(st,t){const L=EV_OPS[st];if(!L)return 0;let x=0;for(const o of 
 function evWindow(ev){let a=ev.start,b=ev.end;for(const f of ev.flows){a=Math.min(a,f.peak-2*f.sd);b=Math.max(b,f.peak+2*f.sd);}return [Math.max(300,a),Math.min(1500,b)];}
 function registerEvent(def){if(!def||!def.id||!def.name||!ST[def.place]||!Array.isArray(def.flows))throw new Error('id・name・place（駅）・flows が必要です');
   if(EVMAP[def.id])EVENT_DATA.splice(EVENT_DATA.indexOf(EVMAP[def.id]),1);EVENT_DATA.push(def);EVMAP[def.id]=def;return def;}
+/* ======================= 沿線暦（えんせんごよみ） =======================
+   運行日を数え、景気の大きな波・地域の小さな波・新しい街の流れを需要に掛ける。毎日の結果から「沿線だより」を作る。
+   ・景気と短期変動は「乱数の種＋運行日」だけで決まる（プレイヤーのダイヤに左右されない）ので、同じ日をやり直して改正前後を比べられる
+   ・需要への入口は rateParts の中の1か所（ecoApply）。景気が「自動」のときだけ働き、手動固定（好景気・ふつう・不景気）とは重ならない
+   ・設定と文章は data/ensen.json。DOM は使わない */
+const ENS={cfg:null,seed:1,day:1,_econ:null,_shock:null};
+let ECO=null;                                    // その日の補正（景気が自動のときだけ）
+let NEWD={factory:false,hospital:false,onsen:false};   // 新しい街の流れ（試作・切り替え式）
+function mb32(a){a|=0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const ensRng=(day,salt)=>mb32(Math.imul(ENS.seed|0,2654435761)^Math.imul(day|0,40503)^Math.imul(salt|0,69069));
+const ENS_PH=['回復','好況','減速','不況'];
+function ensReset(seed){ENS.seed=seed>>>0;ENS._econ=null;ENS._shock=null;}
+// 景気の大きな波：段階の長さ（20〜60日）と強さ（周期ごと）に乱れ。値 e（−1〜1）は目標へ毎日少しずつ近づく
+function econSeries(n){const C=ENS.cfg.econ;let S=ENS._econ;if(S&&S.length>=n)return S;
+  const r=mb32(ENS.seed^0x51a5),rc=mb32(ENS.seed^0x7c3);S=[];
+  let ph=Math.floor(r()*4),I=0.55+0.45*r();const len=()=>C.phaseDays[0]+Math.floor(r()*(C.phaseDays[1]-C.phaseDays[0]+1));
+  let left=len(),start=1,e=C.targets[ph]*I*0.6,c=0;
+  for(let d=1;d<=n;d++){if(left<=0){ph=(ph+1)%4;left=len();start=d;if(ph===0)I=0.55+0.45*r();}
+    e+=(C.targets[ph]*I-e)*C.smooth;left--;
+    c=c*0.93+(rc()-0.5)*C.costWalk;c=Math.max(-C.costMax,Math.min(C.costMax,c));
+    S.push({day:d,e,phase:ENS_PH[ph],ph,phaseStart:start,cost:1+c});}
+  ENS._econ=S;return S;}
+const econAt=d=>econSeries(Math.max(1,d))[Math.max(1,d)-1];
+// 地域の小さな波：予告日・開始日・終了日を種から決める。同時に最大2件、同じ出来事は間をあける
+function shockSchedule(n){const C=ENS.cfg.shocks;let L=ENS._shock;if(L&&L.upto>=n)return L.list;
+  const list=[],last={};
+  for(let d=1;d<=n+14;d++){const r=ensRng(d,0x5c);if(r()>C.rate)continue;const ph=econAt(d).phase;
+    const pool=C.list.filter(s=>(last[s.id]==null||d-last[s.id]>s.gap)&&(!s.phases||s.phases.includes(ph)));if(!pool.length)continue;
+    const w=pool.map(s=>s.weight*((s.bias&&s.bias[ph])||1)),tot=w.reduce((a,b)=>a+b,0);let x=r()*tot,k=0;while(k<pool.length-1&&x>w[k]){x-=w[k];k++;}
+    const s=pool[k],lead=s.lead[0]+Math.floor(r()*(s.lead[1]-s.lead[0]+1)),days=s.days[0]+Math.floor(r()*(s.days[1]-s.days[0]+1));
+    const start=d+lead,end=start+days-1;
+    if(list.filter(o=>o.start<=end&&o.end>=start).length>=C.maxAtOnce)continue;
+    const mag=s.mag[0]+r()*(s.mag[1]-s.mag[0]);
+    list.push({id:s.id,announce:s.omen?d:null,start,end,mag:+mag.toFixed(3)});last[s.id]=d;}
+  ENS._shock={upto:n,list};return list;}
+const shockDef=id=>ENS.cfg.shocks.list.find(s=>s.id===id);
+// その日の補正表：駅×駅×時台×目的。全駅一律にはしない（目的・場所・時間帯ごとの感度）
+function ensDayFactors(day){const C=ENS.cfg.econ,ec=econAt(day),N=NSt;
+  const shocks=shockSchedule(day).filter(o=>o.start<=day&&o.end>=day).map(o=>({...o,def:shockDef(o.id)}));
+  const evPlaces=new Set((ACTIVE_EV||[]).map(e=>e.place));
+  for(const o of shocks)o.suppressed=!!(o.def.place&&evPlaces.has(o.def.place));   // その日のイベントと同じ場所なら止める（二重に数えない）
+  const live=shocks.filter(o=>!o.suppressed);
+  const T=new Float32Array(N*N*30*4).fill(1);const hit=(r,s,d,h,p)=>(r.p==null||r.p.includes(p))&&(!r.h||(h>=r.h[0]&&h<r.h[1]))&&(!r.s||r.s.includes(s))&&(!r.d||r.d.includes(d))&&(!r.day||r.day.includes(COND.day));
+  for(let si=0;si<N;si++)for(let di=0;di<N;di++){if(si===di)continue;const s=ALL[si],d=ALL[di];
+    for(let h=4;h<30;h++)for(let p=0;p<4;p++){let ps=1,f=false;for(const r of C.place)if(hit(r,s,d,h,p)){ps=f?Math.max(ps,r.k):r.k;f=true;}   // 敏感な場所（k>1）と鈍い場所（k<1）
+      let k=1+C.amp*ec.e*C.sens[p]*ps;for(const o of live)for(const r of o.def.rules)if(hit(r,s,d,h,p))k*=1+r.k*o.mag;
+      T[((si*N+di)*30+h)*4+p]=Math.min(C.cap[1],Math.max(C.cap[0],k));}}
+  let late=ENS.cfg.newFlows.factory.late;for(const o of live)if(o.def.late!=null)late=o.def.late;
+  return {day,e:ec.e,phase:ec.phase,cost:ec.cost,shocks,T,late};}
+function ecoApply(o,s,d,t){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=ECO.T[b+p];}
+function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;}
+// 新しい街の流れ（試作）：港の工場への通勤・大学病院への通院・温泉の到着と出発の時間
+function newFlowsBase(o,s,d,t,ps,pd){const F=ENS.cfg.newFlows;
+  if(NEWD.factory){const f=F.factory,w=f.from[d==='P'?s:d]||0;
+    if(d==='P'&&w)o[0]+=f.am*w*g(t,f.amT,f.amSd);
+    if(s==='P'&&w){const L=ECO?ECO.late:f.late;o[0]+=f.pm*w*((1-L)*g(t,f.pmT,f.pmSd)+L*g(t,f.lateT,f.lateSd));}}}
+function newFlowsAfter(o,s,d,t,ps,pd){const F=ENS.cfg.newFlows;
+  if(NEWD.hospital){const f=F.hospital,k=COND.day==='wd'?1:f.weekend;   // 通院は景気の影響をほぼ受けないので、補正のあとに足す
+    if(d==='U')o[3]+=f.go*ps*k*g(t,f.goT,f.goSd);if(s==='U')o[3]+=f.back*pd*k*g(t,f.backT,f.backSd);}}
+
+/* ---- 1日の記録（あとで便りの判定に使う。集計値だけを残す） ---- */
+function ensRecord(D,day){const S=D.summary,sim=D.sim,trips=D.trips,N=NSt,rec={day,econ:COND.econ,riders:Math.round(S.riders),rev:Math.round(S.rev-S.sur),sur:Math.round(S.sur),run:Math.round(S.run),fixed:Math.round(S.fixed),eki:Math.round(S.eki),nigi:Math.round(S.nigiwai),conv:+(S.dm.act.reduce((a,b)=>a+b,0)/S.dm.pot.reduce((a,b)=>a+b,0)).toFixed(3),trips:trips.length,carkm:Math.round(S.run/CARKM),crowd:[],gap:{},xfer:{},tour:{},rev2:{},shk:{}};
+  if(ECO){rec.e=+ECO.e.toFixed(3);rec.phase=ECO.phase;rec.shocks=ECO.shocks.map(o=>o.id+(o.suppressed?'(止)':''));}
+  // 混雑：列車ごとの乗車率（定員比）を、区間・方向・時台ごとの最大にまとめる
+  const cmax={};for(const tr of trips){for(let i=0;i<tr.seq.length-1;i++){const r=tr.loadAfter[i]/tr.cap;if(r<ENS.cfg.detect.crowd.ratio)continue;const sg=SEGK[tr.seq[i]+'>'+tr.seq[i+1]];if(!sg)continue;
+      const h=Math.min(29,tr.dep[i]/60|0),k=sg[0]+':'+sg[1]+':'+h;if(!cmax[k]||r>cmax[k][3])cmax[k]=[sg[0],sg[1],h,+r.toFixed(2),tr.seq[i],tr.seq[i+1]];}}
+  rec.crowd=Object.values(cmax);
+  rec.crowd.sort((x,y)=>y[3]-x[3]);rec.crowd=rec.crowd.slice(0,14);
+  // 昼間（10〜16時）に、普通しか止まらない駅の間隔と、通過する優等列車の空き具合
+  for(const st of ALL){for(const dn of [true,false]){const stops=[],prem=[];
+      for(const tr of trips){if(tr.down!==dn)continue;const i=tr.seq.indexOf(st);if(i<0||i===tr.seq.length-1)continue;const t=tr.dep[i];if(t<600||t>=960)continue;
+        if(tr.stop[i])stops.push({t,type:tr.type});else if(tr.type!=='L')prem.push(tr.maxRatio);}
+      const onlyL=stops.length>0&&stops.every(x=>x.type==='L');if(!onlyL||!prem.length)continue;
+      rec.gap[st+(dn?'d':'u')]={hw:+(360/stops.length).toFixed(1),prem:+(prem.reduce((a,b)=>a+b,0)/prem.length).toFixed(2),np:prem.length};}}
+  // 川辺での乗り換え待ち（支線⇔港方面）。時刻表から、着いてから次に乗れる列車までの平均
+  const K=(arrF,depF,band)=>{const A=[],Dp=[];for(const tr of trips){const i=tr.seq.indexOf('K');if(i<0)continue;if(arrF(tr)&&i>0)A.push(tr.arr[i]);if(depF(tr)&&i<tr.seq.length-1&&tr.stop[i])Dp.push(tr.dep[i]);}
+    Dp.sort((a,b)=>a-b);let w=0,n=0;for(const a of A){if(a<band[0]||a>=band[1])continue;const d=Dp.find(x=>x>=a+2);if(d==null)continue;w+=d-a;n++;}return n?+(w/n).toFixed(1):null;};
+  const fromBr=tr=>!tr.down&&tr.seq[0]!=='K'&&BR.includes(tr.seq[0])&&tr.seq.includes('K'),toP=tr=>tr.down&&tr.seq.at(-1)==='P',fromP=tr=>!tr.down&&tr.seq[0]==='P',toBr=tr=>tr.down&&tr.seq.at(-1)==='O';
+  rec.xfer={brToP:K(fromBr,toP,[540,960]),pToBr:K(fromP,toBr,[540,960])};
+  // 観光の利用（目的＝観光の乗降）と、港行きの朝・港発の夕方の通勤
+  for(const st of ['O','P','T','S','C']){const x=sim.stat[st];let v=0;for(let h=0;h<30;h++)v+=x.hb[2][h]+x.ha[2][h];rec.tour[st]=Math.round(v);}
+  {const x=sim.stat.P;let am=0,pm=0;for(let h=6;h<9;h++)am+=x.ha[0][h];for(let h=17;h<22;h++)pm+=x.hb[0][h];rec.rev2={Pam:Math.round(am),Ppm:Math.round(pm)};}
+  // 進行中の短期変動の、ねらった区間・時間の混み具合（振り返りの便りに使う）
+  if(ECO)for(const o of ECO.shocks){const c=o.def.check;if(!c)continue;let mx=0;for(const [a,b] of c.segs){const sg=SEGK[a+'>'+b];if(!sg)continue;for(let h=c.h[0];h<c.h[1];h++){const ix=(sg[0]*2+sg[1])*30+h;if(sim.SECC[ix]>0)mx=Math.max(mx,sim.SECL[ix]/sim.SECC[ix]);}}rec.shk[o.id]=+mx.toFixed(2);}
+  return rec;}
+
+/* ---- 便りの判定：続いている傾向だけを候補にする ---- */
+function ensDetect(hist,state,day){const C=ENS.cfg.detect,out=[],L=hist.slice(-C.window),last=hist.at(-1);if(!last)return out;
+  const seen=(fn)=>L.filter(fn).length;
+  // 1. 同じ区間・方向・時間帯の混雑が続く
+  // 区間ごとにばらばらに数えると便りが多すぎるので、「路線・方向・時間帯（朝・昼・夕方以降）」でまとめ、その中でいちばん混んだ区間を話題にする
+  const band=h=>h<10?'am':(h>=16?'pm':'day'),gk=c=>`crowd:${SEGS[c[0]].line}:${c[1]}:${band(c[2])}`;
+  const ck={};for(const r of L){const seenK=new Set();for(const c of r.crowd){const k=gk(c);if(!seenK.has(k)){seenK.add(k);(ck[k]||(ck[k]={n:0,c,mx:0})).n++;}if(c[3]>=ck[k].mx){ck[k].mx=c[3];ck[k].c=c;}}}
+  for(const [k,v] of Object.entries(ck))if(v.n>=C.persist&&last.crowd.some(c=>gk(c)===k)){const [sg,dr,h,r,a,b]=v.c;
+    out.push({key:k,kind:'crowd_'+band(h),st:a,score:2+Math.min(1,v.mx-1),data:{from:a,to:b,h,ratio:v.mx,n:v.n,seg:sg,dr}});}
+  // 2. 普通の待ちが長いのに、通過する優等列車は空いている
+  for(const [k,g] of Object.entries(last.gap)){const n=seen(r=>r.gap[k]&&r.gap[k].hw>=C.gap.hw&&r.gap[k].prem<C.gap.prem);
+    if(n>=C.persist&&g.hw>=C.gap.hw&&g.prem<C.gap.prem)out.push({key:'gap:'+k,kind:'gap',st:k[0],score:1.6,data:{hw:g.hw,prem:g.prem,dir:k[1]}});}
+  // 3. 港へ向かう朝の通勤が増える（直近3日の平均が、それ以前の平均より1割以上多い）
+  const avg=(arr,f)=>arr.length?arr.reduce((a,r)=>a+f(r),0)/arr.length:0;
+  if(hist.length>=C.trendMin){const a=avg(hist.slice(-3),r=>r.rev2.Pam||0),b=avg(hist.slice(-C.trendBase-3,-3),r=>r.rev2.Pam||0);
+    if(b>30&&a>b*(1+C.trend))out.push({key:'rev:P',kind:'rev_up',st:'P',score:1.8,data:{a,b}});
+    for(const st of ['O','P','T']){const x=avg(hist.slice(-3),r=>r.tour[st]||0),y=avg(hist.slice(-C.trendBase-3,-3),r=>r.tour[st]||0);
+      if(y>50&&x>y*(1+C.trend))out.push({key:'tour:'+st+':up',kind:'tour_up',st,score:1.3,data:{x,y}});
+      if(y>50&&x<y*(1-C.trend))out.push({key:'tour:'+st+':down',kind:'tour_down',st,score:1.3,data:{x,y}});}}
+  // 4. 川辺での乗り換え待ちが長い
+  for(const k of ['brToP','pToBr']){const v=last.xfer[k];if(v==null)continue;const n=seen(r=>r.xfer[k]!=null&&r.xfer[k]>=C.xfer.long);
+    if(n>=C.persist&&v>=C.xfer.long)out.push({key:'xfer:'+k,kind:'xfer_long',st:'K',score:1.5,data:{wait:v,dir:k}});}
+  // 5. 増発のあと：利用は増えたが、費用はそれ以上に増えた／利益も増えた
+  if(hist.length>=8){const i=hist.length-4,b=hist[i-1],a=hist[i];if(a&&b&&a.trips>=b.trips*1.05&&hist.slice(i).every(r=>r.trips>=a.trips*0.98)){
+      const before=hist.slice(Math.max(0,i-3),i),after=hist.slice(i);const dr=avg(after,r=>r.riders)-avg(before,r=>r.riders),dc=avg(after,r=>r.run+r.fixed)-avg(before,r=>r.run+r.fixed),dv=avg(after,r=>r.rev+r.sur)-avg(before,r=>r.rev+r.sur);
+      out.push({key:'zoubin:'+a.day,kind:dc>dv?'zoubin_cost':'zoubin_ok',st:'C',score:1.7,data:{dr,dc,dv,trips:[b.trips,a.trips]}});}}
+  return out;}
+
+/* ---- 景気のうわさ（自動のときだけ）：段階が変わってから数日遅れで、場所ごとの変化として届く ---- */
+function ensEconNews(day){if(COND.econ!=='auto')return [];const ec=econAt(day),C=ENS.cfg.econNews;const lag=day-ec.phaseStart;const out=[];
+  if(lag>=C.lag[0]&&lag<=C.lag[1]){const r=ensRng(ec.phaseStart,0xec);if(r()<C.prob)out.push({key:'econ:'+ec.phaseStart,kind:'econ_'+ec.ph,st:null,score:1.4,data:{phase:ec.phase}});}
+  const r2=ensRng(day,0xe2);if(lag>C.lag[1]&&r2()<C.street)out.push({key:'econst:'+day,kind:'econst_'+ec.ph,st:null,score:0.9,data:{phase:ec.phase}});
+  return out;}
+/* ---- 地域の小さな波の便り：予兆（予告の日）と振り返り（終わってから） ---- */
+function ensShockNews(day,hist){const out=[];for(const o of shockSchedule(day)){const def=shockDef(o.id);
+    if(o.announce===day&&def.omen)out.push({key:'omen:'+o.id+':'+o.start,kind:'omen',st:def.place,score:2.2,data:{id:o.id,start:o.start},tpl:def.omen});
+    if(def.mid&&day===o.start+2)out.push({key:'mid:'+o.id+':'+o.start,kind:'mid',st:def.place,score:1.6,data:{id:o.id},tpl:def.mid,once:true});
+    if(def.retro&&def.check&&day>=o.end+1&&day<=o.end+3){const rs=hist.filter(r=>r.day>=o.start&&r.day<=o.end&&r.shk&&r.shk[o.id]!=null);if(!rs.length)continue;
+      const mx=Math.max(...rs.map(r=>r.shk[o.id]));out.push({key:'retro:'+o.id+':'+o.start,kind:'retro',st:def.place,score:1.9,data:{id:o.id,mx},tpl:mx>=def.check.bad?def.retro.bad:def.retro.good,once:true});}}
+  return out;}
+
+/* ---- 1日の終わりにまとめて呼ぶ：記録→判定→便りを選ぶ。state は保存される（運行日・記録・便り・再送禁止） ---- */
+function ensFill(s,data){return s.replace(/\{(\w+)\}/g,(m,k)=>data[k]!=null?data[k]:m);}
+function ensMakeLetter(c,day,r){const T=ENS.cfg.templates,pool=c.tpl||T[c.kind];if(!pool||!pool.length)return null;
+  const okT=pool.filter(t=>!t.st||t.st.includes(c.st));const t=(okT.length?okT:pool)[Math.floor(r()*(okT.length?okT:pool).length)];
+  const st=t.at||c.st||null;const nm=x=>x&&ST[x]?ST[x].name:'';
+  const d={...c.data,st:nm(st),from:nm(c.data.from),to:nm(c.data.to),hour:c.data.h!=null?(c.data.h%24)+'時':'',hour2:c.data.h!=null?((c.data.h+1)%24)+'時':'',wait:c.data.wait!=null?Math.round(c.data.wait):'',hw:c.data.hw!=null?Math.round(c.data.hw):''};
+  const pick=a=>Array.isArray(a)?a[Math.floor(r()*a.length)]:a;
+  return {id:day+'-'+c.key+'-'+Math.floor(r()*1e6),day,st,kind:c.kind,key:c.key,tplId:t.id,who:ensFill(pick(t.who),d),src:t.src,title:ensFill(pick(t.title),d),body:ensFill(pick(t.body),d),read:false,dev:{score:c.score,data:c.data}};}
+function ensEndDay(state,D){const day=state.day,rec=ensRecord(D,day),hist=[...state.hist,rec].slice(-ENS.cfg.keepDays);
+  const r=ensRng(day,0x1e7),C=ENS.cfg.letters,prob=state.problems||{};const cand=[];
+  const found=ensDetect(hist,prob,day);const foundKeys=new Set(found.map(c=>c.key));
+  for(const c of found){const p=prob[c.key]||(prob[c.key]={first:day,active:false});p.last=day;p.active=true;p.data=c.data;cand.push(c);}
+  // 改善：前に続いていた問題が、3日続けて見られない → ときどき（確率）知らせる
+  for(const [k,p] of Object.entries(prob)){if(!p.active||foundKeys.has(k))continue;if(day-p.last>=C.fixedAfter){p.active=false;
+      const kind=k.startsWith('crowd')?'better_crowd':k.startsWith('xfer')?'better_xfer':k.startsWith('gap')?'better_gap':null;
+      if(kind&&r()<C.betterProb){const d0=p.data||{};const data=k.startsWith('crowd')?{from:d0.from,to:d0.to,h:d0.h}:{};cand.push({key:'better:'+k+':'+day,kind,st:k.startsWith('crowd')?d0.from:(k.startsWith('gap')?k.split(':')[1][0]:'K'),score:1.2,data});}}
+    if(day-p.last>40)delete prob[k];}
+  cand.push(...ensEconNews(day+1),...ensShockNews(day+1,hist));
+  if(r()<C.dailyProb){const st=ALL[Math.floor(r()*ALL.length)];cand.push({key:'daily:'+day,kind:'daily',st,score:0.5,data:{}});}
+  // 選ぶ：同じ内容（7日）・同じ駅（2日）をあけ、1日0〜2件。候補があっても何も届かない日をつくる
+  const cool=state.cool||{};const ok=cand.filter(c=>!(cool[c.key]>day)&&!(c.st&&cool['st:'+c.st]>day)&&!(cool['kind:'+c.kind]>day));
+  ok.sort((a,b)=>b.score-a.score+(r()-0.5)*0.6);
+  let n=ok.length?(r()<C.quietProb?0:Math.min(C.maxPerDay,1+(r()<0.35?1:0))):0;const out=[];const usedSt=new Set();
+  for(const c of ok){if(out.length>=n)break;if(c.st&&usedSt.has(c.st))continue;const L=ensMakeLetter(c,day+1,r);if(!L)continue;
+    if((state.letters||[]).some(x=>x.tplId===L.tplId&&x.body===L.body&&day+1-x.day<C.sameText))continue;
+    out.push(L);if(c.st)usedSt.add(c.st);cool[c.key]=day+1+(c.once?999:C.sameKey);if(c.st)cool['st:'+c.st]=day+1+C.sameStation;cool['kind:'+c.kind]=day+1+(C.kindGap[c.kind]||0);}
+  for(const k in cool)if(cool[k]<day-5)delete cool[k];
+  return {...state,day:day+1,hist,problems:prob,cool,letters:[...(state.letters||[]),...out].slice(-C.keep),lastCand:cand.map(c=>({key:c.key,kind:c.kind,st:c.st,score:+c.score.toFixed(2),data:c.data,sent:out.some(o=>o.key===c.key)}))};}
+
 const COND_DEF={day:'wd',wx:'sun',season:'aut',econ:'mid',evs:[]};
 const CONDS={
  day:{label:'曜日',opts:{wd:{n:'平日',m:[1,1,1,1]},sat:{n:'土曜',m:[0.38,0.3,1.7,1.45]},hol:{n:'日曜・祝日',m:[0.22,0.12,2.0,1.35]}}},
  wx:{label:'天気',opts:{sun:{n:'晴れ',m:[1,1,1.12,1.05]},cld:{n:'くもり',m:[1,1,0.95,1]},rain:{n:'雨',m:[1.08,0.97,0.55,0.8],sp:0.95,dw:0.15,eki:1.12},snow:{n:'大雪',m:[0.85,0.6,0.35,0.45],sp:0.72,dw:0.35,eki:1.05}}},
  season:{label:'季節',opts:{spr:{n:'春',m:[1,1,1.15,1.05]},sum:{n:'夏',m:[0.95,0.95,1.1,1]},aut:{n:'秋',m:[1,1,1.15,1]},win:{n:'冬',m:[1,1,0.9,1.05]}}},
- econ:{label:'景気',opts:{boom:{n:'好景気',m:[1.04,1.25,1.15,1.12],eki:1.15},mid:{n:'ふつう',m:[1,1,1,1]},slump:{n:'不景気',m:[0.96,0.75,0.85,0.9],eki:0.85}}},
+ econ:{label:'景気',opts:{auto:{n:'自動（沿線暦）',m:[1,1,1,1]},boom:{n:'好景気（固定）',m:[1.04,1.25,1.15,1.12],eki:1.15},mid:{n:'ふつう（固定）',m:[1,1,1,1]},slump:{n:'不景気（固定）',m:[0.96,0.75,0.85,0.9],eki:0.85}}},
 };
 let COND={...COND_DEF},CX=null,SVF=null;
 function setCond(c){c=c||{};let evs=Array.isArray(c.evs)?c.evs:(c.ev&&c.ev!=='none'?[c.ev]:[]);COND={...COND_DEF,...c,evs:evs.filter(id=>EVMAP[id])};delete COND.ev;const m=[1,1,1,1];let sp=1,dw=0,eki=1;
@@ -797,7 +981,8 @@ function setCond(c){c=c||{};let evs=Array.isArray(c.evs)?c.evs:(c.ev&&c.ev!=='no
   const st={};const se=COND.season;
   if(se==='sum'){st.P=1.5;st.O=0.8;}if(se==='win'){st.O=1.45;st.P=0.7;st.T=0.6;}if(se==='aut'){st.T=1.7;st.O=1.15;}
   CX={m,sp,dw,eki,st,evw:(COND.wx==='rain'?0.45:COND.wx==='snow'?0.3:1)*(COND.day==='wd'?0.75:1),uni:se==='sum'?0.3:se==='spr'?0.6:1};
-  ACTIVE_EV=COND.evs.map(id=>EVMAP[id]);EV_OPS={};ACTIVE_EV.forEach(ev=>{ev._k=evScale(ev);(ev.ops||[]).forEach(o=>(EV_OPS[o.st]||(EV_OPS[o.st]=[])).push(o));});}
+  ACTIVE_EV=COND.evs.map(id=>EVMAP[id]);EV_OPS={};ACTIVE_EV.forEach(ev=>{ev._k=evScale(ev);(ev.ops||[]).forEach(o=>(EV_OPS[o.st]||(EV_OPS[o.st]=[])).push(o));});
+  ensRefresh();}   // 景気が「自動」のときだけ、その運行日の補正表を作る（手動固定とは重ならない）
 setCond(COND_DEF);
 function rateParts(s,d,t,noSvc){
   const o=[0,0,0,0];if(s===d||t<300||t>1475) return o;
@@ -811,8 +996,8 @@ function rateParts(s,d,t,noSvc){
   if(OFFICE[s]&&OFFICE[d]) o[1]+=5.5*OFFICE[s]*OFFICE[d]*(g(t,600,70)+0.9*g(t,870,80)+0.5*g(t,1050,60));
   if(d==='C'&&!OFFICE[s]) o[1]+=0.5*ps*g(t,560,90);
   let tr=0;
-  if(s==='C'&&d==='O') tr+=15*g(t,600,70);
-  if(s==='O'&&d==='C') tr+=13*g(t,960,75);
+  if(s==='C'&&d==='O') tr+=15*(NEWD.onsen?g(t,780,80):g(t,600,70));   // 新しい流れ（試作）：温泉は午後に着き、朝食のあとに帰る
+  if(s==='O'&&d==='C') tr+=13*(NEWD.onsen?g(t,610,55):g(t,960,75));
   if(s==='C'&&d==='P') tr+=8*g(t,660,95);
   if(s==='P'&&d==='C') tr+=7*g(t,1020,95);
   if(s==='C'&&d==='T') tr+=2.5*g(t,580,50);
@@ -823,7 +1008,10 @@ function rateParts(s,d,t,noSvc){
   o[2]+=tr*(CX.st[s]||1)*(CX.st[d]||1);
   if(d==='C'&&s!=='C') o[3]+=1.8*ps*g(t,780,120);
   if(s==='C'&&d!=='C') o[3]+=1.2*pd*g(t,1000,110);
+  if(ENS.cfg)newFlowsBase(o,s,d,t,ps,pd);
   for(let p=0;p<4;p++)o[p]*=CX.m[p];
+  if(ECO)ecoApply(o,s,d,t);                 // 沿線暦：景気の波と地域の小さな波（イベントの上乗せより前に掛けるので、イベント分は二重に変わらない）
+  if(ENS.cfg)newFlowsAfter(o,s,d,t,ps,pd);
   if(ACTIVE_EV.length)addEventDemand(o,s,d,t);
   if(SVF&&!noSvc){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=SVF[b+p];}
   return o;
@@ -979,7 +1167,7 @@ function simulate(trips){
   trips.forEach(tr=>{const n=tr.seq.length;tr.onb={};tr.onbO={};tr.fromAfter=new Array(n).fill(null);tr.toAfter=new Array(n).fill(null);tr.onbP={};tr.mixAfter=new Array(n).fill(null);tr.load=0;tr.loadAfter=new Array(n).fill(0);tr.bAt=new Array(n).fill(0);tr.aAt=new Array(n).fill(0);tr.maxRatio=0;tr.maxAt=0;
     tr.seq.forEach((s,i)=>{if(!tr.stop[i])return;if(i>0)evs.push({t:tr.arr[i],k:0,tr,i});if(i<n-1)evs.push({t:tr.dep[i],k:1,tr,i});});});
   evs.sort((a,b)=>a.t-b.t||a.k-b.k);
-  let rev=0,riders=0,left=0,aband=0;const G={t:[],rev:[],riders:[],left:[],aband:[]};
+  let rev=0,sur=0,riders=0,left=0,aband=0;const G={t:[],rev:[],riders:[],left:[],aband:[]};
   const abH=new Array(30).fill(0),leftH=new Array(30).fill(0),loadH=Array.from({length:30},()=>[0,0]);
   function adv(s,t){let t0=last[s];while(t0<t-1e-9){const t1=Math.min(t,t0+5),dt=t1-t0,tm=(t0+t1)/2;
       for(const d of ALL){if(d===s)continue;const lam=rate(s,d,tm),w0=W[s][d],eq=lam*TAU,w1=eq+(w0-eq)*Math.exp(-dt/TAU);const lost=Math.max(0,lam*dt-(w1-w0));aband+=lost;abH[Math.min(29,Math.floor(tm/60))]+=lost;W[s][d]=w1;}
@@ -1002,7 +1190,7 @@ function simulate(trips){
           const pr=rateParts(s,q.d,ev.t);let ps=pr[0]+pr[1]+pr[2]+pr[3];if(ps<=0){pr[3]=1;ps=1;}
           const bpp=tr.onbP[q.tgt]||(tr.onbP[q.tgt]={});const vv=bpp[q.d]||(bpp[q.d]=[0,0,0,0]);for(let p=0;p<4;p++){vv[p]+=(bw+bx)*pr[p]/ps;st.hb[p][hh]+=bw*pr[p]/ps;OD[((SI[s]*N+SI[q.d])*30+hh)*4+p]+=bw*pr[p]/ps;}
           const oo=tr.onbO[q.tgt]||(tr.onbO[q.tgt]=new Float32Array(N));oo[SI[s]]+=bw+bx;
-          rev+=bw*fare(s,q.d)+(bw+bx)*TYPES[tr.type].sur;riders+=bw;st.cb+=bw;boarded+=bw+bx;}
+          rev+=bw*fare(s,q.d)+(bw+bx)*TYPES[tr.type].sur;sur+=(bw+bx)*TYPES[tr.type].sur;riders+=bw;st.cb+=bw;boarded+=bw+bx;}
         const lb=D*(1-f);left+=lb;leftH[Math.min(29,Math.floor(ev.t/60))]+=lb;}
       tr.load+=boarded;tr.bAt[i]=boarded;tr.loadAfter[i]=tr.load;{const m=[0,0,0,0];for(const k in tr.onbP)for(const d in tr.onbP[k]){const v=tr.onbP[k][d];for(let p=0;p<4;p++)m[p]+=v[p];}tr.mixAfter[i]=m;}
       {const fa=new Float32Array(N),ta=new Float32Array(N);for(const k in tr.onbO){const v=tr.onbO[k];for(let x=0;x<N;x++)fa[x]+=v[x];}for(const k in tr.onb){const v=tr.onb[k];for(const d in v)ta[SI[d]]+=v[d];}tr.fromAfter[i]=fa;tr.toAfter[i]=ta;
@@ -1020,8 +1208,9 @@ function simulate(trips){
   trips.forEach(tr=>{for(let i=1;i<tr.seq.length;i++)if(!tr.stop[i])tr.loadAfter[i]=tr.loadAfter[i-1];tr.loadAfter[tr.seq.length-1]=0;for(let i=1;i<tr.seq.length;i++){if(!tr.mixAfter[i])tr.mixAfter[i]=tr.mixAfter[i-1];if(!tr.fromAfter[i]){tr.fromAfter[i]=tr.fromAfter[i-1];tr.toAfter[i]=tr.toAfter[i-1];}}});
   // running cost timeline
   const C={t:[],v:[]};const segs=[];trips.forEach(tr=>{for(let k=0;k<tr.seq.length-1;k++)segs.push([tr.arr[k+1],segDist(tr.seq[k],tr.seq[k+1])*tr.cars*CARKM]);});
-  segs.sort((a,b)=>a[0]-b[0]);let cc=0;segs.forEach(([t,v])=>{cc+=v;C.t.push(t);C.v.push(cc);});
-  return {G,stat,C,OD,SECL,SECC,SECN,totals:{rev,riders,left,aband:aband,run:cc,ekiYen},abH,leftH,loadH};
+  const cf=ECO?ECO.cost:1;   // 電力費などのゆるやかな変化（沿線暦が自動のとき）
+  segs.sort((a,b)=>a[0]-b[0]);let cc=0;segs.forEach(([t,v])=>{cc+=v*cf;C.t.push(t);C.v.push(cc);});
+  return {G,stat,C,OD,SECL,SECC,SECN,totals:{rev,sur,riders,left,aband:aband,run:cc,ekiYen},abH,leftH,loadH};
 }
 
 function makeEvents(trips,sets){
@@ -1064,7 +1253,8 @@ function summarize(trips,sets,sim,events){
   const dm=demandTotals();const keep=COND;setCond(COND_DEF);const SV=SVF;SVF=null;const ref=demandTotals();setCond(keep);SVF=SV;
   let secMax=null,secMin=null;for(let sg=0;sg<SEGS.length;sg++)for(let dr=0;dr<2;dr++)for(let h=5;h<25;h++){const ix=(sg*2+dr)*30+h,L=sim.SECL[ix],C=sim.SECC[ix];if(C<=0||L<150)continue;const r=L/C;
     if(!secMax||r>secMax.r)secMax={sg,dr,h,r,L,C,n:sim.SECN[ix]};if(h>=10&&h<16&&sim.SECN[ix]>=2&&(!secMin||r<secMin.r))secMin={sg,dr,h,r,L,C,n:sim.SECN[ix]};}
-  return {trips:trips.length,sets:sets.length,byCls,riders:tot.riders,rev:tot.rev,run:tot.run,fixed,eki:tot.ekiYen*0.12,ekiSales:tot.ekiYen,profit:tot.rev+tot.ekiYen*0.12-tot.run-fixed,peak,left:tot.left,aband:tot.aband,counts:events.counts,
+  let nig=tot.ekiYen;for(const s of ALL){const x=sim.stat[s];for(let h=0;h<30;h++)nig+=(x.ha[2][h]+x.ha[3][h])*SPEND[s];}   // 沿線のにぎわい：駅ナカの売上＋観光・買い物で降りた人の消費の目安（電鉄の収入ではない）
+  return {sur:tot.sur||0,nigiwai:nig,trips:trips.length,sets:sets.length,byCls,riders:tot.riders,rev:tot.rev,run:tot.run,fixed,eki:tot.ekiYen*0.12,ekiSales:tot.ekiYen,profit:tot.rev+tot.ekiYen*0.12-tot.run-fixed,peak,left:tot.left,aband:tot.aband,counts:events.counts,
     abH:sim.abH,leftH:sim.leftH,loadH:sim.loadH,dm,ref:ref.pot,secMax,secMin,evImpact:eventImpacts(trips,sim)};
 }
 /* ======================= /CORE ======================= */
@@ -1133,7 +1323,7 @@ function rebuild(){
   const keepSet=sel.kind==='set'?sel.set.id:null;
   D=CUS.on?buildCustom(cusList()):buildAll(PAT);
   if(sel.kind==='set'||sel.kind==='trip'){sel={kind:'station',st:'C'};}
-  ttKey='';pKey='';flKey='';stripKey='';SNAP=null;renderScore();renderImpact();renderEditorCounts();refreshPanels(true);
+  ttKey='';pKey='';flKey='';stripKey='';SNAP=null;renderScore();if(typeof ENSEN_UI!=='undefined')ENSEN_UI.renderEval();renderImpact();renderEditorCounts();refreshPanels(true);
 }
 let rbTimer=null;function rebuildSoon(){clearTimeout(rbTimer);rbTimer=setTimeout(()=>{save();rebuild();},250);}
 
@@ -1578,12 +1768,14 @@ const condLabel=()=>`${CONDS.day.opts[COND.day].n}・${CONDS.wx.opts[COND.wx].n}
 function renderEventChips(){$('#evchips').innerHTML=EVENT_DATA.map(e=>`<button data-ev="${e.id}" aria-pressed="${COND.evs.includes(e.id)}" title="${ST[e.place].name}・${fmt(e.start)}〜${fmt(e.end)}"><b>${e.icon}</b>${e.name}</button>`).join('');}
 $('#evchips').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const id=b.dataset.ev;const evs=COND.evs.includes(id)?COND.evs.filter(x=>x!==id):[...COND.evs,id];setCond({...COND,evs});saveCond();renderEventChips();rebuildSoon();});
 function renderCondUI(){renderEventChips();
+  if(typeof ENSEN_UI!=='undefined')setTimeout(()=>ENSEN_UI.renderAll(),0);
   $('#condsel').innerHTML=Object.entries(CONDS).map(([k,c])=>`<label for="c-${k}">${c.label}<select id="c-${k}" data-k="${k}">${Object.entries(c.opts).map(([v,o])=>`<option value="${v}" ${COND[k]===v?'selected':''}>${o.n}</option>`).join('')}</select></label>`).join('');}
 $('#condsel').addEventListener('change',e=>{const k=e.target.dataset.k;if(!k)return;setCond({...COND,[k]:e.target.value});saveCond();rebuildSoon();});
 $('#scen').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;let c;
   if(b.dataset.c==='rand'){c={};for(const k in CONDS){const ks=Object.keys(CONDS[k].opts);c[k]=ks[Math.floor(Math.random()*ks.length)];}if(c.wx==='snow'&&c.season!=='win')c.wx='rain';
     const pool=EVENT_DATA.map(e=>e.id).sort(()=>Math.random()-0.5);c.evs=pool.slice(0,Math.floor(Math.random()*3));}
   else{const [day,wx,season,econ,ev]=b.dataset.c.split(',');c={day,wx,season,econ,evs:ev?ev.split('+'):[]};}
+  if(COND.econ==='auto'&&(c.econ==='mid'||b.dataset.c==='rand'))c.econ='auto';   // 景気が自動のときは、場面の「ふつう」で固定に戻さない（好景気・不景気の場面を選んだときだけ固定へ）
   setCond(c);saveCond();renderCondUI();rebuildSoon();});
 function renderImpact(){const S=D.summary;const sum=a=>a.reduce((x,y)=>x+y,0);
   const pot=sum(S.dm.pot),ref=sum(S.ref),act=sum(S.dm.act);const pct=x=>Math.round(x*100)+'%';
@@ -2951,10 +3143,104 @@ const st=personStyle(o,s,T),pal=PAL[st],col=pal[Math.floor(o.r2*pal.length)],b=P
 })();
 $('#info').addEventListener('click',e=>{const b=e.target.closest('[data-ride]');if(!b)return;const tr=D.trips[Number(b.dataset.ride)];if(tr)RIDE.enter(tr);});
 
+/* ---------- 沿線暦の画面：運行日・沿線だより・4つの見方・開発用の表示 ----------
+   景気が「自動」のとき、景気の値や倍率はプレイヤーには見せない（便りと数字の推移から感じとる）。#dev のときだけ開発用の表示を出す */
+const ENSEN_UI=(()=>{
+  const KEY='dia-ensen',el=id=>document.getElementById(id);
+  let st=null,played=0,open=false,filter='',ready=false;
+  const dev=()=>/(^|#|&)dev\b/.test(location.hash)||/[?&]dev\b/.test(location.search);
+  function load(){try{st=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){st=null;}
+    const first=!st||st.v!==1;
+    if(first)st={v:1,seed:(Math.random()*2**31)>>>0,day:1,hist:[],letters:[],problems:{},cool:{},newd:{factory:true,hospital:true,onsen:true}};
+    return first;}
+  function persist(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
+  async function init(){const first=load();
+    try{const r=await fetch('data/ensen.json');if(!r.ok)throw new Error('HTTP '+r.status);ENS.cfg=await r.json();}catch(e){ENS.cfg=null;renderAll();return;}
+    ensReset(st.seed);ENS.day=st.day;NEWD={...st.newd};
+    if(first&&COND.econ!=='auto'&&COND.econ==='mid')COND.econ='auto';   // はじめて使うときは景気を「自動」に
+    ready=true;setCond({...COND});saveCond();renderCondUI();rebuild();renderAll();}
+  // 26:00 を過ぎて自然に次の日へ進んだとき（巻き戻しや時刻バーでは呼ばれない）
+  function dayEnd(force){if(!ready||!D)return;const minPlay=120;
+    if(!force&&played<minPlay){played=0;return;}   // 少ししか進めていない日は数えない（時刻を終わり近くへ動かしてから日をまたぐだけでは、運行日を進めない）
+    st=ensEndDay(st,D);ENS.day=st.day;played=0;persist();setCond({...COND});rebuild();renderAll();}
+  const tick=(dt)=>{if(playing)played+=speed*dt;};
+  function unread(){return (st&&st.letters||[]).filter(l=>!l.read).length;}
+  function renderBadge(){const n=unread();for(const id of ['tayoriBtn','mtayori']){const b=el(id);if(!b)continue;const d=b.querySelector('.dot');if(d){d.hidden=!n;d.textContent=n>9?'9+':String(n);}b.setAttribute('aria-label',`沿線だより${n?`（新着${n}件）`:''}`);}
+    const od=el('opday');if(od)od.textContent=ready?`第${st.day}運行日`:'';}
+  function srcLine(l){const s=l.st&&ST[l.st]?ST[l.st].name:'沿線';return `${s}｜${l.who}${l.src&&l.src!==l.who?`（${l.src}）`:''}`;}
+  function renderList(){const box=el('tayoriList');if(!box)return;const L=(st.letters||[]).filter(l=>!filter||l.st===filter).slice().reverse();
+    if(!ready){box.innerHTML='<p class="tyempty">沿線だよりの設定を読み込めませんでした。</p>';return;}
+    if(!L.length){box.innerHTML=`<p class="tyempty">${filter?'この駅の便りはまだありません。':'まだ便りは届いていません。運行日を重ねると、沿線の人の声や地方紙の記事が届きます。'}</p>`;return;}
+    box.innerHTML=L.map(l=>`<article class="tyitem${l.read?'':' new'}"><div class="tymeta"><span>第${l.day}運行日</span><span>${esc(srcLine(l))}</span></div><h4>${esc(l.title)}</h4><p>${esc(l.body)}</p>${dev()?`<details class="tydev"><summary>発生条件（開発用）</summary><pre>${esc(JSON.stringify({kind:l.kind,key:l.key,tpl:l.tplId,...l.dev},null,1))}</pre></details>`:''}</article>`).join('');}
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function renderFilter(){const f=el('tayoriFilter');if(!f)return;const has=new Set((st.letters||[]).map(l=>l.st).filter(Boolean));
+    f.innerHTML=`<option value="">すべての駅</option>`+ALL.filter(s=>has.has(s)).map(s=>`<option value="${s}" ${filter===s?'selected':''}>${ST[s].name}</option>`).join('');}
+  function setOpen(v){open=v;const p=el('tayori');if(!p)return;p.hidden=!v;
+    if(v){renderFilter();renderList();renderDev();setTimeout(()=>{(st.letters||[]).forEach(l=>{l.read=true;});persist();renderBadge();},1200);}   // 開いて少ししたら既読に（新着の印はその場では残す）
+    else{renderList();}}
+  function renderDev(){const box=el('tayoriDev');if(!box)return;box.hidden=!dev();if(!dev()||!ready)return;
+    const ec=econAt(st.day),sh=shockSchedule(st.day+14).filter(o=>o.end>=st.day-10&&o.start<=st.day+14);
+    const E=ECO;let tbl='';if(E){const N=NSt,P=['通勤','ビジ','観光','私用'];tbl='<table><tr><th>着駅</th>'+P.map(p=>`<th>${p}</th>`).join('')+'</tr>'+ALL.map((d,di)=>{const av=[0,0,0,0];let n=0;for(let si=0;si<N;si++){if(si===di)continue;for(let h=6;h<23;h++){n++;for(let p=0;p<4;p++)av[p]+=E.T[((si*N+di)*30+h)*4+p];}}return `<tr><td>${ST[d].name}</td>${av.map(v=>`<td>${(v/n).toFixed(3)}</td>`).join('')}</tr>`;}).join('')+'</table>';}
+    const h=st.hist.at(-1);
+    box.innerHTML=`<h4>開発用（#dev のときだけ表示）</h4>
+      <p>種 ${st.seed}・第${st.day}運行日・景気 ${COND.econ==='auto'?'自動':'固定（'+CONDS.econ.opts[COND.econ].n+'）'}</p>
+      <p>景気の値 e=${ec.e.toFixed(3)}（${ec.phase}・第${ec.phaseStart}日から）・費用係数 ${ec.cost.toFixed(3)}${E?'':'　※固定中は補正なし'}</p>
+      <p>小さな波：${sh.map(o=>`${shockDef(o.id).name}［予告${o.announce??'なし'}・${o.start}〜${o.end}日・${(o.mag*100).toFixed(1)}%${E&&E.shocks.find(x=>x.id===o.id&&x.start===o.start&&x.suppressed)?'・イベントと重なり停止':''}］`).join(' ')||'なし'}</p>
+      <details><summary>着駅×目的の平均補正（6〜23時、今日）</summary>${tbl||'（固定中）'}</details>
+      <details><summary>前の日の判定の候補（${(st.lastCand||[]).length}件）</summary><pre>${esc(JSON.stringify(st.lastCand||[],null,1))}</pre></details>
+      <details><summary>続いている傾向</summary><pre>${esc(JSON.stringify(st.problems||{},null,1))}</pre></details>
+      <details><summary>直近の記録</summary><pre>${esc(JSON.stringify(h||{},null,1))}</pre></details>
+      <div class="tydevbtns"><button type="button" id="tyNext">次の運行日へ（開発用）</button><button type="button" id="tyNext7">7日進める</button><button type="button" id="tyReseed">種を変えて最初から</button></div>`;
+    el('tyNext').onclick=()=>{dayEnd(true);renderDev();};
+    el('tyNext7').onclick=()=>{for(let i=0;i<7;i++)dayEnd(true);renderDev();};
+    el('tyReseed').onclick=()=>{resetAll(true);};}
+  function resetAll(newSeed){const keepNew=st.newd;st={v:1,seed:newSeed?(Math.random()*2**31)>>>0:st.seed,day:1,hist:[],letters:[],problems:{},cool:{},newd:keepNew};
+    ensReset(st.seed);ENS.day=1;persist();setCond({...COND});rebuild();renderAll();}
+  // 条件カードに「沿線暦」の行を足す（新しい街の流れ・最初から）
+  function renderCondExtra(){let row=el('ensenRow');const card=document.querySelector('.card.cond');if(!card)return;
+    if(!row){row=document.createElement('div');row.className='condrow ensenrow';row.id='ensenRow';card.appendChild(row);}
+    if(!ready){row.innerHTML='';return;}
+    const f=st.newd;
+    row.innerHTML=`<span class="evlab">沿線暦</span><span class="ensnote">${COND.econ==='auto'?'景気は日々ゆっくり変わります（くわしくは沿線だよりで）':'景気は固定中（比較・試運転用）'}</span>
+      <span class="ensflows" role="group" aria-label="新しい街の流れ（試作）"><span class="ensl">新しい街の流れ（試作）</span>
+      <label><input type="checkbox" data-nf="factory" ${f.factory?'checked':''}>港の工場への通勤</label>
+      <label><input type="checkbox" data-nf="hospital" ${f.hospital?'checked':''}>大学病院への通院</label>
+      <label><input type="checkbox" data-nf="onsen" ${f.onsen?'checked':''}>温泉は午後に着き朝に帰る</label></span>
+      <button type="button" class="ensreset" id="ensReset">沿線暦を第1運行日から</button>`;
+    row.querySelectorAll('[data-nf]').forEach(c=>c.addEventListener('change',()=>{st.newd[c.dataset.nf]=c.checked;NEWD={...st.newd};persist();rebuildSoon();}));
+    el('ensReset').onclick=()=>{const b=el('ensReset');if(b.dataset.c!=='1'){b.dataset.c='1';b.textContent='もう一度押すと、便りと記録を消して第1運行日に戻ります';setTimeout(()=>{if(b.isConnected){b.dataset.c='';b.textContent='沿線暦を第1運行日から';}},4000);return;}resetAll(false);};}
+  // 収支：4つの見方を分けて、直近の運行日と比べる（景気の値は出さない）
+  function renderEval(){const sc=el('score');if(!sc||!D||!D.summary)return;let box=el('evalbox');if(!box){box=document.createElement('div');box.id='evalbox';box.className='evalbox';sc.parentNode.insertBefore(box,sc);}
+    const S=D.summary,conv=S.dm.act.reduce((a,b)=>a+b,0)/S.dm.pot.reduce((a,b)=>a+b,0),fareI=S.rev-S.sur,cost=S.run+S.fixed;
+    const H=ready?st.hist.slice(-7):[];const avg=f=>H.length?H.reduce((a,r)=>a+f(r),0)/H.length:null;
+    const cmp=(v,a,good)=>{if(a==null||!a)return '';const r=v/a-1;if(Math.abs(r)<0.01)return '<i class="ev0">前の7日と同じくらい</i>';return `<i class="${(r>0)===good?'evp':'evn'}">前の7日より${r>0?'＋':'−'}${Math.abs(r*100).toFixed(r<0.1&&r>-0.1?1:0)}%</i>`;};
+    box.innerHTML=`<div class="evh">きょうの運行を4つの見方で${ready?`<small>第${st.day}運行日</small>`:''}</div>
+      <div class="evg"><div><span>乗客の便利さ</span><b>×${conv.toFixed(2)}</b>${cmp(conv,avg(r=>r.conv),true)}</div>
+      <div><span>運賃と特急料金</span><b>${man(fareI)}＋${man(S.sur)}</b>${cmp(S.rev,avg(r=>r.rev+r.sur),true)}</div>
+      <div><span>運行費（走行＋車両）</span><b>${man(cost)}</b>${cmp(cost,avg(r=>r.run+r.fixed),false)}</div>
+      <div><span>沿線のにぎわい（消費の目安）</span><b>${man(S.nigiwai)}</b>${cmp(S.nigiwai,avg(r=>r.nigi),true)}</div></div>
+      <p class="evnote">にぎわいは駅ナカと、観光・買い物で降りた人が街で使うお金の目安です。電鉄の収入ではありません。</p>`;}
+  function renderAll(){renderBadge();renderCondExtra();if(open){renderFilter();renderList();renderDev();}renderEval();}
+  // ヘッダーとスクロール時の小さいバーに入口
+  function mount(){const cb=document.querySelector('.clockbox');if(cb&&!el('tayoriBtn')){const b=document.createElement('button');b.id='tayoriBtn';b.className='tayoribtn';b.type='button';b.innerHTML='沿線だより<span class="dot" hidden></span>';cb.after(b);
+      const od=document.createElement('div');od.id='opday';od.className='opday';cb.appendChild(od);}
+    const mb=document.querySelector('.minibar-in');if(mb&&!el('mtayori')){const b=document.createElement('button');b.id='mtayori';b.className='mspeed tayorimini';b.type='button';b.innerHTML='だより<span class="dot" hidden></span>';mb.appendChild(b);}
+    const p=document.createElement('aside');p.id='tayori';p.className='tayori';p.hidden=true;p.setAttribute('aria-label','沿線だより');
+    p.innerHTML=`<div class="tyhead"><h3>沿線だより</h3><select id="tayoriFilter" aria-label="駅で絞りこむ"></select><button type="button" id="tayoriClose" aria-label="閉じる">閉じる</button></div>
+      <p class="tylede">沿線の人の声、地方紙の記事、街角の話です。読んだ便りはここに残ります。</p><div id="tayoriList" class="tylist"></div><div id="tayoriDev" class="tydev" hidden></div>`;
+    document.body.appendChild(p);
+    for(const id of ['tayoriBtn','mtayori'])el(id)?.addEventListener('click',()=>setOpen(!open));
+    el('tayoriClose').onclick=()=>setOpen(false);el('tayoriFilter').onchange=e=>{filter=e.target.value;renderList();};
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&open)setOpen(false);});
+    addEventListener('hashchange',()=>{if(open)renderDev();});}
+  mount();renderBadge();
+  return {init,dayEnd,tick,renderEval,renderAll,get state(){return st;},get ready(){return ready;},setOpen,resetAll,dev};
+})();
+
 /* ---------- loop ---------- */
 let lastTs=0,acc=0;
 function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
-  if(playing&&D){T+=speed*dt;if(T>END){T=START+30;}}
+  if(playing&&D){T+=speed*dt;ENSEN_UI.tick(dt);if(T>END){T=START+30;ENSEN_UI.dayEnd(false);}}   // 運行日は、再生して26:00を過ぎたときだけ進む
   if(RIDE.on)RIDE.tick(dt);
   $('#clock').textContent=fmt(T);if(!$('#minibar').hidden){$('#mclock').textContent=fmt(T);const mb=band(T)+'・'+condLabel();if($('#mband').textContent!==mb)$('#mband').textContent=mb;}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
@@ -2999,7 +3285,7 @@ async function liveCond(){const note=document.getElementById('liveNote');
     wtxt=`${CONDS.wx.opts[c.wx].n}${c.wx==='snow'?'（雪）':''} ${Math.round(tc)}℃`;}
   setCond({...COND,...c});saveCond();renderCondUI();rebuildSoon();
   if(note)note.textContent=`いまの立川市：${wtxt}・${CONDS.day.opts[c.day].n}${hol?'（'+hol+'）':''}（起動時に自動で設定。下のボタンで変えられます）`;}
-function start(data){if(data&&typeof data.T==='number')T=data.T;else T=liveT();liveCond().catch(()=>{});renderCondUI();renderLegend();renderEditor();rebuild();renderMode();resize();setPlay(true);requestAnimationFrame(frame);}
+function start(data){if(data&&typeof data.T==='number')T=data.T;else T=liveT();liveCond().catch(()=>{});renderCondUI();renderLegend();renderEditor();rebuild();renderMode();resize();setPlay(true);requestAnimationFrame(frame);ENSEN_UI.init();}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>
