@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html,body{margin:0}body{font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>みなと川沿線 街のカルテ</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 路線図と役所の統計書の中間：白い台紙に、市町村ごとの色帯で沿線を区切る。数字は等幅で右そろえ */
+:root{
+  --paper:#eef1f2;--sheet:#fbfcfc;--ink:#18263a;--muted:#5d6a78;--line:#cfd6dc;--line2:#e2e7ea;--rail:#c23b3b;--focus:#2f5d8a;
+  --f-disp:"Dela Gothic One","Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#11161c;--sheet:#182029;--ink:#e3e9ee;--muted:#9aa8b5;--line:#2c3742;--line2:#222c36;--rail:#e2615c;--focus:#7fb0de;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#11161c;--sheet:#182029;--ink:#e3e9ee;--muted:#9aa8b5;--line:#2c3742;--line2:#222c36;--rail:#e2615c;--focus:#7fb0de;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-family:var(--f-disp);font-weight:400;font-size:clamp(22px,4vw,30px);letter-spacing:.04em;margin:0;text-wrap:balance}
+h2{font-size:17px;margin:0;text-wrap:balance}
+h3{font-size:13px;margin:0;color:var(--muted);letter-spacing:.06em;font-weight:700}
+.lede{color:var(--muted);margin:6px 0 0;max-width:62ch}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 14px}
+.tabs button{font:inherit;font-weight:700;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:999px;padding:6px 14px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:16px}
+.scroll{overflow-x:auto}
+.route{min-width:640px;display:block;width:100%;height:auto}
+.route .st{cursor:pointer}
+.route .st text{fill:var(--ink);font-size:13px;font-weight:700;font-family:var(--f-body)}
+.route .st .k{fill:var(--muted);font-size:10px;font-weight:400}
+.route .st circle{fill:var(--sheet);stroke:var(--ink);stroke-width:2.5}
+.route .st.on circle{fill:var(--rail);stroke:var(--rail)}
+.route .lbl{font-size:11px;font-weight:700}
+.grid2{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;margin-top:16px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.sthead{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
+.sthead .nm{font-family:var(--f-disp);font-size:34px;line-height:1.1}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;color:#fff}
+.tag{display:inline-block;border:1px solid var(--line);border-radius:4px;padding:0 7px;font-size:12px;color:var(--muted);margin:0 4px 4px 0}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px 16px;margin-top:12px}
+.kv div{border-top:1px solid var(--line2);padding-top:6px}
+.kv dt{font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+.kv dd{margin:0;font-size:18px;font-weight:700}
+.kv dd small{font-size:11px;color:var(--muted);font-weight:400;margin-left:2px}
+ul.lm{margin:6px 0 0;padding-left:1.2em}
+.fac{display:grid;gap:14px}
+.fgroup h3{margin-bottom:4px}
+.frow{display:grid;grid-template-columns:minmax(0,9em) 4.6em minmax(0,1fr);gap:8px;align-items:center;padding:2px 0;font-size:13px}
+.frow.zero{color:var(--muted);opacity:.55}
+.frow .c{text-align:right}
+.frow .c small{color:var(--muted);font-size:10.5px;margin-left:2px}
+.bar{height:7px;border-radius:3px;background:var(--line2);position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;border-radius:3px}
+.hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+.feat{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.feat span{background:var(--line2);border-radius:5px;padding:2px 8px;font-size:12.5px}
+.feat b{font-family:var(--f-num);font-weight:500;margin-left:4px}
+.tsel{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tsel button{font:inherit;font-size:13px;font-weight:700;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:8px;padding:5px 10px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.tsel button i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.tsel button[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+table{border-collapse:collapse;font-size:13px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line2);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:11.5px;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--sheet)}
+.cmp td.n{font-family:var(--f-num)}
+.stack{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:6px 0 4px}
+.stack span{height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.legend b{color:var(--ink);font-family:var(--f-num);font-weight:500;margin-left:3px}
+.popbar{display:grid;grid-template-columns:7em minmax(0,1fr) 6.5em;gap:8px;align-items:center;font-size:13px;margin:3px 0}
+.popbar .b{height:12px;border-radius:3px}
+.sankey{min-width:760px;width:100%;height:auto;display:block}
+.sankey text{fill:var(--ink);font-size:12px;font-family:var(--f-body)}
+.sankey .v{fill:var(--muted);font-family:var(--f-num);font-size:11px}
+.sankey path{fill-opacity:.32;transition:fill-opacity .15s}
+.sankey path.dim{fill-opacity:.06}.sankey path.hi{fill-opacity:.62}
+.sankey rect{cursor:pointer}
+.kinds{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.kinds button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer}
+.kinds button i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.kinds button[aria-pressed="false"]{opacity:.45}
+.heat td.v{font-family:var(--f-num);min-width:3.4em}
+.heat td.g{font-size:11px;color:var(--muted);text-align:left;padding-top:10px;font-weight:700;letter-spacing:.05em}
+.heat th.sticky,.heat td.sticky{position:sticky;left:0;background:var(--sheet);z-index:1}
+.note{font-size:12px;color:var(--muted);margin-top:18px;max-width:80ch}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<div class="wrap">
+  <h1>みなと川沿線 街のカルテ</h1>
+  <p class="lede">沿線10駅のまわり（半径約1km）にどんな施設がいくつあるか、駅がどの市町村にあり、その市町村の人口・財政・お金の流れがどうなっているかをまとめた架空の設定です。</p>
+  <div class="tabs" role="tablist" id="tabs">
+    <button data-v="station" aria-pressed="true">駅と施設</button>
+    <button data-v="towns" aria-pressed="false">市町村</button>
+    <button data-v="money" aria-pressed="false">お金の流れ</button>
+    <button data-v="table" aria-pressed="false">施設の一覧表</button>
+  </div>
+  <section class="sheet scroll" id="routeBox" aria-label="路線図"><svg class="route" id="route" viewBox="0 0 900 250" role="img" aria-label="駅を選ぶ路線図"></svg></section>
+  <section id="v-station"></section>
+  <section id="v-towns" hidden></section>
+  <section id="v-money" hidden></section>
+  <section id="v-table" hidden></section>
+  <p class="note">すべて架空の街の設定です（実在の市町村・施設とは関係ありません）。1日の乗車人数だけはゲームの標準ダイヤ・平日・秋・晴れのシミュレーション結果です。施設の数は駅から半径約1km、市町村の数値は1年分（お金は億円）の目安です。</p>
+</div>
+<script>
+const DATA={"stations": {"C": {"name": "中央", "kana": "ちゅうおう", "town": "minato", "tags": ["ターミナル", "県庁・オフィス街", "繁華街"], "catch": "県庁と駅ビル百貨店がある沿線の玄関口。昼は会社員、夜は飲み歩く人でにぎわう。", "landmarks": ["県庁・みなと川市役所", "駅ビル「みなと川ステーションモール」", "中央通りアーケード", "県立図書館", "県立美術館"], "pop1km": 16800, "dayPop": 102000, "landRes": 42, "landCom": 165, "rent": 9.8, "income": 640, "board": 56785, "xfer": 0}, "S": {"name": "桜町", "kana": "さくらまち", "town": "minato", "tags": ["城下町", "古い住宅地", "商店街"], "catch": "城跡と寺町が残る古い住宅地。昔ながらの商店街と銭湯があり、春は城跡の桜でにぎわう。", "landmarks": ["桜町城跡公園", "桜町商店街", "寺町通り", "郷土資料館", "桜湯（銭湯）"], "pop1km": 21400, "dayPop": 17600, "landRes": 19, "landCom": 28, "rent": 6.9, "income": 560, "board": 5777, "xfer": 0}, "U": {"name": "大学前", "kana": "だいがくまえ", "town": "minato", "tags": ["学生街", "大学病院", "夜の飲み屋街"], "catch": "国立大学と大学病院の街。安いアパートと学生向けの食堂・飲み屋が並び、夜遅くまで明るい。", "landmarks": ["国立みなと川大学", "大学附属病院", "大学博物館", "学生街「北門通り」", "市民体育館"], "pop1km": 23900, "dayPop": 41800, "landRes": 16, "landCom": 34, "rent": 5.4, "income": 410, "board": 12167, "xfer": 0}, "M": {"name": "緑ヶ丘", "kana": "みどりがおか", "town": "midorino", "tags": ["ニュータウン", "団地と戸建て", "子育て世帯"], "catch": "1970年代に開かれた丘の上のニュータウン。団地と戸建てが広がり、公園と学校が多い。子育て世帯と、最初に入居した高齢の世帯が混在する。", "landmarks": ["緑ヶ丘団地（42棟）", "緑ヶ丘中央公園", "ニュータウンセンター", "緑ヶ丘図書館", "丘の上の給水塔"], "pop1km": 27500, "dayPop": 19300, "landRes": 11, "landCom": 14, "rent": 6.2, "income": 690, "board": 7372, "xfer": 0}, "K": {"name": "川辺", "kana": "かわべ", "town": "midorino", "tags": ["乗換駅", "河川敷と公園", "大型ショッピングモール"], "catch": "本線と温泉支線が分かれる乗換駅。川沿いの河川敷公園とカフェ、駅前の大型モールがあり、夏祭りの会場にもなる。", "landmarks": ["川辺ショッピングパーク（シネコン併設）", "河川敷公園", "緑野市役所", "川辺高校", "夏祭りの会場（河川敷）"], "pop1km": 18200, "dayPop": 22600, "landRes": 13, "landCom": 31, "rent": 7.0, "income": 620, "board": 10616, "xfer": 16343}, "N": {"name": "新田", "kana": "にった", "town": "nitta", "tags": ["田園", "農協と直売所", "新しい住宅地が少し"], "catch": "田んぼの中の小さな町。農協と直売所、町役場がある。駅の近くに新しい建売住宅が少しずつ増えている。", "landmarks": ["新田町役場", "JAにった・農産物直売所", "棚田", "農業大学校", "新田神社"], "pop1km": 5300, "dayPop": 4900, "landRes": 4.2, "landCom": 5.0, "rent": 4.6, "income": 480, "board": 6183, "xfer": 0}, "P": {"name": "港", "kana": "みなと", "town": "minatohama", "tags": ["港湾と工場", "客船ターミナル", "港町の商店街"], "catch": "貨物港と工場地帯の玄関。客船が寄港する日は観光客であふれる。港町の商店街と魚市場、赤レンガ倉庫がある。", "landmarks": ["港浜客船ターミナル", "魚市場", "赤レンガ倉庫", "海洋博物館", "臨海工業地帯", "港浜ホール"], "pop1km": 13600, "dayPop": 34200, "landRes": 9.8, "landCom": 22, "rent": 5.8, "income": 520, "board": 16388, "xfer": 0}, "F": {"name": "森下", "kana": "もりした", "town": "morishita", "tags": ["山あいの集落", "林業", "沢と森"], "catch": "森に囲まれた村の中心。製材所と森林組合、小さな商店がある。沢沿いの散策路が人気。", "landmarks": ["森下村役場", "森林組合・製材所", "森下の沢（散策路）", "村営キャンプ場"], "pop1km": 1400, "dayPop": 1700, "landRes": 1.6, "landCom": 2.0, "rent": 3.9, "income": 410, "board": 1328, "xfer": 0}, "T": {"name": "峠", "kana": "とうげ", "town": "morishita", "tags": ["峠の駅", "滝と展望台", "ハイキング"], "catch": "山の上の小さな駅。住む人は少ないが、滝と展望台、鉄橋を目当てに登山客や写真を撮る人が来る。", "landmarks": ["峠の大滝", "展望台", "峠の鉄橋", "峠の茶屋", "自然館"], "pop1km": 380, "dayPop": 900, "landRes": 0.9, "landCom": 1.1, "rent": null, "income": 380, "board": 1174, "xfer": 0}, "O": {"name": "温泉", "kana": "おんせん", "town": "yunotani", "tags": ["温泉街", "旅館28軒", "観光"], "catch": "谷あいの温泉街。旅館と土産物店、日帰り温泉が並ぶ。泊まりの観光客と、旅館で働く人の町。", "landmarks": ["湯ノ谷温泉街", "共同浴場「元湯」", "温泉資料館", "湯ノ谷町役場", "源泉公園"], "pop1km": 3900, "dayPop": 9800, "landRes": 3.1, "landCom": 9.5, "rent": 4.5, "income": 430, "board": 3818, "xfer": 0}}, "stationOrder": ["C", "S", "U", "M", "K", "N", "P", "F", "T", "O"], "facilities": [{"genre": "住まい", "item": "戸建て", "unit": "戸", "v": {"C": 300, "S": 3200, "U": 1800, "M": 5200, "K": 2100, "N": 1400, "P": 900, "F": 260, "T": 90, "O": 380}}, {"genre": "住まい", "item": "マンション", "unit": "棟", "v": {"C": 85, "S": 40, "U": 28, "M": 18, "K": 30, "N": 2, "P": 22, "F": 0, "T": 0, "O": 3}}, {"genre": "住まい", "item": "アパート", "unit": "棟", "v": {"C": 60, "S": 150, "U": 420, "M": 90, "K": 120, "N": 25, "P": 70, "F": 4, "T": 1, "O": 25}}, {"genre": "住まい", "item": "団地", "unit": "棟", "v": {"C": 0, "S": 0, "U": 0, "M": 42, "K": 6, "N": 0, "P": 8, "F": 0, "T": 0, "O": 0}}, {"genre": "住まい", "item": "寮（学生・社員・従業員）", "unit": "棟", "v": {"C": 4, "S": 2, "U": 14, "M": 1, "K": 2, "N": 0, "P": 6, "F": 1, "T": 0, "O": 3}}, {"genre": "住まい", "item": "高齢者向け住宅", "unit": "か所", "v": {"C": 3, "S": 6, "U": 2, "M": 7, "K": 4, "N": 3, "P": 3, "F": 1, "T": 0, "O": 2}}, {"genre": "買い物", "item": "コンビニ", "unit": "店", "v": {"C": 34, "S": 9, "U": 14, "M": 7, "K": 10, "N": 2, "P": 9, "F": 1, "T": 0, "O": 3}}, {"genre": "買い物", "item": "スーパー", "unit": "店", "v": {"C": 3, "S": 4, "U": 3, "M": 4, "K": 3, "N": 1, "P": 2, "F": 0, "T": 0, "O": 1}}, {"genre": "買い物", "item": "ドラッグストア", "unit": "店", "v": {"C": 12, "S": 5, "U": 6, "M": 4, "K": 5, "N": 1, "P": 3, "F": 0, "T": 0, "O": 1}}, {"genre": "買い物", "item": "百貨店・駅ビル", "unit": "館", "v": {"C": 3, "S": 0, "U": 0, "M": 0, "K": 0, "N": 0, "P": 0, "F": 0, "T": 0, "O": 0}}, {"genre": "買い物", "item": "ショッピングモール", "unit": "館", "v": {"C": 1, "S": 0, "U": 0, "M": 1, "K": 1, "N": 0, "P": 1, "F": 0, "T": 0, "O": 0}}, {"genre": "買い物", "item": "商店街の店", "unit": "店", "v": {"C": 120, "S": 85, "U": 60, "M": 15, "K": 40, "N": 6, "P": 70, "F": 3, "T": 0, "O": 55}}, {"genre": "買い物", "item": "ホームセンター", "unit": "店", "v": {"C": 0, "S": 1, "U": 0, "M": 1, "K": 1, "N": 1, "P": 1, "F": 0, "T": 0, "O": 0}}, {"genre": "買い物", "item": "書店", "unit": "店", "v": {"C": 6, "S": 2, "U": 4, "M": 1, "K": 2, "N": 0, "P": 1, "F": 0, "T": 0, "O": 0}}, {"genre": "買い物", "item": "土産物店", "unit": "店", "v": {"C": 8, "S": 1, "U": 0, "M": 0, "K": 1, "N": 1, "P": 14, "F": 0, "T": 2, "O": 32}}, {"genre": "買い物", "item": "農産物直売所", "unit": "か所", "v": {"C": 0, "S": 0, "U": 0, "M": 0, "K": 1, "N": 3, "P": 0, "F": 1, "T": 1, "O": 1}}, {"genre": "買い物", "item": "魚市場", "unit": "か所", "v": {"C": 0, "S": 0, "U": 0, "M": 0, "K": 0, "N": 0, "P": 1, "F": 0, "T": 0, "O": 0}}, {"genre": "食べる", "item": "カフェ", "unit": "店", "v": {"C": 48, "S": 12, "U": 26, "M": 6, "K": 14, "N": 1, "P": 11, "F": 1, "T": 1, "O": 6}}, {"genre": "食べる", "item": "レストラン・食堂", "unit": "店", "v": {"C": 120, "S": 30, "U": 55, "M": 12, "K": 25, "N": 4, "P": 40, "F": 1, "T": 2, "O": 14}}, {"genre": "食べる", "item": "ラーメン店", "unit": "店", "v": {"C": 22, "S": 6, "U": 18, "M": 3, "K": 5, "N": 1, "P": 7, "F": 0, "T": 0, "O": 2}}, {"genre": "食べる", "item": "居酒屋・バー", "unit": "店", "v": {"C": 160, "S": 18, "U": 75, "M": 6, "K": 15, "N": 2, "P": 35, "F": 1, "T": 0, "O": 9}}, {"genre": "食べる", "item": "ファストフード", "unit": "店", "v": {"C": 14, "S": 3, "U": 9, "M": 3, "K": 6, "N": 0, "P": 4, "F": 0, "T": 0, "O": 0}}, {"genre": "食べる", "item": "パン屋・和菓子店", "unit": "店", "v": {"C": 9, "S": 7, "U": 4, "M": 4, "K": 5, "N": 1, "P": 3, "F": 1, "T": 1, "O": 6}}, {"genre": "食べる", "item": "茶屋・軽食", "unit": "店", "v": {"C": 0, "S": 1, "U": 0, "M": 0, "K": 1, "N": 0, "P": 2, "F": 1, "T": 3, "O": 5}}, {"genre": "学ぶ・育てる", "item": "保育園", "unit": "園", "v": {"C": 4, "S": 6, "U": 3, "M": 8, "K": 5, "N": 2, "P": 3, "F": 1, "T": 0, "O": 1}}, {"genre": "学ぶ・育てる", "item": "幼稚園", "unit": "園", "v": {"C": 1, "S": 3, "U": 1, "M": 4, "K": 2, "N": 1, "P": 1, "F": 0, "T": 0, "O": 1}}, {"genre": "学ぶ・育てる", "item": "小学校", "unit": "校", "v": {"C": 1, "S": 2, "U": 1, "M": 3, "K": 2, "N": 1, "P": 1, "F": 1, "T": 0, "O": 1}}, {"genre": "学ぶ・育てる", "item": "中学校", "unit": "校", "v": {"C": 1, "S": 1, "U": 1, "M": 2, "K": 1, "N": 1, "P": 1, "F": 0, "T": 0, "O": 1}}, {"genre": "学ぶ・育てる", "item": "高校", "unit": "校", "v": {"C": 2, "S": 1, "U": 1, "M": 1, "K": 2, "N": 0, "P": 1, "F": 0, "T": 0, "O": 0}}, {"genre": "学ぶ・育てる", "item": "大学・専門学校", "unit": "校", "v": {"C": 4, "S": 1, "U": 3, "M": 0, "K": 1, "N": 1, "P": 0, "F": 0, "T": 0, "O": 0}}, {"genre": "学ぶ・育てる", "item": "学習塾", "unit": "か所", "v": {"C": 30, "S": 14, "U": 12, "M": 16, "K": 12, "N": 2, "P": 6, "F": 0, "T": 0, "O": 1}}, {"genre": "学ぶ・育てる", "item": "図書館", "unit": "館", "v": {"C": 1, "S": 1, "U": 0, "M": 1, "K": 1, "N": 0, "P": 1, "F": 0, "T": 0, "O": 0}}, {"genre": "医療・福祉", "item": "病院（20床以上）", "unit": "院", "v": {"C": 3, "S": 1, "U": 1, "M": 1, "K": 1, "N": 0, "P": 1, "F": 0, "T": 0, "O": 0}}, {"genre": "医療・福祉", "item": "診療所", "unit": "院", "v": {"C": 70, "S": 22, "U": 20, "M": 18, "K": 16, "N": 3, "P": 10, "F": 1, "T": 0, "O": 2}}, {"genre": "医療・福祉", "item": "歯科", "unit": "院", "v": {"C": 45, "S": 14, "U": 10, "M": 12, "K": 10, "N": 2, "P": 7, "F": 1, "T": 0, "O": 1}}, {"genre": "医療・福祉", "item": "薬局", "unit": "店", "v": {"C": 30, "S": 8, "U": 9, "M": 7, "K": 7, "N": 1, "P": 5, "F": 0, "T": 0, "O": 1}}, {"genre": "医療・福祉", "item": "介護事業所", "unit": "か所", "v": {"C": 12, "S": 10, "U": 5, "M": 12, "K": 8, "N": 4, "P": 6, "F": 2, "T": 1, "O": 3}}, {"genre": "働く", "item": "オフィスビル", "unit": "棟", "v": {"C": 260, "S": 12, "U": 20, "M": 4, "K": 18, "N": 1, "P": 45, "F": 0, "T": 0, "O": 2}}, {"genre": "働く", "item": "工場", "unit": "か所", "v": {"C": 2, "S": 4, "U": 1, "M": 0, "K": 5, "N": 6, "P": 38, "F": 2, "T": 0, "O": 1}}, {"genre": "働く", "item": "倉庫・物流施設", "unit": "か所", "v": {"C": 3, "S": 2, "U": 0, "M": 1, "K": 6, "N": 4, "P": 62, "F": 1, "T": 0, "O": 0}}, {"genre": "働く", "item": "銀行・信用金庫", "unit": "店", "v": {"C": 26, "S": 3, "U": 3, "M": 2, "K": 4, "N": 1, "P": 6, "F": 0, "T": 0, "O": 1}}, {"genre": "働く", "item": "郵便局", "unit": "局", "v": {"C": 5, "S": 3, "U": 2, "M": 3, "K": 2, "N": 1, "P": 3, "F": 1, "T": 1, "O": 1}}, {"genre": "働く", "item": "役所・役場", "unit": "か所", "v": {"C": 2, "S": 0, "U": 0, "M": 0, "K": 1, "N": 1, "P": 1, "F": 1, "T": 0, "O": 1}}, {"genre": "働く", "item": "農協・漁協・森林組合", "unit": "か所", "v": {"C": 0, "S": 0, "U": 0, "M": 0, "K": 0, "N": 1, "P": 1, "F": 1, "T": 0, "O": 0}}, {"genre": "暮らしの安全", "item": "交番・警察署", "unit": "か所", "v": {"C": 4, "S": 1, "U": 2, "M": 1, "K": 1, "N": 1, "P": 2, "F": 1, "T": 0, "O": 1}}, {"genre": "暮らしの安全", "item": "消防署・分署", "unit": "か所", "v": {"C": 1, "S": 0, "U": 1, "M": 1, "K": 1, "N": 1, "P": 1, "F": 1, "T": 0, "O": 1}}, {"genre": "暮らしの安全", "item": "公民館・集会所", "unit": "か所", "v": {"C": 2, "S": 4, "U": 2, "M": 6, "K": 3, "N": 3, "P": 2, "F": 2, "T": 1, "O": 2}}, {"genre": "遊ぶ・文化", "item": "公園", "unit": "か所", "v": {"C": 6, "S": 9, "U": 7, "M": 14, "K": 11, "N": 3, "P": 5, "F": 2, "T": 2, "O": 2}}, {"genre": "遊ぶ・文化", "item": "神社・寺", "unit": "か所", "v": {"C": 8, "S": 12, "U": 4, "M": 3, "K": 5, "N": 6, "P": 6, "F": 4, "T": 2, "O": 5}}, {"genre": "遊ぶ・文化", "item": "映画館", "unit": "館", "v": {"C": 2, "S": 0, "U": 1, "M": 0, "K": 1, "N": 0, "P": 0, "F": 0, "T": 0, "O": 0}}, {"genre": "遊ぶ・文化", "item": "美術館・博物館", "unit": "館", "v": {"C": 3, "S": 1, "U": 1, "M": 0, "K": 0, "N": 0, "P": 2, "F": 0, "T": 1, "O": 1}}, {"genre": "遊ぶ・文化", "item": "スポーツ施設", "unit": "か所", "v": {"C": 3, "S": 2, "U": 4, "M": 3, "K": 3, "N": 1, "P": 2, "F": 0, "T": 0, "O": 0}}, {"genre": "遊ぶ・文化", "item": "カラオケ・ゲーム", "unit": "店", "v": {"C": 14, "S": 2, "U": 8, "M": 1, "K": 3, "N": 0, "P": 3, "F": 0, "T": 0, "O": 2}}, {"genre": "遊ぶ・文化", "item": "ライブハウス・ホール", "unit": "か所", "v": {"C": 3, "S": 0, "U": 2, "M": 0, "K": 1, "N": 0, "P": 1, "F": 0, "T": 0, "O": 0}}, {"genre": "泊まる・観光", "item": "ホテル", "unit": "軒", "v": {"C": 18, "S": 0, "U": 2, "M": 0, "K": 2, "N": 0, "P": 9, "F": 0, "T": 0, "O": 3}}, {"genre": "泊まる・観光", "item": "旅館・民宿", "unit": "軒", "v": {"C": 1, "S": 1, "U": 0, "M": 0, "K": 0, "N": 0, "P": 2, "F": 2, "T": 3, "O": 28}}, {"genre": "泊まる・観光", "item": "日帰り温泉・銭湯", "unit": "か所", "v": {"C": 2, "S": 2, "U": 1, "M": 1, "K": 1, "N": 0, "P": 1, "F": 0, "T": 0, "O": 6}}, {"genre": "泊まる・観光", "item": "観光スポット", "unit": "か所", "v": {"C": 6, "S": 3, "U": 1, "M": 0, "K": 3, "N": 1, "P": 8, "F": 2, "T": 4, "O": 7}}, {"genre": "泊まる・観光", "item": "キャンプ場", "unit": "か所", "v": {"C": 0, "S": 0, "U": 0, "M": 0, "K": 0, "N": 0, "P": 0, "F": 1, "T": 2, "O": 0}}, {"genre": "交通", "item": "路線バスの系統", "unit": "系統", "v": {"C": 28, "S": 4, "U": 9, "M": 6, "K": 7, "N": 2, "P": 8, "F": 1, "T": 1, "O": 3}}, {"genre": "交通", "item": "駅で待つタクシー", "unit": "台", "v": {"C": 40, "S": 3, "U": 8, "M": 4, "K": 10, "N": 1, "P": 12, "F": 0, "T": 0, "O": 8}}, {"genre": "交通", "item": "駐輪場", "unit": "台", "v": {"C": 4200, "S": 900, "U": 2600, "M": 1500, "K": 1800, "N": 300, "P": 1100, "F": 40, "T": 0, "O": 60}}, {"genre": "交通", "item": "駐車場", "unit": "台", "v": {"C": 6500, "S": 300, "U": 600, "M": 450, "K": 2400, "N": 120, "P": 3200, "F": 40, "T": 60, "O": 900}}, {"genre": "交通", "item": "船の航路", "unit": "航路", "v": {"C": 0, "S": 0, "U": 0, "M": 0, "K": 0, "N": 0, "P": 2, "F": 0, "T": 0, "O": 0}}, {"genre": "土地", "item": "田畑", "unit": "ha", "v": {"C": 0, "S": 8, "U": 14, "M": 30, "K": 45, "N": 380, "P": 5, "F": 25, "T": 6, "O": 12}}, {"genre": "土地", "item": "森林", "unit": "ha", "v": {"C": 0, "S": 6, "U": 20, "M": 35, "K": 15, "N": 40, "P": 3, "F": 420, "T": 610, "O": 300}}], "towns": {"minato": {"name": "みなと川市", "kind": "中核市・県庁所在地", "color": "#2f5d8a", "stations": ["C", "S", "U"], "pop": 412300, "hh": 196800, "area": 186.4, "age": [11.8, 60.9, 27.3], "chg5": -0.8, "dayNight": 112.4, "ind": [1.2, 18.5, 80.3], "gdp": 18600, "incomePc": 312, "tourists": 820, "stays": 140, "rev": {"税金": 690, "地方交付税": 160, "国・県の補助金": 470, "借金（地方債）": 150, "その他": 350}, "exp": {"福祉": 720, "教育": 190, "道路・まちづくり": 240, "保健・ごみ": 150, "商工・観光": 60, "農林水産": 15, "借金の返済": 190, "役所の運営": 160, "その他": 95}, "fiscal": 0.84, "fund": 410, "debt": 2150, "facilities": 1180, "note": "県の行政・商業・医療の中心。昼間は周りの市町村から人が集まり、夜は帰っていく。税収は多いが、福祉の支出が大きく、古い公共施設の建て替えが続く。"}, "midorino": {"name": "緑野市", "kind": "ベッドタウン", "color": "#4f8a52", "stations": ["M", "K"], "pop": 98400, "hh": 41200, "area": 52.8, "age": [13.6, 62.0, 24.4], "chg5": 1.9, "dayNight": 86.5, "ind": [1.8, 24.0, 74.2], "gdp": 2650, "incomePc": 338, "tourists": 160, "stays": 4, "rev": {"税金": 165, "地方交付税": 38, "国・県の補助金": 105, "借金（地方債）": 34, "その他": 68}, "exp": {"福祉": 175, "教育": 62, "道路・まちづくり": 58, "保健・ごみ": 32, "商工・観光": 6, "農林水産": 4, "借金の返済": 34, "役所の運営": 27, "その他": 12}, "fiscal": 0.88, "fund": 72, "debt": 380, "facilities": 310, "note": "みなと川市へ通勤する世帯が住む市。働く人の多くは市の外で給料をもらい、市内で家を買い、子どもを育てる。人口が増えている数少ない市で、学校と保育園の需要が大きい。"}, "nitta": {"name": "新田町", "kind": "農業の町", "color": "#b0892f", "stations": ["N"], "pop": 21700, "hh": 8300, "area": 64.1, "age": [11.2, 54.1, 34.7], "chg5": -3.6, "dayNight": 91.0, "ind": [14.5, 26.8, 58.7], "gdp": 640, "incomePc": 262, "tourists": 22, "stays": 0.5, "rev": {"税金": 26, "地方交付税": 38, "国・県の補助金": 24, "借金（地方債）": 9, "その他": 15}, "exp": {"福祉": 38, "教育": 12, "道路・まちづくり": 16, "保健・ごみ": 10, "商工・観光": 2, "農林水産": 14, "借金の返済": 10, "役所の運営": 8, "その他": 2}, "fiscal": 0.48, "fund": 31, "debt": 98, "facilities": 120, "note": "米と野菜の町。若い世代は港浜市やみなと川市へ働きに出る。財源の多くは国からの交付税で、農業への支出の割合が高い。駅の近くでは建売住宅が少しずつ増えている。"}, "minatohama": {"name": "港浜市", "kind": "港湾・工業都市", "color": "#2f8a86", "stations": ["P"], "pop": 68900, "hh": 31900, "area": 41.3, "age": [10.9, 58.0, 31.1], "chg5": -2.4, "dayNight": 118.6, "ind": [2.4, 38.6, 59.0], "gdp": 4100, "incomePc": 305, "tourists": 410, "stays": 38, "rev": {"税金": 150, "地方交付税": 22, "国・県の補助金": 82, "借金（地方債）": 30, "その他": 46}, "exp": {"福祉": 125, "教育": 40, "道路・まちづくり": 55, "保健・ごみ": 28, "商工・観光": 18, "農林水産": 9, "借金の返済": 32, "役所の運営": 18, "その他": 5}, "fiscal": 0.93, "fund": 88, "debt": 340, "facilities": 260, "note": "港と工場の町。工場や港の会社が払う税金が多く、人口のわりに財政が豊か。昼は工場に通う人で人口が増える。客船が来る日は観光客も多い。"}, "morishita": {"name": "森下村", "kind": "山村・林業", "color": "#5d6b3a", "stations": ["F", "T"], "pop": 3950, "hh": 1760, "area": 118.6, "age": [8.1, 45.6, 46.3], "chg5": -9.8, "dayNight": 97.0, "ind": [21.0, 24.0, 55.0], "gdp": 98, "incomePc": 236, "tourists": 38, "stays": 1.2, "rev": {"税金": 4.1, "地方交付税": 24, "国・県の補助金": 9.5, "借金（地方債）": 4.0, "その他": 4.4}, "exp": {"福祉": 9.5, "教育": 4.0, "道路・まちづくり": 9.0, "保健・ごみ": 3.5, "商工・観光": 2.5, "農林水産": 7.5, "借金の返済": 5.0, "役所の運営": 4.5, "その他": 0.5}, "fiscal": 0.16, "fund": 18, "debt": 41, "facilities": 64, "note": "面積の96%が森の村。林業と製材、峠の観光で暮らす。人口は5年で1割減り、半分近くが65歳以上。収入の半分以上が国からの交付税で、山道の維持にお金がかかる。"}, "yunotani": {"name": "湯ノ谷町", "kind": "温泉観光の町", "color": "#a5533f", "stations": ["O"], "pop": 7850, "hh": 3900, "area": 73.5, "age": [9.0, 50.5, 40.5], "chg5": -6.1, "dayNight": 108.0, "ind": [3.5, 9.5, 87.0], "gdp": 410, "incomePc": 258, "tourists": 145, "stays": 62, "rev": {"税金": 16, "地方交付税": 26, "国・県の補助金": 11, "借金（地方債）": 5, "その他": 10}, "exp": {"福祉": 17, "教育": 5, "道路・まちづくり": 10, "保健・ごみ": 7, "商工・観光": 11, "農林水産": 2, "借金の返済": 7, "役所の運営": 7, "その他": 2}, "fiscal": 0.36, "fund": 22, "debt": 52, "facilities": 88, "note": "温泉と旅館の町。泊まりの観光客が使うお金が町の経済を支える。町の税金には入湯税（1人1泊150円）も入る。旅館で働く人の一部は森下村や緑野市から通う。"}}, "flows": [{"src": "みなと川市の会社", "dst": "緑野市の世帯", "kind": "給料（通勤）", "v": 1420}, {"src": "みなと川市の会社", "dst": "新田町の世帯", "kind": "給料（通勤）", "v": 210}, {"src": "港浜市の会社", "dst": "みなと川市の世帯", "kind": "給料（通勤）", "v": 380}, {"src": "港浜市の会社", "dst": "新田町の世帯", "kind": "給料（通勤）", "v": 160}, {"src": "港浜市の会社", "dst": "緑野市の世帯", "kind": "給料（通勤）", "v": 240}, {"src": "湯ノ谷町の旅館", "dst": "森下村の世帯", "kind": "給料（通勤）", "v": 14}, {"src": "緑野市の世帯", "dst": "みなと川市のお店", "kind": "買い物・飲食", "v": 520}, {"src": "新田町の世帯", "dst": "緑野市のお店", "kind": "買い物・飲食", "v": 95}, {"src": "森下村の世帯", "dst": "緑野市のお店", "kind": "買い物・飲食", "v": 18}, {"src": "湯ノ谷町の世帯", "dst": "緑野市のお店", "kind": "買い物・飲食", "v": 22}, {"src": "沿線の外からの観光客", "dst": "みなと川市のお店", "kind": "観光の消費", "v": 640}, {"src": "沿線の外からの観光客", "dst": "港浜市のお店", "kind": "観光の消費", "v": 120}, {"src": "沿線の外からの観光客", "dst": "湯ノ谷町の旅館", "kind": "観光の消費", "v": 168}, {"src": "沿線の外からの観光客", "dst": "森下村のお店", "kind": "観光の消費", "v": 9}, {"src": "沿線の外からの観光客", "dst": "緑野市のお店", "kind": "観光の消費", "v": 30}, {"src": "沿線の外の荷主", "dst": "港浜市の会社", "kind": "港と物流", "v": 1850}, {"src": "国・県", "dst": "みなと川市の役所", "kind": "交付税・補助金", "v": 630}, {"src": "国・県", "dst": "緑野市の役所", "kind": "交付税・補助金", "v": 143}, {"src": "国・県", "dst": "港浜市の役所", "kind": "交付税・補助金", "v": 104}, {"src": "国・県", "dst": "新田町の役所", "kind": "交付税・補助金", "v": 62}, {"src": "国・県", "dst": "湯ノ谷町の役所", "kind": "交付税・補助金", "v": 37}, {"src": "国・県", "dst": "森下村の役所", "kind": "交付税・補助金", "v": 33.5}, {"src": "みなと川市の乗客", "dst": "みなと川電鉄", "kind": "運賃", "v": 72.3}, {"src": "緑野市の乗客", "dst": "みなと川電鉄", "kind": "運賃", "v": 17.4}, {"src": "新田町の乗客", "dst": "みなと川電鉄", "kind": "運賃", "v": 6.0}, {"src": "港浜市の乗客", "dst": "みなと川電鉄", "kind": "運賃", "v": 15.9}, {"src": "森下村の乗客", "dst": "みなと川電鉄", "kind": "運賃", "v": 2.4}, {"src": "湯ノ谷町の乗客", "dst": "みなと川電鉄", "kind": "運賃", "v": 3.7}, {"src": "みなと川電鉄", "dst": "沿線の世帯", "kind": "給料（電鉄の社員）", "v": 42}, {"src": "みなと川電鉄", "dst": "沿線の役所", "kind": "税金（固定資産税など）", "v": 6}], "rail": {"name": "みなと川電鉄", "fareTotal": 117.6, "avgFare": 265, "staff": 620, "note": "運賃収入は、ゲームの標準ダイヤ・平日の乗車人数×平均運賃265円×365日で出した目安。土日や季節の違いは入れていない。"}};
+const $=s=>document.querySelector(s);
+const fmt=(v,d=0)=>v==null?'—':Number(v).toLocaleString('ja-JP',{maximumFractionDigits:d,minimumFractionDigits:d});
+const S=DATA.stations,ORD=DATA.stationOrder,TW=DATA.towns;
+let cur={st:'K',town:'midorino',view:'station',kinds:null};
+try{const h=location.hash.slice(1);if(['station','towns','money','table'].includes(h))cur.view=h;}catch(e){}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---- 路線図 ---- */
+const POS={C:[60,180],S:[165,180],U:[270,180],M:[375,180],K:[480,180],N:[610,180],P:[740,180],F:[560,120],T:[650,72],O:[790,40]};
+function drawRoute(){const g=[];
+  // 市町村の色帯（線の下）
+  const band=(a,b,t,y)=>{const [x1]=POS[a],[x2]=POS[b];g.push(`<rect x="${x1-38}" y="${y}" width="${x2-x1+76}" height="8" rx="4" fill="${TW[t].color}" opacity=".85"/>`);};
+  band('C','U','minato',214);band('M','K','midorino',214);band('N','N','nitta',214);band('P','P','minatohama',214);
+  const lab=(x,t)=>g.push(`<text class="lbl" x="${x}" y="240" text-anchor="middle" fill="${TW[t].color}">${TW[t].name}</text>`);
+  lab((POS.C[0]+POS.U[0])/2,'minato');lab((POS.M[0]+POS.K[0])/2,'midorino');lab(POS.N[0],'nitta');lab(POS.P[0],'minatohama');
+  // 支線の市町村
+  g.push(`<path d="M${POS.F[0]-10} ${POS.F[1]+34} L${POS.T[0]+34} ${POS.T[1]+34}" stroke="${TW.morishita.color}" stroke-width="8" stroke-linecap="round" opacity=".85"/>`);
+  g.push(`<text class="lbl" x="${POS.T[0]+44}" y="${POS.T[1]+56}" fill="${TW.morishita.color}">${TW.morishita.name}</text>`);
+  g.push(`<rect x="${POS.O[0]-34}" y="${POS.O[1]+32}" width="68" height="8" rx="4" fill="${TW.yunotani.color}" opacity=".85"/><text class="lbl" x="${POS.O[0]}" y="${POS.O[1]+56}" text-anchor="middle" fill="${TW.yunotani.color}">${TW.yunotani.name}</text>`);
+  // 線路
+  g.push(`<path d="M${POS.C[0]} 180 L${POS.P[0]} 180" stroke="var(--ink)" stroke-width="5" fill="none"/>`);
+  g.push(`<path d="M${POS.K[0]} 180 L${POS.F[0]} ${POS.F[1]} L${POS.T[0]} ${POS.T[1]} L${POS.O[0]} ${POS.O[1]}" stroke="var(--ink)" stroke-width="5" fill="none" stroke-linejoin="round"/>`);
+  for(const s of ORD){const [x,y]=POS[s],up=y<180;
+    g.push(`<g class="st${s===cur.st?' on':''}" data-st="${s}" tabindex="0" role="button" aria-label="${S[s].name}駅"><circle cx="${x}" cy="${y}" r="${S[s].tags[0]==='ターミナル'||s==='K'||s==='P'||s==='O'?9:7}"/>
+      <text x="${x}" y="${up?y-16:y-18}" text-anchor="middle">${S[s].name}</text><text class="k" x="${x}" y="${up?y+24:y+24}" text-anchor="middle">${fmt(S[s].board)}人/日</text></g>`);}
+  $('#route').innerHTML=g.join('');}
+$('#route').addEventListener('click',e=>{const g=e.target.closest('[data-st]');if(!g)return;cur.st=g.dataset.st;cur.town=S[cur.st].town;render();});
+$('#route').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const g=e.target.closest('[data-st]');if(!g)return;e.preventDefault();cur.st=g.dataset.st;cur.town=S[cur.st].town;render();});
+
+/* ---- 駅と施設 ---- */
+const GENRES=[...new Set(DATA.facilities.map(f=>f.genre))];
+const rowMax=f=>Math.max(...ORD.map(s=>f.v[s]));
+const rowSum=f=>ORD.reduce((a,s)=>a+f.v[s],0);
+function station(){const s=cur.st,st=S[s],t=TW[st.town];
+  const kv=[['1日の乗車人数',fmt(st.board),'人'],...(st.xfer?[['乗り換える人',fmt(st.xfer),'人/日']]:[]),['駅のまわりの人口',fmt(st.pop1km),'人'],['昼間の人口',fmt(st.dayPop),'人'],
+    ['住宅地の地価',fmt(st.landRes,1),'万円/㎡'],['商業地の地価',fmt(st.landCom,1),'万円/㎡'],['家賃（1LDK）',st.rent==null?'—':fmt(st.rent,1),st.rent==null?'':'万円'],['平均世帯年収',fmt(st.income),'万円']];
+  // この駅らしさ：沿線全体のうちこの駅にある割合が高い施設
+  const feat=DATA.facilities.filter(f=>f.v[s]>0&&rowSum(f)>0&&f.unit!=='ha').map(f=>({f,sh:f.v[s]/rowSum(f)})).sort((a,b)=>b.sh-a.sh).slice(0,6);
+  const fac=GENRES.map(gn=>{const rows=DATA.facilities.filter(f=>f.genre===gn).map(f=>{const v=f.v[s],m=rowMax(f);
+      return `<div class="frow${v?'':' zero'}"><span>${esc(f.item)}</span><span class="c num">${fmt(v)}<small>${esc(f.unit)}</small></span><span class="bar" title="沿線でいちばん多い駅：${fmt(m)}${esc(f.unit)}"><i style="width:${m?v/m*100:0}%;background:${t.color}"></i></span></div>`;}).join('');
+    return `<div class="fgroup"><h3>${esc(gn)}</h3>${rows}</div>`;}).join('');
+  $('#v-station').innerHTML=`<div class="grid2">
+    <div class="sheet"><div class="sthead"><span class="nm">${esc(st.name)}</span><span style="color:var(--muted)">${esc(st.kana)}</span>
+      <button class="chip" style="background:${t.color};border:0;cursor:pointer" data-town="${st.town}">${esc(t.name)}（${esc(t.kind)}）</button></div>
+      <div style="margin-top:6px">${st.tags.map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</div>
+      <p style="margin:8px 0 0">${esc(st.catch)}</p>
+      <dl class="kv">${kv.map(([k,v,u])=>`<div><dt>${k}</dt><dd><span class="num">${v}</span><small>${u}</small></dd></div>`).join('')}</dl>
+      <h3 style="margin-top:16px">主な施設</h3><ul class="lm">${st.landmarks.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      <h3 style="margin-top:16px">この駅らしさ</h3><p class="hint">沿線10駅の合計のうち、この駅のまわりにある割合が高い施設</p>
+      <div class="feat">${feat.map(({f,sh})=>`<span>${esc(f.item)}<b>${Math.round(sh*100)}%</b></span>`).join('')}</div></div>
+    <div class="sheet"><h2>駅のまわりの施設</h2><p class="hint">半径約1km。棒の長さは、沿線でいちばん多い駅を100としたときの多さ</p><div class="fac" style="margin-top:10px">${fac}</div></div></div>`;
+  $('#v-station [data-town]').addEventListener('click',()=>{cur.town=st.town;setView('towns');});}
+
+/* ---- 市町村 ---- */
+const REVC=['#2f5d8a','#6b8fb8','#9fb8d2','#c98a54','#b9c2cb'],EXPC=['#a5533f','#d08b5b','#7a9a5a','#4f8a86','#c9a33f','#8aa04a','#7d6a9a','#8c96a1','#c3cad1'];
+function stackBar(obj,cols){const tot=Object.values(obj).reduce((a,b)=>a+b,0),ks=Object.keys(obj);
+  return `<div class="stack">${ks.map((k,i)=>`<span style="width:${obj[k]/tot*100}%;background:${cols[i%cols.length]}" title="${esc(k)} ${fmt(obj[k],1)}億円"></span>`).join('')}</div>
+    <div class="legend">${ks.map((k,i)=>`<span><i style="background:${cols[i%cols.length]}"></i>${esc(k)}<b>${fmt(obj[k],obj[k]<10?1:0)}</b></span>`).join('')}</div>`;}
+function towns(){const ks=Object.keys(TW),t=TW[cur.town],tot=Object.values(t.rev).reduce((a,b)=>a+b,0),maxPop=Math.max(...ks.map(k=>TW[k].pop));
+  const sel=`<div class="tsel">${ks.map(k=>`<button data-k="${k}" aria-pressed="${k===cur.town}"><i style="background:${TW[k].color}"></i>${esc(TW[k].name)}</button>`).join('')}</div>`;
+  const pops=ks.map(k=>`<div class="popbar"><span>${esc(TW[k].name)}</span><span class="b" style="width:${Math.max(0.6,TW[k].pop/maxPop*100)}%;background:${TW[k].color}"></span><span class="num" style="text-align:right">${fmt(TW[k].pop)}人</span></div>`).join('');
+  const cmpRows=ks.map(k=>{const x=TW[k],rv=Object.values(x.rev).reduce((a,b)=>a+b,0);return `<tr><td><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${x.color};margin-right:6px"></i>${esc(x.name)}</td>
+    <td class="n">${fmt(x.area,1)}</td><td class="n">${fmt(x.pop/x.area)}</td><td class="n">${fmt(x.age[2],1)}%</td><td class="n" style="color:${x.chg5<0?'var(--rail)':'inherit'}">${x.chg5>0?'+':''}${fmt(x.chg5,1)}%</td>
+    <td class="n">${fmt(x.dayNight,1)}</td><td class="n">${fmt(rv,rv<100?1:0)}</td><td class="n">${fmt(rv*1e8/x.pop/1e4,1)}</td><td class="n">${fmt(x.fiscal,2)}</td><td class="n">${fmt(x.tourists)}</td></tr>`;}).join('');
+  const sts=t.stations.map(s=>`<button class="tag" style="cursor:pointer;background:none" data-st="${s}">${esc(S[s].name)}駅</button>`).join('');
+  const kv=[['人口',fmt(t.pop),'人'],['世帯',fmt(t.hh),'世帯'],['面積',fmt(t.area,1),'k㎡'],['人口密度',fmt(t.pop/t.area),'人/k㎡'],['5年間の人口の増減',(t.chg5>0?'+':'')+fmt(t.chg5,1),'%'],['昼夜間人口比率',fmt(t.dayNight,1),'（100より大きいと昼に人が集まる）'],
+    ['市町村内総生産',fmt(t.gdp),'億円'],['1人あたり所得',fmt(t.incomePc),'万円'],['観光客',fmt(t.tourists),'万人/年'],['宿泊者',fmt(t.stays,1),'万人/年'],['財政力指数',fmt(t.fiscal,2),'（1に近いほど自前の税で回せる）'],['貯金（基金）',fmt(t.fund),'億円'],['借金（地方債残高）',fmt(t.debt),'億円'],['公共施設',fmt(t.facilities),'か所']];
+  $('#v-towns').innerHTML=`<div class="sheet" style="margin-top:16px">${sel}
+    <div class="sthead"><span class="nm" style="font-size:28px">${esc(t.name)}</span><span class="chip" style="background:${t.color}">${esc(t.kind)}</span><span>${sts}</span></div>
+    <p style="margin:8px 0 0;max-width:70ch">${esc(t.note)}</p>
+    <dl class="kv">${kv.map(([k,v,u])=>`<div><dt>${k}</dt><dd><span class="num">${v}</span><small>${u}</small></dd></div>`).join('')}</dl>
+    <div class="grid2"><div><h3>年齢の構成</h3>${stackBar({'0〜14歳':t.age[0],'15〜64歳':t.age[1],'65歳以上':t.age[2]},['#7fb0de','#2f5d8a','#c98a54']).replace(/<b>([\d.]+)<\/b>/g,'<b>$1%</b>')}
+      <h3 style="margin-top:12px">働く人の産業</h3>${stackBar({'農林漁業':t.ind[0],'工業・建設':t.ind[1],'商業・サービス':t.ind[2]},['#7a9a5a','#8c96a1','#c9a33f']).replace(/<b>([\d.]+)<\/b>/g,'<b>$1%</b>')}</div>
+      <div><h3>1年の収入（歳入 ${fmt(tot,tot<100?1:0)}億円・住民1人あたり ${fmt(tot*1e8/t.pop/1e4,1)}万円）</h3>${stackBar(t.rev,REVC)}
+      <h3 style="margin-top:12px">1年の支出（歳出）</h3>${stackBar(t.exp,EXPC)}</div></div></div>
+    <div class="sheet" style="margin-top:16px"><h2>6つの市町村をくらべる</h2><div style="margin-top:10px">${pops}</div>
+    <div class="scroll" style="margin-top:12px"><table class="cmp"><thead><tr><th>市町村</th><th>面積k㎡</th><th>人口密度</th><th>高齢化率</th><th>5年の増減</th><th>昼夜間比</th><th>歳入億円</th><th>1人あたり万円</th><th>財政力</th><th>観光客万人</th></tr></thead><tbody>${cmpRows}</tbody></table></div></div>`;
+  $('#v-towns').querySelectorAll('.tsel button').forEach(b=>b.addEventListener('click',()=>{cur.town=b.dataset.k;render();}));
+  $('#v-towns').querySelectorAll('[data-st]').forEach(b=>b.addEventListener('click',()=>{cur.st=b.dataset.st;setView('station');}));}
+
+/* ---- お金の流れ（払う側→受け取る側のサンキー図） ---- */
+const KC={'給料（通勤）':'#2f5d8a','買い物・飲食':'#c98a54','観光の消費':'#a5533f','港と物流':'#2f8a86','交付税・補助金':'#7d6a9a','運賃':'#c23b3b','給料（電鉄の社員）':'#5d8ac2','税金（固定資産税など）':'#8c96a1'};
+function money(){const kinds=Object.keys(KC);if(!cur.kinds)cur.kinds=new Set(kinds);
+  const F=DATA.flows.filter(f=>cur.kinds.has(f.kind));
+  const L=[...new Set(F.map(f=>f.src))],R=[...new Set(F.map(f=>f.dst))];
+  const sum=(arr,key,n)=>arr.filter(f=>f[key]===n).reduce((a,f)=>a+f.v,0);
+  const W=900,gap=8,x0=230,x1=W-230,nw=12;
+  const tl=L.reduce((a,n)=>a+sum(F,'src',n),0),tr=R.reduce((a,n)=>a+sum(F,'dst',n),0);
+  const sc=560/Math.max(tl,tr,1);   // 小さい流れも名前が重ならないよう、名前の高さぶんの場所は必ずとる
+  const place=(names,key)=>{let y=10;const o={};names.sort((a,b)=>sum(F,key,b)-sum(F,key,a)).forEach(n=>{const h=Math.max(2,sum(F,key,n)*sc);o[n]={y,h,off:0};y+=Math.max(h,30)+gap;});o._end=y;return o;};
+  const NL=place(L,'src'),NR=place(R,'dst');const H=Math.max(NL._end,NR._end)+6;delete NL._end;delete NR._end;const g=[];
+  F.slice().sort((a,b)=>b.v-a.v).forEach((f,i)=>{const h=Math.max(1,f.v*sc),a=NL[f.src],b=NR[f.dst],ya=a.y+a.off,yb=b.y+b.off;a.off+=h;b.off+=h;const xm=(x0+nw+x1)/2;
+    g.push(`<path data-s="${esc(f.src)}" data-d="${esc(f.dst)}" fill="${KC[f.kind]}" d="M${x0+nw},${ya} C${xm},${ya} ${xm},${yb} ${x1},${yb} L${x1},${yb+h} C${xm},${yb+h} ${xm},${ya+h} ${x0+nw},${ya+h}Z"><title>${esc(f.src)} → ${esc(f.dst)}：${esc(f.kind)} ${fmt(f.v,f.v<10?1:0)}億円/年</title></path>`);});
+  for(const [n,o] of Object.entries(NL))g.push(`<rect data-n="${esc(n)}" x="${x0}" y="${o.y}" width="${nw}" height="${o.h}" fill="var(--ink)"/><text x="${x0-8}" y="${o.y+Math.max(o.h,30)/2-6}" text-anchor="end" dominant-baseline="middle">${esc(n)}</text><text class="v" x="${x0-8}" y="${o.y+Math.max(o.h,30)/2+8}" text-anchor="end" dominant-baseline="middle">${fmt(sum(F,'src',n))}億円</text>`);
+  for(const [n,o] of Object.entries(NR))g.push(`<rect data-n="${esc(n)}" x="${x1}" y="${o.y}" width="${nw}" height="${o.h}" fill="var(--ink)"/><text x="${x1+nw+8}" y="${o.y+Math.max(o.h,30)/2-6}" dominant-baseline="middle">${esc(n)}</text><text class="v" x="${x1+nw+8}" y="${o.y+Math.max(o.h,30)/2+8}" dominant-baseline="middle">${fmt(sum(F,'dst',n))}億円</text>`);
+  const list=F.slice().sort((a,b)=>b.v-a.v).map(f=>`<tr><td>${esc(f.src)}</td><td>→ ${esc(f.dst)}</td><td style="text-align:left"><i style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${KC[f.kind]};margin-right:5px"></i>${esc(f.kind)}</td><td class="num">${fmt(f.v,f.v<10?1:0)}</td></tr>`).join('');
+  $('#v-money').innerHTML=`<div class="sheet" style="margin-top:16px"><h2>だれが、だれに、お金を払っているか（1年・億円）</h2>
+    <p class="hint">左が払う側、右が受け取る側。帯の太さが金額。帯や名前にふれると、その流れが強調されます。${esc(DATA.rail.note)}</p>
+    <div class="kinds">${kinds.map(k=>`<button data-k="${esc(k)}" aria-pressed="${cur.kinds.has(k)}"><i style="background:${KC[k]}"></i>${esc(k)}</button>`).join('')}</div>
+    <div class="scroll"><svg class="sankey" viewBox="0 0 ${W} ${H}" role="img" aria-label="お金の流れの図">${g.join('')}</svg></div>
+    <h3 style="margin-top:14px">流れの一覧</h3><div class="scroll"><table><thead><tr><th>払う側</th><th>受け取る側</th><th style="text-align:left">種類</th><th>億円/年</th></tr></thead><tbody>${list}</tbody></table></div>
+    <p class="hint">みなと川電鉄の運賃収入 <span class="num">${fmt(DATA.rail.fareTotal,1)}</span>億円/年（平均運賃${DATA.rail.avgFare}円）・社員${fmt(DATA.rail.staff)}人</p></div>`;
+  const svg=$('#v-money svg');const hl=n=>svg.querySelectorAll('path').forEach(p=>{const on=!n||p.dataset.s===n||p.dataset.d===n;p.classList.toggle('dim',!on);p.classList.toggle('hi',!!n&&on);});
+  svg.addEventListener('mouseover',e=>{const p=e.target.closest('path,rect');if(!p)return;if(p.tagName==='rect')hl(p.dataset.n);else{svg.querySelectorAll('path').forEach(q=>{q.classList.toggle('dim',q!==p);q.classList.toggle('hi',q===p);});}});
+  svg.addEventListener('mouseleave',()=>hl(null));svg.addEventListener('click',e=>{const r=e.target.closest('rect');hl(r?r.dataset.n:null);});
+  $('#v-money').querySelectorAll('.kinds button').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.k;if(cur.kinds.has(k)){if(cur.kinds.size>1)cur.kinds.delete(k);}else cur.kinds.add(k);money();}));}
+
+/* ---- 施設の一覧表 ---- */
+function table(){let rows='',last='';
+  for(const f of DATA.facilities){if(f.genre!==last){rows+=`<tr><td class="g sticky" colspan="1">${esc(f.genre)}</td>${ORD.map(()=>'<td class="g"></td>').join('')}<td class="g"></td></tr>`;last=f.genre;}
+    const m=rowMax(f);rows+=`<tr><td class="sticky">${esc(f.item)}<span style="color:var(--muted);font-size:11px">（${esc(f.unit)}）</span></td>${ORD.map(s=>{const v=f.v[s],a=m?v/m:0,c=TW[S[s].town].color;
+      return `<td class="v" style="background:${v?`color-mix(in srgb, ${c} ${Math.round(8+a*62)}%, transparent)`:'transparent'};${a>0.6?'color:#fff;':''}${v?'':'color:var(--muted)'}">${v?fmt(v):'·'}</td>`;}).join('')}<td class="v">${fmt(rowSum(f))}</td></tr>`;}
+  $('#v-table').innerHTML=`<div class="sheet" style="margin-top:16px"><h2>駅ごとの施設の数</h2><p class="hint">色の濃さは、その施設が沿線でいちばん多い駅を100としたときの多さ。色は駅が属する市町村</p>
+    <div class="scroll" style="margin-top:8px"><table class="heat"><thead><tr><th class="sticky">施設</th>${ORD.map(s=>`<th>${esc(S[s].name)}</th>`).join('')}<th>沿線合計</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;}
+
+function setView(v){cur.view=v;try{history.replaceState(null,'','#'+v);}catch(e){}render();window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.v)));
+addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(['station','towns','money','table'].includes(h)&&h!==cur.view){cur.view=h;render();}});
+function render(){document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===cur.view)));
+  for(const v of ['station','towns','money','table'])$('#v-'+v).hidden=v!==cur.view;
+  $('#routeBox').hidden=!(cur.view==='station');drawRoute();
+  ({station,towns,money,table})[cur.view]();}
+render();
+</script>
+
+</body>
+</html>
