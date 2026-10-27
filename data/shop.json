@@ -1,0 +1,1302 @@
+{
+ "about": "駅ナカ商店（試作）の設定。店の種類・商品・駅ごとの店・出店の計画・新商品の候補。名前はすべて架空。数値は試作の仮設定で、客の数は列車シミュレーションの乗降（目的別・1時間ごと）から決まる。",
+ "company": "みなと川ステーションリテール",
+ "start": {
+  "cash": 0,
+  "seed": 20261027
+ },
+ "kinds": {
+  "kiosk": {
+   "name": "売店",
+   "by": "both",
+   "rate": [
+    0.026,
+    0.05,
+    0.035,
+    0.03
+   ],
+   "dayCost": 42000,
+   "feeRate": 0.12,
+   "restock": [
+    330,
+    600,
+    900,
+    1140
+   ],
+   "w": 170,
+   "units": [
+    1,
+    1,
+    1,
+    2
+   ]
+  },
+  "vend": {
+   "name": "自販機",
+   "by": "both",
+   "rate": [
+    0.0055,
+    0.006,
+    0.009,
+    0.006
+   ],
+   "dayCost": 700,
+   "feeRate": 0.2,
+   "restock": [
+    600,
+    960
+   ],
+   "w": 58,
+   "units": [
+    1,
+    1,
+    1,
+    1,
+    2
+   ]
+  },
+  "souv": {
+   "name": "おみやげ",
+   "by": "board",
+   "rate": [
+    0.0,
+    0.03,
+    0.11,
+    0.025
+   ],
+   "dayCost": 36000,
+   "feeRate": 0.12,
+   "restock": [
+    540,
+    840
+   ],
+   "w": 200,
+   "units": [
+    1,
+    1,
+    2,
+    2,
+    3
+   ]
+  },
+  "bento": {
+   "name": "駅弁",
+   "by": "board",
+   "rate": [
+    0.002,
+    0.04,
+    0.06,
+    0.01
+   ],
+   "dayCost": 30000,
+   "feeRate": 0.12,
+   "restock": [
+    600,
+    690,
+    990
+   ],
+   "w": 150,
+   "units": [
+    1,
+    1,
+    1,
+    2
+   ]
+  },
+  "cafe": {
+   "name": "カフェ",
+   "by": "both",
+   "rate": [
+    0.012,
+    0.03,
+    0.02,
+    0.03
+   ],
+   "dayCost": 38000,
+   "feeRate": 0.12,
+   "restock": [
+    420,
+    780,
+    1080
+   ],
+   "w": 180,
+   "units": [
+    1,
+    1,
+    2
+   ]
+  }
+ },
+ "seasonMult": {
+  "cold": {
+   "spr": 1.0,
+   "sum": 1.7,
+   "aut": 0.85,
+   "win": 0.45
+  },
+  "hot": {
+   "spr": 0.7,
+   "sum": 0.08,
+   "aut": 1.0,
+   "win": 1.9
+  }
+ },
+ "products": [
+  {
+   "id": "tea",
+   "name": "みなと川の緑茶",
+   "short": "緑茶",
+   "price": 160,
+   "cost": 62,
+   "w": 10,
+   "color": "#5f8f3e",
+   "temp": "cold",
+   "stock": 48
+  },
+  {
+   "id": "water",
+   "name": "ひのき山の天然水",
+   "short": "水",
+   "price": 120,
+   "cost": 38,
+   "w": 7,
+   "color": "#6aa6d8",
+   "temp": "cold",
+   "stock": 48
+  },
+  {
+   "id": "sports",
+   "name": "スポーツドリンク",
+   "short": "スポドリ",
+   "price": 160,
+   "cost": 60,
+   "w": 5,
+   "color": "#3c7fd0",
+   "temp": "cold",
+   "stock": 36,
+   "hours": [
+    [
+     15,
+     19,
+     1.3
+    ]
+   ]
+  },
+  {
+   "id": "lemon",
+   "name": "炭酸レモン",
+   "short": "レモン",
+   "price": 160,
+   "cost": 58,
+   "w": 4,
+   "color": "#e2c234",
+   "temp": "cold",
+   "stock": 30
+  },
+  {
+   "id": "ccoffee",
+   "name": "缶コーヒー（微糖）",
+   "short": "缶コーヒー",
+   "price": 140,
+   "cost": 52,
+   "w": 7,
+   "color": "#7a5a3c",
+   "stock": 40,
+   "hours": [
+    [
+     5,
+     10,
+     1.8
+    ],
+    [
+     13,
+     16,
+     1.2
+    ]
+   ]
+  },
+  {
+   "id": "hcoffee",
+   "name": "ホットコーヒー",
+   "short": "ホット",
+   "price": 140,
+   "cost": 52,
+   "w": 6,
+   "color": "#a0402f",
+   "temp": "hot",
+   "stock": 30,
+   "seasons": [
+    "spr",
+    "aut",
+    "win"
+   ],
+   "hours": [
+    [
+     5,
+     10,
+     1.6
+    ]
+   ]
+  },
+  {
+   "id": "soup",
+   "name": "コーンスープ",
+   "short": "スープ",
+   "price": 150,
+   "cost": 55,
+   "w": 3,
+   "color": "#e5a82e",
+   "temp": "hot",
+   "stock": 24,
+   "seasons": [
+    "aut",
+    "win"
+   ],
+   "hours": [
+    [
+     17,
+     24,
+     1.5
+    ]
+   ]
+  },
+  {
+   "id": "milktea",
+   "name": "ホットミルクティー",
+   "short": "紅茶",
+   "price": 150,
+   "cost": 55,
+   "w": 3,
+   "color": "#c78d5b",
+   "temp": "hot",
+   "stock": 24,
+   "seasons": [
+    "aut",
+    "win"
+   ]
+  },
+  {
+   "id": "onigiri",
+   "name": "おにぎり（港の鮭）",
+   "short": "おにぎり",
+   "price": 160,
+   "cost": 98,
+   "w": 6,
+   "color": "#f1efe6",
+   "stock": 30,
+   "hours": [
+    [
+     5,
+     9,
+     2.0
+    ],
+    [
+     11,
+     14,
+     1.6
+    ],
+    [
+     24,
+     27,
+     0.4
+    ]
+   ]
+  },
+  {
+   "id": "sand",
+   "name": "たまごサンド",
+   "short": "サンド",
+   "price": 330,
+   "cost": 196,
+   "w": 3,
+   "color": "#f2d36b",
+   "stock": 16,
+   "hours": [
+    [
+     6,
+     9,
+     1.8
+    ],
+    [
+     11,
+     14,
+     1.4
+    ]
+   ]
+  },
+  {
+   "id": "paper",
+   "name": "港浜新報（朝刊）",
+   "short": "新聞",
+   "price": 150,
+   "cost": 108,
+   "w": 4,
+   "color": "#d9d9d2",
+   "stock": 30,
+   "hours": [
+    [
+     4,
+     10,
+     2.6
+    ],
+    [
+     10,
+     27,
+     0.25
+    ]
+   ]
+  },
+  {
+   "id": "gum",
+   "name": "ミントガム",
+   "short": "ガム",
+   "price": 150,
+   "cost": 66,
+   "w": 3,
+   "color": "#4fb8a8",
+   "stock": 30
+  },
+  {
+   "id": "candy",
+   "name": "のど飴",
+   "short": "のど飴",
+   "price": 180,
+   "cost": 78,
+   "w": 2,
+   "color": "#d1607a",
+   "stock": 24,
+   "seasons": [
+    "aut",
+    "win",
+    "spr"
+   ]
+  },
+  {
+   "id": "umbrella",
+   "name": "ビニール傘",
+   "short": "傘",
+   "price": 700,
+   "cost": 290,
+   "w": 0.15,
+   "color": "#cfe3ea",
+   "stock": 10,
+   "wx": {
+    "rain": 40,
+    "snow": 18,
+    "cld": 1.5
+   }
+  },
+  {
+   "id": "beer",
+   "name": "缶ビール",
+   "short": "ビール",
+   "price": 280,
+   "cost": 172,
+   "w": 2,
+   "color": "#d8b23a",
+   "temp": "cold",
+   "stock": 24,
+   "hours": [
+    [
+     4,
+     16,
+     0.15
+    ],
+    [
+     17,
+     25,
+     2.6
+    ]
+   ]
+  },
+  {
+   "id": "weekly",
+   "name": "週刊みなと（雑誌）",
+   "short": "雑誌",
+   "price": 420,
+   "cost": 310,
+   "w": 1.2,
+   "color": "#b54a3e",
+   "stock": 10
+  },
+  {
+   "id": "senbei",
+   "name": "みなと川せんべい",
+   "short": "せんべい",
+   "price": 864,
+   "cost": 410,
+   "w": 6,
+   "color": "#c79a55",
+   "stock": 24
+  },
+  {
+   "id": "sable",
+   "name": "港浜 塩サブレ",
+   "short": "塩サブレ",
+   "price": 1080,
+   "cost": 510,
+   "w": 6,
+   "color": "#e7d9b8",
+   "stock": 24
+  },
+  {
+   "id": "manju",
+   "name": "湯の谷 温泉まんじゅう",
+   "short": "まんじゅう",
+   "price": 750,
+   "cost": 320,
+   "w": 9,
+   "color": "#8a5a3a",
+   "stock": 30
+  },
+  {
+   "id": "yokan",
+   "name": "峠の栗ようかん",
+   "short": "栗ようかん",
+   "price": 1200,
+   "cost": 590,
+   "w": 4,
+   "color": "#5b2f2a",
+   "stock": 14
+  },
+  {
+   "id": "anago",
+   "name": "あなごの佃煮",
+   "short": "佃煮",
+   "price": 1296,
+   "cost": 700,
+   "w": 3,
+   "color": "#3f3226",
+   "stock": 12
+  },
+  {
+   "id": "keyring",
+   "name": "ご当地キーホルダー",
+   "short": "キーホルダー",
+   "price": 550,
+   "cost": 170,
+   "w": 3,
+   "color": "#e07a3a",
+   "stock": 20
+  },
+  {
+   "id": "minitrain",
+   "name": "みなと川電鉄 ミニ電車",
+   "short": "ミニ電車",
+   "price": 1650,
+   "cost": 880,
+   "w": 2,
+   "color": "#2f7a6e",
+   "stock": 10
+  },
+  {
+   "id": "anagomeshi",
+   "name": "あなご飯弁当",
+   "short": "あなご飯",
+   "price": 1350,
+   "cost": 790,
+   "w": 6,
+   "color": "#7a4f2e",
+   "stock": 24,
+   "hours": [
+    [
+     10,
+     14,
+     1.6
+    ],
+    [
+     16,
+     19,
+     1.3
+    ]
+   ]
+  },
+  {
+   "id": "makunouchi",
+   "name": "みなと幕の内",
+   "short": "幕の内",
+   "price": 1100,
+   "cost": 640,
+   "w": 5,
+   "color": "#b8403a",
+   "stock": 24,
+   "hours": [
+    [
+     10,
+     14,
+     1.5
+    ],
+    [
+     16,
+     19,
+     1.2
+    ]
+   ]
+  },
+  {
+   "id": "gyusuki",
+   "name": "牛すき弁当",
+   "short": "牛すき",
+   "price": 1400,
+   "cost": 850,
+   "w": 4,
+   "color": "#8a3c2a",
+   "stock": 18,
+   "hours": [
+    [
+     11,
+     14,
+     1.4
+    ],
+    [
+     16,
+     20,
+     1.4
+    ]
+   ]
+  },
+  {
+   "id": "omusubi",
+   "name": "おむすびセット",
+   "short": "おむすび",
+   "price": 680,
+   "cost": 380,
+   "w": 4,
+   "color": "#e9e4d4",
+   "stock": 20,
+   "hours": [
+    [
+     6,
+     10,
+     1.8
+    ]
+   ]
+  },
+  {
+   "id": "blend",
+   "name": "ブレンドコーヒー",
+   "short": "ブレンド",
+   "price": 320,
+   "cost": 80,
+   "w": 8,
+   "color": "#5a3826",
+   "stock": 120,
+   "hours": [
+    [
+     7,
+     10,
+     1.8
+    ]
+   ]
+  },
+  {
+   "id": "latte",
+   "name": "カフェラテ",
+   "short": "ラテ",
+   "price": 400,
+   "cost": 110,
+   "w": 6,
+   "color": "#c9a27a",
+   "stock": 100
+  },
+  {
+   "id": "muffin",
+   "name": "りんごマフィン",
+   "short": "マフィン",
+   "price": 290,
+   "cost": 120,
+   "w": 3,
+   "color": "#d79a4e",
+   "stock": 24,
+   "hours": [
+    [
+     7,
+     11,
+     1.5
+    ],
+    [
+     14,
+     17,
+     1.4
+    ]
+   ]
+  }
+ ],
+ "shops": [
+  {
+   "id": "C_kiosk1",
+   "st": "C",
+   "kind": "kiosk",
+   "name": "みなとスタンド 中央改札口店",
+   "size": 0.62,
+   "stock": 4.2,
+   "hours": [
+    5,
+    25
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "onigiri",
+    "sand",
+    "paper",
+    "gum",
+    "candy",
+    "umbrella",
+    "beer",
+    "weekly"
+   ]
+  },
+  {
+   "id": "C_vend",
+   "st": "C",
+   "kind": "vend",
+   "name": "みなと川ドリンク 中央 6台",
+   "n": 6,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "sports",
+    "lemon",
+    "ccoffee",
+    "hcoffee",
+    "soup",
+    "milktea"
+   ]
+  },
+  {
+   "id": "C_bento",
+   "st": "C",
+   "kind": "bento",
+   "name": "駅弁 みなと屋",
+   "size": 1.0,
+   "stock": 3.6,
+   "hours": [
+    7,
+    20
+   ],
+   "open": true,
+   "products": [
+    "anagomeshi",
+    "makunouchi",
+    "gyusuki",
+    "omusubi"
+   ]
+  },
+  {
+   "id": "C_souv",
+   "st": "C",
+   "kind": "souv",
+   "name": "みなと川銘品館",
+   "size": 0.55,
+   "stock": 4.6,
+   "hours": [
+    8,
+    21
+   ],
+   "open": true,
+   "products": [
+    "senbei",
+    "sable",
+    "manju",
+    "anago",
+    "keyring",
+    "minitrain"
+   ]
+  },
+  {
+   "id": "U_kiosk",
+   "st": "U",
+   "kind": "kiosk",
+   "name": "みなとスタンド 大学前店",
+   "size": 0.8,
+   "stock": 1.3,
+   "hours": [
+    6,
+    23
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "onigiri",
+    "sand",
+    "gum",
+    "candy",
+    "umbrella",
+    "weekly"
+   ]
+  },
+  {
+   "id": "U_vend",
+   "st": "U",
+   "kind": "vend",
+   "name": "みなと川ドリンク 大学前 3台",
+   "n": 3,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "sports",
+    "lemon",
+    "ccoffee",
+    "hcoffee",
+    "soup",
+    "milktea"
+   ]
+  },
+  {
+   "id": "S_vend",
+   "st": "S",
+   "kind": "vend",
+   "name": "みなと川ドリンク 桜町 2台",
+   "n": 2,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "sports",
+    "ccoffee",
+    "hcoffee",
+    "soup"
+   ]
+  },
+  {
+   "id": "M_vend",
+   "st": "M",
+   "kind": "vend",
+   "name": "みなと川ドリンク 緑ヶ丘 1台",
+   "n": 1,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "hcoffee"
+   ]
+  },
+  {
+   "id": "K_vend",
+   "st": "K",
+   "kind": "vend",
+   "name": "みなと川ドリンク 川辺 3台",
+   "n": 3,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "sports",
+    "lemon",
+    "ccoffee",
+    "hcoffee",
+    "soup",
+    "milktea"
+   ]
+  },
+  {
+   "id": "N_vend",
+   "st": "N",
+   "kind": "vend",
+   "name": "みなと川ドリンク 新田 1台",
+   "n": 1,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "hcoffee"
+   ]
+  },
+  {
+   "id": "P_kiosk",
+   "st": "P",
+   "kind": "kiosk",
+   "name": "みなとスタンド 港駅店",
+   "size": 0.8,
+   "stock": 2.6,
+   "hours": [
+    5,
+    24
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "onigiri",
+    "sand",
+    "paper",
+    "gum",
+    "umbrella",
+    "beer"
+   ]
+  },
+  {
+   "id": "P_vend",
+   "st": "P",
+   "kind": "vend",
+   "name": "みなと川ドリンク 港 4台",
+   "n": 4,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "sports",
+    "lemon",
+    "ccoffee",
+    "hcoffee",
+    "soup",
+    "milktea"
+   ]
+  },
+  {
+   "id": "P_souv",
+   "st": "P",
+   "kind": "souv",
+   "name": "港浜みやげ処 しおかぜ",
+   "size": 1.0,
+   "stock": 4.2,
+   "hours": [
+    8,
+    20
+   ],
+   "open": true,
+   "products": [
+    "sable",
+    "anago",
+    "senbei",
+    "keyring",
+    "minitrain"
+   ]
+  },
+  {
+   "id": "F_vend",
+   "st": "F",
+   "kind": "vend",
+   "name": "みなと川ドリンク 森下 1台",
+   "n": 1,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "hcoffee"
+   ]
+  },
+  {
+   "id": "T_souv",
+   "st": "T",
+   "kind": "souv",
+   "name": "峠の茶屋（売店）",
+   "size": 1.4,
+   "stock": 1.5,
+   "hours": [
+    9,
+    17
+   ],
+   "open": true,
+   "products": [
+    "yokan",
+    "manju",
+    "keyring"
+   ]
+  },
+  {
+   "id": "T_vend",
+   "st": "T",
+   "kind": "vend",
+   "name": "みなと川ドリンク 峠 1台",
+   "n": 1,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "hcoffee"
+   ]
+  },
+  {
+   "id": "O_souv",
+   "st": "O",
+   "kind": "souv",
+   "name": "湯の谷みやげ 湯けむり堂",
+   "size": 1.0,
+   "stock": 2.6,
+   "hours": [
+    8,
+    21
+   ],
+   "open": true,
+   "products": [
+    "manju",
+    "yokan",
+    "senbei",
+    "keyring",
+    "minitrain"
+   ]
+  },
+  {
+   "id": "O_vend",
+   "st": "O",
+   "kind": "vend",
+   "name": "みなと川ドリンク 温泉 3台",
+   "n": 3,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": true,
+   "products": [
+    "tea",
+    "water",
+    "sports",
+    "lemon",
+    "ccoffee",
+    "hcoffee",
+    "soup",
+    "milktea"
+   ]
+  },
+  {
+   "id": "M_vend2",
+   "st": "M",
+   "kind": "vend",
+   "name": "みなと川ドリンク 緑ヶ丘 増設2台",
+   "n": 2,
+   "size": 1.0,
+   "hours": [
+    4,
+    27
+   ],
+   "open": false,
+   "products": [
+    "sports",
+    "lemon",
+    "soup",
+    "milktea"
+   ]
+  },
+  {
+   "id": "K_kiosk",
+   "st": "K",
+   "kind": "kiosk",
+   "name": "みなとスタンド 川辺乗換口店",
+   "size": 0.8,
+   "stock": 1.4,
+   "hours": [
+    6,
+    23
+   ],
+   "open": false,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "onigiri",
+    "sand",
+    "paper",
+    "gum",
+    "candy",
+    "umbrella",
+    "weekly"
+   ]
+  },
+  {
+   "id": "U_cafe",
+   "st": "U",
+   "kind": "cafe",
+   "name": "みなとコーヒー 大学前店",
+   "size": 1.0,
+   "stock": 1.0,
+   "hours": [
+    7,
+    21
+   ],
+   "open": false,
+   "products": [
+    "blend",
+    "latte",
+    "muffin"
+   ]
+  },
+  {
+   "id": "P_bento",
+   "st": "P",
+   "kind": "bento",
+   "name": "駅弁 みなと屋 港駅売場",
+   "size": 0.9,
+   "stock": 1.4,
+   "hours": [
+    8,
+    19
+   ],
+   "open": false,
+   "products": [
+    "anagomeshi",
+    "makunouchi",
+    "omusubi"
+   ]
+  },
+  {
+   "id": "O_kiosk",
+   "st": "O",
+   "kind": "kiosk",
+   "name": "みなとスタンド 温泉駅店",
+   "size": 1.0,
+   "stock": 1.0,
+   "hours": [
+    7,
+    22
+   ],
+   "open": false,
+   "products": [
+    "tea",
+    "water",
+    "ccoffee",
+    "onigiri",
+    "gum",
+    "umbrella",
+    "beer"
+   ]
+  },
+  {
+   "id": "C_cafe",
+   "st": "C",
+   "kind": "cafe",
+   "name": "みなとコーヒー 中央コンコース店",
+   "size": 0.5,
+   "stock": 2.0,
+   "hours": [
+    6,
+    23
+   ],
+   "open": false,
+   "products": [
+    "blend",
+    "latte",
+    "muffin"
+   ]
+  }
+ ],
+ "plans": [
+  {
+   "shop": "M_vend2",
+   "cost": 1000000,
+   "news": "緑ヶ丘駅のホームに自販機を2台ふやしました。夏の夕方に売り切れが続いていた場所です。"
+  },
+  {
+   "shop": "K_kiosk",
+   "cost": 6000000,
+   "news": "川辺駅の乗換口に売店「みなとスタンド 川辺乗換口店」を開きました。温泉支線への乗り換え客が立ち寄ります。"
+  },
+  {
+   "shop": "U_cafe",
+   "cost": 9000000,
+   "news": "大学前駅に「みなとコーヒー 大学前店」を開きました。朝の通学時間に列ができそうです。"
+  },
+  {
+   "shop": "P_bento",
+   "cost": 10000000,
+   "news": "港駅に駅弁の売場を出しました。船に乗る前の人がお昼を買っていきます。"
+  },
+  {
+   "shop": "O_kiosk",
+   "cost": 8000000,
+   "news": "温泉駅に売店を開きました。湯上がりのビールが売れそうです。"
+  },
+  {
+   "shop": "C_cafe",
+   "cost": 14000000,
+   "news": "中央駅コンコースに「みなとコーヒー」を開きました。"
+  }
+ ],
+ "dev": {
+  "every": 4,
+  "trialDays": 5,
+  "keepRatio": 0.75,
+  "note": "every 運行日ごとに候補を1つ試験販売し、trialDays 日の売れ行きを同じ店の定番の中央値と比べる。keepRatio 以上なら定番入り、下回れば終売。",
+  "list": [
+   {
+    "id": "ekisenbei",
+    "shop": "C_souv",
+    "name": "駅名せんべい（10駅入り）",
+    "short": "駅名せんべい",
+    "price": 1080,
+    "cost": 470,
+    "w": 8,
+    "color": "#d6a85a",
+    "stock": 24,
+    "devCost": 120000
+   },
+   {
+    "id": "saltcider",
+    "shop": "P_vend",
+    "name": "港の塩レモンサイダー",
+    "short": "塩サイダー",
+    "price": 170,
+    "cost": 62,
+    "w": 5,
+    "color": "#9fd3e0",
+    "temp": "cold",
+    "stock": 30,
+    "devCost": 80000
+   },
+   {
+    "id": "tamagosand",
+    "shop": "O_souv",
+    "name": "温泉たまご入り どら焼き",
+    "short": "どら焼き",
+    "price": 980,
+    "cost": 470,
+    "w": 3,
+    "color": "#b8783a",
+    "stock": 18,
+    "devCost": 100000
+   },
+   {
+    "id": "matcha",
+    "shop": "U_kiosk",
+    "name": "抹茶ミルク（紙パック）",
+    "short": "抹茶ミルク",
+    "price": 150,
+    "cost": 66,
+    "w": 2,
+    "color": "#88a84a",
+    "stock": 24,
+    "devCost": 50000
+   },
+   {
+    "id": "badge",
+    "shop": "P_souv",
+    "name": "復刻 旧型電車の缶バッジ",
+    "short": "缶バッジ",
+    "price": 400,
+    "cost": 120,
+    "w": 1.2,
+    "color": "#d04a3a",
+    "stock": 30,
+    "devCost": 60000
+   },
+   {
+    "id": "smallyokan",
+    "shop": "T_souv",
+    "name": "峠の栗ようかん（ひとくち）",
+    "short": "ひとくち",
+    "price": 540,
+    "cost": 230,
+    "w": 6,
+    "color": "#7a3d33",
+    "stock": 24,
+    "devCost": 70000
+   },
+   {
+    "id": "nightbento",
+    "shop": "C_bento",
+    "name": "夜の小さな弁当",
+    "short": "夜弁当",
+    "price": 780,
+    "cost": 450,
+    "w": 4,
+    "color": "#40506a",
+    "stock": 18,
+    "hours": [
+     [
+      4,
+      17,
+      0.2
+     ],
+     [
+      17,
+      21,
+      2.4
+     ]
+    ],
+    "devCost": 90000
+   },
+   {
+    "id": "rainponcho",
+    "shop": "C_kiosk1",
+    "name": "たためるレインポンチョ",
+    "short": "ポンチョ",
+    "price": 980,
+    "cost": 420,
+    "w": 0.05,
+    "color": "#7fb0d8",
+    "stock": 8,
+    "wx": {
+     "rain": 30,
+     "snow": 10
+    },
+    "devCost": 40000
+   }
+  ]
+ },
+ "view": {
+  "tourSec": 26,
+  "minGapSec": 0.55,
+  "lowStock": 0.2,
+  "note": "tourSec は「自動で巡る」で次の駅へ移るまでの秒数。minGapSec より短い間に来た客は、1人の絵にまとめて「○人」と出す。 scenery は駅の窓から見える景色（city・town・field・sea・mountain）。",
+  "scenery": {
+   "C": "city",
+   "S": "town",
+   "U": "town",
+   "M": "town",
+   "K": "town",
+   "N": "field",
+   "P": "sea",
+   "F": "mountain",
+   "T": "mountain",
+   "O": "mountain"
+  }
+ }
+}

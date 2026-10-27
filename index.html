@@ -3289,6 +3289,9 @@ function start(data){if(data&&typeof data.T==='number')T=data.T;else T=liveT();l
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>
+<!-- 駅ナカ商店（試作）：計算は js/shop-core.js、表示は js/shop-view.js、設定は data/shop.json -->
+<script src="js/shop-core.js"></script>
+<script src="js/shop-view.js"></script>
 
 </body>
 </html>
