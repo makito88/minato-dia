@@ -266,7 +266,7 @@ function draw(dt,time){const c=V.cx,W=1000,Hh=400,Tn=gT(),cond=gCond(),sp=sceneP
       const i=tr.seq.indexOf(sp.st),open=ph===0&&Tn>tr.arr[i]+0.1&&Tn<tr.dep[i]-0.1;
       for(let k=0;k<6;k++){const x=x0+k*172-30;c.fillStyle='#dfe3e6';rr(c,x,130,168,104,6);c.fill();c.fillStyle=col;c.fillRect(x,206,168,9);c.fillStyle='#2a3a48';for(let w=0;w<3;w++)c.fillRect(x+12+w*54,146,40,30);
         c.fillStyle=open?'#1b2228':'#c7ccd0';c.fillRect(x+70,142,26,90);c.strokeStyle='#9aa0a5';c.lineWidth=1;c.strokeRect(x+70.5,142.5,25,89);}
-      c.fillStyle='rgba(0,0,0,.65)';rr(c,W-250,96,230,24,4);c.fill();c.fillStyle='#ffd34a';c.font='700 13px sans-serif';c.textAlign='left';c.fillText(`${g(()=>TYPES[tr.type].name,'')} ${g(()=>ST[tr.seq.at(-1)].name,'')}行 ${open?'ドアが開いています':ph<0?'まもなく到着':ph>0?'発車':'停車中'}`,W-240,113);}
+      c.fillStyle='rgba(0,0,0,.65)';rr(c,20,98,340,24,4);c.fill();c.fillStyle='#ffd34a';c.font='700 13px sans-serif';c.textAlign='left';c.fillText(`${g(()=>TYPES[tr.type].name,'')} ${g(()=>ST[tr.seq.at(-1)].name,'')}行 ${open?'ドアが開いています':ph<0?'まもなく到着':ph>0?'発車':'停車中'}`,30,115);}
     // 駅名標（列車の手前のホームに立つ）
     c.fillStyle='#5b6167';c.fillRect(497,206,6,50);c.fillStyle='#fff';rr(c,400,150,200,54,4);c.fill();c.strokeStyle='#1f6b5e';c.lineWidth=3;c.stroke();c.fillStyle='#1f2a2a';c.font='700 24px "Zen Kaku Gothic New",sans-serif';c.textAlign='center';c.fillText(stName(sp.st),500,184);c.fillStyle='#1f6b5e';c.fillRect(400,194,200,10);}
   // 人の流れ（数は1時間あたりの人数から、見た目の量に直す）
@@ -281,9 +281,15 @@ function draw(dt,time){const c=V.cx,W=1000,Hh=400,Tn=gT(),cond=gCond(),sp=sceneP
   [...V.walkers,...staff].sort((a,b)=>a.y-b.y).forEach(p=>person(c,p,time));
   // 数えた人数・声
   if(sp.live||true){const n=pv?RC.soFar(pv.F,Tn):0;
-    if(sp.m.count){c.fillStyle='rgba(15,20,24,.82)';rr(c,W-232,home?20:150,212,64,8);c.fill();c.fillStyle='#9fd3c7';c.font='12px sans-serif';c.textAlign='left';c.fillText(sp.live?'きょう数えた人（いまの時刻まで）':'下見：通った人の目安',W-220,(home?20:150)+20);
-      c.fillStyle='#ffb347';c.font='700 26px "DotGothic16",monospace';c.fillText(num(n)+' 人',W-220,(home?20:150)+52);
-      if(Math.floor(time*6)%2===0&&rate>0){c.fillStyle='#ffd34a';c.beginPath();c.arc(W-34,(home?20:150)+44,4,0,7);c.fill();}}
+    {// いまの人数・この1時間・始発前（4:30）からの合計を分けて出す。ホームの「いま」は、シミュレーションの待っている人を、のりばの数で分けたもの
+      const div=home?Math.max(1,g(()=>ST[sp.st].plats,2)/2):1,now=home?g(()=>waitingAt(sp.st,Tn),0)/div:rate/60,bx=W-300,by=home?20:150;
+      c.fillStyle='rgba(15,20,24,.84)';rr(c,bx,by,280,104,8);c.fill();c.textAlign='left';
+      c.fillStyle='#9fd3c7';c.font='12px sans-serif';c.fillText(sp.live&&sp.m.count?'数えた人（このホーム・場所だけ）':'目安（まだ数えていません）',bx+12,by+18);
+      const row=(lab,v,y,big)=>{c.fillStyle='#cfd8d6';c.font='12px sans-serif';c.fillText(lab,bx+12,y);c.fillStyle='#ffb347';c.font=(big?'700 22px':'700 16px')+' "DotGothic16",monospace';c.textAlign='right';c.fillText(v,bx+268,y);c.textAlign='left';};
+      row(home?'いまホームで待っている人':'いま1分間に通る人',num(now)+' 人',by+44,true);
+      row('この1時間に通る人',num(rate)+' 人',by+68);
+      row('始発前（4:30）からの合計',num(n)+' 人',by+92);
+      if(sp.live&&sp.m.count&&Math.floor(time*6)%2===0&&rate>0){c.fillStyle='#ffd34a';c.beginPath();c.arc(bx+266,by+14,4,0,7);c.fill();}}
     if(sp.m.interview&&pv&&sp.live){V.bubT+=dt;const vs=pv.rec.I.voices.filter(v=>v.h<=hh);if(V.bubT>6&&vs.length){V.bubT=0;const v=vs[Math.floor(Math.random()*vs.length)];V.bubbles.push({t:0,v});}}
     V.bubbles=V.bubbles.filter(b=>(b.t+=dt)<5.5);
     for(const b of V.bubbles){const a=Math.min(1,b.t*2,(5.5-b.t)*1.5);c.globalAlpha=a;c.font='14px "Zen Kaku Gothic New",sans-serif';const tx='「'+b.v.t+'」',tw=Math.min(560,c.measureText(tx).width+24),x=40,y=home?70:180;
