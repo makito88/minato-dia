@@ -81,13 +81,13 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 臨時便：頼んだ時刻から lead 分後に、その品だけ届く
   let expressFee=0;for(const x of (ctx.express||[])){const it=P[x.pid];if(!it)continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:x});expressFee+=cfg.express.fee;}
   deliveries.sort((a,b)=>a.t-b.t);
-  const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;
-    if(d.express){const it=P[d.express.pid];(lots[it.id]||(lots[it.id]=[])).push({q:d.express.q,c:it.cost,d:ctx.day});deliveredCost+=d.express.q*it.cost;ev.push({t,k:'delivery',n:d.express.q,cost:d.express.q*it.cost+cfg.express.fee,name:'臨時便（'+it.short+'）'});return;}
+  const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;const its={};
+    if(d.express){const it=P[d.express.pid];(lots[it.id]||(lots[it.id]=[])).push({q:d.express.q,c:it.cost,d:ctx.day});deliveredCost+=d.express.q*it.cost;ev.push({t,k:'delivery',n:d.express.q,cost:d.express.q*it.cost+cfg.express.fee,name:'臨時便（'+it.short+'）',items:{[it.id]:d.express.q},express:true});return;}
     for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;
       let q;if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
       else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
-      if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;}
-    deliveredCost+=cost;ev.push({t,k:'delivery',n,cost,name:d.name});};
+      if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}
+    deliveredCost+=cost;ev.push({t,k:'delivery',n,cost,name:d.name,items:its});};   // items：この便で届いた品と数（画面の「次の便」に使う）
   // ホットスナック：冷凍で裏に置き、ケースが少なくなったら調理する（保温時間を過ぎたら捨てる）
   const cook=t=>{for(const pid in SI){if(P[pid].genre!=='hot')continue;const q=hotQ[pid]||(hotQ[pid]=[]);const hold=ix.G.hot.hold;
       while(q.length&&t-q[0].t>hold){const x=q.shift();waste+=x.c;add(wasteBy,pid,1);ev.push({t,k:'waste',pid,n:1,why:'保温時間切れ'});}
@@ -110,7 +110,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       for(const pid in SI)if(shelf[pid]>SI[pid].cap)shelf[pid]=SI[pid].cap;
       if(e.staff!==servers.length){const ns=new Array(e.staff).fill(edits[ei].t);servers=ns;}
       ev.push({t:edits[ei].t,k:'edit'});shelfFill(edits[ei].t,'変えた棚に並べる');ei++;}};
-  const takeSnap=t=>{while(nextSnap<=t){const o={};for(const pid in SI)o[pid]=stockOf(pid);snap.push({t:nextSnap,s:o});nextSnap+=SNAP;}};
+  const takeSnap=t=>{while(nextSnap<=t){const o={},b={};for(const pid in SI){o[pid]=stockOf(pid);b[pid]=P[pid].genre==='hot'?backQ(pid):Math.max(0,backQ(pid)-(shelf[pid]||0));}snap.push({t:nextSnap,s:o,b});nextSnap+=SNAP;}};
   const tick=t=>{applyEdit(t);
     while(di<deliveries.length&&deliveries[di].t<=t){nowT=deliveries[di].t;deliver(deliveries[di],deliveries[di].t);shelfFill(deliveries[di].t,'納品のあと品出し');cook(deliveries[di].t);di++;}
     while(nextRestock<=t){nowT=nextRestock;const s0=servers.indexOf(Math.min(...servers));
@@ -231,6 +231,7 @@ function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.str
   return {state:st,news};}
 
 /* その時刻の棚の在庫（5分ごとの記録から） */
+function backAt(res,T){let lo=0,hi=res.snap.length-1;if(hi<0)return {};while(lo<hi){const m=(lo+hi+1)>>1;if(res.snap[m].t<=T)lo=m;else hi=m-1;}return res.snap[lo].b||{};}
 function stockAt(res,T){let lo=0,hi=res.snap.length-1;if(hi<0)return {};while(lo<hi){const m=(lo+hi+1)>>1;if(res.snap[m].t<=T)lo=m;else hi=m-1;}return res.snap[lo].s;}
 function idxAt(res,T){let lo=0,hi=res.ev.length;while(lo<hi){const m=(lo+hi)>>1;if(res.ev[m].t<=T)lo=m+1;else hi=m;}return lo;}
 /* その時刻までの集計 */
@@ -238,5 +239,5 @@ function soFar(cfg,res,T){const k=idxAt(res,T),o={sales:0,cust:0,cogs:0,looks:0,
   for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){o.sales+=e.yen;o.cust++;o.ps[e.ps]=(o.ps[e.ps]||0)+1;for(const [pid,q] of e.items){o.items[pid]=(o.items[pid]||0)+q;o.cogs+=q*ix.P[pid].cost;}}else if(e.k==='look'){o.looks++;o.why[e.why]=(o.why[e.why]||0)+1;}}
   return o;}
 
-root.KioskCore={H,index,shelfInfo,defaultOrder,create,simulate,closeDay,stockAt,idxAt,soFar,review};
+root.KioskCore={H,index,shelfInfo,defaultOrder,backAt,create,simulate,closeDay,stockAt,idxAt,soFar,review};
 })(typeof window!=='undefined'?window:globalThis);

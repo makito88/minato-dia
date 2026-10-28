@@ -71,6 +71,20 @@ function edit(fn){const S=V.st,day=gDay(),c=JSON.parse(JSON.stringify(curSet()))
   if(!S.today||S.today.day!==day)S.today={day,edits:[]};const L=S.today.edits;if(L.length&&Math.abs(L.at(-1).t-c.t)<1)L[L.length-1]=c;else L.push(c);
   persist();V.editRev=(V.editRev||0)+1;clearTimeout(V.pend);V.pend=setTimeout(()=>{V.res=null;ensureRes();render(true);},250);}
 
+/* ---------- 商品ごとの「いま」 ---------- */
+function counts(res,T){const k=KC.idxAt(res,T);if(V.cnt&&V.cnt.res===res&&V.cnt.k===k)return V.cnt;const c={res,k,sold:{},lost:{},looked:{}};
+  for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){for(const [pid,q] of e.items)c.sold[pid]=(c.sold[pid]||0)+q;}else if(e.k==='look'&&e.pid){const o=e.why==='売り切れ'?c.lost:c.looked;o[e.pid]=(o[e.pid]||0)+1;}}
+  V.cnt=c;return c;}
+function nextDelivery(res,T,pid){const k=KC.idxAt(res,T);for(let i=k;i<res.ev.length;i++){const e=res.ev[i];if(e.k==='delivery'&&e.items&&e.items[pid])return {t:e.t,name:e.name,q:e.items[pid]};}return null;}
+function pinfo(pid,res){const T0=gT(),set=curSet(),s=KC.shelfInfo(V.cfg,set.layout)[pid]||null,stock=(KC.stockAt(res,T0)[pid])||0,back=(KC.backAt(res,T0)[pid])||0,c=counts(res,T0);
+  const cap=s?s.cap:0,st=!s?'none':stock+back<=0?'out':stock<=0?'wait':(stock+back)<=Math.max(1,Math.ceil(cap*0.25))?'low':'ok';
+  return {s,cap,stock,back,sold:c.sold[pid]||0,lost:c.lost[pid]||0,looked:c.looked[pid]||0,next:nextDelivery(res,T0,pid),st};}
+const ST_LABEL={out:'売り切れ',wait:'棚が空（裏にあり・品出し待ち）',low:'残りわずか',ok:'在庫あり',none:'棚に置いていない'};
+const nextText=n=>n?`${fmtT(n.t)} ${n.name}で＋${n.q}個`:'きょうはもう届きません';
+/* 仕入れの変更が、いつから・いくつ変わるか */
+function orderDiff(pid){const na=nextOrderDay(),cur=orderFor(gDay())[pid]||0,nx=orderFor(na)[pid]||0;return {na,cur,nx,d:nx-cur};}
+function orderText(pid){const o=orderDiff(pid);return o.d?`${o.cur} → <b>${o.nx}</b>（${o.d>0?'＋':'−'}${Math.abs(o.d)}・第${o.na}運行日＝${dayWord(o.na).replace('の便から','')}の便から）`:`${o.cur}（変更なし）`;}
+
 /* ---------- 骨組み ---------- */
 const CSS=`
 .ksv{position:fixed;inset:0;z-index:67;background:var(--paper);color:var(--ink);overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 10px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(14px,env(safe-area-inset-left,0px))}
@@ -95,9 +109,10 @@ const CSS=`
 .ks-num b{min-width:3.4em;text-align:center;font-family:var(--f-mono);font-weight:400}
 .ks-tags{display:inline-flex;gap:3px;flex-wrap:wrap}.ks-tags i{font-style:normal;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);white-space:nowrap}
 .ks-tags i.hot{color:#c9573f;border-color:#e3b0a5}.ks-tags i.cold{color:#2e7fd1;border-color:#a9c8ea}.ks-tags i.trend{color:#b0711f;border-color:#e4c38f;font-weight:700}.ks-tags i.age{color:#8a3c8a;border-color:#d4a9d4}
-.ks-log{display:grid;gap:3px;max-height:520px;overflow:auto;overscroll-behavior:contain;font-size:12.5px}
-.ks-newpill{position:sticky;top:44px;z-index:2;display:block;margin:0 auto 6px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;box-shadow:0 2px 8px rgb(0 0 0 / .2)}
-@media (max-width:760px){#ksMore{margin-bottom:72px}.ks-newpill{position:fixed;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:50%;transform:translateX(-50%);margin:0;padding:10px 16px;border-radius:999px;font-size:14px}.ks-log{max-height:none;overflow:visible}.ks-log div{grid-template-columns:3.2em 5.2em minmax(0,1fr);}.ks-log div em{grid-column:3;justify-self:end}}.ks-log div{display:grid;grid-template-columns:3.4em 6em minmax(0,1fr) auto;gap:8px;padding:3px 4px;border-bottom:1px dashed var(--line)}
+.ks-log{display:grid;gap:3px;font-size:12.5px}
+.ks-newpill{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:50%;transform:translateX(-50%);z-index:69;padding:9px 16px;border-radius:999px;font-size:14px;display:block;margin:0;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;box-shadow:0 2px 8px rgb(0 0 0 / .2)}
+#ksMore{margin-bottom:72px}
+@media (max-width:760px){.ks-log div{grid-template-columns:3.2em 5.2em minmax(0,1fr);}.ks-log div em{grid-column:3;justify-self:end}}.ks-log div{display:grid;grid-template-columns:3.4em 6em minmax(0,1fr) auto;gap:8px;padding:3px 4px;border-bottom:1px dashed var(--line)}
 .ks-log time{font-family:var(--f-mono);color:var(--muted)}.ks-log .ps{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ks-log em{font-style:normal;font-family:var(--f-mono)}
 .ks-log .buy em{color:#2f8a4a}.ks-log .look{color:var(--muted)}.ks-log .rv{color:#9a6a1a}.ks-log .sns{color:#3a64b8}.ks-log .sys{color:var(--muted);font-size:11.5px}
 .ks-zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
@@ -112,7 +127,20 @@ const CSS=`
 .ks-news .trend{border-left-color:#d9822b}.ks-news .sns{border-left-color:#3a64b8}.ks-news .regular{border-left-color:#2f8a4a}.ks-news .review{border-left-color:#9a6a1a}.ks-news .soldout,.ks-news .miss,.ks-news .waste{border-left-color:#c9573f}
 .ks-g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
 .ks-note{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.65}
-.ks-scroll{overflow:auto;max-height:520px}
+.ks-scroll{overflow-x:auto}
+.ks-alert{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.ks-alert>span{color:var(--muted);margin-right:4px}
+.ks-al{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:4px 10px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.ks-al i{width:9px;height:9px;border-radius:50%;display:inline-block}.ks-al.out i{background:#d8382e}.ks-al.wait i{background:#e07a3a}.ks-al.low i{background:#e0a21b}.ks-al small{color:var(--muted)}
+.ks-sheet{position:fixed;z-index:70;right:max(14px,env(safe-area-inset-right,0px));top:70px;width:min(380px,calc(100% - 28px));max-height:calc(100vh - 90px);overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgb(0 0 0 / .25);padding:12px 14px;display:grid;gap:8px;font-size:13px}
+.ks-sheet[hidden]{display:none!important}.ks-sheet h3{margin:0;font-size:16px;display:flex;gap:8px;align-items:baseline;justify-content:space-between}.ks-sheet h3 small{font-size:11.5px;color:var(--muted);font-weight:400}
+.ks-sg{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:6px 10px;align-items:center}.ks-sg>span:nth-child(odd){color:var(--muted);font-size:12px}.ks-sg b{font-family:var(--f-mono);font-weight:400}
+.ks-st{display:inline-block;font-size:12px;border-radius:5px;padding:1px 7px;color:#fff;background:#2f8a4a}.ks-st.out{background:#d8382e}.ks-st.wait{background:#e07a3a}.ks-st.low{background:#e0a21b}.ks-st.none{background:#8a8a8a}
+.ks-sbox{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--paper);display:grid;gap:6px}.ks-sbox h4{margin:0;font-size:13px}.ks-sbox p{margin:0;font-size:12px;color:var(--muted);line-height:1.6}
+.ks-sbtns{display:flex;flex-wrap:wrap;gap:6px}
+.ks-pend{border:1px dashed var(--accent);border-radius:9px;padding:8px 10px;margin:8px 0;font-size:12.5px;display:grid;gap:4px}.ks-pend b{color:var(--accent)}.ks-pend button{font:inherit;font-size:11.5px;padding:1px 7px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink);cursor:pointer;margin-left:6px}
+.ks-diff{display:block;font-size:11px;color:var(--accent);white-space:nowrap}.ks-pname{font:inherit;background:none;border:none;padding:0;color:var(--ink);text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.ks-pname b{font-weight:700}
+@media (max-width:760px){.ks-sheet{top:auto;bottom:0;right:0;left:0;width:auto;max-height:78vh;border-radius:14px 14px 0 0;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}}
 .ks-num b.chg{color:var(--accent);font-weight:700}.ks-exp{font-size:12px;padding:3px 8px}.ks-exp:disabled{opacity:.4}
 .ks-cards{display:grid;gap:8px;margin-top:8px}.ks-pc{border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:var(--paper)}.ks-pc.off{opacity:.6}
 .ks-pc-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:4px}.ks-pc-h b{font-size:14px}.ks-pc-h .mut,.ks-pc .mut{color:var(--muted);font-size:11.5px}
@@ -125,9 +153,10 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   const mb=document.querySelector('.minibar-in');if(mb){const b=document.createElement('button');b.id='mks';b.type='button';b.className='mspeed tayorimini';b.innerHTML='売店<span class="dot" hidden></span>';mb.appendChild(b);b.onclick=()=>setOpen(true);}
   const p=document.createElement('section');p.id='ksv';p.className='ksv';p.hidden=true;p.setAttribute('aria-label','売店の運営');
   p.innerHTML=`<div class="ks-in"><div class="ks-hd"><h2 id="ksTitle">売店の運営</h2><small id="ksSub"></small><span class="ks-sp"></span><span id="ksSpd"></span><button type="button" class="ks-btn" id="ksClose">閉じる</button></div>
-    <div id="ksTop"></div><div class="ks-stage"><canvas id="ksCanvas" width="1000" height="600" aria-label="売店の正面のようす"></canvas></div><div id="ksKpi" class="ks-kpi"></div>
+    <div id="ksTop"></div><div class="ks-stage"><canvas id="ksCanvas" width="1000" height="600" aria-label="売店の正面のようす（棚を押すと、その商品のカードが出ます）"></canvas></div><div id="ksAlert" class="ks-alert" aria-live="polite"></div><div id="ksKpi" class="ks-kpi"></div>
     <div class="ks-tabs" role="tablist" id="ksTabs"></div><div id="ksBody"></div></div>`;
-  document.body.appendChild(p);$('ksClose').onclick=()=>setOpen(false);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open)setOpen(false);});
+  document.body.appendChild(p);const sh=document.createElement('aside');sh.id='ksSheet';sh.className='ks-sheet';sh.hidden=true;sh.setAttribute('aria-label','商品カード');p.appendChild(sh);
+  $('ksClose').onclick=()=>setOpen(false);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open){if(V.sheet){closeSheet();return;}setOpen(false);}});
   $('ksSpd').innerHTML=[1,30,180].map(m=>`<button type="button" class="ks-chip" data-m="${m}">×${m}</button>`).join(' ');
   $('ksSpd').querySelectorAll('button').forEach(b=>b.onclick=()=>{setMult(Number(b.dataset.m));});
   const TABS=[['log','売れ行き'],['items','商品・値段・仕入れ'],['layout','棚割り'],['people','客層・時間帯'],['money','収支'],['news','お知らせ']];
@@ -153,6 +182,49 @@ function renderSetup(){const f=V.form,R=V.rcfg,studies=g(()=>JSON.parse(localSto
   $('ksOpen').onclick=()=>{const day=gDay();V.st=KC.create(V.cfg,{seed:(Date.now()%100000)+1,st:f.st,place:f.place,day});V.st.openedT=gT();V.st.openedDay=day;V.st.unread=0;
     V.st.news.push({day,kind:'open',title:`${stName(f.st)}駅・${R.places[f.place].name}に売店を開いた`,text:'はじめは、よくある売店の並べ方と値段です。売れ行きを見ながら変えていきましょう。'});persist();V.res=null;render(true);};}
 
+/* ---------- 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） ---------- */
+function renderAlert(force){const box=$('ksAlert'),res=V.res;if(!box)return;if(!V.st||!res){box.innerHTML='';V.alKey='';return;}
+  const si=KC.shelfInfo(V.cfg,curSet().layout),I=ix(),list=[];for(const pid in si){const x=pinfo(pid,res);if(x.st==='out'||x.st==='wait'||x.st==='low')list.push([pid,x]);}
+  const order={out:0,wait:1,low:2};list.sort((a,b)=>order[a[1].st]-order[b[1].st]||b[1].lost-a[1].lost);
+  const sub=x=>`${x.st==='low'?'残り'+(x.stock+x.back):x.st==='wait'?'裏に'+x.back:'0個'}${x.lost?'・逃した'+x.lost:''}${x.next?'・'+fmtT(x.next.t)+'に＋'+x.next.q:''}`;
+  const key=list.map(([p,x])=>p+x.st).join('|');   // 品と状態が同じなら作り直さず、小さな字だけ書きかえる（押している途中のボタンを消さない）
+  if(!force&&key===V.alKey){for(const [pid,x] of list){const e=box.querySelector(`[data-sh="${pid}"] small`);if(e){const t=sub(x);if(e.textContent!==t)e.textContent=t;}}return;}V.alKey=key;
+  if(!list.length){box.innerHTML='<span>在庫：売り切れ・残りわずかの品はありません</span>';return;}
+  const n=k=>list.filter(x=>x[1].st===k).length;
+  box.innerHTML=`<span>在庫の要注意（押すと商品カード）：売り切れ${n('out')}・品出し待ち${n('wait')}・残りわずか${n('low')}</span>`+list.map(([pid,x])=>`<button type="button" class="ks-al ${x.st}" data-sh="${pid}"><i></i>${esc(I.P[pid].short)}<small>${sub(x)}</small></button>`).join('');
+  box.querySelectorAll('[data-sh]').forEach(b=>b.onclick=()=>openSheet(b.dataset.sh));}
+/* 商品カード：その品のいま・次の便・仕入れ（いつから・いくつ）・臨時便・値段を1か所で */
+function openSheet(pid){V.sheet=pid;V.shQ=null;renderSheet();$('ksSheet').hidden=false;}
+function closeSheet(){V.sheet=null;$('ksSheet').hidden=true;}
+function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!res||!box)return;const I=ix(),p=I.P[pid],x=pinfo(pid,res),set=curSet(),pr=set.price[pid]??p.price,o=orderDiff(pid),E=V.cfg.express;
+  if(V.shQ==null)V.shQ=Math.max(1,x.cap||5);const life=I.G[p.genre].life,unit=life===0?'1日に届く数':'裏も合わせた目標の数';
+  box.innerHTML=`<h3><span>${esc(p.name)}</span><button type="button" class="ks-btn" id="shClose">閉じる</button></h3>
+    <div><span class="ks-st ${x.st}" id="shSt">${ST_LABEL[x.st]}</span> <small class="ks-note">${I.G[p.genre].name}・${yen(pr)}（原価${yen(p.cost)}）</small></div>
+    <div class="ks-sg"><span>棚</span><b id="shShelf">${x.s?`${x.s.face}列×${Math.round(x.cap/x.s.face)}（最大${x.cap}個）`:'置いていない'}</b>
+      <span>いま</span><b id="shNow">棚に${x.stock}個・裏に${x.back}個</b>
+      <span>きょう</span><b id="shToday">売れた${x.sold}・売り切れで逃した${x.lost}・見て買わず${x.looked}</b>
+      <span>次の便</span><b id="shNext">${nextText(x.next)}</b></div>
+    <div class="ks-sbox"><h4>仕入れ（${unit}）</h4>
+      <div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>${dayWord(o.na)}</span><span class="ks-num"><button type="button" id="shOm" aria-label="減らす">−</button><b class="${o.d?'chg':''}">${o.nx}</b><button type="button" id="shOp" aria-label="増やす">＋</button></span></div>
+      <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>
+    <div class="ks-sbox"><h4>臨時便（いますぐ足す）</h4>
+      <div class="ks-sbtns"><span class="ks-num"><button type="button" id="shEm" aria-label="減らす">−</button><b>${V.shQ}個</b><button type="button" id="shEp" aria-label="増やす">＋</button></span>
+        <button type="button" class="ks-btn pri" id="shEgo" ${expressOpen()&&x.s?'':'disabled'}>臨時便で頼む</button></div>
+      <p>${expressOpen()?`${fmtT(gT()+E.lead)}ごろ届きます。${yen(E.fee)}＋原価${yen(V.shQ*p.cost)}。きょうはあと${expressLeft()}回。`:expressLeft()<=0?'きょうの臨時便は使い切りました。':`臨時便は${fmtT(E.from)}〜${fmtT(E.to)}に頼めます。`}${x.s?'':'棚に置いていない品は頼めません。'}</p></div>
+    <div class="ks-sbox"><h4>値段</h4><div class="ks-sbtns"><span class="ks-num"><button type="button" id="shPm" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" id="shPp" aria-label="10円上げる">＋</button></span><small class="ks-note" style="margin:0">ふつうの値段の${Math.round(pr/p.price*100)}%・すぐに効きます</small></div></div>
+    <div class="ks-sbtns"><button type="button" class="ks-btn" id="shLay">棚割りで並べ方を変える</button><button type="button" class="ks-btn" id="shTab">商品の表で見る</button></div>`;
+  const st=life===0?1:2;
+  $('shClose').onclick=closeSheet;$('shOm').onclick=()=>{editOrder(pid,-st);renderSheet();};$('shOp').onclick=()=>{editOrder(pid,st);renderSheet();};
+  $('shEm').onclick=()=>{V.shQ=Math.max(1,V.shQ-1);renderSheet();};$('shEp').onclick=()=>{V.shQ+=1;renderSheet();};
+  $('shEgo').onclick=()=>{orderExpress(pid,V.shQ);V.shQ=null;renderSheet();};
+  $('shPm').onclick=()=>{edit(c=>{c.price[pid]=Math.max(10,(c.price[pid]??p.price)-10);});setTimeout(renderSheet,300);};$('shPp').onclick=()=>{edit(c=>{c.price[pid]=(c.price[pid]??p.price)+10;});setTimeout(renderSheet,300);};
+  $('shLay').onclick=()=>{const L=curSet().layout;for(const zk in L){const i=L[zk].indexOf(pid);if(i>=0){V.slotSel={z:zk,i};break;}}V.tab='layout';closeSheet();render(true);$('ksBody').scrollIntoView({block:'start'});};
+  $('shTab').onclick=()=>{V.tab='items';closeSheet();render(true);setTimeout(()=>{const r=document.querySelector(`[data-row="${pid}"]`);if(r)r.scrollIntoView({block:'center'});},50);};}
+/* 商品カードの数字だけを書きかえる（ボタンは作り直さないので、押している途中でも消えない） */
+function updateSheet(){const pid=V.sheet,res=V.res;if(!pid||!res||!$('shNow'))return;const x=pinfo(pid,res);
+  const set=(id,t)=>{const e=$(id);if(e&&e.textContent!==t)e.textContent=t;};set('shNow',`棚に${x.stock}個・裏に${x.back}個`);set('shToday',`売れた${x.sold}・売り切れで逃した${x.lost}・見て買わず${x.looked}`);set('shNext',nextText(x.next));
+  const s=$('shSt');if(s&&!s.classList.contains(x.st)){s.className='ks-st '+x.st;s.textContent=ST_LABEL[x.st];}}
+
 /* ---------- 画面全体 ---------- */
 function render(full){if(!V.open)return;
   if(!V.cfg){$('ksTop').innerHTML=`<div class="ks-card"><p>${V.err?'設定を読み込めませんでした（'+esc(V.err)+'）。パソコンで index.html を直接開いた場合は読み込めません。':'準備しています…'}</p></div>`;return;}
@@ -162,7 +234,7 @@ function render(full){if(!V.open)return;
   const tr=S.trend?V.cfg.trends.find(x=>x.id===S.trend.id):null;
   $('ksSub').textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]}・${WXN[c.wx]}・${SEAN[c.season]}${tr?'・世の中は'+tr.name:''}・常連 ${S.regulars.length}人`;
   $('ksTabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===V.tab)));
-  renderKpi();if(full||V.tab==='log')renderBody(full);}
+  renderKpi();renderAlert(true);if(V.sheet)renderSheet();if(full||V.tab==='log')renderBody(full);}
 function renderKpi(){const res=ensureRes();if(!res)return;const o=KC.soFar(V.cfg,res,gT()),P=res.pl;
   const share=res.pl.sales?o.sales/res.pl.sales:0;
   $('ksKpi').innerHTML=`<div><span>きょうの売上（いままで）</span><b>${yen(o.sales)}</b></div><div><span>お客さん</span><b>${num(o.cust)}人</b></div>
@@ -194,11 +266,11 @@ function renderLog(b,res,full){const k=KC.idxAt(res,gT());let box=$('ksLog');
       <div style="margin-top:8px;text-align:center"><button type="button" class="ks-btn" id="ksMore" ${V.logFrom>0?'':'hidden'}>もっと前を見る</button></div></div>`;
     box=$('ksLog');
     $('ksMore').onclick=()=>{const r=V.logRes,to=V.logFrom,from=Math.max(0,to-100);box.insertAdjacentHTML('beforeend',r.ev.slice(from,to).reverse().map(logRow).join(''));V.logFrom=from;$('ksMore').hidden=from<=0;};
-    $('ksNew').onclick=()=>{flushLog(true);if(narrow())box.scrollIntoView({block:'start',behavior:'smooth'});else box.scrollTop=0;};
+    $('ksNew').onclick=()=>{flushLog(true);box.scrollIntoView({block:'start',behavior:'smooth'});};
     return;}
   if(k===V.logK)return;
   // 読んでいる途中か：パソコンは一覧の中のスクロール、スマホはページのスクロールで判断
-  const reading=narrow()?box.getBoundingClientRect().top<70:box.scrollTop>4;
+  const reading=box.getBoundingClientRect().top<120;   // 一覧の先頭が画面の上に隠れていたら、読んでいる途中
   if(reading){const n=k-V.logK;const pill=$('ksNew');pill.hidden=false;pill.textContent=`↑ 新しい出来事 ${n}件`;V.logPend=k;return;}
   flushLog(false);}
 function flushLog(force){const box=$('ksLog'),res=V.logRes;if(!box||!res)return;const k=force?KC.idxAt(res,gT()):KC.idxAt(res,gT());
@@ -208,7 +280,10 @@ function flushLog(force){const box=$('ksLog'),res=V.logRes;if(!box||!res)return;
 
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
 function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT()),na=nextOrderDay(),nextO=orderFor(na),today=orderFor(gDay());
-  const ordCell=(p,s)=>{const v=nextO[p.id]||0,cur=today[p.id]||0;if(!s&&!v)return '<span class="mut">棚になし</span>';return `<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b class="${v!==cur?'chg':''}">${v}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span>`;};
+  const ordCell=(p,s)=>{const v=nextO[p.id]||0,cur=today[p.id]||0;if(!s&&!v)return '<span class="mut">棚になし</span>';return `<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b class="${v!==cur?'chg':''}">${v}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span>${v!==cur?`<span class="ks-diff">きょう${cur}から${v>cur?'＋':'−'}${Math.abs(v-cur)}</span>`:''}`;};
+  // 発注の予定：まだ効いていない変更を、何日目からかと増減でまとめる（取り消しもできる）
+  const pend=[];for(const e of (S.orderQ||[]).slice().sort((a,b)=>a.from-b.from)){const before=orderFor(e.from-1);for(const pid in e.order){if((e.order[pid]||0)!==(before[pid]||0))pend.push({from:e.from,pid,a:before[pid]||0,b:e.order[pid]||0});}}
+  const pendBox=pend.length?`<div class="ks-pend"><div><b>発注の予定（まだ届いていない変更）</b></div>${pend.map(x=>`<div>第${x.from}運行日（${dayWord(x.from).replace('の便から','')}）から：${esc(I.P[x.pid].name)} ${x.a} → <b>${x.b}</b>（${x.b>x.a?'＋':'−'}${Math.abs(x.b-x.a)}）<button type="button" data-undo="${x.from}|${x.pid}">取り消す</button></div>`).join('')}</div>`:'';
   const expBox=()=>{const pid=V.expSel;if(!pid)return '';const p=I.P[pid],q=V.expQ;return `<div class="ks-pick" id="ksExpBox"><b>臨時便：${esc(p.name)}</b><span class="ks-num"><button type="button" id="ksExM" aria-label="減らす">−</button><b>${q}個</b><button type="button" id="ksExP" aria-label="増やす">＋</button></span>
       <span>${yen(V.cfg.express.fee)}＋原価${yen(q*p.cost)}・${fmtT(gT()+V.cfg.express.lead)}ごろ届く</span><button type="button" class="ks-btn pri" id="ksExGo" ${expressOpen()?'':'disabled'}>頼む</button><button type="button" class="ks-btn" id="ksExNo">やめる</button></div>`;};
   const tr=S.trend?V.cfg.trends.find(x=>x.id===S.trend.id):null;
@@ -221,30 +296,36 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
   const rep=pid=>{const x=S.rep[pid];if(!x||!x.n)return '<span class="mut">—</span>';const avg=x.sum/x.n,keys=Object.entries(x.keys).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k2,n])=>({sweetHi:'甘すぎ',sweetLo:'甘さ不足',richHi:'濃い',richLo:'うすい',volLo:'量が少ない',volHi:'多すぎ',priceHi:'高い',priceOk:'安い',good:'満足',warm:'温かい',cold:'冷えてる',crush:'つぶれ'})[k2]+n).join('・');return `★${avg.toFixed(1)}（${x.n}）<br><span class="mut" style="font-size:11px">${keys}</span>`;};
   b.innerHTML=`<div class="ks-card"><h3><span>商品・値段・仕入れ</span><small>値段は「世の中のふつうの値段」との比も出します</small></h3>
     <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。</p>
-    ${expBox()}
+    ${expBox()}${pendBox}
     <label style="font-size:12.5px"><input type="checkbox" id="ksAll" ${V.showAll?'checked':''}> 棚に置いていない商品も出す</label>
     ${narrow()?`<div class="ks-cards">${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
-      return `<div class="ks-pc ${s?'':'off'}"><div class="ks-pc-h"><b>${esc(p.name)}</b><span class="mut">${I.G[p.genre].name}</span></div>${tag(p)}
+      return `<div class="ks-pc ${s?'':'off'}" data-row="${p.id}"><div class="ks-pc-h"><button type="button" class="ks-pname" data-sh="${p.id}"><b>${esc(p.name)}</b></button><span class="mut">${I.G[p.genre].name}</span></div>${tag(p)}
         <div class="ks-pc-g"><span>値段</span><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span>
           <span>ふつう比・原価率</span><b class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%・<span class="${cr>0.7?'neg':''}">${Math.round(cr*100)}%</span></b>
           <span>仕入れ（${dayWord(na)}）</span><span>${ordCell(p,s)}</span>
           <span>きょうの仕入れ</span><b>${s||today[p.id]?(today[p.id]||0):'—'}${s?` <button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressOpen()?'':'disabled'}>臨時便</button>`:''}</b>
-          <span>棚・いま</span><b>${s?`${s.face}列×${Math.round(s.cap/s.face)}・${stock[p.id]||0}個`:'—'}</b>
-          <span>きょう</span><b>売れた${o.items[p.id]||0}・<span class="${lostSO[p.id]?'neg':''}">売切で逃した${lostSO[p.id]||0}</span>・見て買わず${looked[p.id]||0}</b>
+          <span>棚・いま</span><b>${s?`${s.face}列×${Math.round(s.cap/s.face)}・<span data-f="stock">${stock[p.id]||0}</span>個`:'—'}</b>
+          <span>きょう</span><b>売れた<span data-f="sold">${o.items[p.id]||0}</span>・売切で逃した<span data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</span>・見て買わず<span data-f="looked">${looked[p.id]||0}</span></b>
           <span>評価</span><span>${rep(p.id)}</span></div></div>`;}).join('')}</div>`:`
     <div class="ks-scroll" style="margin-top:6px"><table class="ks-t" style="min-width:1320px"><thead><tr><th class="l">商品</th><th class="l">ようす</th><th>値段</th><th>ふつう比</th><th>原価（原価率）</th><th>仕入れ（${dayWord(na)}）</th><th>きょうの仕入れ</th><th></th><th>棚（列×奥）</th><th>いまの棚</th><th>きょう売れた</th><th>売切で逃した</th><th>見て買わず</th><th class="l">評価</th></tr></thead><tbody>
     ${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
-      return `<tr class="${s?'':'off'}"><td class="l"><b>${esc(p.name)}</b><br><span class="mut" style="font-size:11px">${I.G[p.genre].name}</span></td><td class="l">${tag(p)}</td>
+      return `<tr class="${s?'':'off'}" data-row="${p.id}"><td class="l"><button type="button" class="ks-pname" data-sh="${p.id}"><b>${esc(p.name)}</b></button><br><span class="mut" style="font-size:11px">${I.G[p.genre].name}</span></td><td class="l">${tag(p)}</td>
       <td><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span></td>
       <td class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%</td><td class="${cr>0.7?'neg':''}">${yen(p.cost)}（${Math.round(cr*100)}%）</td>
       <td>${ordCell(p,s)}</td><td>${s||today[p.id]?(today[p.id]||0):'—'}</td><td>${s?`<button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressOpen()?'':'disabled'}>臨時便</button>`:''}</td>
-      <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td>${s?(stock[p.id]||0):'—'}</td><td>${o.items[p.id]||0}</td><td class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td><td>${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
+      <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td data-f="stock">${s?(stock[p.id]||0):'—'}</td><td data-f="sold">${o.items[p.id]||0}</td><td data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td><td data-f="looked">${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
     </tbody></table></div>`}<p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
   $('ksAll').onchange=e=>{V.showAll=e.target.checked;render(true);};
+  b.querySelectorAll('[data-sh]').forEach(x=>x.onclick=()=>openSheet(x.dataset.sh));
+  b.querySelectorAll('[data-undo]').forEach(x=>x.onclick=()=>{const [f,pid]=x.dataset.undo.split('|'),e=(S.orderQ||[]).find(q=>q.from===Number(f));if(e){e.order[pid]=orderFor(e.from-1)[pid]||0;persist();render(true);}});
   b.querySelectorAll('[data-pr]').forEach(x=>x.onclick=()=>edit(c=>{const pid=x.dataset.pr;c.price[pid]=Math.max(10,(c.price[pid]??I.P[pid].price)+Number(x.dataset.d));}));
   b.querySelectorAll('[data-or]').forEach(x=>x.onclick=()=>{const pid=x.dataset.or,st=I.G[I.P[pid].genre].life===0?1:2;editOrder(pid,Number(x.dataset.d)*st);});
   b.querySelectorAll('[data-ex]').forEach(x=>x.onclick=()=>{const pid=x.dataset.ex;V.expSel=pid;V.expQ=Math.max(1,(si[pid]&&si[pid].cap)||5);render(true);});
   if($('ksExM')){$('ksExM').onclick=()=>{V.expQ=Math.max(1,V.expQ-1);render(true);};$('ksExP').onclick=()=>{V.expQ+=1;render(true);};$('ksExGo').onclick=()=>orderExpress(V.expSel,V.expQ);$('ksExNo').onclick=()=>{V.expSel=null;render(true);};}}
+
+function updateItems(){const res=V.res;if(!res||V.tab!=='items')return;const T0=gT(),stock=KC.stockAt(res,T0),c=counts(res,T0);
+  document.querySelectorAll('#ksBody [data-row]').forEach(r=>{const pid=r.dataset.row,vals={stock:stock[pid]||0,sold:c.sold[pid]||0,lost:c.lost[pid]||0,looked:c.looked[pid]||0};
+    r.querySelectorAll('[data-f]').forEach(e=>{const v=vals[e.dataset.f];if(v==null||e.textContent==='—')return;const t=String(v);if(e.textContent!==t)e.textContent=t;if(e.dataset.f==='lost')e.classList.toggle('neg',v>0);});});}
 
 /* 棚割り：区画ごとの枠に、どの品を置くか */
 function renderLayout(b){const I=ix(),set=curSet(),Z=V.cfg.zones,sel=V.slotSel;
@@ -316,7 +397,9 @@ function drawKiosk(c,res,Tn){const I=ix(),set=curSet(),si=KC.shelfInfo(V.cfg,set
       const per=s?(stock[pid]||0)/s.face:0,k=Math.max(0,Math.ceil(Math.min(z.depth,per)/z.depth*3-1e-6)*(zk==='umbrella'?2.6:1));
       if(k>0)drawItem(c,p,x+1,y+1,w-2,h-6,zk==='umbrella'?Math.ceil(per/2):k);
       // 値札・売切
-      const pr=set.price[pid]??p.price;c.fillStyle=(stock[pid]||0)<=0?'#d8382e':'#ffffff';c.fillRect(x+2,y+h-11,Math.min(w-4,42),9);c.fillStyle=(stock[pid]||0)<=0?'#fff':'#333';c.font='8px sans-serif';c.textAlign='left';c.fillText((stock[pid]||0)<=0?'売切':pr+'円',x+4,y+h-4);});}
+      const pr=set.price[pid]??p.price,sv=stock[pid]||0,lowS=s&&sv>0&&sv<=Math.max(1,Math.ceil(s.cap*0.25));
+      c.fillStyle=sv<=0?'#d8382e':lowS?'#e0a21b':'#ffffff';c.fillRect(x+2,y+h-11,Math.min(w-4,42),9);c.fillStyle=sv<=0||lowS?'#fff':'#333';c.font='8px sans-serif';c.textAlign='left';c.fillText(sv<=0?'売切':lowS?'残り'+sv:pr+'円',x+4,y+h-4);
+      if(V.sheet===pid){c.strokeStyle='#0b6b64';c.lineWidth=3;c.strokeRect(x,y,w,h);}});}
   c.fillStyle='#55504a';c.font='11px sans-serif';c.textAlign='left';c.fillText('たばこ（年齢確認）',540,156);c.fillText('ホットスナック',724,246);
   // 会計カウンターと店員
   c.fillStyle='#b9b2a3';c.fillRect(540,330,180,40);c.fillStyle='#e9e5dc';c.fillRect(540,370,150,136);c.fillStyle='#4a5056';rr(c,600,300,70,34,4);c.fill();c.fillStyle='#9fd3c7';c.fillRect(608,306,40,12);
@@ -366,10 +449,11 @@ function draw(dt,time){const c=V.cx,Tn=gT();if(!c)return;c.clearRect(0,0,1000,60
   c.fillStyle='rgba(15,20,24,.82)';rr(c,10,8,96,26,5);c.fill();c.fillStyle='#ffb347';c.font='700 18px "DotGothic16",monospace';c.textAlign='left';c.fillText(fmtT(Tn),20,28);
   const O0=V.cfg.open[0]*60,O1=V.cfg.open[1]*60;if(Tn<O0||Tn>=O1){c.fillStyle='rgba(20,24,28,.55)';c.fillRect(124,104,746,402);c.fillStyle='#fff';c.font='700 22px sans-serif';c.textAlign='center';c.fillText(Tn<O0?'開店前（6:00から）':'本日の営業は終わりました',497,300);}}
 function onCanvasClick(ev){if(!V.st)return;const r=V.cv.getBoundingClientRect(),x=(ev.clientX-r.left)*1000/r.width,y=(ev.clientY-r.top)*600/r.height;
-  for(const zk in BOX){const sl=zoneSlots(zk);for(let i=0;i<sl.length;i++){const [sx,sy,sw,sh]=sl[i];if(x>=sx&&x<=sx+sw&&y>=sy&&y<=sy+sh){V.tab='layout';V.slotSel={z:zk,i};render(true);$('ksBody').scrollIntoView({behavior:'smooth',block:'start'});return;}}}}
+  for(const zk in BOX){const sl=zoneSlots(zk);for(let i=0;i<sl.length;i++){const [sx,sy,sw,sh]=sl[i];if(x>=sx&&x<=sx+sw&&y>=sy&&y<=sy+sh){const pid=(curSet().layout[zk]||[])[i];
+      if(pid){openSheet(pid);return;}V.tab='layout';V.slotSel={z:zk,i};render(true);$('ksBody').scrollIntoView({behavior:'smooth',block:'start'});return;}}}}   // 品のある枠は商品カード、空き枠は棚割り
 function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=ts;if(!V.open)return;
   V.drawAcc=(V.drawAcc||0)+dt;const fps=g(()=>playing,true)?30:8;if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
-  V.heavyT+=dt;if(V.heavyT>4){V.heavyT=0;if(V.st&&(V.tab==='items'||V.tab==='people'||V.tab==='money')&&!document.activeElement.closest?.('#ksBody'))renderBody(true);}
+  V.heavyT+=dt;if(V.heavyT>1){V.heavyT=0;if(V.st){renderAlert(false);updateSheet();updateItems();V.slowT=(V.slowT||0)+1;if(V.slowT>=5&&(V.tab==='people')){V.slowT=0;renderBody(true);}}}
   V.raf=requestAnimationFrame(loop);}
 
 /* ---------- 起動 ---------- */
