@@ -37,7 +37,7 @@ function create(cfg,opts){const ix=index(cfg);const st={v:1,seed:(opts&&opts.see
   return st;}
 
 /* ---------- 1日を動かす ----------
-   ctx = { day, dow(0=日〜6=土), cond:{day,wx,season}, flows:{hb,ha}, stops, plats, rcfg(research.json), order(その日の仕入れ数), express:[{t,pid,q}], edits:[{t,layout,price,staff}] }
+   ctx = { day, dow(0=日〜6=土), cond:{day,wx,season}, flows:{hb,ha}, stops, plats, rcfg(research.json), order(その日の仕入れ数), express:[{t,items:{品:数}}]（古い形 {t,pid,q} も読める）, edits:[{t,layout,price,staff}] }
    返すもの：出来事の列（買った・見たけど買わなかった・帰った・品出し・納品・評価・SNS…）、5分ごとの棚の在庫、商品別・時間帯・客層の集計、収支、次の日へ持ちこす物 */
 function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state.seed,ctx.day,state.st,state.place)),rEv=rng(hash(state.seed,ctx.day,'ev'));
   const place=R.places[state.place],P=ix.P,O1=cfg.open[1]*60,O0=Math.min(O1-60,Math.max(cfg.open[0]*60,ctx.startT||0));
@@ -79,10 +79,11 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const dayOrder=ctx.order||state.order;   // その日の便で届く数は、締め切りまでに出した発注で決まっている（途中で変えても、きょうの便は変わらない）
   const deliveries=cfg.deliveries.map(d=>({...d,t:Math.max(d.t,O0-1)}));
   // 臨時便：頼んだ時刻から lead 分後に、その品だけ届く
-  let expressFee=0;for(const x of (ctx.express||[])){const it=P[x.pid];if(!it)continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:x});expressFee+=cfg.express.fee;}
+  let expressFee=0;for(const x of (ctx.express||[])){const items=x.items||(x.pid?{[x.pid]:x.q}:{});if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:{items}});expressFee+=cfg.express.fee;}   // 1便に何品でものせられる。料金は便ごと
   deliveries.sort((a,b)=>a.t-b.t);
   const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;const its={};
-    if(d.express){const it=P[d.express.pid];(lots[it.id]||(lots[it.id]=[])).push({q:d.express.q,c:it.cost,d:ctx.day});deliveredCost+=d.express.q*it.cost;ev.push({t,k:'delivery',n:d.express.q,cost:d.express.q*it.cost+cfg.express.fee,name:'臨時便（'+it.short+'）',items:{[it.id]:d.express.q},express:true});return;}
+    if(d.express){let n2=0,c2=0;const names=[];for(const pid in d.express.items){const it=P[pid];if(!it)continue;const q=d.express.items[pid];(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n2+=q;c2+=q*it.cost;names.push(it.short);its[pid]=q;}
+      deliveredCost+=c2;ev.push({t,k:'delivery',n:n2,cost:c2+cfg.express.fee,name:'臨時便（'+names.join('・')+'）',items:its,express:true});return;}
     for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;
       let q;if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
       else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
