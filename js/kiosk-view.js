@@ -130,6 +130,8 @@ const CSS=`
 .ks-tags{display:inline-flex;gap:3px;flex-wrap:wrap}.ks-tags i{font-style:normal;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);white-space:nowrap}
 .ks-tags i.hot{color:#c9573f;border-color:#e3b0a5}.ks-tags i.cold{color:#2e7fd1;border-color:#a9c8ea}.ks-tags i.trend{color:#b0711f;border-color:#e4c38f;font-weight:700}.ks-tags i.age{color:#8a3c8a;border-color:#d4a9d4}
 .ks-log{display:grid;gap:3px;font-size:12.5px}
+.ks-flt{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:end;margin:0 0 8px;font-size:11.5px;color:var(--muted)}.ks-flt label{display:grid;gap:2px}.ks-flt label>span{display:flex;gap:3px;align-items:center}.ks-flt select{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-height:32px;max-width:11em}.ks-flt-b{display:flex;gap:6px;flex-wrap:wrap}.ks-fd>summary{cursor:pointer;font-size:12.5px;font-weight:700;padding:4px 0;min-height:32px}.ks-fd[open]>summary{margin-bottom:4px}
+.ks-lsum{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:0 0 8px;font-variant-numeric:tabular-nums}.ks-lsum b{width:100%}
 .ks-newpill{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:50%;transform:translateX(-50%);z-index:69;padding:9px 16px;border-radius:999px;font-size:14px;display:block;margin:0;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;box-shadow:0 2px 8px rgb(0 0 0 / .2)}
 #ksMore{margin-bottom:72px}
 @media (max-width:760px){.ks-log div{grid-template-columns:3.2em 5.2em minmax(0,1fr);}.ks-log div em{grid-column:3;justify-self:end}}.ks-log div{display:grid;grid-template-columns:3.4em 6em minmax(0,1fr) auto;gap:8px;padding:3px 4px;border-bottom:1px dashed var(--line)}
@@ -280,26 +282,83 @@ function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps
   if(e.k==='cook')return ['sys','',`${P[e.pid].short}を${e.n}個温めた`,''];
   if(e.k==='waste')return ['sys','',`${P[e.pid].short}を${e.n}個捨てた（${e.why}）`,''];
   if(e.k==='edit')return ['sys','','棚・値段・仕入れを変えた',''];return ['sys','',e.k,''];}
+/* 絞り込み：種類・客層・きっかけ・ジャンル・商品・理由・評価・時間帯。絞った分だけを一覧と集計に出す */
+const LF0={k:'',ps:'',mot:'',genre:'',pid:'',why:'',stars:'',h0:5,h1:26};
+if(!V.lf)V.lf={...LF0};
+const lfOn=()=>Object.keys(LF0).some(k=>V.lf[k]!==LF0[k]);
+const KIND={buy:'会計',look:'見たけど買わなかった',review:'評価',sns:'SNS',sys:'品出し・便・廃棄など'};
+const kindOf=e=>e.k==='buy'||e.k==='look'||e.k==='review'||e.k==='sns'?e.k:'sys';
+const pidsOf=e=>e.k==='buy'?e.items.map(x=>x[0]):e.pid?[e.pid]:[];
+function lfMatch(e){const f=V.lf,I=ix();if(f.k&&kindOf(e)!==f.k)return false;if(f.ps&&e.ps!==f.ps)return false;
+  if(f.mot&&(e.k!=='buy'||(f.mot==='addon'?!e.addon:(e.mot||'plan')!==f.mot)))return false;
+  if(f.why&&(e.k!=='look'||e.why!==f.why))return false;
+  if(f.stars&&(e.k!=='review'||(f.stars==='lo'?e.stars>2:f.stars==='mid'?e.stars!==3:e.stars<4)))return false;
+  const h=e.t/60;if(h<f.h0||h>=f.h1)return false;
+  if(f.pid||f.genre){const ps=pidsOf(e);if(f.pid&&!ps.includes(f.pid))return false;if(f.genre&&!ps.some(p=>I.P[p].genre===f.genre)&&e.genre!==f.genre)return false;}
+  return true;}
+function lfBar(res){const I=ix(),f=V.lf,L=V.cfg.mood&&V.cfg.mood.labels||{},opt=(v,t,cur)=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(t)}</option>`;
+  const whys=[...new Set(res.ev.filter(e=>e.k==='look').map(e=>e.why))];
+  const prods=V.cfg.products.filter(p=>!f.genre||p.genre===f.genre);
+  const hs=Array.from({length:22},(_,i)=>i+5);
+  const nOn=Object.keys(LF0).filter(k=>k!=='h1'&&V.lf[k]!==LF0[k]).length+(f.h1!==LF0.h1&&f.h0===LF0.h0?1:0),wide=!matchMedia('(max-width:760px)').matches;
+  if(V.lfOpen==null)V.lfOpen=wide;
+  return `<details class="ks-fd" id="ksFd" ${V.lfOpen||nOn?'open':''}><summary>絞り込み${nOn?`（${nOn}つの条件）`:''}</summary><div class="ks-flt" id="ksFlt">
+    <label>種類<select data-f="k">${opt('','すべて',f.k)}${Object.entries(KIND).map(([k,t])=>opt(k,t,f.k)).join('')}</select></label>
+    <label>客層<select data-f="ps">${opt('','すべて',f.ps)}${V.cfg.personas.map(p=>opt(p.id,p.name,f.ps)).join('')}</select></label>
+    <label>きっかけ<select data-f="mot">${opt('','すべて',f.mot)}${Object.entries(L).map(([k,t])=>opt(k,t,f.mot)).join('')}${opt('addon','ついでにもう1品',f.mot)}</select></label>
+    <label>ジャンル<select data-f="genre">${opt('','すべて',f.genre)}${V.cfg.genres.map(g=>opt(g.id,g.name,f.genre)).join('')}</select></label>
+    <label>商品<select data-f="pid">${opt('','すべて',f.pid)}${prods.map(p=>opt(p.id,p.short,f.pid)).join('')}</select></label>
+    <label>買わなかった理由<select data-f="why">${opt('','すべて',f.why)}${whys.map(w=>opt(w,w,f.why)).join('')}</select></label>
+    <label>評価<select data-f="stars">${opt('','すべて',f.stars)}${opt('lo','★1〜2（不満）',f.stars)}${opt('mid','★3',f.stars)}${opt('hi','★4〜5（満足）',f.stars)}</select></label>
+    <label>時間帯<span><select data-f="h0">${hs.map(h=>opt(h,h+'時',f.h0)).join('')}</select>〜<select data-f="h1">${hs.slice(1).concat([27]).map(h=>opt(h,h+'時',f.h1)).join('')}</select></span></label>
+    <span class="ks-flt-b"><button type="button" class="ks-btn" id="ksLfClr" ${lfOn()?'':'disabled'}>絞り込みを外す</button><button type="button" class="ks-btn" id="ksCsv">表として保存（CSV）</button></span></div></details>
+    <div class="ks-lsum" id="ksLogSum"></div>`;}
+/* 絞った分の集計 */
+function lfSummary(res,k){const I=ix(),L=V.cfg.mood&&V.cfg.mood.labels||{};let n=0,buy=0,yenS=0,look=0,rv=0,stars=0,sns=0;const it={},mot={},ps={},why={};
+  for(let i=0;i<k;i++){const e=res.ev[i];if(!lfMatch(e))continue;n++;
+    if(e.k==='buy'){buy++;yenS+=e.yen;const m=e.mot||'plan';mot[m]=(mot[m]||0)+1;ps[e.ps]=(ps[e.ps]||0)+1;for(const [p,q] of e.items)it[p]=(it[p]||0)+q;}
+    else if(e.k==='look'){look++;why[e.why]=(why[e.why]||0)+1;}else if(e.k==='review'){rv++;stars+=e.stars;}else if(e.k==='sns')sns++;}
+  const top=(o,f,m)=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,m||3).map(([x,v])=>f(x)+' '+v).join('・');
+  const cv=buy+look?Math.round(buy/(buy+look)*100):null;
+  return `<b>${lfOn()?'絞り込んだ結果':'きょうのいままで'}：${n}件</b>`
+    +(buy?`<span>会計 ${buy}人・売上 ${yen(yenS)}・客単価 ${yen(yenS/buy)}</span>`:'')
+    +(look?`<span>見たけど買わなかった ${look}人${cv!=null?`（寄った人のうち買った割合 ${cv}%）`:''}</span>`:'')
+    +(rv?`<span>評価 ${rv}件・平均 ★${(stars/rv).toFixed(1)}</span>`:'')+(sns?`<span>SNS ${sns}件</span>`:'')
+    +(buy?`<span>よく売れた：${top(it,p=>I.P[p].short)}</span><span>きっかけ：${top(mot,m=>L[m]||m,4)}</span><span>客層：${top(ps,p=>(I.PS[p]||{}).short||p)}</span>`:'')
+    +(look?`<span>買わなかった理由：${top(why,w=>w)}</span>`:'');}
+function lfCsv(res){const I=ix(),L=V.cfg.mood&&V.cfg.mood.labels||{},k=KC.idxAt(res,gT()),q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const rows=[['運行日','時刻','種類','客層','品','個数','金額','きっかけ','ついで','待ち秒','理由','星','内容']];
+  for(let i=0;i<k;i++){const e=res.ev[i];if(!lfMatch(e))continue;const ps=e.ps?(I.PS[e.ps]||{}).name||e.ps:'',kd=KIND[kindOf(e)];
+    if(e.k==='buy')rows.push([res.day,fmtT(e.t),kd,ps,e.items.map(([p])=>I.P[p].short).join('・'),e.items.reduce((a,x)=>a+x[1],0),Math.round(e.yen),e.reg?'いつもの':e.mania?'発売日を待って':L[e.mot||'plan']||'',e.addon?'あり':'',Math.round((e.wait||0)*60),'','','']);
+    else{const [,,tx]=evText(e);rows.push([res.day,fmtT(e.t),kd,ps,e.pid?I.P[e.pid].short:e.genre?I.G[e.genre].name:'','','','','','',e.why||'',e.stars||'',tx]);}}
+  const blob=new Blob(['﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=`売店_売れ行き_運行日${res.day}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
 /* 一覧は作り直さない：新しい出来事を上に足すだけ。下の方を読んでいるあいだは足さずに「新しい出来事 ○件」を出す（スクロールが先頭に戻らないように） */
 const logRow=e=>{const [c,ps,tx,r]=evText(e);return `<div class="${c}"><time>${fmtT(e.t)}</time><span class="ps">${esc(ps)}</span><span>${esc(tx)}</span><em>${esc(r)}</em></div>`;};
+const PAGE=120;
 function renderLog(b,res,full){const k=KC.idxAt(res,gT());let box=$('ksLog');
   const rebuild=full||!box||V.logRes!==res||k<V.logK||!b.contains(box);
-  if(rebuild){V.logRes=res;V.logK=k;V.logFrom=Math.max(0,k-80);
-    b.innerHTML=`<div class="ks-card"><h3><span>売れ行き</span><small>いまの時刻までの出来事・新しい順（会計・見たけど買わなかった・評価・SNS・品出しなど）</small></h3>
-      <button type="button" class="ks-btn ks-newpill" id="ksNew" hidden></button><div class="ks-log" id="ksLog">${res.ev.slice(V.logFrom,k).reverse().map(logRow).join('')||'<p class="ks-note" id="ksLogEmpty">まだ何も起きていません。</p>'}</div>
+  if(rebuild){V.logRes=res;V.logK=k;V.logIdx=[];for(let i=0;i<k;i++)if(lfMatch(res.ev[i]))V.logIdx.push(i);V.logFrom=Math.max(0,V.logIdx.length-PAGE);
+    b.innerHTML=`<div class="ks-card"><h3><span>売れ行き</span><small>いまの時刻までの出来事・新しい順（会計・見たけど買わなかった・評価・SNS・品出しなど）。絞り込むと、その分だけの一覧と集計になります</small></h3>${lfBar(res)}
+      <button type="button" class="ks-btn ks-newpill" id="ksNew" hidden></button><div class="ks-log" id="ksLog">${V.logIdx.slice(V.logFrom).reverse().map(i=>logRow(res.ev[i])).join('')||`<p class="ks-note" id="ksLogEmpty">${lfOn()?'条件に合う出来事はまだありません。':'まだ何も起きていません。'}</p>`}</div>
       <div style="margin-top:8px;text-align:center"><button type="button" class="ks-btn" id="ksMore" ${V.logFrom>0?'':'hidden'}>もっと前を見る</button></div></div>`;
-    box=$('ksLog');
-    $('ksMore').onclick=()=>{const r=V.logRes,to=V.logFrom,from=Math.max(0,to-100);box.insertAdjacentHTML('beforeend',r.ev.slice(from,to).reverse().map(logRow).join(''));V.logFrom=from;$('ksMore').hidden=from<=0;};
+    box=$('ksLog');$('ksLogSum').innerHTML=lfSummary(res,k);
+    $('ksMore').onclick=()=>{const r=V.logRes,to=V.logFrom,from=Math.max(0,to-PAGE);box.insertAdjacentHTML('beforeend',V.logIdx.slice(from,to).reverse().map(i=>logRow(r.ev[i])).join(''));V.logFrom=from;$('ksMore').hidden=from<=0;};
     $('ksNew').onclick=()=>{flushLog(true);box.scrollIntoView({block:'start',behavior:'smooth'});};
+    $('ksFlt').querySelectorAll('select').forEach(x=>x.onchange=()=>{const f=x.dataset.f;V.lf[f]=f==='h0'||f==='h1'?Number(x.value):x.value;
+      if(f==='genre'&&V.lf.pid&&ix().P[V.lf.pid].genre!==V.lf.genre)V.lf.pid='';if(V.lf.h1<=V.lf.h0)V.lf.h1=V.lf.h0+1;renderLog(b,V.res||res,true);});
+    $('ksFd').ontoggle=()=>{V.lfOpen=$('ksFd').open;};$('ksLfClr').onclick=()=>{V.lf={...LF0};renderLog(b,V.res||res,true);};$('ksCsv').onclick=()=>lfCsv(V.logRes);
     return;}
   if(k===V.logK)return;
   // 読んでいる途中か：パソコンは一覧の中のスクロール、スマホはページのスクロールで判断
   const reading=box.getBoundingClientRect().top<120;   // 一覧の先頭が画面の上に隠れていたら、読んでいる途中
-  if(reading){const n=k-V.logK;const pill=$('ksNew');pill.hidden=false;pill.textContent=`↑ 新しい出来事 ${n}件`;V.logPend=k;return;}
+  if(reading){let n=0;for(let i=V.logK;i<k;i++)if(lfMatch(res.ev[i]))n++;const pill=$('ksNew');pill.hidden=!n;pill.textContent=`↑ 新しい出来事 ${n}件`;V.logPend=k;return;}
   flushLog(false);}
-function flushLog(force){const box=$('ksLog'),res=V.logRes;if(!box||!res)return;const k=force?KC.idxAt(res,gT()):KC.idxAt(res,gT());
-  const add=res.ev.slice(V.logK,k).reverse().map(logRow).join('');const em=$('ksLogEmpty');if(em)em.remove();
+function flushLog(force){const box=$('ksLog'),res=V.logRes;if(!box||!res)return;const k=KC.idxAt(res,gT());
+  const nw=[];for(let i=V.logK;i<k;i++)if(lfMatch(res.ev[i])){nw.push(i);V.logIdx.push(i);}
+  const add=nw.reverse().map(i=>logRow(res.ev[i])).join('');const em=$('ksLogEmpty');if(add&&em)em.remove();
   if(add)box.insertAdjacentHTML('afterbegin',add);V.logK=k;$('ksNew').hidden=true;
+  const sm=$('ksLogSum');if(sm){const h=lfSummary(res,k);if(sm.innerHTML!==h)sm.innerHTML=h;}
   while(box.children.length>400){box.lastElementChild.remove();V.logFrom++;}if($('ksMore'))$('ksMore').hidden=V.logFrom<=0;}
 
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
