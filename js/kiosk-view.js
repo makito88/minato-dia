@@ -132,6 +132,8 @@ const CSS=`
 .ks-tags{display:inline-flex;gap:3px;flex-wrap:wrap}.ks-tags i{font-style:normal;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);white-space:nowrap}
 .ks-tags i.hot{color:#c9573f;border-color:#e3b0a5}.ks-tags i.cold{color:#2e7fd1;border-color:#a9c8ea}.ks-tags i.trend{color:#b0711f;border-color:#e4c38f;font-weight:700}.ks-tags i.age{color:#8a3c8a;border-color:#d4a9d4}
 .ks-log{display:grid;gap:3px;font-size:12.5px}
+.ks-gbar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.ks-gbar .ks-chip.warn{border-color:#c9573f;color:#c9573f}.ks-gbar .ks-chip.warn[aria-pressed="true"]{background:#c9573f;color:#fff}
+@media (max-width:760px){.ks-gbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}.ks-gbar .ks-chip{flex:0 0 auto;white-space:nowrap}}
 .ks-crews{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:8px}.ks-crew{border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:grid;gap:6px;background:var(--paper)}.ks-crew.warn{border-color:#c9573f}
 .ks-crew-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.ks-crew-h b{font-size:14.5px}.ks-crew .mut,.ks-crew small.mut{color:var(--muted);font-size:11.5px}
 .ks-mood{height:7px;background:var(--line);border-radius:4px;overflow:hidden}.ks-mood u{display:block;height:100%}.ks-crew-m{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}.ks-crew-m span{color:var(--muted)}
@@ -381,7 +383,12 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
       ${V.expConfirm===pid&&openExpress()?expressConfirm(pid,q,'ksExAdd','ksExNew','ksExNo'):`<span>${openExpress()?`まだ出ていない臨時便：${fmtT(expArrive(openExpress()))}着（${expList(openExpress())}）。`:''}${yen(V.cfg.express.fee)}＋原価${yen(q*p.cost)}・${fmtT(gT()+V.cfg.express.lead)}ごろ届く</span><button type="button" class="ks-btn pri" id="ksExGo" ${expressAny()?'':'disabled'}>頼む</button><button type="button" class="ks-btn" id="ksExNo">やめる</button>`}</div>`;};
   const tr=S.trend?V.cfg.trends.find(x=>x.id===S.trend.id):null;
   const lostSO={},looked={};const k=KC.idxAt(res,gT());for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='look'&&e.pid){(e.why==='売り切れ'?lostSO:looked)[e.pid]=((e.why==='売り切れ'?lostSO:looked)[e.pid]||0)+1;}}
-  const list=V.cfg.products.filter(p=>V.showAll||si[p.id]);
+  const base=V.cfg.products.filter(p=>V.showAll||si[p.id]),G=V.itemG||'';
+  const warnOf=pid=>{const x=pinfo(pid,res);return x.st==='out'||x.st==='wait'||x.st==='low';};
+  const list=base.filter(p=>!G||(G==='!warn'?warnOf(p.id):p.genre===G));
+  // ジャンルで絞る（スマホで72品を縦に送らなくてすむように）。数は、いま一覧に出す品の数
+  const gN={};for(const p of base)gN[p.genre]=(gN[p.genre]||0)+1;const wN=base.filter(p=>warnOf(p.id)).length;
+  const gBar=`<div class="ks-gbar" role="group" aria-label="ジャンルで絞る"><button type="button" class="ks-chip" data-ig="" aria-pressed="${!G}">すべて ${base.length}</button>${wN?`<button type="button" class="ks-chip warn" data-ig="!warn" aria-pressed="${G==='!warn'}">要注意 ${wN}</button>`:''}${V.cfg.genres.filter(g2=>gN[g2.id]).map(g2=>`<button type="button" class="ks-chip" data-ig="${g2.id}" aria-pressed="${G===g2.id}">${g2.name} ${gN[g2.id]}</button>`).join('')}</div>`;
   const tag=p=>{const t=[];const G=I.G[p.genre];t.push(p.temp==='hot'?'<i class="hot">温</i>':p.temp==='cold'?'<i class="cold">冷</i>':'<i>常温</i>');
     if(p.ease>=5)t.push('<i>手軽</i>');if(p.health>=4)t.push('<i>健康</i>');if(p.sudden)t.push('<i>突発</i>');if(p.genre==='hot')t.push('<i>温め・調理</i>');
     if(p.photo>=0.6)t.push('<i>映え</i>');if(p.regular>=0.6)t.push('<i>常連向き</i>');if(p.mania>=0.4)t.push('<i>マニア</i>');if(G.age)t.push('<i class="age">年齢確認</i>');
@@ -391,6 +398,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
     <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。</p>
     ${expBox()}${pendBox}
     <label style="font-size:12.5px"><input type="checkbox" id="ksAll" ${V.showAll?'checked':''}> 棚に置いていない商品も出す</label>
+    ${gBar}${list.length?'':'<p class="ks-note">このジャンルの品は、いま一覧にありません。</p>'}
     ${narrow()?`<div class="ks-cards">${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
       return `<div class="ks-pc ${s?'':'off'}" data-row="${p.id}"><div class="ks-pc-h"><button type="button" class="ks-pname" data-sh="${p.id}"><b>${esc(p.name)}</b></button><span class="mut">${I.G[p.genre].name}</span></div>${tag(p)}
         <div class="ks-pc-g"><span>値段</span><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span>
@@ -409,6 +417,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
       <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td data-f="stock">${s?(stock[p.id]||0):'—'}</td><td data-f="sold">${o.items[p.id]||0}</td>${V.cfg.hideLost?'':`<td data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td>`}<td data-f="looked">${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
     </tbody></table></div>`}<p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
   $('ksAll').onchange=e=>{V.showAll=e.target.checked;render(true);};
+  b.querySelectorAll('[data-ig]').forEach(x=>x.onclick=()=>{V.itemG=x.dataset.ig;render(true);});
   b.querySelectorAll('[data-sh]').forEach(x=>x.onclick=()=>openSheet(x.dataset.sh));
   b.querySelectorAll('[data-undo]').forEach(x=>x.onclick=()=>{const [f,pid]=x.dataset.undo.split('|'),e=(S.orderQ||[]).find(q=>q.from===Number(f));if(e){e.order[pid]=orderFor(e.from-1)[pid]||0;persist();render(true);}});
   b.querySelectorAll('[data-pr]').forEach(x=>x.onclick=()=>edit(c=>{const pid=x.dataset.pr;c.price[pid]=Math.max(10,(c.price[pid]??I.P[pid].price)+Number(x.dataset.d));}));
@@ -494,8 +503,9 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
       <p class="ks-note">だれもいない時間は売店を閉めます（ホットスナックも温めません）。1時間に会計する人が1人あたり${C.morale.busy}人を超えると「忙しすぎる」と感じます。</p></div>
     <div class="ks-card"><h3><span>あすからのシフト</span><small>押すと「入る」・「—」は入れない時間</small></h3>
       <div class="ks-sbtns" style="margin-bottom:6px">${KS.TYPES.map(tp=>`<button type="button" class="ks-chip" data-ty="${tp}" aria-pressed="${ty===tp}">${TN[tp]}${tp===type?'（きょう）':''}</button>`).join('')}</div>
+      <div class="ks-sbtns" style="margin-bottom:6px"><button type="button" class="ks-btn" data-auto="cost">おまかせ：人件費を抑える</button><button type="button" class="ks-btn" data-auto="cover">おまかせ：混む時間は多めに</button></div>
       <div class="ks-scroll">${grid}</div>
-      <p class="ks-note">${TN[ty]}1日の人件費の見込み：<b>${yen(costDay)}</b>（22時からは2割5分増し）。「週」は平日5日・土曜1日・日曜祝日1日の合計／希望の時間。シフトの変更は次の運行日から効きます。${cr.shiftNext?'<button type="button" class="ks-btn ks-small" id="ksShReset">いまのシフトに戻す</button>':''}</p></div></div>
+      <p class="ks-note">${TN[ty]}1日の人件費の見込み：<b>${yen(costDay)}</b>（22時からは2割5分増し）。「週」は平日5日・土曜1日・日曜祝日1日の合計／希望の時間。シフトの変更は次の運行日から効きます。「おまかせ」は3つの型をまとめて組みます（人件費を抑える＝各時間帯1人、混む時間は多めに＝1人あたり1時間の会計がおよそ${Math.round(C.morale.busy*0.9)}人までになるよう最大3人。見込みはこれまでのお客さんの数から）。入れる時間と週の希望を見て、足りない時間に入れる人がいなければ空きます。${cr.shiftNext?'<button type="button" class="ks-btn ks-small" id="ksShReset">いまのシフトに戻す</button>':''}</p></div></div>
     <div class="ks-card"><h3><span>店員</span><small>${people.length}人（最大${C.max}人）・相場の時給 ${yen(C.market)}・時給の変更はあすから</small></h3><div class="ks-crews">${people.map(card).join('')}</div></div>
     <div class="ks-card"><h3><span>募集</span><small>1回${yen(C.ad.fee)}・${C.ad.days}日間・時給を高くすると応募が多い</small></h3>
       <div class="ks-sbtns"><label class="ks-note" style="margin:0">時給 <select id="ksAdWage">${adOpts.map(wv=>`<option value="${wv}" ${wv===V.adWage?'selected':''}>${yen(wv)}</option>`).join('')}</select></label><button type="button" class="ks-btn pri" id="ksAd" ${ads.some(a=>a.day===day)?'disabled':''}>募集を出す（${yen(C.ad.fee)}）</button>
@@ -505,6 +515,8 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
   const find=id=>cr.people.find(p=>p.id===id);
   b.querySelectorAll('[data-ty]').forEach(x=>x.onclick=()=>{V.crewType=x.dataset.ty;render(true);});
   b.querySelectorAll('[data-cell]').forEach(x=>x.onclick=()=>{const [id,bk]=x.dataset.cell.split('|'),S2=shNext(),L=S2[ty][id]||(S2[ty][id]=[]);const i=L.indexOf(bk);if(i>=0)L.splice(i,1);else L.push(bk);crewSave(false);});
+  b.querySelectorAll('[data-auto]').forEach(x=>x.onclick=()=>{const perH={};for(const tp of KS.TYPES){const a=(V.st.custH||{})[tp]||(tp===type||!(V.st.custH||{})[type]?res.hourlyN:V.st.custH[type]);perH[tp]=BL.map(bk=>{let n2=0;for(let h=bk.from;h<bk.to;h++)n2+=a[h]||0;return n2/(bk.to-bk.from);});}
+    cr.shiftNext=KS.autoShift(V.cfg,cr,day,x.dataset.auto,perH);V.st.news.push({day,kind:'crew',title:x.dataset.auto==='cost'?'おまかせでシフトを組んだ（人件費を抑える）':'おまかせでシフトを組んだ（混む時間は多めに）',text:'あすから効きます。「いまのシフトに戻す」で取り消せます。'});crewSave(false);});
   if($('ksShReset'))$('ksShReset').onclick=()=>{delete cr.shiftNext;crewSave(false);};
   b.querySelectorAll('[data-wage]').forEach(x=>x.onclick=()=>{const p=find(x.dataset.wage),v=clampW((p.wageNext??p.wage)+Number(x.dataset.d)*C.step);if(v===p.wage)delete p.wageNext;else p.wageNext=v;crewSave(false);});
   b.querySelectorAll('[data-raise]').forEach(x=>x.onclick=()=>{const p=find(x.dataset.raise);p.wageNext=Math.max(p.wageNext??p.wage,p.ask);crewSave(false);});
@@ -628,7 +640,9 @@ function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=
 
 /* ---------- 起動 ---------- */
 mount();setInterval(tick,1000);
-window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()=>setOpen(true),sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},
+window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()=>setOpen(true),
+  // リサーチから：その駅・場所を選んだ状態で売店の画面を開く（まだ出していないとき）
+  openAt:(st,place)=>{if(!V.st&&PLACES.includes(place))V.form={st,place};setOpen(true);},places:PLACES,sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},
   closeToday(){const r=ensureRes();if(r){closeToday(r);g(()=>{ENS.day=ENS.day;});}return V.st&&V.st.hist.at(-1);},   // 開発用：きょうの分で1日を締める（運行日は進めない）
   reset(){try{localStorage.removeItem(KEY);}catch(e){}V.st=null;V.res=null;render(true);badge();}};
 })();

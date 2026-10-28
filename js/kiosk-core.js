@@ -244,6 +244,7 @@ function review(cfg,ps,it,ratio,r,care){care=care||0;const [s,k,v]=it.taste,[ps1
 function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.stringify(state)),day=res.day,news=[];
   const say=(kind,title,text,pid)=>{const n={day,kind,title,text,pid};news.push(n);st.news.push(n);};
   st.lots=res.carry;st.closed=day;st.cash+=res.pl.profit;
+  {const ty=res.cond&&res.cond.day||'wd',o=(st.custH||(st.custH={}))[ty];st.custH[ty]=res.hourlyN.map((v,h)=>o&&o[h]!=null?+(o[h]*0.7+v*0.3).toFixed(1):v);}   // 型ごとの1時間の会計の人数（おまかせシフトの見込みに使う）
   if(root.KioskStaff&&st.crew)root.KioskStaff.close(cfg,st,res,day,(kind,title,text)=>say(kind,title,text));
   {const hc=ix.G.hot&&ix.G.hot.cook,L=hc&&hc.learn||0.4,dem={};
     for(const e of res.ev){const h=Math.floor(e.t/60);if(e.k==='buy'){for(const [pid,q] of e.items)if(ix.P[pid].genre==='hot'){const a=dem[pid]||(dem[pid]=new Array(27).fill(0));a[h]+=q;}}

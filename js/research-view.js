@@ -63,6 +63,7 @@ const CSS=`
 .rs-btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:6px 11px;cursor:pointer}
 .rs-btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
 .rs-btn:disabled{opacity:.45;cursor:default}
+.rs-go{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:8px;font-size:12.5px;color:var(--muted)}.rs-go .rs-btn{min-height:38px}
 .rs-btn:focus-visible,.rs-chip:focus-visible,.rs-place:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .rs-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
 .rs-card h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.rs-card h3 small{font-size:11.5px;color:var(--muted);font-weight:400}
@@ -153,6 +154,11 @@ const dev=()=>/(^|#|&)dev\b/.test(location.hash);
 
 /* ---------- レポート ---------- */
 function bars(rows){return `<div class="rs-bars">${rows.map(r=>`<div><span>${r.n}</span><div class="rs-bar"><i style="width:${Math.min(100,r.p*100/(r.max||1))}%;background:${r.c||'var(--accent)'}"></i>${r.lo!=null?`<u style="left:${r.lo*100/(r.max||1)}%;width:${Math.max(0.5,(r.hi-r.lo)*100/(r.max||1))}%"></u>`:''}</div><em>${r.t||pct(r.p)}</em></div>`).join('')}</div>`;}
+/* レポートから売店へ：まだ売店がなければ、この駅・場所を選んだ状態で売店の画面を開く */
+function toKiosk(s){const K=g(()=>window.minatoKiosk,null);if(!K)return '';const ks=K.state,C=V.cfg;
+  if(ks)return `<div class="rs-go"><button type="button" class="rs-btn" id="rsToKs">売店を見る</button><span>売店は${stName(ks.st)}駅・${C.places[ks.place].name}に出しています（出せるのは1店です）。</span></div>`;
+  if(!(K.places||[]).includes(s.place))return `<div class="rs-go"><span>${C.places[s.place].name}には売店を出せません（ホーム・改札内・改札口の前のどれかです）。</span></div>`;
+  return `<div class="rs-go"><button type="button" class="rs-btn pri" id="rsToKs">${stName(s.st)}駅・${C.places[s.place].name}に売店を出す…</button><span>売店の画面を、この場所を選んだ状態で開きます（そこで決めます）。</span></div>`;}
 function renderReport(){const box=$('rsReport'),C=V.cfg,list=V.st.studies.filter(s=>s.recs.length);
   if(!list.length){box.innerHTML=`<div class="rs-card"><p class="rs-empty">まだ調査の記録はありません。上で場所と調べ方を選んで始めると、運行日が1日終わるごとにここへレポートがたまります。</p></div>`;return;}
   if(!study(V.sel)||!study(V.sel).recs.length)V.sel=list.at(-1).id;
@@ -160,7 +166,7 @@ function renderReport(){const box=$('rsReport'),C=V.cfg,list=V.st.studies.filter
   const sw=list.length>1?`<div class="rs-list">${list.map(x=>`<button type="button" class="rs-chip" data-sel="${x.id}" aria-pressed="${x.id===s.id}">${stName(x.st)}・${C.places[x.place].name}（${x.recs.length}日${x.status==='active'?'・調査中':''}）</button>`).join('')}</div>`:'';
   const cov=`${Object.entries(rep.cover.day).map(([k,v])=>DAYN[k]+v).join('・')}／${Object.entries(rep.cover.wx).map(([k,v])=>WXN[k]+v).join('・')}${rep.cover.ev?'／イベントの日'+rep.cover.ev:''}`;
   let h=`<div class="rs-grid">
-   <div class="rs-card c12"><h3><span>レポート：${stName(s.st)}駅・${P.name}</span><small>${rep.days}日分（${cov}）・費用 ${man(rep.cost)}</small></h3>${sw}</div>`;
+   <div class="rs-card c12"><h3><span>レポート：${stName(s.st)}駅・${P.name}</span><small>${rep.days}日分（${cov}）・費用 ${man(rep.cost)}</small></h3>${sw}${toKiosk(s)}</div>`;
   // 人の流れ
   if(rep.F){const tot=new Array(H).fill(0);for(let p=0;p<4;p++)for(let hh=0;hh<H;hh++)tot[hh]+=rep.F[p][hh];const mx=Math.max(1,...tot.slice(4,26));
     const dwmx=Math.max(1,...rep.dw.slice(4,26));const peak=tot.indexOf(Math.max(...tot));
@@ -188,6 +194,7 @@ function renderReport(){const box=$('rsReport'),C=V.cfg,list=V.st.studies.filter
   // 試算
   h+=`<div class="rs-card c12" id="rsEst"></div></div>`;
   box.innerHTML=h;box.querySelectorAll('[data-sel]').forEach(b=>b.onclick=()=>{V.sel=b.dataset.sel;render(true);});
+  if($('rsToKs'))$('rsToKs').onclick=()=>{setOpen(false);g(()=>window.minatoKiosk.openAt(s.st,s.place));};
   renderEst(s,rep);}
 function renderEst(s,rep){const C=V.cfg,box=$('rsEst'),season=gCond().season,o=V.est;
   const all=C.types.map(t=>({t,e:RC.estimate(C,rep,t.id,{st:s.st,place:s.place,season,ageDevice:o.dev})}));

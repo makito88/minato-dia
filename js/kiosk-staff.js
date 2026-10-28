@@ -41,10 +41,26 @@ function create(cfg,seed,day,n){const r=rng(hash('crew',seed)),C=cfg.crew,used=[
   const crew={people,shift:{},ads:[],applicants:[]};
   for(const t of TYPES){crew.shift[t]={};for(const p of people)crew.shift[t][p.id]=[];}
   // 時間帯ごとに、入れる人のうちシフトが希望に対して少ない人から n 人入れる
-  const hrs={},nAv=p=>TYPES.reduce((s,t)=>s+p.avail[t].length,0);
-  for(const t of TYPES)for(const b of B(cfg)){const add=(b.to-b.from)*C.weekDays[t],cand=people.filter(p=>p.avail[t].includes(b.id)).sort((a,c)=>(c.want-(hrs[c.id]||0))/nAv(c)-(a.want-(hrs[a.id]||0))/nAv(a));   // 希望に足りない時間が多く、入れる時間が少ない人から
-    for(const p of cand.slice(0,n)){crew.shift[t][p.id].push(b.id);hrs[p.id]=(hrs[p.id]||0)+(b.to-b.from)*C.weekDays[t];}}
+  crew.shift=assign(cfg,people,()=>n,'even');
   return crew;}
+/* 割り振り：時間帯ごとに need(型,時間帯) 人を入れる。入れる人のうち、希望に足りない時間が多く・入れる時間が少ない人から。
+   希望の over 倍を超える人は、ほかにいなければ入れる。mode='cost' のときは、同じくらいなら時給の安い人から */
+function assign(cfg,people,need,mode){const C=cfg.crew,sh={},hrs={},nAv=p=>TYPES.reduce((s,t)=>s+p.avail[t].length,0)||1;
+  for(const t of TYPES){sh[t]={};for(const p of people)sh[t][p.id]=[];}
+  const score=p=>(p.want-(hrs[p.id]||0))/nAv(p)-(mode==='cost'?((p.wageNext??p.wage)-C.market)/200:0);
+  // 入れる人が少ない時間帯から先に決める（先に埋めないと、だれもいなくなる）
+  const slots=[];for(const t of TYPES)for(const b of B(cfg))slots.push({t,b,n:people.filter(p=>p.avail[t].includes(b.id)).length});
+  slots.sort((a,c)=>a.n-c.n);
+  for(const {t,b} of slots){const add=(b.to-b.from)*C.weekDays[t],k=need(t,b);
+    const cand=people.filter(p=>p.avail[t].includes(b.id)).sort((a,c)=>{const oa=(hrs[a.id]||0)+add>a.want*C.morale.over,oc=(hrs[c.id]||0)+add>c.want*C.morale.over;return (oa-oc)||(score(c)-score(a));});
+    for(const p of cand.slice(0,k)){sh[t][p.id].push(b.id);hrs[p.id]=(hrs[p.id]||0)+add;}}
+  for(const t of TYPES)for(const id in sh[t])sh[t][id].sort((a,c)=>B(cfg).findIndex(x=>x.id===a)-B(cfg).findIndex(x=>x.id===c));
+  return sh;}
+/* おまかせシフト：mode='cost' は各時間帯1人。'cover' は、1人あたり1時間の会計が busy 人を超えないように（最大3人）。
+   perH[型][時間帯の番号]＝1時間に来るお客さんの見込み */
+function autoShift(cfg,crew,day,mode,perH){const people=crew.people.filter(p=>p.leave==null&&active(p,day+1)),C=cfg.crew;
+  const need=(t,b)=>mode==='cost'?1:Math.max(1,Math.min(3,Math.ceil(((perH[t]||[])[B(cfg).indexOf(b)]||0)/(C.morale.busy*0.9))));
+  return assign(cfg,people,need,mode);}
 function migrate(cfg,state){if(state.crew)return state.crew;state.crew=create(cfg,state.seed||1,state.openedDay||1,Math.max(1,state.staff||1));return state.crew;}
 
 /* その人がその日に働くか（雇った日の次の日から・辞める日の前の日まで） */
@@ -100,6 +116,6 @@ function close(cfg,st,res,day,say){const C=cfg.crew,M=C.morale,crew=migrate(cfg,
   if(left)say('crew',`応募していた${left}人が、ほかで決まった`,'');
   return crew;}
 
-root.KioskStaff={create,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,active,close,adsOpen,TYPES,blk};
+root.KioskStaff={create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,active,close,adsOpen,TYPES,blk};
 if(typeof module!=='undefined')module.exports=root.KioskStaff;
 })(typeof window!=='undefined'?window:globalThis);
