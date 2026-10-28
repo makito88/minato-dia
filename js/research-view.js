@@ -109,7 +109,11 @@ select.rs-sel{font:inherit;font-size:13px;border:1px solid var(--line);backgroun
 `;
 function mount(){const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
   const after=$('tayoriBtn')||document.querySelector('.clockbox');
-  if(after){const b=document.createElement('button');b.id='rsBtn';b.type='button';b.className='tayoribtn';b.innerHTML='駅ナカ リサーチ<span class="dot" hidden></span>';after.after(b);b.onclick=()=>setOpen(true);}
+  // 街のカルテ（沿線の街の設定資料・お金の流れ）：リサーチの手前に、別のタブで開く入口（ゲームは止めない）
+  const KARTE='docs/machi-karte.html#money',link=(cls,txt,id)=>{const k=document.createElement('a');k.id=id;k.href=KARTE;k.target='_blank';k.rel='noopener';k.className=cls;k.textContent=txt;k.title='街のカルテ：沿線の街の施設・市町村・お金の流れ（別のタブで開きます）';k.style.textDecoration='none';k.style.display='inline-block';return k;};
+  if(after){const k=link('tayoribtn','街のカルテ','karteBtn');after.after(k);
+    const b=document.createElement('button');b.id='rsBtn';b.type='button';b.className='tayoribtn';b.innerHTML='駅ナカ リサーチ<span class="dot" hidden></span>';k.after(b);b.onclick=()=>setOpen(true);}
+  if(document.querySelector('.minibar-in'))document.querySelector('.minibar-in').appendChild(link('mspeed tayorimini','街','mkarte'));
   const mb=document.querySelector('.minibar-in');if(mb){const b=document.createElement('button');b.id='mrs';b.type='button';b.className='mspeed tayorimini';b.innerHTML='調査<span class="dot" hidden></span>';mb.appendChild(b);b.onclick=()=>setOpen(true);}
   const p=document.createElement('section');p.id='rsv';p.className='rsv';p.hidden=true;p.setAttribute('aria-label','駅ナカ リサーチ');
   p.innerHTML=`<div class="rs-in">
