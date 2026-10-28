@@ -62,6 +62,12 @@ const dayWord=d=>{const k=d-gDay();return k===1?'あすの便から':k===2?'あ�
 /* 臨時便：頼んでから1時間後に、その品だけ届く（1回3,000円・1日2回・6:00〜20:00） */
 function expressLeft(){const S=V.st,day=gDay(),n=S.today&&S.today.day===day&&S.today.express?S.today.express.length:0;return V.cfg.express.max-n;}
 function expressOpen(){const t=gT(),E=V.cfg.express;return t>=E.from&&t<=E.to&&expressLeft()>0;}
+function pendingExpress(pid){const S=V.st,day=gDay();if(!S.today||S.today.day!==day||!S.today.express)return null;const L=V.cfg.express.lead;
+  return S.today.express.filter(x=>x.pid===pid&&x.t+L>gT()).at(-1)||null;}
+/* 前の臨時便に足す（同じ便で届く：到着時刻・料金・回数は変わらない） */
+function addToExpress(pid,q){const x=pendingExpress(pid);if(!x||q<=0)return;x.q+=q;const P=ix().P[pid];
+  V.st.news.push({day:gDay(),kind:'express',title:`臨時便に追加：${P.name}＋${q}（合わせて${x.q}個）`,text:`${fmtT(x.t+V.cfg.express.lead)}ごろ、前に頼んだ便といっしょに届きます（追加の原価${yen(q*P.cost)}・料金は増えません）。`});
+  persist();V.expSel=null;V.expConfirm=null;V.shConfirm=null;V.editRev=(V.editRev||0)+1;V.res=null;ensureRes();render(true);}
 function orderExpress(pid,q){const S=V.st,day=gDay();if(!expressOpen()||q<=0)return;if(!S.today||S.today.day!==day)S.today={day,edits:[]};(S.today.express||(S.today.express=[])).push({t:gT(),pid,q});
   S.news.push({day,kind:'express',title:`臨時便を頼んだ：${ix().P[pid].name}×${q}`,text:`${fmtT(gT()+V.cfg.express.lead)}ごろ届きます（${yen(V.cfg.express.fee)}＋原価${yen(q*ix().P[pid].cost)}）。`});
   persist();V.expSel=null;V.editRev=(V.editRev||0)+1;V.res=null;ensureRes();render(true);}
@@ -194,9 +200,9 @@ function renderAlert(force){const box=$('ksAlert'),res=V.res;if(!box)return;if(!
   box.innerHTML=`<span>在庫の要注意（押すと商品カード）：売り切れ${n('out')}・品出し待ち${n('wait')}・残りわずか${n('low')}</span>`+list.map(([pid,x])=>`<button type="button" class="ks-al ${x.st}" data-sh="${pid}"><i></i>${esc(I.P[pid].short)}<small>${sub(x)}</small></button>`).join('');
   box.querySelectorAll('[data-sh]').forEach(b=>b.onclick=()=>openSheet(b.dataset.sh));}
 /* 商品カード：その品のいま・次の便・仕入れ（いつから・いくつ）・臨時便・値段を1か所で */
-function openSheet(pid){V.sheet=pid;V.shQ=null;renderSheet();$('ksSheet').hidden=false;}
+function openSheet(pid){V.sheet=pid;V.shQ=null;V.shConfirm=null;renderSheet();$('ksSheet').hidden=false;}
 function closeSheet(){V.sheet=null;$('ksSheet').hidden=true;}
-function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!res||!box)return;const I=ix(),p=I.P[pid],x=pinfo(pid,res),set=curSet(),pr=set.price[pid]??p.price,o=orderDiff(pid),E=V.cfg.express;
+function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!res||!box)return;const I=ix(),p=I.P[pid],x=pinfo(pid,res),set=curSet(),pr=set.price[pid]??p.price,o=orderDiff(pid),E=V.cfg.express,pend=pendingExpress(pid);if(!pend&&V.shConfirm===pid)V.shConfirm=null;
   if(V.shQ==null)V.shQ=Math.max(1,x.cap||5);const life=I.G[p.genre].life,unit=life===0?'1日に届く数':'裏も合わせた目標の数';
   box.innerHTML=`<h3><span>${esc(p.name)}</span><button type="button" class="ks-btn" id="shClose">閉じる</button></h3>
     <div><span class="ks-st ${x.st}" id="shSt">${ST_LABEL[x.st]}</span> <small class="ks-note">${I.G[p.genre].name}・${yen(pr)}（原価${yen(p.cost)}）</small></div>
@@ -209,14 +215,18 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
       <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>
     <div class="ks-sbox"><h4>臨時便（いますぐ足す）</h4>
       <div class="ks-sbtns"><span class="ks-num"><button type="button" id="shEm" aria-label="減らす">−</button><b>${V.shQ}個</b><button type="button" id="shEp" aria-label="増やす">＋</button></span>
-        <button type="button" class="ks-btn pri" id="shEgo" ${expressOpen()&&x.s?'':'disabled'}>臨時便で頼む</button></div>
-      <p>${expressOpen()?`${fmtT(gT()+E.lead)}ごろ届きます。${yen(E.fee)}＋原価${yen(V.shQ*p.cost)}。きょうはあと${expressLeft()}回。`:expressLeft()<=0?'きょうの臨時便は使い切りました。':`臨時便は${fmtT(E.from)}〜${fmtT(E.to)}に頼めます。`}${x.s?'':'棚に置いていない品は頼めません。'}</p></div>
+        ${V.shConfirm===pid?'':`<button type="button" class="ks-btn pri" id="shEgo" ${(expressOpen()||pend)&&x.s?'':'disabled'}>臨時便で頼む</button>`}</div>
+      ${pend?`<p style="color:var(--ink)"><b>頼んである臨時便：${fmtT(pend.t+E.lead)}ごろ ${pend.q}個（まだ届いていません）</b></p>`:''}
+      ${V.shConfirm===pid&&pend?`<div class="ks-pend" role="alert"><div><b>この品は、${fmtT(pend.t+E.lead)}着の臨時便ですでに${pend.q}個頼んでいます。</b></div><div>もう一度頼むかわりに、前の注文に${V.shQ}個を足します（届く時刻は同じ・料金は増えません・追加の原価${yen(V.shQ*p.cost)}）。</div>
+        <div class="ks-sbtns"><button type="button" class="ks-btn pri" id="shAdd">前の注文に${V.shQ}個追加する</button><button type="button" class="ks-btn" id="shNo">やめる</button></div></div>`:''}
+      <p>${pend?`同じ品をもう一度頼むと、前の便（${fmtT(pend.t+E.lead)}着）に足します。料金・回数は増えません。`:expressOpen()?`${fmtT(gT()+E.lead)}ごろ届きます。${yen(E.fee)}＋原価${yen(V.shQ*p.cost)}。きょうはあと${expressLeft()}回。`:expressLeft()<=0?'きょうの臨時便は使い切りました。':`臨時便は${fmtT(E.from)}〜${fmtT(E.to)}に頼めます。`}${x.s?'':'棚に置いていない品は頼めません。'}</p></div>
     <div class="ks-sbox"><h4>値段</h4><div class="ks-sbtns"><span class="ks-num"><button type="button" id="shPm" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" id="shPp" aria-label="10円上げる">＋</button></span><small class="ks-note" style="margin:0">ふつうの値段の${Math.round(pr/p.price*100)}%・すぐに効きます</small></div></div>
     <div class="ks-sbtns"><button type="button" class="ks-btn" id="shLay">棚割りで並べ方を変える</button><button type="button" class="ks-btn" id="shTab">商品の表で見る</button></div>`;
   const st=life===0?1:2;
   $('shClose').onclick=closeSheet;$('shOm').onclick=()=>{editOrder(pid,-st);renderSheet();};$('shOp').onclick=()=>{editOrder(pid,st);renderSheet();};
   $('shEm').onclick=()=>{V.shQ=Math.max(1,V.shQ-1);renderSheet();};$('shEp').onclick=()=>{V.shQ+=1;renderSheet();};
-  $('shEgo').onclick=()=>{orderExpress(pid,V.shQ);V.shQ=null;renderSheet();};
+  if($('shEgo'))$('shEgo').onclick=()=>{if(pendingExpress(pid)){V.shConfirm=pid;renderSheet();return;}orderExpress(pid,V.shQ);V.shQ=null;renderSheet();};   // 2回目は確認してから、前の注文に足す
+  if($('shAdd'))$('shAdd').onclick=()=>{addToExpress(pid,V.shQ);V.shQ=null;renderSheet();};if($('shNo'))$('shNo').onclick=()=>{V.shConfirm=null;renderSheet();};
   $('shPm').onclick=()=>{edit(c=>{c.price[pid]=Math.max(10,(c.price[pid]??p.price)-10);});setTimeout(renderSheet,300);};$('shPp').onclick=()=>{edit(c=>{c.price[pid]=(c.price[pid]??p.price)+10;});setTimeout(renderSheet,300);};
   $('shLay').onclick=()=>{const L=curSet().layout;for(const zk in L){const i=L[zk].indexOf(pid);if(i>=0){V.slotSel={z:zk,i};break;}}V.tab='layout';closeSheet();render(true);$('ksBody').scrollIntoView({block:'start'});};
   $('shTab').onclick=()=>{V.tab='items';closeSheet();render(true);setTimeout(()=>{const r=document.querySelector(`[data-row="${pid}"]`);if(r)r.scrollIntoView({block:'center'});},50);};}
@@ -285,7 +295,9 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
   const pend=[];for(const e of (S.orderQ||[]).slice().sort((a,b)=>a.from-b.from)){const before=orderFor(e.from-1);for(const pid in e.order){if((e.order[pid]||0)!==(before[pid]||0))pend.push({from:e.from,pid,a:before[pid]||0,b:e.order[pid]||0});}}
   const pendBox=pend.length?`<div class="ks-pend"><div><b>発注の予定（まだ届いていない変更）</b></div>${pend.map(x=>`<div>第${x.from}運行日（${dayWord(x.from).replace('の便から','')}）から：${esc(I.P[x.pid].name)} ${x.a} → <b>${x.b}</b>（${x.b>x.a?'＋':'−'}${Math.abs(x.b-x.a)}）<button type="button" data-undo="${x.from}|${x.pid}">取り消す</button></div>`).join('')}</div>`:'';
   const expBox=()=>{const pid=V.expSel;if(!pid)return '';const p=I.P[pid],q=V.expQ;return `<div class="ks-pick" id="ksExpBox"><b>臨時便：${esc(p.name)}</b><span class="ks-num"><button type="button" id="ksExM" aria-label="減らす">−</button><b>${q}個</b><button type="button" id="ksExP" aria-label="増やす">＋</button></span>
-      <span>${yen(V.cfg.express.fee)}＋原価${yen(q*p.cost)}・${fmtT(gT()+V.cfg.express.lead)}ごろ届く</span><button type="button" class="ks-btn pri" id="ksExGo" ${expressOpen()?'':'disabled'}>頼む</button><button type="button" class="ks-btn" id="ksExNo">やめる</button></div>`;};
+      ${(()=>{const pe=pendingExpress(pid),at=pe?fmtT(pe.t+V.cfg.express.lead):'';
+        if(pe&&V.expConfirm===pid)return `<span role="alert"><b>この品は${at}着の臨時便ですでに${pe.q}個頼んでいます。</b>前の注文に${q}個を足します（届く時刻は同じ・料金は増えません）。</span><button type="button" class="ks-btn pri" id="ksExAdd">前の注文に${q}個追加する</button><button type="button" class="ks-btn" id="ksExNo">やめる</button>`;
+        return `<span>${pe?`頼んである臨時便：${at}ごろ${pe.q}個。`:''}${yen(V.cfg.express.fee)}＋原価${yen(q*p.cost)}・${fmtT(gT()+V.cfg.express.lead)}ごろ届く</span><button type="button" class="ks-btn pri" id="ksExGo" ${expressOpen()||pe?'':'disabled'}>頼む</button><button type="button" class="ks-btn" id="ksExNo">やめる</button>`;})()}</div>`;};
   const tr=S.trend?V.cfg.trends.find(x=>x.id===S.trend.id):null;
   const lostSO={},looked={};const k=KC.idxAt(res,gT());for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='look'&&e.pid){(e.why==='売り切れ'?lostSO:looked)[e.pid]=((e.why==='売り切れ'?lostSO:looked)[e.pid]||0)+1;}}
   const list=V.cfg.products.filter(p=>V.showAll||si[p.id]);
@@ -303,7 +315,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
         <div class="ks-pc-g"><span>値段</span><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span>
           <span>ふつう比・原価率</span><b class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%・<span class="${cr>0.7?'neg':''}">${Math.round(cr*100)}%</span></b>
           <span>仕入れ（${dayWord(na)}）</span><span>${ordCell(p,s)}</span>
-          <span>きょうの仕入れ</span><b>${s||today[p.id]?(today[p.id]||0):'—'}${s?` <button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressOpen()?'':'disabled'}>臨時便</button>`:''}</b>
+          <span>きょうの仕入れ</span><b>${s||today[p.id]?(today[p.id]||0):'—'}${s?` <button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressOpen()||pendingExpress(p.id)?'':'disabled'}>${pendingExpress(p.id)?'臨時便（頼み済み）':'臨時便'}</button>`:''}</b>
           <span>棚・いま</span><b>${s?`${s.face}列×${Math.round(s.cap/s.face)}・<span data-f="stock">${stock[p.id]||0}</span>個`:'—'}</b>
           <span>きょう</span><b>売れた<span data-f="sold">${o.items[p.id]||0}</span>・売切で逃した<span data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</span>・見て買わず<span data-f="looked">${looked[p.id]||0}</span></b>
           <span>評価</span><span>${rep(p.id)}</span></div></div>`;}).join('')}</div>`:`
@@ -312,7 +324,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
       return `<tr class="${s?'':'off'}" data-row="${p.id}"><td class="l"><button type="button" class="ks-pname" data-sh="${p.id}"><b>${esc(p.name)}</b></button><br><span class="mut" style="font-size:11px">${I.G[p.genre].name}</span></td><td class="l">${tag(p)}</td>
       <td><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span></td>
       <td class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%</td><td class="${cr>0.7?'neg':''}">${yen(p.cost)}（${Math.round(cr*100)}%）</td>
-      <td>${ordCell(p,s)}</td><td>${s||today[p.id]?(today[p.id]||0):'—'}</td><td>${s?`<button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressOpen()?'':'disabled'}>臨時便</button>`:''}</td>
+      <td>${ordCell(p,s)}</td><td>${s||today[p.id]?(today[p.id]||0):'—'}</td><td>${s?`<button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressOpen()||pendingExpress(p.id)?'':'disabled'}>${pendingExpress(p.id)?'臨時便（頼み済み）':'臨時便'}</button>`:''}</td>
       <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td data-f="stock">${s?(stock[p.id]||0):'—'}</td><td data-f="sold">${o.items[p.id]||0}</td><td data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td><td data-f="looked">${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
     </tbody></table></div>`}<p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
   $('ksAll').onchange=e=>{V.showAll=e.target.checked;render(true);};
@@ -320,8 +332,9 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
   b.querySelectorAll('[data-undo]').forEach(x=>x.onclick=()=>{const [f,pid]=x.dataset.undo.split('|'),e=(S.orderQ||[]).find(q=>q.from===Number(f));if(e){e.order[pid]=orderFor(e.from-1)[pid]||0;persist();render(true);}});
   b.querySelectorAll('[data-pr]').forEach(x=>x.onclick=()=>edit(c=>{const pid=x.dataset.pr;c.price[pid]=Math.max(10,(c.price[pid]??I.P[pid].price)+Number(x.dataset.d));}));
   b.querySelectorAll('[data-or]').forEach(x=>x.onclick=()=>{const pid=x.dataset.or,st=I.G[I.P[pid].genre].life===0?1:2;editOrder(pid,Number(x.dataset.d)*st);});
-  b.querySelectorAll('[data-ex]').forEach(x=>x.onclick=()=>{const pid=x.dataset.ex;V.expSel=pid;V.expQ=Math.max(1,(si[pid]&&si[pid].cap)||5);render(true);});
-  if($('ksExM')){$('ksExM').onclick=()=>{V.expQ=Math.max(1,V.expQ-1);render(true);};$('ksExP').onclick=()=>{V.expQ+=1;render(true);};$('ksExGo').onclick=()=>orderExpress(V.expSel,V.expQ);$('ksExNo').onclick=()=>{V.expSel=null;render(true);};}}
+  b.querySelectorAll('[data-ex]').forEach(x=>x.onclick=()=>{const pid=x.dataset.ex;V.expSel=pid;V.expConfirm=null;V.expQ=Math.max(1,(si[pid]&&si[pid].cap)||5);render(true);});
+  if($('ksExM')){$('ksExM').onclick=()=>{V.expQ=Math.max(1,V.expQ-1);render(true);};$('ksExP').onclick=()=>{V.expQ+=1;render(true);};if($('ksExGo'))$('ksExGo').onclick=()=>{if(pendingExpress(V.expSel)){V.expConfirm=V.expSel;render(true);return;}orderExpress(V.expSel,V.expQ);};
+    if($('ksExAdd'))$('ksExAdd').onclick=()=>addToExpress(V.expSel,V.expQ);$('ksExNo').onclick=()=>{V.expSel=null;V.expConfirm=null;render(true);};}}
 
 function updateItems(){const res=V.res;if(!res||V.tab!=='items')return;const T0=gT(),stock=KC.stockAt(res,T0),c=counts(res,T0);
   document.querySelectorAll('#ksBody [data-row]').forEach(r=>{const pid=r.dataset.row,vals={stock:stock[pid]||0,sold:c.sold[pid]||0,lost:c.lost[pid]||0,looked:c.looked[pid]||0};
