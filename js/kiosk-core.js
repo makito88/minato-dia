@@ -100,10 +100,16 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}
     deliveredCost+=cost;ev.push({t,k:'delivery',n,cost,name:d.name,items:its});};   // items：この便で届いた品と数（画面の「次の便」に使う）
   // ホットスナック：冷凍で裏に置き、ケースが少なくなったら調理する（保温時間を過ぎたら捨てる）
-  const cook=t=>{for(const pid in SI){if(P[pid].genre!=='hot')continue;const q=hotQ[pid]||(hotQ[pid]=[]);const hold=ix.G.hot.hold;
-      while(q.length&&t-q[0].t>hold){const x=q.shift();waste+=x.c;add(wasteBy,pid,1);ev.push({t,k:'waste',pid,n:1,why:'保温時間切れ'});}
-      const cap=SI[pid].cap,want=Math.max(1,Math.ceil(cap*Math.min(1,hm(ix.G.hot.hours,Math.floor(t/60))/1.8)));   // 売れる時間帯ほど多めに温めておく
-      if(q.length<Math.ceil(want/2)+ (want>2?1:0)){const k=want-q.length,g2=take(pid,k);for(let i=0;i<g2.got;i++)q.push({t:t+6,c:g2.cost/g2.got});if(g2.got)ev.push({t,k:'cook',pid,n:g2.got});}}};
+  //   温める数は「この先 ahead 分に売れそうな数」。売れそうな数は、それまでの日の時間帯ごとの売れ方（state.hotF）から。まだ分からない時間帯は prior×時間帯の重み
+  const HC=ix.G.hot.cook||{},HOLD=ix.G.hot.hold;
+  const hotRate=(pid,h)=>{const f=state.hotF&&state.hotF[pid];return f&&f[h]!=null?f[h]:(HC.prior||0.6)*hm(ix.G.hot.hours,h);};
+  const expire=(pid,t)=>{const q=hotQ[pid]||[];let n=0;while(q.length&&t-q[0].t>HOLD){const x=q.shift();waste+=x.c;add(wasteBy,pid,1);n++;}
+    if(n)ev.push({t:Math.min(t,O1),k:'waste',pid,n,why:'保温時間切れ'});};
+  const cookOne=(pid,t)=>{const q=hotQ[pid]||(hotQ[pid]=[]);expire(pid,t);if(t>=O1-(HC.stopBeforeClose||30))return;
+    const h=Math.floor(t/60),ah=(HC.ahead||45)/60,need=hotRate(pid,h)*ah;
+    const want=clamp(Math.ceil(need-0.15),q.length?0:1,SI[pid].cap);   // 空のときは少なくとも1個
+    if(q.length<want){const g2=take(pid,want-q.length);for(let i=0;i<g2.got;i++)q.push({t:t+6,c:g2.cost/g2.got});if(g2.got)ev.push({t,k:'cook',pid,n:g2.got});}};
+  const cook=t=>{for(const pid in SI)if(P[pid].genre==='hot')cookOne(pid,t);};
   const hotStock=pid=>(hotQ[pid]||[]).length;
   // 列：店員の数だけ同時に会計できる
   let servers=new Array(cur.staff).fill(O0);
@@ -113,7 +119,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const repF=pid=>{const x=state.rep[pid];if(!x||!x.n)return 1;const avg=(x.sum+3.6*4)/(x.n+4);return clamp(1+0.14*(avg-3.6),0.75,1.2);};
   const buzzF=pid=>1+(state.buzz[pid]||0);
   const stockOf=pid=>P[pid].genre==='hot'?hotStock(pid):(shelf[pid]||0);
-  const takeShelf=(pid,q)=>{if(P[pid].genre==='hot'){const Q=hotQ[pid]||[];let c=0,k=0;while(k<q&&Q.length&&Q[0].t<=nowT){c+=Q.shift().c;k++;}return {got:k,cost:c};}
+  const takeShelf=(pid,q)=>{if(P[pid].genre==='hot'){expire(pid,nowT);const Q=hotQ[pid]||[];let c=0,k=0;while(k<q&&Q.length&&Q[0].t<=nowT){c+=Q.shift().c;k++;}if(k&&!Q.length)cookOne(pid,nowT);return {got:k,cost:c};}   // ケースが空になったら、すぐ温める
     const k=Math.min(q,shelf[pid]||0);shelf[pid]-=k;const g2=take(pid,k);return g2;};
   let nowT=O0,di=0,nextRestock=O0,nextSnap=Math.floor(O0/SNAP)*SNAP,ei=1;
   const applyEdit=t=>{while(ei<edits.length&&edits[ei].t<=t){const e=setAt(edits[ei].t);const old=SI;SI=shelfInfo(cfg,e.layout);cur=e;
@@ -230,6 +236,12 @@ function review(cfg,ps,it,ratio,r){const [s,k,v]=it.taste,[ps1,pk,pv]=ps.taste,T
 function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.stringify(state)),day=res.day,news=[];
   const say=(kind,title,text,pid)=>{const n={day,kind,title,text,pid};news.push(n);st.news.push(n);};
   st.lots=res.carry;st.closed=day;st.cash+=res.pl.profit;
+  {const hc=ix.G.hot&&ix.G.hot.cook,L=hc&&hc.learn||0.4,dem={};
+    for(const e of res.ev){const h=Math.floor(e.t/60);if(e.k==='buy'){for(const [pid,q] of e.items)if(ix.P[pid].genre==='hot'){const a=dem[pid]||(dem[pid]=new Array(27).fill(0));a[h]+=q;}}
+      else if(e.k==='look'&&e.pid&&e.why==='売り切れ'&&ix.P[e.pid].genre==='hot'){const a=dem[e.pid]||(dem[e.pid]=new Array(27).fill(0));a[h]+=1;}}
+    const si=shelfInfo(cfg,st.layout);st.hotF=st.hotF||{};
+    for(const pid in si){if(ix.P[pid].genre!=='hot')continue;const a=dem[pid]||new Array(27).fill(0),o=st.hotF[pid];
+      st.hotF[pid]=a.map((v,h)=>o&&o[h]!=null?+(o[h]*(1-L)+v*L).toFixed(3):v);}}
   // 評判
   for(const rv of res.reviews){const x=st.rep[rv.pid]||(st.rep[rv.pid]={n:0,sum:0,keys:{}});x.n++;x.sum+=rv.stars;x.keys[rv.key]=(x.keys[rv.key]||0)+1;}
   for(const pid in st.rep){const x=st.rep[pid];const tot=Object.values(x.keys).reduce((a,b)=>a+b,0);for(const k of ['sweetHi','volLo','priceHi','richHi']){if((x.keys[k]||0)>=5&&(x.keys[k]/tot)>0.3&&!(x['said_'+k])){x['said_'+k]=day;const lab={sweetHi:'甘すぎる',volLo:'量が少ない',priceHi:'値段が高い',richHi:'味が濃い'}[k];
