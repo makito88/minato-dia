@@ -89,8 +89,9 @@ function edit(fn){const S=V.st,day=gDay(),c=JSON.parse(JSON.stringify(curSet()))
   persist();V.editRev=(V.editRev||0)+1;clearTimeout(V.pend);V.pend=setTimeout(()=>{V.res=null;ensureRes();render(true);},250);}
 
 /* ---------- 商品ごとの「いま」 ---------- */
+const hideE=e=>V.cfg.hideLost&&e.k==='look'&&e.why==='売り切れ';   // 売り切れで買えなかった人は、数も記録も出さない
 function counts(res,T){const k=KC.idxAt(res,T);if(V.cnt&&V.cnt.res===res&&V.cnt.k===k)return V.cnt;const c={res,k,sold:{},lost:{},looked:{}};
-  for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){for(const [pid,q] of e.items)c.sold[pid]=(c.sold[pid]||0)+q;}else if(e.k==='look'&&e.pid){const o=e.why==='売り切れ'?c.lost:c.looked;o[e.pid]=(o[e.pid]||0)+1;}}
+  for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){for(const [pid,q] of e.items)c.sold[pid]=(c.sold[pid]||0)+q;}else if(e.k==='look'&&e.pid&&!hideE(e)){const o=e.why==='売り切れ'?c.lost:c.looked;o[e.pid]=(o[e.pid]||0)+1;}}
   V.cnt=c;return c;}
 function nextDelivery(res,T,pid){const k=KC.idxAt(res,T);for(let i=k;i<res.ev.length;i++){const e=res.ev[i];if(e.k==='delivery'&&e.items&&e.items[pid])return {t:e.t,name:e.name,q:e.items[pid]};}return null;}
 function pinfo(pid,res){const T0=gT(),set=curSet(),s=KC.shelfInfo(V.cfg,set.layout)[pid]||null,stock=(KC.stockAt(res,T0)[pid])||0,back=(KC.backAt(res,T0)[pid])||0,c=counts(res,T0);
@@ -207,8 +208,8 @@ function renderSetup(){const f=V.form,R=V.rcfg,studies=g(()=>JSON.parse(localSto
 /* ---------- 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） ---------- */
 function renderAlert(force){const box=$('ksAlert'),res=V.res;if(!box)return;if(!V.st||!res){box.innerHTML='';V.alKey='';return;}
   const si=KC.shelfInfo(V.cfg,curSet().layout),I=ix(),list=[];for(const pid in si){const x=pinfo(pid,res);if(x.st==='out'||x.st==='wait'||x.st==='low')list.push([pid,x]);}
-  const order={out:0,wait:1,low:2};list.sort((a,b)=>order[a[1].st]-order[b[1].st]||b[1].lost-a[1].lost);
-  const sub=x=>`${x.st==='low'?'残り'+(x.stock+x.back):x.st==='wait'?'裏に'+x.back:'0個'}${x.lost?'・逃した'+x.lost:''}${x.next?'・'+fmtT(x.next.t)+'に＋'+x.next.q:''}`;
+  const order={out:0,wait:1,low:2};list.sort((a,b)=>order[a[1].st]-order[b[1].st]||(V.cfg.hideLost?0:b[1].lost-a[1].lost));   // 隠しているときは、逃した数で並べない（順番から分からないように）
+  const sub=x=>`${x.st==='low'?'残り'+(x.stock+x.back):x.st==='wait'?'裏に'+x.back:'0個'}${x.lost&&!V.cfg.hideLost?'・逃した'+x.lost:''}${x.next?'・'+fmtT(x.next.t)+'に＋'+x.next.q:''}`;
   const key=list.map(([p,x])=>p+x.st).join('|');   // 品と状態が同じなら作り直さず、小さな字だけ書きかえる（押している途中のボタンを消さない）
   if(!force&&key===V.alKey){for(const [pid,x] of list){const e=box.querySelector(`[data-sh="${pid}"] small`);if(e){const t=sub(x);if(e.textContent!==t)e.textContent=t;}}return;}V.alKey=key;
   if(!list.length){box.innerHTML='<span>在庫：売り切れ・残りわずかの品はありません</span>';return;}
@@ -224,7 +225,7 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
     <div><span class="ks-st ${x.st}" id="shSt">${ST_LABEL[x.st]}</span> <small class="ks-note">${I.G[p.genre].name}・${yen(pr)}（原価${yen(p.cost)}）</small></div>
     <div class="ks-sg"><span>棚</span><b id="shShelf">${x.s?`${x.s.face}列×${Math.round(x.cap/x.s.face)}（最大${x.cap}個）`:'置いていない'}</b>
       <span>いま</span><b id="shNow">棚に${x.stock}個・裏に${x.back}個</b>
-      <span>きょう</span><b id="shToday">売れた${x.sold}・売り切れで逃した${x.lost}・見て買わず${x.looked}</b>
+      <span>きょう</span><b id="shToday">売れた${x.sold}${V.cfg.hideLost?'':'・売り切れで逃した'+x.lost}・見て買わず${x.looked}</b>
       <span>次の便</span><b id="shNext">${nextText(x.next)}</b>
       <span>きっかけ</span><b id="shMot">${motText(pid,res)}</b></div>
     <div class="ks-sbox"><h4>仕入れ（${unit}）</h4>
@@ -248,7 +249,7 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
   $('shTab').onclick=()=>{V.tab='items';closeSheet();render(true);setTimeout(()=>{const r=document.querySelector(`[data-row="${pid}"]`);if(r)r.scrollIntoView({block:'center'});},50);};}
 /* 商品カードの数字だけを書きかえる（ボタンは作り直さないので、押している途中でも消えない） */
 function updateSheet(){const pid=V.sheet,res=V.res;if(!pid||!res||!$('shNow'))return;const x=pinfo(pid,res);
-  const set=(id,t)=>{const e=$(id);if(e&&e.textContent!==t)e.textContent=t;};set('shNow',`棚に${x.stock}個・裏に${x.back}個`);set('shToday',`売れた${x.sold}・売り切れで逃した${x.lost}・見て買わず${x.looked}`);set('shNext',nextText(x.next));set('shMot',motText(pid,res));
+  const set=(id,t)=>{const e=$(id);if(e&&e.textContent!==t)e.textContent=t;};set('shNow',`棚に${x.stock}個・裏に${x.back}個`);set('shToday',`売れた${x.sold}${V.cfg.hideLost?'':'・売り切れで逃した'+x.lost}・見て買わず${x.looked}`);set('shNext',nextText(x.next));set('shMot',motText(pid,res));
   const s=$('shSt');if(s&&!s.classList.contains(x.st)){s.className='ks-st '+x.st;s.textContent=ST_LABEL[x.st];}}
 
 /* ---------- 画面全体 ---------- */
@@ -264,7 +265,7 @@ function render(full){if(!V.open)return;
 function renderKpi(){const res=ensureRes();if(!res)return;const o=KC.soFar(V.cfg,res,gT()),P=res.pl;
   const share=res.pl.sales?o.sales/res.pl.sales:0;
   $('ksKpi').innerHTML=`<div><span>きょうの売上（いままで）</span><b>${yen(o.sales)}</b></div><div><span>お客さん</span><b>${num(o.cust)}人</b></div>
-    <div><span>見たけど買わなかった</span><b>${num(o.looks)}人</b></div><div><span>粗利（売上−原価）</span><b>${yen(o.sales-o.cogs)}</b></div>
+    <div><span>見たけど買わなかった</span><b>${num(o.looks-(V.cfg.hideLost?(o.why['売り切れ']||0):0))}人</b></div><div><span>粗利（売上−原価）</span><b>${yen(o.sales-o.cogs)}</b></div>
     <div><span>店員</span><b>${curSet().staff}人</b></div><div><span>積み立て</span><b class="${V.st.cash<0?'neg':'pos'}">${man(V.st.cash)}</b></div>`;}
 function renderBody(full){const b=$('ksBody'),res=ensureRes();if(!res)return;
   if(V.tab==='log')return renderLog(b,res,full);
@@ -289,7 +290,7 @@ const lfOn=()=>Object.keys(LF0).some(k=>V.lf[k]!==LF0[k]);
 const KIND={buy:'会計',look:'見たけど買わなかった',review:'評価',sns:'SNS',sys:'品出し・便・廃棄など'};
 const kindOf=e=>e.k==='buy'||e.k==='look'||e.k==='review'||e.k==='sns'?e.k:'sys';
 const pidsOf=e=>e.k==='buy'?e.items.map(x=>x[0]):e.pid?[e.pid]:[];
-function lfMatch(e){const f=V.lf,I=ix();if(f.k&&kindOf(e)!==f.k)return false;if(f.ps&&e.ps!==f.ps)return false;
+function lfMatch(e){if(hideE(e))return false;const f=V.lf,I=ix();if(f.k&&kindOf(e)!==f.k)return false;if(f.ps&&e.ps!==f.ps)return false;
   if(f.mot&&(e.k!=='buy'||(f.mot==='addon'?!e.addon:(e.mot||'plan')!==f.mot)))return false;
   if(f.why&&(e.k!=='look'||e.why!==f.why))return false;
   if(f.stars&&(e.k!=='review'||(f.stars==='lo'?e.stars>2:f.stars==='mid'?e.stars!==3:e.stars<4)))return false;
@@ -297,7 +298,7 @@ function lfMatch(e){const f=V.lf,I=ix();if(f.k&&kindOf(e)!==f.k)return false;if(
   if(f.pid||f.genre){const ps=pidsOf(e);if(f.pid&&!ps.includes(f.pid))return false;if(f.genre&&!ps.some(p=>I.P[p].genre===f.genre)&&e.genre!==f.genre)return false;}
   return true;}
 function lfBar(res){const I=ix(),f=V.lf,L=V.cfg.mood&&V.cfg.mood.labels||{},opt=(v,t,cur)=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${esc(t)}</option>`;
-  const whys=[...new Set(res.ev.filter(e=>e.k==='look').map(e=>e.why))];
+  const whys=[...new Set(res.ev.filter(e=>e.k==='look'&&!hideE(e)).map(e=>e.why))];
   const prods=V.cfg.products.filter(p=>!f.genre||p.genre===f.genre);
   const hs=Array.from({length:22},(_,i)=>i+5);
   const nOn=Object.keys(LF0).filter(k=>k!=='h1'&&V.lf[k]!==LF0[k]).length+(f.h1!==LF0.h1&&f.h0===LF0.h0?1:0),wide=!matchMedia('(max-width:760px)').matches;
@@ -388,15 +389,15 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
           <span>仕入れ（${dayWord(na)}）</span><span>${ordCell(p,s)}</span>
           <span>きょうの仕入れ</span><b>${s||today[p.id]?(today[p.id]||0):'—'}${s?` <button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressAny()?'':'disabled'}>${pendingExpress(p.id)?'臨時便（頼み済み）':'臨時便'}</button>`:''}</b>
           <span>棚・いま</span><b>${s?`${s.face}列×${Math.round(s.cap/s.face)}・<span data-f="stock">${stock[p.id]||0}</span>個`:'—'}</b>
-          <span>きょう</span><b>売れた<span data-f="sold">${o.items[p.id]||0}</span>・売切で逃した<span data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</span>・見て買わず<span data-f="looked">${looked[p.id]||0}</span></b>
+          <span>きょう</span><b>売れた<span data-f="sold">${o.items[p.id]||0}</span>${V.cfg.hideLost?'':`・売切で逃した<span data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</span>`}・見て買わず<span data-f="looked">${looked[p.id]||0}</span></b>
           <span>評価</span><span>${rep(p.id)}</span></div></div>`;}).join('')}</div>`:`
-    <div class="ks-scroll" style="margin-top:6px"><table class="ks-t" style="min-width:1320px"><thead><tr><th class="l">商品</th><th class="l">ようす</th><th>値段</th><th>ふつう比</th><th>原価（原価率）</th><th>仕入れ（${dayWord(na)}）</th><th>きょうの仕入れ</th><th></th><th>棚（列×奥）</th><th>いまの棚</th><th>きょう売れた</th><th>売切で逃した</th><th>見て買わず</th><th class="l">評価</th></tr></thead><tbody>
+    <div class="ks-scroll" style="margin-top:6px"><table class="ks-t" style="min-width:1320px"><thead><tr><th class="l">商品</th><th class="l">ようす</th><th>値段</th><th>ふつう比</th><th>原価（原価率）</th><th>仕入れ（${dayWord(na)}）</th><th>きょうの仕入れ</th><th></th><th>棚（列×奥）</th><th>いまの棚</th><th>きょう売れた</th>${V.cfg.hideLost?'':'<th>売切で逃した</th>'}<th>見て買わず</th><th class="l">評価</th></tr></thead><tbody>
     ${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
       return `<tr class="${s?'':'off'}" data-row="${p.id}"><td class="l"><button type="button" class="ks-pname" data-sh="${p.id}"><b>${esc(p.name)}</b></button><br><span class="mut" style="font-size:11px">${I.G[p.genre].name}</span></td><td class="l">${tag(p)}</td>
       <td><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span></td>
       <td class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%</td><td class="${cr>0.7?'neg':''}">${yen(p.cost)}（${Math.round(cr*100)}%）</td>
       <td>${ordCell(p,s)}</td><td>${s||today[p.id]?(today[p.id]||0):'—'}</td><td>${s?`<button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressAny()?'':'disabled'}>${pendingExpress(p.id)?'臨時便（頼み済み）':'臨時便'}</button>`:''}</td>
-      <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td data-f="stock">${s?(stock[p.id]||0):'—'}</td><td data-f="sold">${o.items[p.id]||0}</td><td data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td><td data-f="looked">${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
+      <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td data-f="stock">${s?(stock[p.id]||0):'—'}</td><td data-f="sold">${o.items[p.id]||0}</td>${V.cfg.hideLost?'':`<td data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td>`}<td data-f="looked">${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
     </tbody></table></div>`}<p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
   $('ksAll').onchange=e=>{V.showAll=e.target.checked;render(true);};
   b.querySelectorAll('[data-sh]').forEach(x=>x.onclick=()=>openSheet(x.dataset.sh));
@@ -427,7 +428,7 @@ function renderLayout(b){const I=ix(),set=curSet(),Z=V.cfg.zones,sel=V.slotSel;
 /* 客層・時間帯・買わなかった理由・置いていなくて帰った人 */
 function renderPeople(b,res){const I=ix(),T0=gT(),k=KC.idxAt(res,T0),ps={},psLook={},why={},miss={},hr=new Float64Array(H),items={},mot={},addon={n:0};
   for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){ps[e.ps]=(ps[e.ps]||0)+1;const mm=e.mot||'plan';mot[mm]=(mot[mm]||0)+1;if(e.addon)addon.n++;hr[Math.floor(e.t/60)]+=e.yen;const m=items[e.ps]||(items[e.ps]={});for(const [p,q] of e.items)m[p]=(m[p]||0)+q;}
-    else if(e.k==='look'){psLook[e.ps]=(psLook[e.ps]||0)+1;why[e.why]=(why[e.why]||0)+1;if(e.why==='置いていない')miss[e.genre]=(miss[e.genre]||0)+1;}}
+    else if(e.k==='look'&&!hideE(e)){psLook[e.ps]=(psLook[e.ps]||0)+1;why[e.why]=(why[e.why]||0)+1;if(e.why==='置いていない')miss[e.genre]=(miss[e.genre]||0)+1;}}
   const mx=Math.max(1,...Object.values(ps)),hm=Math.max(1,...hr),hN=Math.floor(T0/60);
   b.innerHTML=`<div class="ks-g2"><div class="ks-card"><h3><span>買った人の客層</span><small>いままで</small></h3><div class="ks-bars">${V.cfg.personas.map(p=>`<div><span>${p.name}</span><u style="width:${(ps[p.id]||0)/mx*100}%;background:${p.icon}"></u><em>${ps[p.id]||0}人</em></div>`).join('')}</div>
       <p class="ks-note">客層ごとのよく買う品：${V.cfg.personas.filter(p=>items[p.id]).map(p=>`${p.short}＝${Object.entries(items[p.id]).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([x])=>I.P[x].short).join('・')}`).join('／')||'—'}</p></div>
@@ -506,7 +507,7 @@ function stepPeople(dt,mv){const I=ix();for(const p of V.people){const sp=110*mv
   if(p.st===0){const dx=p.tx-p.x;if(Math.abs(dx)<4){p.st=1;p.t=0;}else{p.x+=Math.sign(dx)*Math.min(Math.abs(dx),sp);p.walk+=sp;p.dir=Math.sign(dx);}}
   else if(p.st===1){p.t+=dt*mv;if(p.t>1.4){const e=p.e;
       if(e.k==='buy'){p.tx=clampX(610+Math.random()*30);p.st=2;}
-      else{const why=e.why;bubble(p.x,p.y-90,why==='値段が高い'?'高いなあ…':why==='売り切れ'?'売り切れか…':why==='置いていない'?I.G[e.genre].name+'、ないのか':why==='列が長い'?'電車が来ちゃう':'うーん…','#ffe7a3',(I.PS[e.ps]||{}).short);p.st=3;p.tx=Math.random()<0.5?-40:1040;}}}
+      else{const why=e.why;bubble(p.x,p.y-90,why==='値段が高い'?'高いなあ…':why==='売り切れ'?(V.cfg.hideLost?'うーん…':'売り切れか…'):why==='置いていない'?I.G[e.genre].name+'、ないのか':why==='列が長い'?'電車が来ちゃう':'うーん…','#ffe7a3',(I.PS[e.ps]||{}).short);p.st=3;p.tx=Math.random()<0.5?-40:1040;}}}
   else if(p.st===2){const dx=p.tx-p.x;if(Math.abs(dx)<4){p.t+=dt*mv;if(!p.paid){p.paid=true;const e=p.e;bubble(p.x,p.y-96,'+'+yen(e.yen)+'　'+e.items.map(([q])=>I.P[q].short).join('・'),'#bff0c8',(I.PS[e.ps]||{}).short+(e.reg?'・常連':e.mania?'・マニア':motL(e.mot)?'・'+motL(e.mot):''));}
       if(p.t>2.2){p.st=3;p.tx=Math.random()<0.5?-40:1040;}}else{p.x+=Math.sign(dx)*Math.min(Math.abs(dx),110*mv*dt);p.walk+=110*mv*dt;}}
   else{const dx=p.tx-p.x;p.x+=Math.sign(dx)*Math.min(Math.abs(dx),130*mv*dt);p.walk+=130*mv*dt;if(Math.abs(dx)<4)p.gone=true;}}

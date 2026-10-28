@@ -251,7 +251,7 @@ function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.str
     st.trend={id:t.id,start:day+1,end:day+1+cfg.trendTiming.len[0]+Math.floor(r()*(cfg.trendTiming.len[1]-cfg.trendTiming.len[0]))};st.lastTrend=t.id;
     const have=cfg.products.filter(p=>p.tags.some(x=>t.tags.includes(x)));say('trend',`世の中は${t.name}`,`${t.text}　関係のある品：${have.map(p=>p.name).join('・')}。`);}
   // 売り切れ・置いていない・廃棄の多い品
-  const so=Object.entries(res.lostSO).sort((a,b)=>b[1]-a[1])[0];if(so&&so[1]>=8)say('soldout',`「${ix.P[so[0]].name}」が売り切れて${so[1]}人が買えなかった`,'仕入れ数や棚の並べ方（フェイス）を増やすと、逃す客が減ります。',so[0]);
+  const so=Object.entries(res.lostSO).sort((a,b)=>b[1]-a[1])[0];if(so&&so[1]>=8)say('soldout',cfg.hideLost?`「${ix.P[so[0]].name}」が売り切れてから、棚の前で残念そうにする人がいたようです`:`「${ix.P[so[0]].name}」が売り切れて${so[1]}人が買えなかった`,cfg.hideLost?'何人が買えなかったかは分かりません。仕入れ数や棚の並べ方（フェイス）を増やすと、どうなるでしょう。':'仕入れ数や棚の並べ方（フェイス）を増やすと、逃す客が減ります。',so[0]);
   const ms=Object.entries(res.miss).sort((a,b)=>b[1]-a[1])[0];if(ms&&ms[1]>=6)say('miss',`${ix.G[ms[0]].name}を探して、置いていなくて帰った人が${ms[1]}人`,'棚に置いていないジャンルを探しに来た人の数です。',null);
   const ws=Object.entries(res.wasteBy).sort((a,b)=>b[1]-a[1])[0];if(ws&&ws[1]>=8)say('waste',`「${ix.P[ws[0]].name}」を${ws[1]}個捨てた`,'売れ残りや保温時間切れ。仕入れ数を見直す手がかりになります。',ws[0]);
   // その日の気分：ふだんよりはっきり多く売れた・少なかったジャンル
