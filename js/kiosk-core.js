@@ -37,7 +37,7 @@ function create(cfg,opts){const ix=index(cfg);const st={v:1,seed:(opts&&opts.see
   return st;}
 
 /* ---------- 1日を動かす ----------
-   ctx = { day, dow(0=日〜6=土), cond:{day,wx,season}, flows:{hb,ha}, stops, plats, rcfg(research.json), edits:[{t,layout,price,order,staff}] }
+   ctx = { day, dow(0=日〜6=土), cond:{day,wx,season}, flows:{hb,ha}, stops, plats, rcfg(research.json), order(その日の仕入れ数), express:[{t,pid,q}], edits:[{t,layout,price,staff}] }
    返すもの：出来事の列（買った・見たけど買わなかった・帰った・品出し・納品・評価・SNS…）、5分ごとの棚の在庫、商品別・時間帯・客層の集計、収支、次の日へ持ちこす物 */
 function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state.seed,ctx.day,state.st,state.place)),rEv=rng(hash(state.seed,ctx.day,'ev'));
   const place=R.places[state.place],P=ix.P,O1=cfg.open[1]*60,O0=Math.min(O1-60,Math.max(cfg.open[0]*60,ctx.startT||0));
@@ -76,11 +76,16 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 棚にある数は「ロットのうち棚に出した数」。ロットの合計＝棚＋裏
   for(const pid in SI)shelf[pid]=0;
   // 納品
+  const dayOrder=ctx.order||state.order;   // その日の便で届く数は、締め切りまでに出した発注で決まっている（途中で変えても、きょうの便は変わらない）
   const deliveries=cfg.deliveries.map(d=>({...d,t:Math.max(d.t,O0-1)}));
+  // 臨時便：頼んだ時刻から lead 分後に、その品だけ届く
+  let expressFee=0;for(const x of (ctx.express||[])){const it=P[x.pid];if(!it)continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:x});expressFee+=cfg.express.fee;}
+  deliveries.sort((a,b)=>a.t-b.t);
   const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;
+    if(d.express){const it=P[d.express.pid];(lots[it.id]||(lots[it.id]=[])).push({q:d.express.q,c:it.cost,d:ctx.day});deliveredCost+=d.express.q*it.cost;ev.push({t,k:'delivery',n:d.express.q,cost:d.express.q*it.cost+cfg.express.fee,name:'臨時便（'+it.short+'）'});return;}
     for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;
-      let q;if(g.life>=99||g.life>=2){if(!d.all)continue;q=Math.max(0,(s.order[pid]||0)-backQ(pid));}   // 日持ちする物は朝の便で目標の数まで
-      else{const share=d.all?0.5:0.25;q=Math.round((s.order[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
+      let q;if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
+      else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
       if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;}
     deliveredCost+=cost;ev.push({t,k:'delivery',n,cost,name:d.name});};
   // ホットスナック：冷凍で裏に置き、ケースが少なくなったら調理する（保温時間を過ぎたら捨てる）
@@ -177,8 +182,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   let sales=0,em=0;for(const e of ev)if(e.k==='buy'){sales+=e.yen;if(e.em)em+=e.yen;}
   let cg=0;for(const k in cogs)cg+=cogs[k];
   const staffH=edits.reduce((s,e,i)=>{const t0=Math.max(O0,e.t),t1=i+1<edits.length?Math.max(O0,edits[i+1].t):O1;return s+Math.max(0,t1-t0)/60*setAt(e.t).staff;},0);
-  const pl={sales,cogs:cg,waste,returned,staff:staffH*cfg.wage,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
-  pl.cost=pl.cogs+pl.waste+pl.staff+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
+  const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:staffH*cfg.wage,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
+  pl.cost=pl.cogs+pl.waste+pl.express+pl.staff+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
   return {day:ctx.day,cond:ctx.cond,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F};}
 
 /* 評価：客層の好み（甘さ・味の濃さ・量）と商品の味のずれ、値段 */

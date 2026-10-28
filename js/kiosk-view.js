@@ -36,12 +36,12 @@ const ix=()=>KC.index(V.cfg);
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
   let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
-  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0};}
+  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),express:S.today&&S.today.day===day?(S.today.express||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0};}
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（次の日の計算より先に）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
 function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();const c=ctxNow();if(!c)return V.res;
-  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+(V.editRev||0);
+  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+(V.editRev||0);
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();V.evI=KC.idxAt(V.res,gT());return V.res;}
 function tick(){if(!V.cfg||!V.st)return;ensureRes();}
@@ -50,8 +50,21 @@ function closeToday(res){const S=V.st;
   const last=S.today&&S.today.day===res.day&&S.today.edits.length?S.today.edits.at(-1):null;
   const before=new Set(Object.keys(KC.shelfInfo(V.cfg,S.layout)));
   const r=KC.closeDay(V.cfg,S,res,{});V.st=r.state;
-  if(last){V.st.layout=last.layout;V.st.price=last.price;V.st.order=last.order;V.st.staff=last.staff;for(const pid in KC.shelfInfo(V.cfg,last.layout))if(!before.has(pid))V.st.placedAt[pid]=res.day+1;}
+  if(last){V.st.layout=last.layout;V.st.price=last.price;V.st.staff=last.staff;for(const pid in KC.shelfInfo(V.cfg,last.layout))if(!before.has(pid))V.st.placedAt[pid]=res.day+1;}
+  {const S=V.st,nd=res.day+1;S.order=orderFor(nd);S.orderQ=(S.orderQ||[]).filter(e=>e.from>nd);}
   V.st.today=null;V.st.unread=(V.st.unread||0)+r.news.length;persist();badge();if(V.open)setTimeout(()=>render(true),0);}
+/* 発注：締め切り（20:00）までに変えた数は次の運行日から、過ぎたらその次から。予定は orderQ に「何日目から」で持つ */
+function orderFor(day){const S=V.st,o={...S.order};for(const e of (S.orderQ||[]).slice().sort((a,b)=>a.from-b.from))if(e.from<=day)Object.assign(o,e.order);return o;}
+function nextOrderDay(){return gDay()+(gT()<V.cfg.orderDeadline?1:2);}
+function editOrder(pid,delta){const S=V.st,na=nextOrderDay();S.orderQ=S.orderQ||[];let e=S.orderQ.find(x=>x.from===na);if(!e){e={from:na,order:orderFor(na)};S.orderQ.push(e);}
+  e.order[pid]=Math.max(0,(e.order[pid]||0)+delta);persist();render(true);}
+const dayWord=d=>{const k=d-gDay();return k===1?'あすの便から':k===2?'あさっての便から':`${k}日後の便から`;};
+/* 臨時便：頼んでから1時間後に、その品だけ届く（1回3,000円・1日2回・6:00〜20:00） */
+function expressLeft(){const S=V.st,day=gDay(),n=S.today&&S.today.day===day&&S.today.express?S.today.express.length:0;return V.cfg.express.max-n;}
+function expressOpen(){const t=gT(),E=V.cfg.express;return t>=E.from&&t<=E.to&&expressLeft()>0;}
+function orderExpress(pid,q){const S=V.st,day=gDay();if(!expressOpen()||q<=0)return;if(!S.today||S.today.day!==day)S.today={day,edits:[]};(S.today.express||(S.today.express=[])).push({t:gT(),pid,q});
+  S.news.push({day,kind:'express',title:`臨時便を頼んだ：${ix().P[pid].name}×${q}`,text:`${fmtT(gT()+V.cfg.express.lead)}ごろ届きます（${yen(V.cfg.express.fee)}＋原価${yen(q*ix().P[pid].cost)}）。`});
+  persist();V.expSel=null;V.editRev=(V.editRev||0)+1;V.res=null;ensureRes();render(true);}
 /* 設定を変える（その時刻から先が変わる） */
 function curSet(){const S=V.st,day=gDay();if(S.today&&S.today.day===day&&S.today.edits.length)return S.today.edits.at(-1);return {layout:S.layout,price:S.price,order:S.order,staff:S.staff};}
 function edit(fn){const S=V.st,day=gDay(),c=JSON.parse(JSON.stringify(curSet()));fn(c);c.t=Math.max(gT(),(S.openedDay===day?S.openedT:0)+0.01);
@@ -100,6 +113,7 @@ const CSS=`
 .ks-g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
 .ks-note{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.65}
 .ks-scroll{overflow:auto;max-height:520px}
+.ks-num b.chg{color:var(--accent);font-weight:700}.ks-exp{font-size:12px;padding:3px 8px}.ks-exp:disabled{opacity:.4}
 .ks-cards{display:grid;gap:8px;margin-top:8px}.ks-pc{border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:var(--paper)}.ks-pc.off{opacity:.6}
 .ks-pc-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:4px}.ks-pc-h b{font-size:14px}.ks-pc-h .mut,.ks-pc .mut{color:var(--muted);font-size:11.5px}
 .ks-pc-g{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;margin-top:6px;font-size:12.5px}.ks-pc-g>span:nth-child(odd){color:var(--muted);font-size:11.5px}.ks-pc-g b{font-weight:400;font-family:var(--f-mono)}.ks-pc .neg{color:#c9573f}.ks-pc .pos{color:#2f8a4a}
@@ -193,7 +207,10 @@ function flushLog(force){const box=$('ksLog'),res=V.logRes;if(!box||!res)return;
   while(box.children.length>400){box.lastElementChild.remove();V.logFrom++;}if($('ksMore'))$('ksMore').hidden=V.logFrom<=0;}
 
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
-function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT());
+function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT()),na=nextOrderDay(),nextO=orderFor(na),today=orderFor(gDay());
+  const ordCell=(p,s)=>{const v=nextO[p.id]||0,cur=today[p.id]||0;if(!s&&!v)return '<span class="mut">棚になし</span>';return `<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b class="${v!==cur?'chg':''}">${v}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span>`;};
+  const expBox=()=>{const pid=V.expSel;if(!pid)return '';const p=I.P[pid],q=V.expQ;return `<div class="ks-pick" id="ksExpBox"><b>臨時便：${esc(p.name)}</b><span class="ks-num"><button type="button" id="ksExM" aria-label="減らす">−</button><b>${q}個</b><button type="button" id="ksExP" aria-label="増やす">＋</button></span>
+      <span>${yen(V.cfg.express.fee)}＋原価${yen(q*p.cost)}・${fmtT(gT()+V.cfg.express.lead)}ごろ届く</span><button type="button" class="ks-btn pri" id="ksExGo" ${expressOpen()?'':'disabled'}>頼む</button><button type="button" class="ks-btn" id="ksExNo">やめる</button></div>`;};
   const tr=S.trend?V.cfg.trends.find(x=>x.id===S.trend.id):null;
   const lostSO={},looked={};const k=KC.idxAt(res,gT());for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='look'&&e.pid){(e.why==='売り切れ'?lostSO:looked)[e.pid]=((e.why==='売り切れ'?lostSO:looked)[e.pid]||0)+1;}}
   const list=V.cfg.products.filter(p=>V.showAll||si[p.id]);
@@ -202,39 +219,44 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
     if(p.photo>=0.6)t.push('<i>映え</i>');if(p.regular>=0.6)t.push('<i>常連向き</i>');if(p.mania>=0.4)t.push('<i>マニア</i>');if(G.age)t.push('<i class="age">年齢確認</i>');
     if(G.returnable)t.push('<i>返品できる</i>');if(G.life===0)t.push('<i>その日限り</i>');if(tr&&p.tags.some(x=>tr.tags.includes(x)))t.push(`<i class="trend">${tr.name}</i>`);if((S.buzz[p.id]||0)>0.05)t.push('<i class="trend">SNSで話題</i>');return `<span class="ks-tags">${t.join('')}</span>`;};
   const rep=pid=>{const x=S.rep[pid];if(!x||!x.n)return '<span class="mut">—</span>';const avg=x.sum/x.n,keys=Object.entries(x.keys).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k2,n])=>({sweetHi:'甘すぎ',sweetLo:'甘さ不足',richHi:'濃い',richLo:'うすい',volLo:'量が少ない',volHi:'多すぎ',priceHi:'高い',priceOk:'安い',good:'満足',warm:'温かい',cold:'冷えてる',crush:'つぶれ'})[k2]+n).join('・');return `★${avg.toFixed(1)}（${x.n}）<br><span class="mut" style="font-size:11px">${keys}</span>`;};
-  b.innerHTML=`<div class="ks-card"><h3><span>商品・値段・仕入れ</span><small>値段は「世の中のふつうの値段」との比も出します。仕入れ数は、その日のうちに売る物は1日の合計（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」（朝の便でそこまで足す）</small></h3>
+  b.innerHTML=`<div class="ks-card"><h3><span>商品・値段・仕入れ</span><small>値段は「世の中のふつうの値段」との比も出します</small></h3>
+    <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。</p>
+    ${expBox()}
     <label style="font-size:12.5px"><input type="checkbox" id="ksAll" ${V.showAll?'checked':''}> 棚に置いていない商品も出す</label>
     ${narrow()?`<div class="ks-cards">${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
       return `<div class="ks-pc ${s?'':'off'}"><div class="ks-pc-h"><b>${esc(p.name)}</b><span class="mut">${I.G[p.genre].name}</span></div>${tag(p)}
         <div class="ks-pc-g"><span>値段</span><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span>
           <span>ふつう比・原価率</span><b class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%・<span class="${cr>0.7?'neg':''}">${Math.round(cr*100)}%</span></b>
-          <span>仕入れ数</span>${s?`<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b>${set.order[p.id]||0}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span>`:'<span class="mut">棚になし</span>'}
+          <span>仕入れ（${dayWord(na)}）</span><span>${ordCell(p,s)}</span>
+          <span>きょうの仕入れ</span><b>${s||today[p.id]?(today[p.id]||0):'—'}${s?` <button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressOpen()?'':'disabled'}>臨時便</button>`:''}</b>
           <span>棚・いま</span><b>${s?`${s.face}列×${Math.round(s.cap/s.face)}・${stock[p.id]||0}個`:'—'}</b>
           <span>きょう</span><b>売れた${o.items[p.id]||0}・<span class="${lostSO[p.id]?'neg':''}">売切で逃した${lostSO[p.id]||0}</span>・見て買わず${looked[p.id]||0}</b>
           <span>評価</span><span>${rep(p.id)}</span></div></div>`;}).join('')}</div>`:`
-    <div class="ks-scroll" style="margin-top:6px"><table class="ks-t" style="min-width:1100px"><thead><tr><th class="l">商品</th><th class="l">ようす</th><th>値段</th><th>ふつう比</th><th>原価（原価率）</th><th>仕入れ数</th><th>棚（列×奥）</th><th>いまの棚</th><th>きょう売れた</th><th>売切で逃した</th><th>見て買わず</th><th class="l">評価</th></tr></thead><tbody>
+    <div class="ks-scroll" style="margin-top:6px"><table class="ks-t" style="min-width:1320px"><thead><tr><th class="l">商品</th><th class="l">ようす</th><th>値段</th><th>ふつう比</th><th>原価（原価率）</th><th>仕入れ（${dayWord(na)}）</th><th>きょうの仕入れ</th><th></th><th>棚（列×奥）</th><th>いまの棚</th><th>きょう売れた</th><th>売切で逃した</th><th>見て買わず</th><th class="l">評価</th></tr></thead><tbody>
     ${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
       return `<tr class="${s?'':'off'}"><td class="l"><b>${esc(p.name)}</b><br><span class="mut" style="font-size:11px">${I.G[p.genre].name}</span></td><td class="l">${tag(p)}</td>
       <td><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span></td>
       <td class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%</td><td class="${cr>0.7?'neg':''}">${yen(p.cost)}（${Math.round(cr*100)}%）</td>
-      <td>${s?`<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1">−</button><b>${set.order[p.id]||0}</b><button type="button" data-or="${p.id}" data-d="1">＋</button></span>`:'<span class="mut">棚になし</span>'}</td>
+      <td>${ordCell(p,s)}</td><td>${s||today[p.id]?(today[p.id]||0):'—'}</td><td>${s?`<button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressOpen()?'':'disabled'}>臨時便</button>`:''}</td>
       <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td>${s?(stock[p.id]||0):'—'}</td><td>${o.items[p.id]||0}</td><td class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td><td>${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
     </tbody></table></div>`}<p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
   $('ksAll').onchange=e=>{V.showAll=e.target.checked;render(true);};
   b.querySelectorAll('[data-pr]').forEach(x=>x.onclick=()=>edit(c=>{const pid=x.dataset.pr;c.price[pid]=Math.max(10,(c.price[pid]??I.P[pid].price)+Number(x.dataset.d));}));
-  b.querySelectorAll('[data-or]').forEach(x=>x.onclick=()=>edit(c=>{const pid=x.dataset.or,st=I.G[I.P[pid].genre].life===0?1:2;c.order[pid]=Math.max(0,(c.order[pid]||0)+Number(x.dataset.d)*st);}));}
+  b.querySelectorAll('[data-or]').forEach(x=>x.onclick=()=>{const pid=x.dataset.or,st=I.G[I.P[pid].genre].life===0?1:2;editOrder(pid,Number(x.dataset.d)*st);});
+  b.querySelectorAll('[data-ex]').forEach(x=>x.onclick=()=>{const pid=x.dataset.ex;V.expSel=pid;V.expQ=Math.max(1,(si[pid]&&si[pid].cap)||5);render(true);});
+  if($('ksExM')){$('ksExM').onclick=()=>{V.expQ=Math.max(1,V.expQ-1);render(true);};$('ksExP').onclick=()=>{V.expQ+=1;render(true);};$('ksExGo').onclick=()=>orderExpress(V.expSel,V.expQ);$('ksExNo').onclick=()=>{V.expSel=null;render(true);};}}
 
 /* 棚割り：区画ごとの枠に、どの品を置くか */
 function renderLayout(b){const I=ix(),set=curSet(),Z=V.cfg.zones,sel=V.slotSel;
   let pick='';if(sel){const z=Z[sel.z],cur=set.layout[sel.z][sel.i],ok=V.cfg.products.filter(p=>I.G[p.genre].zones.includes(sel.z));
     pick=`<div class="ks-pick"><span>${z.name}の${Math.floor(sel.i/z.cols)+1}段目・${sel.i%z.cols+1}列目：</span><select id="ksPickSel"><option value="">（空ける）</option>${ok.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.name)}（${yen(set.price[p.id]??p.price)}）</option>`).join('')}</select>
-      <button type="button" class="ks-btn" id="ksPickClose">閉じる</button><span class="ks-note" style="margin:0">同じ品を隣の枠にも置くと「列」が増え、目につきやすく、たくさん並べられます。</span></div>`;}
+      <button type="button" class="ks-btn" id="ksPickClose">閉じる</button><span class="ks-note" style="margin:0">同じ品を隣の枠にも置くと「列」が増え、目につきやすく、たくさん並べられます。新しく置いた品は、仕入れの締め切りしだいで${dayWord(nextOrderDay())}届きます（急ぐなら「商品」の臨時便）。</span></div>`;}
   b.innerHTML=`<div class="ks-card"><h3><span>棚割り</span><small>枠を押して、置く品を選びます（区画ごとに置ける品が決まっています）</small></h3>
     <div class="ks-zones" style="margin-top:10px">${Object.entries(Z).map(([zk,z])=>`<div class="ks-zone"><h4>${z.name}<small>${z.rows}段×${z.cols}列・1列に${z.depth}個</small></h4>
       <div class="ks-grid" style="grid-template-columns:repeat(${z.cols},minmax(0,1fr))">${(set.layout[zk]||[]).map((pid,i)=>{const p=pid&&I.P[pid];return `<button type="button" class="ks-slot ${p?'':'empty'}" data-z="${zk}" data-i="${i}" aria-pressed="${!!(sel&&sel.z===zk&&sel.i===i)}">${p?esc(p.short):'空き'}${p?`<i style="background:${p.color}"></i>`:''}</button>`;}).join('')}</div></div>`).join('')}</div>
     ${pick}<p class="ks-note">目の高さ（冷蔵ケースの2・3段目、中央の棚の2・3段目など）ほど目につきます。いま置いていない品：${V.cfg.products.filter(p=>!KC.shelfInfo(V.cfg,set.layout)[p.id]).map(p=>p.short).join('・')}</p></div>`;
   b.querySelectorAll('.ks-slot').forEach(x=>x.onclick=()=>{V.slotSel={z:x.dataset.z,i:Number(x.dataset.i)};render(true);});
-  if($('ksPickSel'))$('ksPickSel').onchange=e=>{const {z,i}=V.slotSel,v=e.target.value||null;edit(c=>{c.layout[z][i]=v;if(v&&!c.order[v])c.order[v]=KC.defaultOrder(V.cfg,v,V.cfg.zones[z].depth);});};
+  if($('ksPickSel'))$('ksPickSel').onchange=e=>{const {z,i}=V.slotSel,v=e.target.value||null;edit(c=>{c.layout[z][i]=v;});if(v){const na=nextOrderDay();if(!orderFor(na)[v]){V.st.orderQ=V.st.orderQ||[];let e=V.st.orderQ.find(x=>x.from===na);if(!e){e={from:na,order:orderFor(na)};V.st.orderQ.push(e);}e.order[v]=KC.defaultOrder(V.cfg,v,V.cfg.zones[z].depth);persist();}}};
   if($('ksPickClose'))$('ksPickClose').onclick=()=>{V.slotSel=null;render(true);};}
 
 /* 客層・時間帯・買わなかった理由・置いていなくて帰った人 */
@@ -252,7 +274,7 @@ function renderPeople(b,res){const I=ix(),T0=gT(),k=KC.idxAt(res,T0),ps={},psLoo
 function renderMoney(b,res){const S=V.st,P=res.pl,o=KC.soFar(V.cfg,res,gT());
   const row=(n,v,cls)=>`<tr><td class="l">${n}</td><td class="${cls||''}">${yen(v)}</td></tr>`;
   b.innerHTML=`<div class="ks-g2"><div class="ks-card"><h3><span>きょう1日の見込み</span><small>このまま閉店まで続けた場合（いまの設定で）</small></h3><table class="ks-t"><tbody>
-      ${row('売上',P.sales)}${row('仕入れ原価（売れた分）',-P.cogs,'mut')}${row('廃棄（売れ残り・保温切れ）',-P.waste,'mut')}${row('人件費',-P.staff,'mut')}${row('場所代（売上の'+Math.round(V.rcfg.places[S.place].rentRate*100)+'%か最低額）',-P.rent,'mut')}${row('電子マネーの手数料',-P.fee,'mut')}${row('電気代など',-P.util,'mut')}
+      ${row('売上',P.sales)}${row('仕入れ原価（売れた分）',-P.cogs,'mut')}${row('廃棄（売れ残り・保温切れ）',-P.waste,'mut')}${P.express?row('臨時便の料金',-P.express,'mut'):''}${row('人件費',-P.staff,'mut')}${row('場所代（売上の'+Math.round(V.rcfg.places[S.place].rentRate*100)+'%か最低額）',-P.rent,'mut')}${row('電子マネーの手数料',-P.fee,'mut')}${row('電気代など',-P.util,'mut')}
       <tr><td class="l"><b>損益</b></td><td class="${P.profit<0?'neg':'pos'}"><b>${yen(P.profit)}</b></td></tr></tbody></table>
       <p class="ks-note">いまの時刻までの売上は ${yen(o.sales)}。新聞・雑誌の売れ残りは返品するので、捨てる分には入りません。</p></div>
     <div class="ks-card"><h3><span>これまでの運行日</span><small>積み立て ${man(S.cash)}</small></h3><div class="ks-scroll" style="max-height:300px"><table class="ks-t"><thead><tr><th class="l">運行日</th><th>客</th><th>売上</th><th>廃棄</th><th>損益</th><th class="l">売れ筋</th></tr></thead><tbody>
@@ -352,7 +374,7 @@ function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=
 
 /* ---------- 起動 ---------- */
 mount();setInterval(tick,1000);
-window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()=>setOpen(true),
+window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()=>setOpen(true),sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},
   closeToday(){const r=ensureRes();if(r){closeToday(r);g(()=>{ENS.day=ENS.day;});}return V.st&&V.st.hist.at(-1);},   // 開発用：きょうの分で1日を締める（運行日は進めない）
   reset(){try{localStorage.removeItem(KEY);}catch(e){}V.st=null;V.res=null;render(true);badge();}};
 })();

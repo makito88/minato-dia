@@ -370,7 +370,7 @@ function draw(dt,time){const c=V.cx,W=1000,Hh=400,Tn=gT(),cond=gCond(),sp=sceneP
 
 /* ---------- 起動 ---------- */
 mount();load();setInterval(tick,1000);
-window.minatoResearch={get state(){return V.st;},scene:()=>({trkWait:(V.trkWait||[]).map(Math.round),nowWait:Math.round(V.nowWait||0),leaving:V.walkers.filter(w=>w.leave).length,off:V.walkers.filter(w=>w.off).length,walkers:V.walkers.length,waiting:V.walkers.filter(w=>w.wait!=null&&!w.leave).length,spawned:V.spawned||0,perFigure:{walk:V.sW,wait:V.sH}}),open:()=>setOpen(true),
+window.minatoResearch={get state(){return V.st;},sync:()=>tick(),get ready(){return !!V.cfg;},scene:()=>({trkWait:(V.trkWait||[]).map(Math.round),nowWait:Math.round(V.nowWait||0),leaving:V.walkers.filter(w=>w.leave).length,off:V.walkers.filter(w=>w.off).length,walkers:V.walkers.length,waiting:V.walkers.filter(w=>w.wait!=null&&!w.leave).length,spawned:V.spawned||0,perFigure:{walk:V.sW,wait:V.sH}}),open:()=>setOpen(true),
   recordToday(){const a=activeStudy();if(!a)return null;const c=ctxFor(a.st,a.place);if(c)addRecord(a,{...c,day:a.startDay+a.recs.length});return a.recs.length;},   // 開発用：きょうの条件で1日分を記録する
   reset(){V.st=blank();persist();V.sel=null;badge();render(true);}};
 })();

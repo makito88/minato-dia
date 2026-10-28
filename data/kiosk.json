@@ -24,6 +24,7 @@
     "donut",
     "colddrink",
     "coffee",
+    "hotdrink",
     "energy",
     "hot"
    ]
@@ -34,10 +35,11 @@
    "genres": [
     "onigiri",
     "sand",
-    "bread",
     "donut",
     "colddrink",
     "coffee",
+    "hotdrink",
+    "energy",
     "hot",
     "paper"
    ]
@@ -2763,5 +2765,15 @@
    "{st}駅の売店、{item}が売り切れてた…",
    "{item}高くない？"
   ]
- }
+ },
+ "orderDeadline": 1200,
+ "express": {
+  "fee": 3000,
+  "lead": 60,
+  "max": 2,
+  "from": 360,
+  "to": 1200,
+  "note": "臨時便：頼んでから lead 分後に届く。1回 fee 円（品物の原価は別）。1日 max 回まで、from〜to の時刻だけ頼める。"
+ },
+ "orderNote": "仕入れ数は締め切り（orderDeadline＝20:00）までに変えると次の運行日の便から、過ぎるとその次の運行日から届く。日持ちする物は、その品のジャンルが載っている便ごとに『裏も合わせた目標の数』まで足す。その日のうちに売る物は1日の数を朝5割・昼前と午後に2割5分ずつ。"
 }
