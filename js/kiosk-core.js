@@ -59,6 +59,16 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const si0=shelfInfo(cfg,setAt(O0).layout);
   for(const pid in si0){const it=P[pid];if(!it.mania)continue;const release=(it.id==='mg_manga'&&ctx.dow===1)||(state.placedAt[pid]===ctx.day)||(state.placedAt[pid]===ctx.day-1);
     if(!release)continue;const n=poisson(dayFoot*cfg.mania.rate/100*it.mania,r);for(let i=0;i<n;i++){const t=O0+30+r()*240;visitors.push({t,p:0,a:1,ps:r()<0.5?'stu':'salM',em:true,dw:3,mania:pid});}}
+  // その日の気分：ジャンルごとの売れ方が、日によって少しぶれる（「甘い物の気分の日」など）
+  const M=cfg.mood||{},rm=rng(hash(state.seed,ctx.day,'mood')),gz=()=>{const u=Math.max(1e-9,rm()),v2=rm();return Math.sqrt(-2*Math.log(u))*Math.cos(6.2832*v2);};
+  const moodG={};for(const g of cfg.genres){const z=gz();moodG[g.id]=(M.fixed||[]).includes(g.id)?1:Math.exp(z*(M.daySd||0));}
+  // なんとなく寄る人：買うつもりはなかったが、目に入った物を見に来る
+  if(M.impulse)for(let h=Math.floor(O0/60);h<Math.ceil(O1/60);h++){const dwf=clamp(Math.pow(Math.max(0.3,(DW[h]||1.5))/2,cfg.visit.dwellPow),0.5,2);
+    for(let p=0;p<4;p++){const n=poisson((F[p][h]||0)*M.impulse*dwf,r);for(let i=0;i<n;i++){const a=pickW(ageMix(p),r),ps=pickO(cfg.personaMap[String(p)][a],r),t=h*60+r()*60;if(t<O0||t>=O1)continue;
+      visitors.push({t,p,a,ps,em:r()<Math.min(0.97,R.payment.emoney[a]*R.payment.purposeMul[p]),dw:DW[h]||1.5,imp:true});}}}
+  // SNSを見て来る人：話題になっている品を目当てに、昼から夜に来る
+  if(M.snsSeek)for(const pid in si0){const b=state.buzz[pid]||0;if(b<=0.03)continue;const n=poisson(dayFoot*b*M.snsSeek,r);
+    for(let i=0;i<n;i++){const t=Math.max(O0,600+r()*660);if(t>=O1)continue;const ps=pickO({jk:3,salF:2,tou:2,stu:1},r);visitors.push({t,p:ps==='tou'?2:3,a:ps==='jk'?0:1,ps,em:true,dw:DW[Math.floor(t/60)]||1.5,sns:pid});}}
   visitors.sort((a,b)=>a.t-b.t);
 
   // 在庫：棚と裏（ロットごとに入った日を持つ）。ホットスナックは調理した時刻を持つ
@@ -120,28 +130,42 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     takeSnap(t);};
   tick(O0);
   const priceOf=pid=>cur.price[pid]??P[pid].price;
+  const recent=[],motives={};   // recent：直前に売れた品（前の人につられる）
+  const herdF=(pid,t)=>{let n=0;for(let i=recent.length-1;i>=0&&t-recent[i].t<=(M.herdWin||4);i--)if(recent[i].pid===pid)n++;return 1+(M.herd||0)*Math.min(M.herdMax||3,n);};
+  const newF=pid=>state.placedAt[pid]!=null&&ctx.day-state.placedAt[pid]>=0&&ctx.day-state.placedAt[pid]<(M.newDays||0)?(M.newBoost||1):1;
   for(const v of visitors){tick(v.t);nowT=v.t;const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
+    if(v.imp){   // なんとなく：棚全体から目に入った物（安い・手軽・映える・いま売れている物ほど）を手に取る
+      const all=Object.keys(SI).map(k=>P[k]).filter(c=>stockOf(c.id)>0&&!ix.G[c.genre].age&&!(M.fixed||[]).includes(c.genre));if(!all.length)continue;
+      const ws=all.map(c=>c.w*SI[c.id].vis*(1+c.photo)*(priceOf(c.id)<=200?1.4:0.8)*(c.ease/5)*herdF(c.id,v.t)*(moodG[c.genre]||1)*buzzF(c.id)*trendOn(c)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(priceOf(c.id)/c.price-1)));
+      const c=all[pickW(ws,r)];const qd=Math.min(...servers)>v.t+0.2;   // 会計に人が並んでいると気になる
+      if(r()>(M.impulseBuy||0.5)*(qd?(M.queueLure||1):1))continue;
+      const S2=cfg.service,svc2=S2.base+(v.em?S2.emoney:S2.cash)+(c.genre==='hot'?S2.hot:0),k2=servers.indexOf(Math.min(...servers)),st2=Math.max(v.t,servers[k2]);
+      if(st2-v.t>ps.patience*1.2)continue;servers[k2]=st2+svc2/60;const g2=takeShelf(c.id,1);if(!g2.got)continue;
+      const y2=g2.got*priceOf(c.id);add(sold,c.id,g2.got);add(gross,c.id,y2);add(cogs,c.id,g2.cost);hourly[h]+=y2;hourlyN[h]++;add(byPs,v.ps,1);
+      const mot=qd?'queue':'impulse';add(motives,mot,1);ev.push({t:st2,k:'buy',ps:v.ps,items:[[c.id,g2.got]],yen:y2,em:v.em,wait:st2-v.t,mot});recent.push({t:st2,pid:c.id});
+      if(r()<ps.sns*c.photo*0.35){const p2={t:st2+2,pid:c.id,ps:v.ps,good:true};posts.push(p2);ev.push({t:p2.t,k:'sns',pid:c.id,ps:v.ps,good:true});}
+      continue;}
     const minor=v.a===0;
     // 何がほしいか（ジャンル）
-    let want=null,target=v.reg?v.reg.pid:v.mania||null;
+    let want=null,target=v.reg?v.reg.pid:v.mania||v.sns||null;
     if(target)want=P[target].genre;
     else{const gw=cfg.genres.map(g=>{let w=g.base*(ps.pref[g.id]??1)*hm(g.hours,h)*((g.season&&g.season[ctx.cond.season])||1)*((g.wx&&g.wx[ctx.cond.wx])??1);
-        if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w;});
+        if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w*(moodG[g.id]||1);});
       want=cfg.genres[pickW(gw,r)].id;}
     // どれを選ぶか（棚に見えている物から）
     const cands=ix.byG[want].filter(it=>SI[it.id]);
     const logLook=(pid,why)=>{add(looked,pid||('g:'+want),1);add(reasons,why,1);ev.push({t:v.t,k:'look',ps:v.ps,pid,genre:want,why,reg:!!v.reg,mania:!!v.mania});};
     if(!cands.length){add(miss,want,1);logLook(null,'置いていない');if(v.reg)regEvents.push({g:v.reg,ok:false,why:'置いていない'});continue;}
     let it;if(target&&SI[target])it=P[target];
-    else{const ws=cands.map(c=>{const pr=priceOf(c.id)/c.price;return c.w*SI[c.id].vis*repF(c.id)*buzzF(c.id)*trendOn(c)*Math.exp(-cfg.price.elastic*ps.priceSens*(pr-1))*(stockOf(c.id)>0?1:0.6);});it=cands[pickW(ws,r)];}
+    else{const ws=cands.map(c=>{const pr=priceOf(c.id)/c.price;return c.w*SI[c.id].vis*repF(c.id)*buzzF(c.id)*trendOn(c)*herdF(c.id,v.t)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(pr-1))*(stockOf(c.id)>0?1:0.6);});it=cands[pickW(ws,r)];}
     if(!it){logLook(null,'迷ってやめた');continue;}
     // 値段
     const ratio=priceOf(it.id)/it.price,buyP=Math.min(1,Math.exp(-cfg.price.elastic*ps.priceSens*Math.max(0,ratio-1))*(ratio<1?1+0.6*(1-ratio)*ps.priceSens:1)*0.92);
-    if(!v.reg&&!v.mania&&r()>buyP){logLook(it.id,ratio>cfg.price.tooHigh?'値段が高い':'見たけど買わなかった');continue;}
+    if(!v.reg&&!v.mania&&!v.sns&&r()>buyP){logLook(it.id,ratio>cfg.price.tooHigh?'値段が高い':'見たけど買わなかった');continue;}
     // 在庫
     if(stockOf(it.id)<=0){add(lostSO,it.id,1);
       const alt=cands.filter(c=>c.id!==it.id&&stockOf(c.id)>0);
-      if(!v.reg&&!v.mania&&alt.length&&r()<0.45){it=alt[Math.floor(r()*alt.length)];}
+      if(!v.reg&&!v.mania&&!v.sns&&alt.length&&r()<0.45){it=alt[Math.floor(r()*alt.length)];}
       else{logLook(it.id,'売り切れ');if(v.reg)regEvents.push({g:v.reg,ok:false,why:'売り切れ'});
         if(it.photo>0.6&&r()<ps.sns*0.3)posts.push({t:v.t,pid:it.id,ps:v.ps,good:false});continue;}}
     // 列：電車の時間までに買えるか
@@ -158,7 +182,12 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     for(const [pid,q] of items){const g2=takeShelf(pid,q);if(!g2.got)continue;const y=g2.got*priceOf(pid);yen+=y;add(sold,pid,g2.got);add(gross,pid,y);add(cogs,pid,g2.cost);bought.push([pid,g2.got]);}
     if(!bought.length){logLook(it.id,'売り切れ');continue;}
     hourly[h]+=yen;hourlyN[h]++;add(byPs,v.ps,1);
-    const e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania};ev.push(e);
+    // きっかけ：いちばん効いた「気分」の要素（前の人・SNS・ブーム・新商品）、なければ雨・買うつもり
+    let mot=v.reg?'regular':v.mania?'mania':v.sns?'sns':null;
+    if(!mot){const mp=P[bought[0][0]],fx={herd:herdF(mp.id,v.t)-1,sns:buzzF(mp.id)-1,trend:trendOn(mp)-1,new:newF(mp.id)-1};let best=null;for(const k in fx)if(fx[k]>0.25&&(!best||fx[k]>fx[best]))best=k;
+      mot=best&&r()<fx[best]/(1+fx[best])?best:(mp.genre==='umbrella'&&(ctx.cond.wx==='rain'||ctx.cond.wx==='snow'))?'rain':'plan';}
+    add(motives,mot,1);recent.push({t:start,pid:bought[0][0]});if(recent.length>60)recent.splice(0,20);
+    const e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1};ev.push(e);
     if(v.reg)regEvents.push({g:v.reg,ok:true});
     // 評価
     const main=P[bought[0][0]];
@@ -185,7 +214,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const staffH=edits.reduce((s,e,i)=>{const t0=Math.max(O0,e.t),t1=i+1<edits.length?Math.max(O0,edits[i+1].t):O1;return s+Math.max(0,t1-t0)/60*setAt(e.t).staff;},0);
   const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:staffH*cfg.wage,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
   pl.cost=pl.cogs+pl.waste+pl.express+pl.staff+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
-  return {day:ctx.day,cond:ctx.cond,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F};}
+  return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F};}
 
 /* 評価：客層の好み（甘さ・味の濃さ・量）と商品の味のずれ、値段 */
 function review(cfg,ps,it,ratio,r){const [s,k,v]=it.taste,[ps1,pk,pv]=ps.taste,T=cfg.reviews;let stars=4.3+(r()-0.5)*0.8;const bad=[];
@@ -225,9 +254,14 @@ function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.str
   const so=Object.entries(res.lostSO).sort((a,b)=>b[1]-a[1])[0];if(so&&so[1]>=8)say('soldout',`「${ix.P[so[0]].name}」が売り切れて${so[1]}人が買えなかった`,'仕入れ数や棚の並べ方（フェイス）を増やすと、逃す客が減ります。',so[0]);
   const ms=Object.entries(res.miss).sort((a,b)=>b[1]-a[1])[0];if(ms&&ms[1]>=6)say('miss',`${ix.G[ms[0]].name}を探して、置いていなくて帰った人が${ms[1]}人`,'棚に置いていないジャンルを探しに来た人の数です。',null);
   const ws=Object.entries(res.wasteBy).sort((a,b)=>b[1]-a[1])[0];if(ws&&ws[1]>=8)say('waste',`「${ix.P[ws[0]].name}」を${ws[1]}個捨てた`,'売れ残りや保温時間切れ。仕入れ数を見直す手がかりになります。',ws[0]);
+  // その日の気分：ふだんよりはっきり多く売れた・少なかったジャンル
+  if(res.moodG){const L=cfg.mood&&cfg.mood.labels||{},hi=Object.entries(res.moodG).sort((a,b)=>b[1]-a[1])[0];if(hi&&hi[1]>1.22)say('mood',`きょうは「${ix.G[hi[0]].name}」の気分の人が多かった`,`天気や曜日とは別に、なんとなく${ix.G[hi[0]].name}に手がのびる人が多い日でした（ふだんの約${Math.round(hi[1]*100)}%）。日によってこういうぶれがあります。`);
+    const tot=Object.values(res.motives||{}).reduce((a,b)=>a+b,0),herd=(res.motives||{}).herd||0,imp=((res.motives||{}).impulse||0)+((res.motives||{}).queue||0);
+    if(tot>50&&imp/tot>0.18)say('mood','「なんとなく」買った人が多かった',`お客さん${tot}人のうち${imp}人が、買うつもりはなかったのに手に取っていました。目につく場所の品、安い品、手軽な品ほど売れます。`);
+    if(tot>50&&herd/tot>0.08)say('mood','前の人につられて買う人が多かった',`${herd}人が、直前に同じ品が売れたのを見て買っていました。`);}
   // 記録
   const top=Object.entries(res.sold).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  st.hist.push({day,cond:res.cond,sales:Math.round(res.pl.sales),profit:Math.round(res.pl.profit),cust:Object.values(res.byPs).reduce((a,b)=>a+b,0),waste:Math.round(res.pl.waste),top});if(st.hist.length>60)st.hist.shift();
+  st.hist.push({day,cond:res.cond,mot:res.motives,sales:Math.round(res.pl.sales),profit:Math.round(res.pl.profit),cust:Object.values(res.byPs).reduce((a,b)=>a+b,0),waste:Math.round(res.pl.waste),top});if(st.hist.length>60)st.hist.shift();
   if(st.news.length>80)st.news=st.news.slice(-80);
   return {state:st,news};}
 

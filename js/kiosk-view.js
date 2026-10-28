@@ -96,6 +96,9 @@ function nextDelivery(res,T,pid){const k=KC.idxAt(res,T);for(let i=k;i<res.ev.le
 function pinfo(pid,res){const T0=gT(),set=curSet(),s=KC.shelfInfo(V.cfg,set.layout)[pid]||null,stock=(KC.stockAt(res,T0)[pid])||0,back=(KC.backAt(res,T0)[pid])||0,c=counts(res,T0);
   const cap=s?s.cap:0,st=!s?'none':stock+back<=0?'out':stock<=0?'wait':(stock+back)<=Math.max(1,Math.ceil(cap*0.25))?'low':'ok';
   return {s,cap,stock,back,sold:c.sold[pid]||0,lost:c.lost[pid]||0,looked:c.looked[pid]||0,next:nextDelivery(res,T0,pid),st};}
+const motL=m=>m&&m!=='plan'?((V.cfg.mood&&V.cfg.mood.labels||{})[m]||''):'';   // 買ったきっかけ（「買うつもりで」は出さない）
+function motText(pid,res){const T0=gT(),c={};let n=0;for(const e of res.ev){if(e.t>T0)break;if(e.k==='buy'&&e.items.some(([q])=>q===pid)){const m=e.mot||'plan';c[m]=(c[m]||0)+1;n++;}}
+  if(!n)return 'まだ売れていません';const L=V.cfg.mood&&V.cfg.mood.labels||{};return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([m,k])=>`${L[m]||m} ${Math.round(k/n*100)}%`).join('・');}
 const ST_LABEL={out:'売り切れ',wait:'棚が空（裏にあり・品出し待ち）',low:'残りわずか',ok:'在庫あり',none:'棚に置いていない'};
 const nextText=n=>n?`${fmtT(n.t)} ${n.name}で＋${n.q}個`:'きょうはもう届きません';
 /* 仕入れの変更が、いつから・いくつ変わるか */
@@ -220,7 +223,8 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
     <div class="ks-sg"><span>棚</span><b id="shShelf">${x.s?`${x.s.face}列×${Math.round(x.cap/x.s.face)}（最大${x.cap}個）`:'置いていない'}</b>
       <span>いま</span><b id="shNow">棚に${x.stock}個・裏に${x.back}個</b>
       <span>きょう</span><b id="shToday">売れた${x.sold}・売り切れで逃した${x.lost}・見て買わず${x.looked}</b>
-      <span>次の便</span><b id="shNext">${nextText(x.next)}</b></div>
+      <span>次の便</span><b id="shNext">${nextText(x.next)}</b>
+      <span>きっかけ</span><b id="shMot">${motText(pid,res)}</b></div>
     <div class="ks-sbox"><h4>仕入れ（${unit}）</h4>
       <div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>${dayWord(o.na)}</span><span class="ks-num"><button type="button" id="shOm" aria-label="減らす">−</button><b class="${o.d?'chg':''}">${o.nx}</b><button type="button" id="shOp" aria-label="増やす">＋</button></span></div>
       <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>
@@ -242,7 +246,7 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
   $('shTab').onclick=()=>{V.tab='items';closeSheet();render(true);setTimeout(()=>{const r=document.querySelector(`[data-row="${pid}"]`);if(r)r.scrollIntoView({block:'center'});},50);};}
 /* 商品カードの数字だけを書きかえる（ボタンは作り直さないので、押している途中でも消えない） */
 function updateSheet(){const pid=V.sheet,res=V.res;if(!pid||!res||!$('shNow'))return;const x=pinfo(pid,res);
-  const set=(id,t)=>{const e=$(id);if(e&&e.textContent!==t)e.textContent=t;};set('shNow',`棚に${x.stock}個・裏に${x.back}個`);set('shToday',`売れた${x.sold}・売り切れで逃した${x.lost}・見て買わず${x.looked}`);set('shNext',nextText(x.next));
+  const set=(id,t)=>{const e=$(id);if(e&&e.textContent!==t)e.textContent=t;};set('shNow',`棚に${x.stock}個・裏に${x.back}個`);set('shToday',`売れた${x.sold}・売り切れで逃した${x.lost}・見て買わず${x.looked}`);set('shNext',nextText(x.next));set('shMot',motText(pid,res));
   const s=$('shSt');if(s&&!s.classList.contains(x.st)){s.className='ks-st '+x.st;s.textContent=ST_LABEL[x.st];}}
 
 /* ---------- 画面全体 ---------- */
@@ -267,7 +271,7 @@ function renderBody(full){const b=$('ksBody'),res=ensureRes();if(!res)return;
 
 /* 売れ行き：いまの時刻までの出来事（新しい順） */
 function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps:'';
-  if(e.k==='buy')return ['buy',ps+(e.reg?'（常連）':e.mania?'（マニア）':''),e.items.map(([p,q])=>P[p].short+(q>1?'×'+q:'')).join('・')+(e.wait>0.5?`（${Math.round(e.wait*60)}秒待ち）`:''),yen(e.yen)];
+  if(e.k==='buy')return ['buy',ps+(e.reg?'（常連）':e.mania?'（マニア）':''),e.items.map(([p,q])=>P[p].short+(q>1?'×'+q:'')).join('・')+(motL(e.mot)&&!e.reg&&!e.mania?`〔${motL(e.mot)}〕`:'')+(e.addon?'〔ついでに'+P[e.items[e.items.length-1][0]].short+'も〕':'')+(e.wait>0.5?`（${Math.round(e.wait*60)}秒待ち）`:''),yen(e.yen)];
   if(e.k==='look')return ['look',ps+(e.reg?'（常連）':''),(e.pid?P[e.pid].short:I.G[e.genre].name)+'… '+e.why,''];
   if(e.k==='review')return ['rv',ps,`${P[e.pid].short}「${e.text}」`,'★'.repeat(e.stars)];
   if(e.k==='sns')return ['sns',ps,`${P[e.pid].short}について投稿${e.good?'':'（不満）'}`,'SNS'];
@@ -362,14 +366,18 @@ function renderLayout(b){const I=ix(),set=curSet(),Z=V.cfg.zones,sel=V.slotSel;
   if($('ksPickClose'))$('ksPickClose').onclick=()=>{V.slotSel=null;render(true);};}
 
 /* 客層・時間帯・買わなかった理由・置いていなくて帰った人 */
-function renderPeople(b,res){const I=ix(),T0=gT(),k=KC.idxAt(res,T0),ps={},psLook={},why={},miss={},hr=new Float64Array(H),items={};
-  for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){ps[e.ps]=(ps[e.ps]||0)+1;hr[Math.floor(e.t/60)]+=e.yen;const m=items[e.ps]||(items[e.ps]={});for(const [p,q] of e.items)m[p]=(m[p]||0)+q;}
+function renderPeople(b,res){const I=ix(),T0=gT(),k=KC.idxAt(res,T0),ps={},psLook={},why={},miss={},hr=new Float64Array(H),items={},mot={},addon={n:0};
+  for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){ps[e.ps]=(ps[e.ps]||0)+1;const mm=e.mot||'plan';mot[mm]=(mot[mm]||0)+1;if(e.addon)addon.n++;hr[Math.floor(e.t/60)]+=e.yen;const m=items[e.ps]||(items[e.ps]={});for(const [p,q] of e.items)m[p]=(m[p]||0)+q;}
     else if(e.k==='look'){psLook[e.ps]=(psLook[e.ps]||0)+1;why[e.why]=(why[e.why]||0)+1;if(e.why==='置いていない')miss[e.genre]=(miss[e.genre]||0)+1;}}
   const mx=Math.max(1,...Object.values(ps)),hm=Math.max(1,...hr),hN=Math.floor(T0/60);
   b.innerHTML=`<div class="ks-g2"><div class="ks-card"><h3><span>買った人の客層</span><small>いままで</small></h3><div class="ks-bars">${V.cfg.personas.map(p=>`<div><span>${p.name}</span><u style="width:${(ps[p.id]||0)/mx*100}%;background:${p.icon}"></u><em>${ps[p.id]||0}人</em></div>`).join('')}</div>
       <p class="ks-note">客層ごとのよく買う品：${V.cfg.personas.filter(p=>items[p.id]).map(p=>`${p.short}＝${Object.entries(items[p.id]).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([x])=>I.P[x].short).join('・')}`).join('／')||'—'}</p></div>
     <div class="ks-card"><h3><span>見たけど買わなかった理由</span></h3><div class="ks-bars">${Object.entries(why).sort((a,b)=>b[1]-a[1]).map(([w,n])=>`<div><span>${w}</span><u style="width:${n/Math.max(...Object.values(why))*100}%;background:#c9a35c"></u><em>${n}人</em></div>`).join('')||'<p class="ks-note">まだいません。</p>'}</div>
       <p class="ks-note">置いていなくて帰った人がほしかった物：${Object.entries(miss).map(([gid,n])=>I.G[gid].name+' '+n+'人').join('・')||'—'}</p></div>
+    <div class="ks-card"><h3><span>買ったきっかけ</span><small>いままで</small></h3>${(()=>{const L=V.cfg.mood&&V.cfg.mood.labels||{},en=Object.entries(mot).sort((a,b)=>b[1]-a[1]),m2=Math.max(1,...en.map(x=>x[1])),tot=en.reduce((a,x)=>a+x[1],0);
+        const C={plan:'#8aa1b8',impulse:'#e0a84f',queue:'#d98a5b',herd:'#c97bb0',sns:'#5b8fd9',trend:'#d9645b',new:'#5bb08a',rain:'#6aa7c9',regular:'#9a8a6a',mania:'#7a6ad9'};
+        return `<div class="ks-bars">${en.map(([m,n])=>`<div><span>${L[m]||m}</span><u style="width:${n/m2*100}%;background:${C[m]||'#999'}"></u><em>${n}人</em></div>`).join('')||'<p class="ks-note">まだいません。</p>'}</div>
+        <p class="ks-note">${tot?`${addon.n}人は、ついでにもう1品買っていました。`:''}${res.moodG?'きょうの気分：'+Object.entries(res.moodG).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([gid,v])=>`${I.G[gid].name}がふだんの${Math.round(v*100)}%`).join('・')+'、'+Object.entries(res.moodG).sort((a,b)=>a[1]-b[1]).slice(0,1).map(([gid,v])=>`${I.G[gid].name}は${Math.round(v*100)}%`).join('')+'。':''}「なんとなく」は目につく場所・安い・手軽な品、「前の人につられて」は数分前に同じ品が売れたとき、「SNSを見て」は話題の品を目当てに来た人です。</p>`;})()}</div>
     <div class="ks-card"><h3><span>時間帯の売上</span><small>いまの時刻まで</small></h3><div class="ks-hrs">${Array.from({length:19},(_,j)=>{const h=j+5;return `<span class="${h===hN?'now':''}" style="height:${hr[h]/hm*100}%" title="${h}時台 ${yen(hr[h])}"></span>`;}).join('')}</div><div class="ks-hlab"><span>5時</span><span>9</span><span>13</span><span>17</span><span>21</span><span>23時</span></div></div></div>`;}
 
 /* 収支 */
@@ -440,7 +448,7 @@ function stepPeople(dt,mv){const I=ix();for(const p of V.people){const sp=110*mv
   else if(p.st===1){p.t+=dt*mv;if(p.t>1.4){const e=p.e;
       if(e.k==='buy'){p.tx=clampX(610+Math.random()*30);p.st=2;}
       else{const why=e.why;bubble(p.x,p.y-90,why==='値段が高い'?'高いなあ…':why==='売り切れ'?'売り切れか…':why==='置いていない'?I.G[e.genre].name+'、ないのか':why==='列が長い'?'電車が来ちゃう':'うーん…','#ffe7a3',(I.PS[e.ps]||{}).short);p.st=3;p.tx=Math.random()<0.5?-40:1040;}}}
-  else if(p.st===2){const dx=p.tx-p.x;if(Math.abs(dx)<4){p.t+=dt*mv;if(!p.paid){p.paid=true;const e=p.e;bubble(p.x,p.y-96,'+'+yen(e.yen)+'　'+e.items.map(([q])=>I.P[q].short).join('・'),'#bff0c8',(I.PS[e.ps]||{}).short+(e.reg?'・常連':e.mania?'・マニア':''));}
+  else if(p.st===2){const dx=p.tx-p.x;if(Math.abs(dx)<4){p.t+=dt*mv;if(!p.paid){p.paid=true;const e=p.e;bubble(p.x,p.y-96,'+'+yen(e.yen)+'　'+e.items.map(([q])=>I.P[q].short).join('・'),'#bff0c8',(I.PS[e.ps]||{}).short+(e.reg?'・常連':e.mania?'・マニア':motL(e.mot)?'・'+motL(e.mot):''));}
       if(p.t>2.2){p.st=3;p.tx=Math.random()<0.5?-40:1040;}}else{p.x+=Math.sign(dx)*Math.min(Math.abs(dx),110*mv*dt);p.walk+=110*mv*dt;}}
   else{const dx=p.tx-p.x;p.x+=Math.sign(dx)*Math.min(Math.abs(dx),130*mv*dt);p.walk+=130*mv*dt;if(Math.abs(dx)<4)p.gone=true;}}
   V.people=V.people.filter(p=>!p.gone);}
