@@ -114,13 +114,18 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   p.innerHTML=`<div class="rs-in">
    <div class="rs-hd"><h2>駅ナカ リサーチ</h2><small>まだ何も売っていません。どこに・何を置くかを決める前に、人の流れとお客さんの声を調べます。</small><span class="rs-sp"></span><button type="button" class="rs-btn" id="rsClose">閉じる</button></div>
    <div id="rsPlan"></div>
+   <div class="rs-row" style="margin:0"><span class="rs-lab">映像の速さ</span><span id="rsSpd"></span><span class="rs-note" style="margin:0">開いているあいだは×1（実際の速さ）。閉じると元の速さに戻ります。調査の日数を早く進めたいときは速くしてください。</span></div>
    <div class="rs-stage"><canvas id="rsCanvas" width="1000" height="400" aria-label="調べている場所のようす"></canvas></div>
    <div id="rsReport"></div></div>`;
   document.body.appendChild(p);$('rsClose').onclick=()=>setOpen(false);
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open)setOpen(false);});
-  V.cv=$('rsCanvas');V.cx=V.cv.getContext('2d');}
+  V.cv=$('rsCanvas');V.cx=V.cv.getContext('2d');
+  $('rsSpd').innerHTML=[1,30,180].map(m=>`<button type="button" class="rs-chip" data-m="${m}">×${m}</button>`).join(' ');
+  $('rsSpd').querySelectorAll('button').forEach(b=>b.onclick=()=>{setMult(Number(b.dataset.m));markM();});}
+function markM(){const m=Math.round(g(()=>speed,1/60)*60);document.querySelectorAll('#rsSpd button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.m)===m)));}
 function badge(){const n=V.st?V.st.news:0;for(const id of ['rsBtn','mrs']){const b=$(id);if(!b)continue;const d=b.querySelector('.dot');d.hidden=!n;d.textContent=String(n);b.setAttribute('aria-label','駅ナカ リサーチ'+(n?'（調査が終わりました）':''));}}
-function setOpen(o){V.open=o;$('rsv').hidden=!o;if(o){if(V.st){V.st.news=0;persist();badge();}render(true);cancelAnimationFrame(V.raf);V.lastTs=0;V.walkers=[];V.bubbles=[];V.raf=requestAnimationFrame(loop);}else cancelAnimationFrame(V.raf);}
+function setOpen(o){V.open=o;$('rsv').hidden=!o;if(o){V.prevSpeed=g(()=>speed,null);setMult(1);if(V.st){V.st.news=0;persist();badge();}render(true);cancelAnimationFrame(V.raf);V.lastTs=0;V.walkers=[];V.bubbles=[];V.raf=requestAnimationFrame(loop);}else{cancelAnimationFrame(V.raf);if(V.prevSpeed!=null)g(()=>setSpeed(V.prevSpeed));}}
+function setMult(m){g(()=>{speed=m/60;const ms=document.getElementById('mspeed');if(ms)ms.textContent='×'+m;});V.mult=m;if(typeof markM==='function')markM();}
 
 /* ---------- 調査の計画 ---------- */
 function renderPlan(){const box=$('rsPlan'),C=V.cfg,a=activeStudy();
@@ -221,7 +226,20 @@ function render(full){if(!V.open)return;
 /* ---------- 映像 ---------- */
 function scenePlace(){const a=activeStudy();if(a)return {st:a.st,place:a.place,live:true,m:a.m};const s=study(V.sel);if(s)return {st:s.st,place:s.place,live:false,m:s.m};return {st:V.form.st,place:V.form.place,live:false,m:{count:V.form.count,interview:V.form.interview}};}
 function provisional(sp){const k=sp.st+sp.place+gDay()+'|'+(gD()&&gD().trips.length)+gCond().wx+gCond().day;if(V.prov&&V.provKey===k)return V.prov;
-  const c=ctxFor(sp.st,sp.place);if(!c)return null;V.provKey=k;V.prov={F:RC.footfall(V.cfg,sp.st,sp.place,c.flows,c.plats),rec:RC.dayRecord(V.cfg,{...c,seed:V.st.seed,methods:{count:false,interview:true}}),stops:c.stops};return V.prov;}
+  const c=ctxFor(sp.st,sp.place);if(!c)return null;V.provKey=k;const dv=Math.max(1,(c.plats||2)/2);V.prov={div:dv,hb:Array.from({length:H},(_,h)=>[0,1,2,3].reduce((x,p)=>x+(c.flows.hb[p][h]||0),0)/dv),ha:Array.from({length:H},(_,h)=>[0,1,2,3].reduce((x,p)=>x+(c.flows.ha[p][h]||0),0)/dv),F:RC.footfall(V.cfg,sp.st,sp.place,c.flows,c.plats),rec:RC.dayRecord(V.cfg,{...c,seed:V.st.seed,methods:{count:false,interview:true}}),stops:c.stops};return V.prov;}
+function platEvents(st){const d=gD();if(!d)return [];if(V.peD===d&&V.peSt===st)return V.pe;
+  const plats=Math.max(2,g(()=>ST[st].plats,2)||2),all=[];
+  for(const t of d.trips){const i=t.seq.indexOf(st);if(i<0||!t.stop[i])continue;const first=i===0,lastS=i===t.seq.length-1;
+    // 始発：ダイヤで着と発が同じ時刻のときは、発車の3分前からドアを開けて待つ。終点：着いて1分ほどで降りきる
+    const o0=first?(t.arr[i]<t.dep[i]-0.5?t.arr[i]+0.1:t.dep[i]-3):t.arr[i]+0.1,o1=first?t.dep[i]-0.1:lastS?t.arr[i]+1.2:Math.max(t.arr[i]+0.3,t.dep[i]-0.1);
+    all.push({tr:t,down:t.down,o0,o1,dep:t.dep[i],board:!lastS,alight:!first,key:t.type+t.num+'|'+t.dep[i],term:first||lastS});}
+  all.sort((a,b)=>a.o0-b.o0);
+  // 線路に割り振る。途中の駅は下りが奥（0）・上りが手前（1）。始発・終点の駅は、空いている線路へ順に入れる
+  const free=new Array(plats).fill(-1e9);
+  for(const e of all){let k;if(!e.term&&plats===2)k=e.down?0:1;else{k=free.findIndex(f=>f<=e.o0-0.6);if(k<0)k=free.indexOf(Math.min(...free));}e.trk=k;free[k]=Math.max(free[k],e.o1+0.6);}
+  const pe=all.filter(e=>e.trk<2);   // 映すのは1つの島式ホーム（奥の線路0と手前の線路1）
+  for(const k of [0,1]){const L=pe.filter(e=>e.trk===k);for(let j=0;j<L.length;j++){const e=L[j];e.vis0=e.o0-0.6;e.vis1=e.o1+0.6;if(j>0&&L[j-1].vis1>e.vis0){const m=(L[j-1].o1+e.o0)/2;L[j-1].vis1=Math.min(L[j-1].vis1,m);e.vis0=Math.max(e.vis0,m);}}}
+  V.peD=d;V.peSt=st;V.pe=pe;return pe;}
 function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=ts;if(!V.open)return;
   if(V.cfg)draw(dt,ts/1000);V.panelT+=dt;if(V.panelT>1){V.panelT=0;if(activeStudy())renderPlan();}
   V.raf=requestAnimationFrame(loop);}
@@ -260,33 +278,67 @@ function draw(dt,time){const c=V.cx,W=1000,Hh=400,Tn=gT(),cond=gCond(),sp=sceneP
     if(sp.place==='gate'){for(let i=0;i<6;i++){const x=320+i*62;c.fillStyle='#d7dbe0';rr(c,x,200,34,64,3);c.fill();c.fillStyle='#4a7fb5';c.fillRect(x+6,208,22,6);c.fillStyle=Math.sin(time*3+i)>0?'#5fd38a':'#3a8a5a';c.fillRect(x+12,222,10,4);}
       c.fillStyle='#294b6b';rr(c,420,150,160,28,3);c.fill();c.fillStyle='#fff';c.font='700 14px sans-serif';c.fillText('改札口',500,169);}
     if(sp.place==='naka'){c.fillStyle='#294b6b';rr(c,40,120,150,28,3);c.fill();rr(c,810,120,150,28,3);c.fill();c.fillStyle='#fff';c.font='700 13px sans-serif';c.fillText('← 改札口',115,139);c.fillText('のりば →',885,139);}}
-  // ホームに止まる列車（ダイヤどおり）
-  if(home){const d=gD();let tr=null,ph=0;if(d)for(const t of d.trips){const i=t.seq.indexOf(sp.st);if(i<0||!t.stop[i])continue;if(Tn>=t.arr[i]-0.6&&Tn<=t.dep[i]+0.6){tr=t;ph=Tn<t.arr[i]?(Tn-t.arr[i])/0.6:Tn>t.dep[i]?(Tn-t.dep[i])/0.6:0;break;}}
-    if(tr){const cls=g(()=>TYPES[tr.type].cls,'commuter'),col={commuter:'#2f7a6e',express:'#c8333a',tourist:'#2b3d6b'}[cls]||'#2f7a6e',x0=ph*1100*(tr.down?1:-1);
-      const i=tr.seq.indexOf(sp.st),open=ph===0&&Tn>tr.arr[i]+0.1&&Tn<tr.dep[i]-0.1;
+  // ---- ホーム：このホームに着く列車（のりばが複数ある駅は、交互にこのホームへ着くものとする） ----
+  // 乗る人は、そのホームの「乗る人の流れ」の割合で少しずつ来て、ドアが開いたら全員乗る。降りる人はドアから出てくる。
+  // 「いま待っている人」の数字も同じ計算（前の列車が出てからの時間×乗る人の割合）から出すので、絵と数字がそろう。
+  const SCL=[1,2,5,10,20,50,100,200],pickS=(x,max)=>SCL.find(k=>x/k<=max)||SCL.at(-1);
+  const mult=g(()=>playing,true)?Math.max(0,g(()=>speed,1/60)*60):0;      // ゲームの速さ（×1＝実際の速さ）
+  const mv=Math.min(8,Math.max(1,mult)),gdt=dt*mult;                       // 人の歩く速さは×8まで
+  const mk=(x,y,extra)=>({x,y,coat:COATS[Math.floor(Math.random()*COATS.length)],h:rnd(0.9,1.05),bag:Math.random()<0.35,umb:rain&&Math.random()<0.6,...extra});
+  if(V.pkey!==sp.st+sp.place){V.pkey=sp.st+sp.place;V.walkers=[];V.acc=0;V.lastEv=null;V.sH=null;V.seeded=false;V.seenEv={};}
+  if(V.lastTn!=null&&(Tn<V.lastTn-0.02||Tn-V.lastTn>Math.max(1,dt*Math.max(1,(g(()=>speed,1/60)*60))/60*3))){V.walkers=V.walkers.filter(w=>w.wait==null&&!w.off);V.seeded=false;V.lastEv=null;V.seenEv={};}   // 時刻を飛ばしたときは、ホームの人を並べ直す
+  V.lastTn=Tn;
+  let cur=null,open=false,ph=0,doors=[],nowWait=0,boardMin=0,front=null,frontOpen=false;
+  const trkOpen=[false,false],trkWait=[0,0];
+  if(home&&pv){const evs=platEvents(sp.st);boardMin=pv.hb[hh]/60;
+    for(const e of evs){if(Tn>=e.vis0&&Tn<=e.vis1){if(e.trk===0&&!cur)cur=e;if(e.trk===1&&!front)front=e;}}
+    if(cur){open=Tn>=cur.o0&&Tn<=cur.o1;ph=Tn<cur.o0-0.1?(Tn-(cur.o0-0.1))/0.5:Tn>cur.o1+0.1?(Tn-(cur.o1+0.1))/0.5:0;const x0=ph*1100*(cur.down?1:-1);for(let k=0;k<6;k++)doors.push(x0+k*172-30+83);}
+    if(front)frontOpen=Tn>=front.o0&&Tn<=front.o1;
+    trkOpen[0]=open&&cur.board;trkOpen[1]=frontOpen&&front.board;
+    // 線路ごとの待っている人＝その線路の列車のドアが閉まってからの時間×乗る人の割合（ホームの半分ずつ）。時間帯の境目でも跳ねないよう積み上げる
+    for(const k of [0,1]){let last=null;for(const e of evs)if(e.trk===k&&e.board&&e.o1<=Tn&&(last==null||e.o1>last))last=e.o1;
+      if(trkOpen[k]){trkWait[k]=0;continue;}let acc=0;for(let t=last??Tn-10;t<Tn;){const h=Math.min(H-1,Math.floor(t/60)),t2=Math.min(Tn,(h+1)*60);acc+=pv.hb[h]/60/2*(t2-t);t=t2;}trkWait[k]=acc;}
+    nowWait=trkWait[0]+trkWait[1];
+    // 絵の縮尺は1時間のあいだ変えない（いちばん長い間隔のときの待つ人・1本の降りる人に合わせる）
+    const sk=sp.st+hh;if(V.sKey!==sk||V.sH==null){V.sKey=sk;let gap=0,nA=0;for(const k of [0,1]){let prev=null;for(const e of evs){if(e.trk!==k||e.o0<hh*60||e.o0>=hh*60+60)continue;if(e.alight)nA++;if(e.board){if(prev!=null)gap=Math.max(gap,e.o0-prev);prev=e.o1;}}}
+      const alightPer=pv.ha[hh]/Math.max(1,nA),ns=pickS(Math.max(boardMin*Math.min(Math.max(gap,6),12),alightPer),60);
+      if(V.sH!=null&&ns!==V.sH){for(const w of V.walkers)if(w.wait!=null&&!w.leave)w.gone=Math.random()>V.sH/ns;}   // 縮尺が変わるときは絵の数をそっと合わせる（乗ったことにはしない）
+      V.sH=ns;V.alightPer=alightPer;}}
+  if(home){
+    if(cur){const cls=g(()=>TYPES[cur.tr.type].cls,'commuter'),col={commuter:'#2f7a6e',express:'#c8333a',tourist:'#2b3d6b'}[cls]||'#2f7a6e',x0=ph*1100*(cur.down?1:-1);
       for(let k=0;k<6;k++){const x=x0+k*172-30;c.fillStyle='#dfe3e6';rr(c,x,130,168,104,6);c.fill();c.fillStyle=col;c.fillRect(x,206,168,9);c.fillStyle='#2a3a48';for(let w=0;w<3;w++)c.fillRect(x+12+w*54,146,40,30);
         c.fillStyle=open?'#1b2228':'#c7ccd0';c.fillRect(x+70,142,26,90);c.strokeStyle='#9aa0a5';c.lineWidth=1;c.strokeRect(x+70.5,142.5,25,89);}
-      c.fillStyle='rgba(0,0,0,.65)';rr(c,20,98,340,24,4);c.fill();c.fillStyle='#ffd34a';c.font='700 13px sans-serif';c.textAlign='left';c.fillText(`${g(()=>TYPES[tr.type].name,'')} ${g(()=>ST[tr.seq.at(-1)].name,'')}行 ${open?'ドアが開いています':ph<0?'まもなく到着':ph>0?'発車':'停車中'}`,30,115);}
-    // 駅名標（列車の手前のホームに立つ）
+      const st2=open?(cur.board?'ドアが開いています（発車 '+fmtT(cur.dep)+'）':'終点です。ドアが開いています'):ph<0?'まもなく到着':ph>0?'発車しました':'停車中';
+      c.fillStyle='rgba(0,0,0,.65)';rr(c,20,98,400,24,4);c.fill();c.fillStyle='#ffd34a';c.font='700 13px sans-serif';c.textAlign='left';c.fillText(`奥：${g(()=>TYPES[cur.tr.type].name,'')} ${g(()=>ST[cur.tr.seq.at(-1)].name,'')}行　${st2}`,30,115);}
+    else if(pv){const nx=platEvents(sp.st).find(e=>e.trk===0&&e.o0>Tn);if(nx){c.fillStyle='rgba(0,0,0,.55)';rr(c,20,98,400,24,4);c.fill();c.fillStyle='#fff';c.font='13px sans-serif';c.textAlign='left';c.fillText(`奥：つぎは ${fmtT(nx.o0)}着 ${g(()=>TYPES[nx.tr.type].name,'')} ${g(()=>ST[nx.tr.seq.at(-1)].name,'')}行`,30,115);}}
+    if(pv){const f=front,nx=f?null:platEvents(sp.st).find(e=>e.trk===1&&e.o0>Tn);const tx=f?`手前：${g(()=>TYPES[f.tr.type].name,'')} ${g(()=>ST[f.tr.seq.at(-1)].name,'')}行　${frontOpen?(f.board?'ドアが開いています（発車 '+fmtT(f.dep)+'）':'終点です。ドアが開いています'):Tn<f.o0?'まもなく到着':'発車しました'}`:nx?`手前：つぎは ${fmtT(nx.o0)}着 ${g(()=>TYPES[nx.tr.type].name,'')} ${g(()=>ST[nx.tr.seq.at(-1)].name,'')}行`:'';
+      if(tx){c.fillStyle=frontOpen?'rgba(0,0,0,.65)':'rgba(0,0,0,.55)';rr(c,20,126,400,24,4);c.fill();c.fillStyle=frontOpen?'#ffd34a':'#fff';c.font=(frontOpen?'700 ':'')+'13px sans-serif';c.textAlign='left';c.fillText(tx,30,143);}}
     c.fillStyle='#5b6167';c.fillRect(497,206,6,50);c.fillStyle='#fff';rr(c,400,150,200,54,4);c.fill();c.strokeStyle='#1f6b5e';c.lineWidth=3;c.stroke();c.fillStyle='#1f2a2a';c.font='700 24px "Zen Kaku Gothic New",sans-serif';c.textAlign='center';c.fillText(stName(sp.st),500,184);c.fillStyle='#1f6b5e';c.fillRect(400,194,200,10);}
-  // 人の流れ：数字と同じ量を、実際の時間の速さで描く（「1分間に6人」なら、画面を1分見ていると6人通る）。
-  // 描ききれないほど多いときだけ「絵の1人＝○人」にまとめる。ホームで待つ人は「いま待っている人」の数に合わせる
-  const SCL=[1,2,5,10,20,50,100,200],pickS=(x,max)=>SCL.find(k=>x/k<=max)||SCL.at(-1);
-  const div=home?Math.max(1,(g(()=>ST[sp.st].plats,2)||2)/2):1,nowWait=home?g(()=>waitingAt(sp.st,Tn),0)/div:0;
-  const skey=sp.st+sp.place+hh;if(V.skey!==skey){V.skey=skey;V.sW=pickS(rate/60*(home?0.12:1)/60,2.2);V.sH=home?pickS(nowWait,45):1;}
-  if(V.pkey!==sp.st+sp.place){V.pkey=sp.st+sp.place;V.walkers=[];V.acc=0;}
-  const walkPerSec=(home?rate*0.12:rate)/3600/V.sW;   // ホームを歩いて通り抜けるのは、降りた人（ホームの人の流れの約1割）
-  V.acc=(V.acc||0)+dt*walkPerSec;
-  const mk=(x,y,extra)=>({x,y,coat:COATS[Math.floor(Math.random()*COATS.length)],h:rnd(0.9,1.05),bag:Math.random()<0.35,umb:rain&&Math.random()<0.6,...extra});
-  while(V.acc>=1){V.acc-=1;const l2r=Math.random()<0.5;V.walkers.push(mk(l2r?-20:1020,rnd(home?272:268,392),{v:(l2r?1:-1)*rnd(75,110)}));V.spawned=(V.spawned||0)+1;}
-  if(home){const target=Math.round(nowWait/V.sH),waiting=V.walkers.filter(w=>w.wait!=null&&!w.leave);
-    if(waiting.length<target){V.inAcc=(V.inAcc||0)+dt*Math.max(1.5,(target-waiting.length)*0.8);while(V.inAcc>=1&&V.walkers.filter(w=>w.wait!=null&&!w.leave).length<target){V.inAcc-=1;const l2r=Math.random()<0.5;
-        V.walkers.push(mk(l2r?-20:1020,rnd(268,392),{v:(l2r?1:-1)*rnd(75,110),wait:0,tx:rnd(40,960)}));}}
-    else if(waiting.length>target){let k=waiting.length-target;for(const w of waiting){if(k<=0)break;if(Math.random()<dt*3){w.leave=true;k--;}}}}   // 列車に乗った分だけホームから消える
+  V.nowWait=nowWait;V.trkWait=trkWait;
+  if(!home){const sW=pickS(rate/3600*Math.max(1,mult),2.2);V.sW=sW;V.acc=(V.acc||0)+gdt*rate/3600/sW;   // 通る人：ゲームの時間で1分に○人
+    while(V.acc>=1){V.acc-=1;const l2r=Math.random()<0.5;V.walkers.push(mk(l2r?-20:1020,rnd(268,392),{v:(l2r?1:-1)*rnd(75,110)}));V.spawned=(V.spawned||0)+1;}}
+  else if(pv){
+    // 降りる人：ドアが開いたとき、1本あたりの降りる人数だけ出てくる（奥の列車はドアから、手前の列車は画面の下から）
+    for(const [e,op,k] of [[cur,open,0],[front,frontOpen,1]]){if(!e||!op||!e.alight||(V.seenEv||(V.seenEv={}))[e.key])continue;V.seenEv[e.key]=1;
+      const n=Math.min(60,Math.round(V.alightPer/V.sH));
+      for(let j=0;j<n;j++){if(k===0){const dx=doors[j%doors.length]+rnd(-8,8);if(dx<10||dx>990)continue;V.walkers.push(mk(dx,258,{off:true,ty:rnd(300,392),v:(Math.random()<0.5?-1:1)*rnd(80,110),delay:Math.floor(j/doors.length)*0.4}));}
+        else V.walkers.push(mk(rnd(40,960),420,{off:true,up:true,ty:rnd(290,380),v:(Math.random()<0.5?-1:1)*rnd(80,110),delay:j*0.12}));}}
+    // 乗る人：乗る人の割合で横から来て立ち止まる。乗る線路（奥か手前か）は半々
+    V.inAcc=(V.inAcc||0)+gdt/60*boardMin/V.sH;
+    while(V.inAcc>=1){V.inAcc-=1;const l2r=Math.random()<0.5;V.walkers.push(mk(l2r?-20:1020,rnd(272,392),{v:(l2r?1:-1)*rnd(75,110),wait:0,tx:rnd(40,960),trk:Math.random()<0.5?0:1}));V.spawned=(V.spawned||0)+1;}
+    if(!V.seeded){V.seeded=true;for(const k of [0,1]){const n=Math.round(trkWait[k]/V.sH);for(let j=0;j<n;j++){const x=rnd(40,960);V.walkers.push(mk(x,rnd(272,392),{v:0,wait:0,tx:x,trk:k}));}}}
+    // ドアが開いている線路の人は、そのあいだに乗る（奥はいちばん近いドアへ、手前は画面の下へ）
+    for(const k of [0,1]){if(!trkOpen[k])continue;const e=k===0?cur:front,left=Math.max(0.3,(e.o1-Tn)*60/Math.max(1,mult));
+      for(const w of V.walkers){if(w.wait==null||w.leave||w.trk!==k)continue;w.leave=true;
+        if(k===0&&doors.length){w.dx=doors.reduce((m,x)=>Math.abs(x-w.x)<Math.abs(m-w.x)?x:m,doors[0]);w.lv=Math.max(150,(Math.abs(w.dx-w.x)+(w.y-250))/left*1.2);}
+        else{w.dx=w.x;w.down=true;w.lv=Math.max(120,(420-w.y)/left*1.2);}}}}
   for(const w of V.walkers){
-    if(w.leave){w.y-=dt*90;w.walk=(w.walk||0)+dt*90;if(w.y<258)w.gone=true;continue;}
+    if(w.leave&&w.down){const s2=w.lv*dt;w.y+=s2;w.walk=(w.walk||0)+s2;if(w.y>425)w.gone=true;continue;}
+    if(w.leave){const dx=w.dx-w.x,s2=w.lv*dt;if(Math.abs(dx)>4){w.x+=Math.sign(dx)*Math.min(Math.abs(dx),s2);w.dir=Math.sign(dx);}else{w.y-=s2*0.8;if(w.y<262)w.gone=true;}w.walk=(w.walk||0)+s2;continue;}
+    if(w.off){if(w.delay>0){w.delay-=dt*mv;continue;}if(w.up?w.y>w.ty:w.y<w.ty){const s3=dt*90*mv*(w.up?-1:1);w.y+=s3;w.walk=(w.walk||0)+Math.abs(s3);continue;}}
     if(w.wait!=null&&w.tx!=null&&Math.abs(w.x-w.tx)<3){w.wait+=dt;continue;}
-    w.x+=w.v*dt;w.walk=(w.walk||0)+Math.abs(w.v*dt);}
+    w.x+=w.v*dt*mv;w.walk=(w.walk||0)+Math.abs(w.v*dt*mv);}
+  for(const w of V.walkers)if(w.leave&&!trkOpen[w.trk??0]&&(w.down?w.y<400:w.y>262)){w.leave=false;w.down=false;w.wait=0;w.tx=w.x;}   // ドアが閉まって乗りそびれた人は、その場で次を待つ
   V.walkers=V.walkers.filter(w=>!w.gone&&w.x>-30&&w.x<1030);
   // 調査員
   const staff=[];if(sp.m.count)staff.push({x:900,y:home?372:360,coat:'#1f5f8b',staff:true,h:1});
@@ -295,14 +347,15 @@ function draw(dt,time){const c=V.cx,W=1000,Hh=400,Tn=gT(),cond=gCond(),sp=sceneP
   // 数えた人数・声
   if(sp.live||true){const n=pv?RC.soFar(pv.F,Tn):0;
     {// いまの人数・この1時間・始発前（4:30）からの合計を分けて出す。ホームの「いま」は、シミュレーションの待っている人を、のりばの数で分けたもの
-      const now=home?nowWait:rate/60,bx=W-300,by=home?20:150;
-      c.fillStyle='rgba(15,20,24,.84)';rr(c,bx,by,280,124,8);c.fill();c.textAlign='left';
-      c.fillStyle='#9fd3c7';c.font='12px sans-serif';c.fillText(sp.live&&sp.m.count?'数えた人（このホーム・場所だけ）':'目安（まだ数えていません）',bx+12,by+18);
-      const row=(lab,v,y,big)=>{c.fillStyle='#cfd8d6';c.font='12px sans-serif';c.fillText(lab,bx+12,y);c.fillStyle='#ffb347';c.font=(big?'700 22px':'700 16px')+' "DotGothic16",monospace';c.textAlign='right';c.fillText(v,bx+268,y);c.textAlign='left';};
+      const now=home?V.nowWait:rate/60,bx=W-300,by=home?20:150;
+      c.fillStyle='rgba(15,20,24,.84)';rr(c,bx-40,by,320,124,8);c.fill();c.textAlign='left';
+      c.fillStyle='#9fd3c7';c.font='12px sans-serif';c.fillText(sp.live&&sp.m.count?'数えた人（このホーム・場所だけ）':'目安（まだ数えていません）',bx-28,by+18);
+      const row=(lab,v,y,big)=>{c.fillStyle='#cfd8d6';c.font='12px sans-serif';c.fillText(lab,bx-28,y);c.fillStyle='#ffb347';c.font=(big?'700 22px':'700 16px')+' "DotGothic16",monospace';c.textAlign='right';c.fillText(v,bx+268,y);c.textAlign='left';};
       row(home?'いまホームで待っている人':'いま1分間に通る人',num(now)+' 人',by+44,true);
-      row('この1時間に通る人',num(rate)+' 人',by+68);
-      row('始発前（4:30）からの合計',num(n)+' 人',by+92);
-      c.fillStyle='#9fb2ae';c.font='11px sans-serif';const sc=home?V.sH:V.sW;c.fillText(sc>1?`絵の1人＝${sc}人${home?'（待つ人）':''}・実際の時間の速さ`:'絵の人数は実際どおり・実際の時間の速さ',bx+12,by+114);
+      if(home&&pv){let cb=0,ca=0;for(let h=0;h<=hh;h++){const f=h<hh?1:(Tn-hh*60)/60;cb+=pv.hb[h]*f;ca+=pv.ha[h]*f;}
+        row('この1時間　乗る・降りる',num(pv.hb[hh])+'・'+num(pv.ha[hh])+' 人',by+68);row('4:30から　乗った・降りた',num(cb)+'・'+num(ca)+' 人',by+92);}
+      else{row('この1時間に通る人',num(rate)+' 人',by+68);row('始発前（4:30）からの合計',num(n)+' 人',by+92);}
+      c.fillStyle='#9fb2ae';c.font='11px sans-serif';const sc=(home?V.sH:V.sW)||1;c.fillText(sc>1?`絵の1人＝${sc}人${home?'（待つ人）':''}・実際の時間の速さ`:'絵の人数は実際どおり・実際の時間の速さ',bx-28,by+114);
       if(sp.live&&sp.m.count&&Math.floor(time*6)%2===0&&rate>0){c.fillStyle='#ffd34a';c.beginPath();c.arc(bx+266,by+14,4,0,7);c.fill();}}
     if(sp.m.interview&&pv&&sp.live){V.bubT+=dt;const vs=pv.rec.I.voices.filter(v=>v.h<=hh);if(V.bubT>6&&vs.length){V.bubT=0;const v=vs[Math.floor(Math.random()*vs.length)];V.bubbles.push({t:0,v});}}
     V.bubbles=V.bubbles.filter(b=>(b.t+=dt)<5.5);
@@ -317,7 +370,7 @@ function draw(dt,time){const c=V.cx,W=1000,Hh=400,Tn=gT(),cond=gCond(),sp=sceneP
 
 /* ---------- 起動 ---------- */
 mount();load();setInterval(tick,1000);
-window.minatoResearch={get state(){return V.st;},scene:()=>({walkers:V.walkers.length,waiting:V.walkers.filter(w=>w.wait!=null&&!w.leave).length,spawned:V.spawned||0,perFigure:{walk:V.sW,wait:V.sH}}),open:()=>setOpen(true),
+window.minatoResearch={get state(){return V.st;},scene:()=>({trkWait:(V.trkWait||[]).map(Math.round),nowWait:Math.round(V.nowWait||0),leaving:V.walkers.filter(w=>w.leave).length,off:V.walkers.filter(w=>w.off).length,walkers:V.walkers.length,waiting:V.walkers.filter(w=>w.wait!=null&&!w.leave).length,spawned:V.spawned||0,perFigure:{walk:V.sW,wait:V.sH}}),open:()=>setOpen(true),
   recordToday(){const a=activeStudy();if(!a)return null;const c=ctxFor(a.st,a.place);if(c)addRecord(a,{...c,day:a.startDay+a.recs.length});return a.recs.length;},   // 開発用：きょうの条件で1日分を記録する
   reset(){V.st=blank();persist();V.sel=null;badge();render(true);}};
 })();
