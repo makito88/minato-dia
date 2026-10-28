@@ -3238,7 +3238,7 @@ const ENSEN_UI=(()=>{
 })();
 
 /* ---------- loop ---------- */
-let lastTs=0,acc=0;
+let lastTs=0,acc=0,rideAcc=0;
 /* 一時停止中は、何かが変わったときだけ地図とダイヤグラムを描き直す（電池の節約）。
    変わったとみなすのは：時刻・ダイヤの計算結果・選んでいる物・場面の数が変わったとき、画面を触った・押した・キーを押した・大きさが変わったとき（そこから0.6秒）。
    念のため、それ以外でも3秒に1回は描き直す */
@@ -3247,13 +3247,15 @@ const wake=()=>{wakeUntil=performance.now()+600;};
 for(const ev of ['pointerdown','pointermove','pointerup','wheel','keydown','touchstart','touchmove','input','change','click','resize','scroll'])addEventListener(ev,wake,{capture:true,passive:true});
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',wake);}catch(e){}
 document.addEventListener('visibilitychange',wake);
-function needDraw(now){if(playing||RIDE.on)return true;
+// スマホ（指で操作する画面）では、再生中も絵は1秒に30回まで（時刻と列車の位置の計算は毎回進める）
+const PHONE=(()=>{try{return matchMedia('(pointer: coarse)').matches;}catch(e){return false;}})();let lastDrawAt=0;
+function needDraw(now){if(playing||RIDE.on){if(PHONE&&now-lastDrawAt<32)return false;lastDrawAt=now;return true;}
   const k=T+'|'+(D&&D.trips?D.trips.length:0)+'|'+(typeof SCENES!=='undefined'?SCENES.length:0);
   const changed=k!==idleKey||D!==needDraw.d||sel!==needDraw.s;idleKey=k;needDraw.d=D;needDraw.s=sel;
   if(changed||now<wakeUntil||now-idleAt>3000){idleAt=now;return true;}return false;}
 function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
   if(playing&&D){T+=speed*dt;ENSEN_UI.tick(dt);if(T>END){T=START+30;ENSEN_UI.dayEnd(false);}}   // 運行日は、再生して26:00を過ぎたときだけ進む
-  if(RIDE.on)RIDE.tick(dt);
+  if(RIDE.on){rideAcc+=dt;if(!PHONE||rideAcc>=1/30-0.002){RIDE.tick(rideAcc);rideAcc=0;}}
   $('#clock').textContent=fmt(T);if(!$('#minibar').hidden){$('#mclock').textContent=fmt(T);const mb=band(T)+'・'+condLabel();if($('#mband').textContent!==mb)$('#mband').textContent=mb;}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
   const covered=!!document.querySelector('.rsv:not([hidden]),.ksv:not([hidden])');   // リサーチ・売店の画面が全体をおおっているあいだは、見えない地図とダイヤグラムを描かない（電池の節約）
