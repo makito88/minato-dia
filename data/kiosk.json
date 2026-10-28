@@ -1,0 +1,2767 @@
+{
+ "about": "売店運営（第2段・試作）の設定。商品（名前はすべて架空）・客層・棚・ブーム・評価の文。数値はゲームのための仮設定。値段の初期値は「世の中のふつうの値段」として、値段の高さの判断に使う。",
+ "open": [
+  6,
+  23
+ ],
+ "wage": 1250,
+ "utilityPerDay": 1500,
+ "emoneyFee": 0.03,
+ "area": 6,
+ "deliveries": [
+  {
+   "t": 330,
+   "name": "朝の便",
+   "all": true
+  },
+  {
+   "t": 630,
+   "name": "昼前の便",
+   "genres": [
+    "onigiri",
+    "sand",
+    "bread",
+    "donut",
+    "colddrink",
+    "coffee",
+    "energy",
+    "hot"
+   ]
+  },
+  {
+   "t": 930,
+   "name": "午後の便",
+   "genres": [
+    "onigiri",
+    "sand",
+    "bread",
+    "donut",
+    "colddrink",
+    "coffee",
+    "hot",
+    "paper"
+   ]
+  }
+ ],
+ "restockEvery": 20,
+ "restockMin": 4,
+ "service": {
+  "base": 9,
+  "perItem": 3,
+  "hot": 14,
+  "age": 10,
+  "cash": 7,
+  "emoney": 2
+ },
+ "visit": {
+  "cap": [
+   0.018,
+   0.016,
+   0.014,
+   0.014
+  ],
+  "dwellPow": 0.35,
+  "addOn": 0.22,
+  "note": "通る人のうち売店に寄る人の割合（目的ごと）。立ち止まれる時間が長いほど寄る。"
+ },
+ "price": {
+  "elastic": 2.2,
+  "tooHigh": 1.15,
+  "note": "値段が世の中のふつうの値段より高いと、客層の値段への敏感さに応じて買わなくなる。"
+ },
+ "genres": [
+  {
+   "id": "onigiri",
+   "name": "おにぎり",
+   "zones": [
+    "shelf"
+   ],
+   "hours": [
+    [
+     5,
+     9,
+     2.0
+    ],
+    [
+     11,
+     14,
+     1.6
+    ],
+    [
+     17,
+     20,
+     0.8
+    ]
+   ],
+   "base": 10,
+   "life": 0
+  },
+  {
+   "id": "sand",
+   "name": "サンドイッチ",
+   "zones": [
+    "shelf"
+   ],
+   "hours": [
+    [
+     5,
+     9,
+     1.8
+    ],
+    [
+     11,
+     14,
+     1.5
+    ]
+   ],
+   "base": 5,
+   "life": 0
+  },
+  {
+   "id": "bread",
+   "name": "パン",
+   "zones": [
+    "shelf"
+   ],
+   "hours": [
+    [
+     5,
+     10,
+     1.6
+    ],
+    [
+     14,
+     17,
+     1.2
+    ]
+   ],
+   "base": 7,
+   "life": 2
+  },
+  {
+   "id": "donut",
+   "name": "ドーナツ",
+   "zones": [
+    "shelf"
+   ],
+   "hours": [
+    [
+     14,
+     19,
+     1.6
+    ],
+    [
+     8,
+     10,
+     0.8
+    ]
+   ],
+   "base": 2.5,
+   "life": 0
+  },
+  {
+   "id": "hot",
+   "name": "ホットスナック",
+   "zones": [
+    "hot"
+   ],
+   "hours": [
+    [
+     11,
+     14,
+     1.4
+    ],
+    [
+     16,
+     20,
+     1.8
+    ],
+    [
+     5,
+     10,
+     0.6
+    ]
+   ],
+   "base": 5,
+   "life": 99,
+   "season": {
+    "win": 1.4,
+    "sum": 0.7
+   },
+   "hold": 120,
+   "note": "冷凍で届き、朝の便で目標の数まで。ケースで温めた物は保温時間（hold 分）を過ぎると捨てる。"
+  },
+  {
+   "id": "colddrink",
+   "name": "冷たい飲み物",
+   "zones": [
+    "fridge"
+   ],
+   "hours": [
+    [
+     13,
+     17,
+     1.3
+    ]
+   ],
+   "base": 16,
+   "life": 99,
+   "season": {
+    "sum": 1.6,
+    "spr": 1.0,
+    "aut": 0.9,
+    "win": 0.6
+   }
+  },
+  {
+   "id": "coffee",
+   "name": "缶コーヒー",
+   "zones": [
+    "fridge",
+    "warmer"
+   ],
+   "hours": [
+    [
+     5,
+     10,
+     2.0
+    ],
+    [
+     13,
+     16,
+     1.2
+    ]
+   ],
+   "base": 9,
+   "life": 99
+  },
+  {
+   "id": "hotdrink",
+   "name": "温かい飲み物",
+   "zones": [
+    "warmer"
+   ],
+   "hours": [
+    [
+     5,
+     10,
+     1.4
+    ],
+    [
+     17,
+     24,
+     1.3
+    ]
+   ],
+   "base": 3,
+   "life": 99,
+   "season": {
+    "win": 2.2,
+    "aut": 1.0,
+    "spr": 0.8,
+    "sum": 0.1
+   },
+   "wx": {
+    "rain": 1.3,
+    "snow": 1.6
+   }
+  },
+  {
+   "id": "energy",
+   "name": "エナジー・栄養",
+   "zones": [
+    "fridge"
+   ],
+   "hours": [
+    [
+     5,
+     9,
+     1.3
+    ],
+    [
+     18,
+     23,
+     1.2
+    ]
+   ],
+   "base": 3,
+   "life": 99
+  },
+  {
+   "id": "alcohol",
+   "name": "お酒",
+   "zones": [
+    "fridge"
+   ],
+   "hours": [
+    [
+     4,
+     16,
+     0.1
+    ],
+    [
+     17,
+     25,
+     2.4
+    ]
+   ],
+   "base": 3,
+   "life": 99,
+   "age": true
+  },
+  {
+   "id": "snack",
+   "name": "スナック菓子",
+   "zones": [
+    "top",
+    "shelf"
+   ],
+   "hours": [
+    [
+     14,
+     22,
+     1.3
+    ]
+   ],
+   "base": 5,
+   "life": 99
+  },
+  {
+   "id": "gummy",
+   "name": "グミ・ガム・飴",
+   "zones": [
+    "top",
+    "shelf",
+    "hook"
+   ],
+   "hours": [
+    [
+     7,
+     9,
+     1.2
+    ],
+    [
+     15,
+     19,
+     1.5
+    ]
+   ],
+   "base": 6,
+   "life": 99
+  },
+  {
+   "id": "paper",
+   "name": "新聞",
+   "zones": [
+    "rack"
+   ],
+   "hours": [
+    [
+     4,
+     10,
+     2.6
+    ],
+    [
+     16,
+     19,
+     0.9
+    ]
+   ],
+   "base": 4,
+   "life": 0,
+   "returnable": true
+  },
+  {
+   "id": "magazine",
+   "name": "雑誌・漫画",
+   "zones": [
+    "rack"
+   ],
+   "hours": [
+    [
+     7,
+     10,
+     1.2
+    ],
+    [
+     17,
+     22,
+     1.3
+    ]
+   ],
+   "base": 3,
+   "life": 7,
+   "returnable": true
+  },
+  {
+   "id": "tobacco",
+   "name": "たばこ",
+   "zones": [
+    "tobacco"
+   ],
+   "hours": [
+    [
+     5,
+     10,
+     1.4
+    ],
+    [
+     17,
+     24,
+     1.2
+    ]
+   ],
+   "base": 6,
+   "life": 99,
+   "age": true
+  },
+  {
+   "id": "daily",
+   "name": "日用品",
+   "zones": [
+    "hook"
+   ],
+   "hours": [
+    [
+     5,
+     24,
+     1.0
+    ]
+   ],
+   "base": 2,
+   "life": 99
+  },
+  {
+   "id": "umbrella",
+   "name": "傘",
+   "zones": [
+    "umbrella"
+   ],
+   "hours": [
+    [
+     5,
+     25,
+     1.0
+    ]
+   ],
+   "base": 0.6,
+   "life": 99,
+   "wx": {
+    "rain": 30,
+    "snow": 12,
+    "cld": 1.0,
+    "sun": 0.06
+   }
+  }
+ ],
+ "products": [
+  {
+   "id": "oni_sake",
+   "genre": "onigiri",
+   "name": "おにぎり 鮭",
+   "short": "鮭",
+   "price": 160,
+   "cost": 104,
+   "temp": "room",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    0,
+    3,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 1.3,
+   "tags": [],
+   "color": "#e8e2d0"
+  },
+  {
+   "id": "oni_tuna",
+   "genre": "onigiri",
+   "name": "おにぎり ツナマヨ",
+   "short": "ツナマヨ",
+   "price": 150,
+   "cost": 96,
+   "temp": "room",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    1,
+    4,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.4,
+   "tags": [],
+   "color": "#e8e2d0"
+  },
+  {
+   "id": "oni_ume",
+   "genre": "onigiri",
+   "name": "おにぎり 紀州梅",
+   "short": "梅",
+   "price": 150,
+   "cost": 95,
+   "temp": "room",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0,
+    4,
+    2.5
+   ],
+   "photo": 0.1,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#e8e2d0"
+  },
+  {
+   "id": "oni_konbu",
+   "genre": "onigiri",
+   "name": "おにぎり 昆布",
+   "short": "昆布",
+   "price": 140,
+   "cost": 88,
+   "temp": "room",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    1,
+    3,
+    2.5
+   ],
+   "photo": 0.1,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.7,
+   "tags": [],
+   "color": "#e8e2d0"
+  },
+  {
+   "id": "oni_mentai",
+   "genre": "onigiri",
+   "name": "おにぎり 明太子",
+   "short": "明太子",
+   "price": 180,
+   "cost": 118,
+   "temp": "room",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    0,
+    4.5,
+    3
+   ],
+   "photo": 0.2,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#e8e2d0"
+  },
+  {
+   "id": "san_egg",
+   "genre": "sand",
+   "name": "たまごサンド",
+   "short": "たまご",
+   "price": 280,
+   "cost": 170,
+   "temp": "room",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    1,
+    3,
+    3
+   ],
+   "photo": 0.3,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.2,
+   "tags": [],
+   "color": "#f4dc86"
+  },
+  {
+   "id": "san_mix",
+   "genre": "sand",
+   "name": "ミックスサンド",
+   "short": "ミックス",
+   "price": 320,
+   "cost": 195,
+   "temp": "room",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    1,
+    3,
+    3.5
+   ],
+   "photo": 0.2,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#f1e6c8"
+  },
+  {
+   "id": "san_ham",
+   "genre": "sand",
+   "name": "ハムレタスサンド",
+   "short": "ハムレタス",
+   "price": 300,
+   "cost": 182,
+   "temp": "room",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    2.5,
+    2.5
+   ],
+   "photo": 0.2,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#d9e8b8"
+  },
+  {
+   "id": "san_katsu",
+   "genre": "sand",
+   "name": "カツサンド",
+   "short": "カツサンド",
+   "price": 420,
+   "cost": 260,
+   "temp": "room",
+   "ease": 5,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    1.5,
+    4.5,
+    4.5
+   ],
+   "photo": 0.4,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#c99a5b"
+  },
+  {
+   "id": "san_fruit",
+   "genre": "sand",
+   "name": "フルーツサンド",
+   "short": "フルーツサンド",
+   "price": 390,
+   "cost": 240,
+   "temp": "room",
+   "ease": 4,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    4.5,
+    2,
+    2.5
+   ],
+   "photo": 0.9,
+   "regular": 0.1,
+   "mania": 0.1,
+   "w": 0.6,
+   "tags": [
+    "fruitsand"
+   ],
+   "color": "#f5c9d0"
+  },
+  {
+   "id": "pan_melon",
+   "genre": "bread",
+   "name": "メロンパン",
+   "short": "メロンパン",
+   "price": 160,
+   "cost": 90,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    4.5,
+    2,
+    3.5
+   ],
+   "photo": 0.3,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.3,
+   "tags": [],
+   "color": "#e7c76a"
+  },
+  {
+   "id": "pan_an",
+   "genre": "bread",
+   "name": "あんパン",
+   "short": "あんパン",
+   "price": 150,
+   "cost": 84,
+   "temp": "room",
+   "ease": 4,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    4,
+    2.5,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#b07a45"
+  },
+  {
+   "id": "pan_cream",
+   "genre": "bread",
+   "name": "クリームパン",
+   "short": "クリーム",
+   "price": 150,
+   "cost": 84,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    4,
+    2,
+    3
+   ],
+   "photo": 0.2,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#e9cf8f"
+  },
+  {
+   "id": "pan_curry",
+   "genre": "bread",
+   "name": "カレーパン",
+   "short": "カレーパン",
+   "price": 180,
+   "cost": 104,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    1,
+    4,
+    3.5
+   ],
+   "photo": 0.2,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#c98b3a"
+  },
+  {
+   "id": "pan_shio",
+   "genre": "bread",
+   "name": "塩バターパン",
+   "short": "塩パン",
+   "price": 170,
+   "cost": 98,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    1,
+    3.5,
+    2.5
+   ],
+   "photo": 0.4,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [
+    "shiopan"
+   ],
+   "color": "#e2b877"
+  },
+  {
+   "id": "don_sugar",
+   "genre": "donut",
+   "name": "シュガードーナツ",
+   "short": "シュガー",
+   "price": 160,
+   "cost": 80,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    4.5,
+    2,
+    3
+   ],
+   "photo": 0.4,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [
+    "donut"
+   ],
+   "color": "#e8bf7c"
+  },
+  {
+   "id": "don_choco",
+   "genre": "donut",
+   "name": "チョコドーナツ",
+   "short": "チョコ",
+   "price": 180,
+   "cost": 92,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    5,
+    3,
+    3
+   ],
+   "photo": 0.5,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [
+    "donut"
+   ],
+   "color": "#6b4329"
+  },
+  {
+   "id": "don_nama",
+   "genre": "donut",
+   "name": "生ドーナツ（とろける生地）",
+   "short": "生ドーナツ",
+   "price": 260,
+   "cost": 140,
+   "temp": "room",
+   "ease": 3,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    4,
+    2,
+    2.5
+   ],
+   "photo": 0.95,
+   "regular": 0.1,
+   "mania": 0.4,
+   "w": 0.8,
+   "tags": [
+    "donut",
+    "namadonut"
+   ],
+   "color": "#f3e0b9"
+  },
+  {
+   "id": "hot_karaage",
+   "genre": "hot",
+   "name": "からあげ棒",
+   "short": "からあげ棒",
+   "price": 220,
+   "cost": 105,
+   "temp": "hot",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    4.5,
+    3.5
+   ],
+   "photo": 0.5,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.2,
+   "tags": [
+    "karaage"
+   ],
+   "color": "#c4772e"
+  },
+  {
+   "id": "hot_niku",
+   "genre": "hot",
+   "name": "肉まん",
+   "short": "肉まん",
+   "price": 180,
+   "cost": 80,
+   "temp": "hot",
+   "ease": 4,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    1.5,
+    3,
+    3.5
+   ],
+   "photo": 0.3,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.1,
+   "tags": [],
+   "color": "#f4efe4"
+  },
+  {
+   "id": "hot_an",
+   "genre": "hot",
+   "name": "あんまん",
+   "short": "あんまん",
+   "price": 170,
+   "cost": 76,
+   "temp": "hot",
+   "ease": 4,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    4.5,
+    2,
+    3
+   ],
+   "photo": 0.2,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 0.7,
+   "tags": [],
+   "color": "#efe2d6"
+  },
+  {
+   "id": "hot_dog",
+   "genre": "hot",
+   "name": "アメリカンドッグ",
+   "short": "アメドッグ",
+   "price": 160,
+   "cost": 70,
+   "temp": "hot",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    2,
+    3,
+    3
+   ],
+   "photo": 0.3,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#d79c4c"
+  },
+  {
+   "id": "hot_potato",
+   "genre": "hot",
+   "name": "フライドポテト",
+   "short": "ポテト",
+   "price": 200,
+   "cost": 70,
+   "temp": "hot",
+   "ease": 3,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    0,
+    4,
+    3.5
+   ],
+   "photo": 0.4,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#f0c64a"
+  },
+  {
+   "id": "dr_tea",
+   "genre": "colddrink",
+   "name": "緑茶",
+   "short": "緑茶",
+   "price": 160,
+   "cost": 62,
+   "temp": "cold",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0,
+    1,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 1.8,
+   "tags": [],
+   "color": "#5f8f3e"
+  },
+  {
+   "id": "dr_hoji",
+   "genre": "colddrink",
+   "name": "ほうじ茶",
+   "short": "ほうじ茶",
+   "price": 160,
+   "cost": 62,
+   "temp": "cold",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0,
+    1.5,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#8a5a35"
+  },
+  {
+   "id": "dr_water",
+   "genre": "colddrink",
+   "name": "天然水",
+   "short": "水",
+   "price": 120,
+   "cost": 38,
+   "temp": "cold",
+   "ease": 5,
+   "health": 5,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.5,
+   "tags": [],
+   "color": "#8fc3e8"
+  },
+  {
+   "id": "dr_mugi",
+   "genre": "colddrink",
+   "name": "麦茶",
+   "short": "麦茶",
+   "price": 150,
+   "cost": 55,
+   "temp": "cold",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0,
+    1,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#b88a3e"
+  },
+  {
+   "id": "dr_cola",
+   "genre": "colddrink",
+   "name": "コーラ風炭酸",
+   "short": "コーラ",
+   "price": 170,
+   "cost": 66,
+   "temp": "cold",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    5,
+    3,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.1,
+   "tags": [],
+   "color": "#7a2a24"
+  },
+  {
+   "id": "dr_sports",
+   "genre": "colddrink",
+   "name": "スポーツドリンク",
+   "short": "スポドリ",
+   "price": 160,
+   "cost": 60,
+   "temp": "cold",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    3,
+    1.5,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#3c7fd0"
+  },
+  {
+   "id": "dr_veg",
+   "genre": "colddrink",
+   "name": "野菜ジュース",
+   "short": "野菜",
+   "price": 150,
+   "cost": 80,
+   "temp": "cold",
+   "ease": 5,
+   "health": 5,
+   "sudden": 0,
+   "taste": [
+    2.5,
+    2.5,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 0.6,
+   "tags": [],
+   "color": "#d0602f"
+  },
+  {
+   "id": "dr_lact",
+   "genre": "colddrink",
+   "name": "乳酸菌飲料",
+   "short": "乳酸菌",
+   "price": 140,
+   "cost": 60,
+   "temp": "cold",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    4,
+    2,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.6,
+   "tags": [],
+   "color": "#f0f0f0"
+  },
+  {
+   "id": "cf_bitou",
+   "genre": "coffee",
+   "name": "缶コーヒー 微糖",
+   "short": "微糖",
+   "price": 140,
+   "cost": 52,
+   "temp": "cold",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    2.5,
+    3,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.7,
+   "mania": 0,
+   "w": 1.6,
+   "tags": [],
+   "color": "#7a5a3c"
+  },
+  {
+   "id": "cf_black",
+   "genre": "coffee",
+   "name": "缶コーヒー ブラック",
+   "short": "ブラック",
+   "price": 140,
+   "cost": 52,
+   "temp": "cold",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    0,
+    3.5,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.7,
+   "mania": 0,
+   "w": 1.2,
+   "tags": [],
+   "color": "#2b2b2b"
+  },
+  {
+   "id": "cf_aulait",
+   "genre": "coffee",
+   "name": "カフェオレ",
+   "short": "カフェオレ",
+   "price": 150,
+   "cost": 58,
+   "temp": "cold",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    4,
+    2,
+    2.5
+   ],
+   "photo": 0.1,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#c9a27a"
+  },
+  {
+   "id": "cf_bottle",
+   "genre": "coffee",
+   "name": "ボトルコーヒー",
+   "short": "ボトル",
+   "price": 170,
+   "cost": 68,
+   "temp": "cold",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    2,
+    3,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#4f3a2a"
+  },
+  {
+   "id": "hd_bitou",
+   "genre": "hotdrink",
+   "name": "ホット缶コーヒー",
+   "short": "ホット",
+   "price": 140,
+   "cost": 52,
+   "temp": "hot",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    2.5,
+    3,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.6,
+   "mania": 0,
+   "w": 1.5,
+   "tags": [],
+   "color": "#a0402f"
+  },
+  {
+   "id": "hd_tea",
+   "genre": "hotdrink",
+   "name": "ホットお茶",
+   "short": "ホット茶",
+   "price": 160,
+   "cost": 62,
+   "temp": "hot",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0,
+    1,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#6f9b4a"
+  },
+  {
+   "id": "hd_soup",
+   "genre": "hotdrink",
+   "name": "コーンスープ",
+   "short": "スープ",
+   "price": 150,
+   "cost": 55,
+   "temp": "hot",
+   "ease": 4,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    3,
+    3,
+    2
+   ],
+   "photo": 0.2,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#e5a82e"
+  },
+  {
+   "id": "hd_lemon",
+   "genre": "hotdrink",
+   "name": "ホットレモン",
+   "short": "レモン",
+   "price": 160,
+   "cost": 60,
+   "temp": "hot",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    4,
+    2,
+    2.5
+   ],
+   "photo": 0.1,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.7,
+   "tags": [],
+   "color": "#e2c234"
+  },
+  {
+   "id": "en_energy",
+   "genre": "energy",
+   "name": "エナジードリンク",
+   "short": "エナジー",
+   "price": 230,
+   "cost": 120,
+   "temp": "cold",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    4,
+    3,
+    2.5
+   ],
+   "photo": 0.2,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 1.1,
+   "tags": [],
+   "color": "#2f3f9a"
+  },
+  {
+   "id": "en_eiyou",
+   "genre": "energy",
+   "name": "栄養ドリンク",
+   "short": "栄養",
+   "price": 180,
+   "cost": 92,
+   "temp": "cold",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    3,
+    3,
+    1
+   ],
+   "photo": 0.0,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#c8963a"
+  },
+  {
+   "id": "en_jelly",
+   "genre": "energy",
+   "name": "ゼリー飲料",
+   "short": "ゼリー",
+   "price": 220,
+   "cost": 120,
+   "temp": "cold",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    3,
+    1.5,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#c7d9e8"
+  },
+  {
+   "id": "al_beer",
+   "genre": "alcohol",
+   "name": "缶ビール",
+   "short": "ビール",
+   "price": 280,
+   "cost": 195,
+   "temp": "cold",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    3,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 1.4,
+   "tags": [],
+   "color": "#d8b23a"
+  },
+  {
+   "id": "al_high",
+   "genre": "alcohol",
+   "name": "ハイボール",
+   "short": "ハイボール",
+   "price": 230,
+   "cost": 150,
+   "temp": "cold",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    1,
+    2.5,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#c79a46"
+  },
+  {
+   "id": "al_sour",
+   "genre": "alcohol",
+   "name": "レモンサワー",
+   "short": "サワー",
+   "price": 200,
+   "cost": 130,
+   "temp": "cold",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    3,
+    2.5,
+    3
+   ],
+   "photo": 0.2,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#e8e07a"
+  },
+  {
+   "id": "sn_chips",
+   "genre": "snack",
+   "name": "ポテトチップス うすしお",
+   "short": "うすしお",
+   "price": 160,
+   "cost": 88,
+   "temp": "room",
+   "ease": 3,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    3.5,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 1.2,
+   "tags": [],
+   "color": "#f2c84b"
+  },
+  {
+   "id": "sn_nori",
+   "genre": "snack",
+   "name": "ポテトチップス のり塩",
+   "short": "のり塩",
+   "price": 160,
+   "cost": 88,
+   "temp": "room",
+   "ease": 3,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    4,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#7fae4a"
+  },
+  {
+   "id": "sn_stick",
+   "genre": "snack",
+   "name": "スティックチョコ",
+   "short": "スティック",
+   "price": 180,
+   "cost": 96,
+   "temp": "room",
+   "ease": 4,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    4.5,
+    2,
+    2.5
+   ],
+   "photo": 0.2,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 1.1,
+   "tags": [],
+   "color": "#d33a3a"
+  },
+  {
+   "id": "sn_choco",
+   "genre": "snack",
+   "name": "一口チョコ",
+   "short": "一口チョコ",
+   "price": 150,
+   "cost": 80,
+   "temp": "room",
+   "ease": 4,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    5,
+    2.5,
+    2
+   ],
+   "photo": 0.1,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#6b4329"
+  },
+  {
+   "id": "sn_nuts",
+   "genre": "snack",
+   "name": "ミックスナッツ",
+   "short": "ナッツ",
+   "price": 220,
+   "cost": 120,
+   "temp": "room",
+   "ease": 4,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0,
+    3,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.7,
+   "tags": [],
+   "color": "#b88a5a"
+  },
+  {
+   "id": "gm_grape",
+   "genre": "gummy",
+   "name": "果汁グミ ぶどう",
+   "short": "グミぶどう",
+   "price": 150,
+   "cost": 75,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    4,
+    2.5,
+    2
+   ],
+   "photo": 0.3,
+   "regular": 0.3,
+   "mania": 0.1,
+   "w": 1.1,
+   "tags": [],
+   "color": "#7a3e8e"
+  },
+  {
+   "id": "gm_peach",
+   "genre": "gummy",
+   "name": "果汁グミ もも",
+   "short": "グミもも",
+   "price": 150,
+   "cost": 75,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    4,
+    2.5,
+    2
+   ],
+   "photo": 0.3,
+   "regular": 0.3,
+   "mania": 0.1,
+   "w": 1.0,
+   "tags": [],
+   "color": "#f09bb0"
+  },
+  {
+   "id": "gm_limited",
+   "genre": "gummy",
+   "name": "季節限定グミ",
+   "short": "限定グミ",
+   "price": 180,
+   "cost": 90,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    4.5,
+    3,
+    2
+   ],
+   "photo": 0.7,
+   "regular": 0.1,
+   "mania": 0.8,
+   "w": 0.7,
+   "tags": [],
+   "color": "#4fc0c8"
+  },
+  {
+   "id": "gm_mint",
+   "genre": "gummy",
+   "name": "ミントガム",
+   "short": "ガム",
+   "price": 150,
+   "cost": 70,
+   "temp": "room",
+   "ease": 5,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    1,
+    3,
+    1
+   ],
+   "photo": 0.0,
+   "regular": 0.6,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#4fb8a8"
+  },
+  {
+   "id": "gm_nodo",
+   "genre": "gummy",
+   "name": "のど飴",
+   "short": "のど飴",
+   "price": 180,
+   "cost": 80,
+   "temp": "room",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    3,
+    3,
+    1
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#d1607a"
+  },
+  {
+   "id": "pp_daily",
+   "genre": "paper",
+   "name": "全国紙（朝刊）",
+   "short": "朝刊",
+   "price": 160,
+   "cost": 120,
+   "temp": "room",
+   "ease": 3,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.8,
+   "mania": 0,
+   "w": 1.2,
+   "tags": [],
+   "color": "#d9d9d2"
+  },
+  {
+   "id": "pp_sports",
+   "genre": "paper",
+   "name": "スポーツ新聞",
+   "short": "スポーツ紙",
+   "price": 160,
+   "cost": 120,
+   "temp": "room",
+   "ease": 3,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.7,
+   "mania": 0,
+   "w": 1.2,
+   "tags": [],
+   "color": "#e4513c"
+  },
+  {
+   "id": "pp_evening",
+   "genre": "paper",
+   "name": "夕刊",
+   "short": "夕刊",
+   "price": 60,
+   "cost": 44,
+   "temp": "room",
+   "ease": 3,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.6,
+   "mania": 0,
+   "w": 0.6,
+   "tags": [],
+   "color": "#cfcfc6"
+  },
+  {
+   "id": "mg_weekly",
+   "genre": "magazine",
+   "name": "週刊誌",
+   "short": "週刊誌",
+   "price": 450,
+   "cost": 330,
+   "temp": "room",
+   "ease": 2,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#b54a3e"
+  },
+  {
+   "id": "mg_manga",
+   "genre": "magazine",
+   "name": "少年漫画週刊誌",
+   "short": "漫画誌",
+   "price": 300,
+   "cost": 225,
+   "temp": "room",
+   "ease": 2,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0.9,
+   "w": 1.0,
+   "tags": [],
+   "color": "#e8b92c"
+  },
+  {
+   "id": "mg_fashion",
+   "genre": "magazine",
+   "name": "女性ファッション誌",
+   "short": "女性誌",
+   "price": 750,
+   "cost": 560,
+   "temp": "room",
+   "ease": 2,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    3
+   ],
+   "photo": 0.4,
+   "regular": 0.2,
+   "mania": 0.2,
+   "w": 0.6,
+   "tags": [],
+   "color": "#e98fb3"
+  },
+  {
+   "id": "mg_travel",
+   "genre": "magazine",
+   "name": "旅行ガイド誌",
+   "short": "旅行誌",
+   "price": 1100,
+   "cost": 800,
+   "temp": "room",
+   "ease": 2,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    3
+   ],
+   "photo": 0.2,
+   "regular": 0.0,
+   "mania": 0,
+   "w": 0.5,
+   "tags": [],
+   "color": "#3a8ac4"
+  },
+  {
+   "id": "tb_a",
+   "genre": "tobacco",
+   "name": "たばこ（銘柄A）",
+   "short": "たばこA",
+   "price": 600,
+   "cost": 540,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.95,
+   "mania": 0,
+   "w": 1.2,
+   "tags": [],
+   "color": "#e9e9e9"
+  },
+  {
+   "id": "tb_b",
+   "genre": "tobacco",
+   "name": "たばこ（銘柄B）",
+   "short": "たばこB",
+   "price": 580,
+   "cost": 522,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.95,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#2a6a4a"
+  },
+  {
+   "id": "tb_c",
+   "genre": "tobacco",
+   "name": "加熱式たばこ用",
+   "short": "加熱式",
+   "price": 570,
+   "cost": 513,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.95,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#6a7f9a"
+  },
+  {
+   "id": "dl_mask",
+   "genre": "daily",
+   "name": "マスク（5枚）",
+   "short": "マスク",
+   "price": 300,
+   "cost": 150,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.1,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#f0f4f8"
+  },
+  {
+   "id": "dl_tissue",
+   "genre": "daily",
+   "name": "ポケットティッシュ",
+   "short": "ティッシュ",
+   "price": 100,
+   "cost": 40,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.1,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#f6d9e4"
+  },
+  {
+   "id": "dl_charger",
+   "genre": "daily",
+   "name": "モバイル充電器",
+   "short": "充電器",
+   "price": 1980,
+   "cost": 1100,
+   "temp": "room",
+   "ease": 4,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.0,
+   "mania": 0,
+   "w": 0.5,
+   "tags": [],
+   "color": "#3a4a6a"
+  },
+  {
+   "id": "dl_bandage",
+   "genre": "daily",
+   "name": "絆創膏",
+   "short": "絆創膏",
+   "price": 300,
+   "cost": 140,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.0,
+   "mania": 0,
+   "w": 0.4,
+   "tags": [],
+   "color": "#e6c3a0"
+  },
+  {
+   "id": "dl_brush",
+   "genre": "daily",
+   "name": "携帯歯ブラシ",
+   "short": "歯ブラシ",
+   "price": 250,
+   "cost": 110,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.1,
+   "mania": 0,
+   "w": 0.4,
+   "tags": [],
+   "color": "#7ac0e0"
+  },
+  {
+   "id": "um_vinyl",
+   "genre": "umbrella",
+   "name": "ビニール傘",
+   "short": "ビニール傘",
+   "price": 700,
+   "cost": 290,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.0,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#d9eef5"
+  },
+  {
+   "id": "um_fold",
+   "genre": "umbrella",
+   "name": "折りたたみ傘",
+   "short": "折りたたみ",
+   "price": 1500,
+   "cost": 800,
+   "temp": "room",
+   "ease": 4,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.0,
+   "mania": 0,
+   "w": 0.3,
+   "tags": [],
+   "color": "#2b3d6b"
+  }
+ ],
+ "personas": [
+  {
+   "id": "salM",
+   "name": "会社員（男性）",
+   "short": "会社員♂",
+   "icon": "#3a4a6a",
+   "pref": {
+    "coffee": 2.0,
+    "paper": 1.6,
+    "tobacco": 1.8,
+    "onigiri": 1.3,
+    "energy": 1.4,
+    "alcohol": 1.5,
+    "hotdrink": 1.2,
+    "snack": 0.5,
+    "gummy": 0.6,
+    "donut": 0.4,
+    "magazine": 1.1
+   },
+   "priceSens": 0.6,
+   "patience": 0.9,
+   "sns": 0.03,
+   "review": 0.05,
+   "taste": [
+    2,
+    3.5,
+    3.5
+   ],
+   "male": 1
+  },
+  {
+   "id": "salF",
+   "name": "会社員（女性）",
+   "short": "会社員♀",
+   "icon": "#8a5b7a",
+   "pref": {
+    "colddrink": 1.4,
+    "sand": 1.5,
+    "gummy": 1.3,
+    "coffee": 1.2,
+    "donut": 1.3,
+    "bread": 1.1,
+    "energy": 0.9,
+    "daily": 1.3,
+    "tobacco": 0.3,
+    "magazine": 1.2
+   },
+   "priceSens": 0.8,
+   "patience": 0.9,
+   "sns": 0.12,
+   "review": 0.08,
+   "taste": [
+    3,
+    2.5,
+    2.5
+   ],
+   "male": 0
+  },
+  {
+   "id": "jk",
+   "name": "女子高生",
+   "short": "女子高生",
+   "icon": "#d0607a",
+   "pref": {
+    "gummy": 2.4,
+    "donut": 2.2,
+    "snack": 1.4,
+    "colddrink": 1.3,
+    "bread": 1.2,
+    "sand": 1.0,
+    "tobacco": 0,
+    "alcohol": 0,
+    "paper": 0.05,
+    "coffee": 0.3
+   },
+   "priceSens": 1.4,
+   "patience": 1.0,
+   "sns": 0.45,
+   "review": 0.18,
+   "taste": [
+    4,
+    3,
+    2.5
+   ],
+   "male": 0
+  },
+  {
+   "id": "stu",
+   "name": "男子学生",
+   "short": "男子学生",
+   "icon": "#2f7a6e",
+   "pref": {
+    "hot": 2.2,
+    "onigiri": 1.6,
+    "colddrink": 1.5,
+    "snack": 1.6,
+    "magazine": 1.4,
+    "energy": 1.4,
+    "bread": 1.3,
+    "tobacco": 0,
+    "alcohol": 0,
+    "paper": 0.1
+   },
+   "priceSens": 1.3,
+   "patience": 1.0,
+   "sns": 0.15,
+   "review": 0.08,
+   "taste": [
+    3,
+    4,
+    4.5
+   ],
+   "male": 1
+  },
+  {
+   "id": "sen",
+   "name": "年配の人",
+   "short": "年配",
+   "icon": "#7a6a5a",
+   "pref": {
+    "paper": 2.0,
+    "gummy": 1.2,
+    "colddrink": 1.2,
+    "bread": 1.4,
+    "hotdrink": 1.4,
+    "onigiri": 1.1,
+    "energy": 0.6,
+    "snack": 0.4,
+    "donut": 0.5,
+    "magazine": 1.2
+   },
+   "priceSens": 1.1,
+   "patience": 1.3,
+   "sns": 0.01,
+   "review": 0.04,
+   "taste": [
+    3,
+    2,
+    2.5
+   ],
+   "male": 0.5
+  },
+  {
+   "id": "tou",
+   "name": "観光客",
+   "short": "観光客",
+   "icon": "#d9822b",
+   "pref": {
+    "colddrink": 1.5,
+    "onigiri": 1.4,
+    "sand": 1.2,
+    "donut": 1.3,
+    "alcohol": 1.3,
+    "snack": 1.2,
+    "umbrella": 1.3,
+    "magazine": 1.1,
+    "paper": 0.3,
+    "tobacco": 0.7
+   },
+   "priceSens": 0.7,
+   "patience": 1.2,
+   "sns": 0.35,
+   "review": 0.12,
+   "taste": [
+    3,
+    3,
+    3
+   ],
+   "male": 0.5
+  },
+  {
+   "id": "hou",
+   "name": "買い物の人",
+   "short": "買い物客",
+   "icon": "#5b8a3a",
+   "pref": {
+    "bread": 1.5,
+    "donut": 1.3,
+    "gummy": 1.2,
+    "magazine": 1.3,
+    "colddrink": 1.0,
+    "sand": 1.0,
+    "tobacco": 0.5,
+    "alcohol": 0.6
+   },
+   "priceSens": 1.2,
+   "patience": 1.1,
+   "sns": 0.12,
+   "review": 0.08,
+   "taste": [
+    3.2,
+    2.5,
+    3
+   ],
+   "male": 0.3
+  }
+ ],
+ "personaMap": {
+  "0": [
+   {
+    "jk": 0.45,
+    "stu": 0.55
+   },
+   {
+    "stu": 0.3,
+    "salM": 0.4,
+    "salF": 0.3
+   },
+   {
+    "salM": 0.55,
+    "salF": 0.45
+   },
+   {
+    "salM": 0.6,
+    "salF": 0.4
+   },
+   {
+    "sen": 0.7,
+    "salM": 0.3
+   }
+  ],
+  "1": [
+   {
+    "stu": 1
+   },
+   {
+    "salM": 0.65,
+    "salF": 0.35
+   },
+   {
+    "salM": 0.7,
+    "salF": 0.3
+   },
+   {
+    "salM": 0.75,
+    "salF": 0.25
+   },
+   {
+    "sen": 0.5,
+    "salM": 0.5
+   }
+  ],
+  "2": [
+   {
+    "jk": 0.4,
+    "tou": 0.6
+   },
+   {
+    "tou": 1
+   },
+   {
+    "tou": 1
+   },
+   {
+    "tou": 1
+   },
+   {
+    "tou": 0.6,
+    "sen": 0.4
+   }
+  ],
+  "3": [
+   {
+    "jk": 0.5,
+    "stu": 0.5
+   },
+   {
+    "salF": 0.5,
+    "hou": 0.5
+   },
+   {
+    "hou": 0.7,
+    "salF": 0.3
+   },
+   {
+    "hou": 0.7,
+    "sen": 0.3
+   },
+   {
+    "sen": 1
+   }
+  ]
+ },
+ "zones": {
+  "hook": {
+   "name": "左の壁フック",
+   "rows": 4,
+   "cols": 4,
+   "depth": 5,
+   "eye": [
+    0.9,
+    1.1,
+    1.1,
+    0.8
+   ]
+  },
+  "top": {
+   "name": "上の吊り下げ",
+   "rows": 1,
+   "cols": 10,
+   "depth": 4,
+   "eye": [
+    1.2
+   ]
+  },
+  "fridge": {
+   "name": "冷蔵ケース",
+   "rows": 5,
+   "cols": 6,
+   "depth": 6,
+   "eye": [
+    1.0,
+    1.2,
+    1.15,
+    0.95,
+    0.8
+   ],
+   "power": 900
+  },
+  "shelf": {
+   "name": "中央の棚",
+   "rows": 6,
+   "cols": 5,
+   "depth": 4,
+   "eye": [
+    1.05,
+    1.25,
+    1.2,
+    1.0,
+    0.85,
+    0.7
+   ]
+  },
+  "tobacco": {
+   "name": "奥のたばこ棚",
+   "rows": 1,
+   "cols": 8,
+   "depth": 10,
+   "eye": [
+    1.0
+   ]
+  },
+  "hot": {
+   "name": "ホットケース",
+   "rows": 2,
+   "cols": 3,
+   "depth": 4,
+   "eye": [
+    1.2,
+    1.1
+   ],
+   "power": 350
+  },
+  "warmer": {
+   "name": "ホット飲料",
+   "rows": 1,
+   "cols": 4,
+   "depth": 6,
+   "eye": [
+    1.0
+   ],
+   "power": 150
+  },
+  "umbrella": {
+   "name": "傘立て",
+   "rows": 1,
+   "cols": 1,
+   "depth": 15,
+   "eye": [
+    1.0
+   ]
+  },
+  "rack": {
+   "name": "新聞・雑誌ラック",
+   "rows": 5,
+   "cols": 1,
+   "depth": 10,
+   "eye": [
+    1.1,
+    1.1,
+    1.0,
+    0.9,
+    0.8
+   ]
+  }
+ },
+ "layout": {
+  "hook": [
+   "dl_mask",
+   "dl_mask",
+   "dl_tissue",
+   "dl_tissue",
+   "dl_charger",
+   "dl_charger",
+   "dl_bandage",
+   "dl_brush",
+   "gm_nodo",
+   "gm_nodo",
+   "gm_mint",
+   "gm_mint",
+   null,
+   null,
+   "dl_tissue",
+   null
+  ],
+  "top": [
+   "sn_chips",
+   "sn_chips",
+   "sn_nori",
+   "sn_nori",
+   "sn_stick",
+   "sn_stick",
+   "sn_choco",
+   "gm_grape",
+   "gm_grape",
+   "gm_peach"
+  ],
+  "fridge": [
+   "cf_bitou",
+   "cf_bitou",
+   "cf_black",
+   "cf_black",
+   "cf_aulait",
+   "cf_bottle",
+   "dr_cola",
+   "dr_cola",
+   "en_energy",
+   "en_energy",
+   "en_eiyou",
+   "en_jelly",
+   "dr_tea",
+   "dr_tea",
+   "dr_hoji",
+   "dr_mugi",
+   "dr_water",
+   "dr_water",
+   "dr_tea",
+   "dr_sports",
+   "dr_sports",
+   "dr_veg",
+   "dr_lact",
+   "dr_water",
+   "al_beer",
+   "al_beer",
+   "al_high",
+   "al_high",
+   "al_sour",
+   "al_sour"
+  ],
+  "shelf": [
+   "pan_melon",
+   "pan_an",
+   "pan_cream",
+   "pan_curry",
+   "pan_shio",
+   "oni_sake",
+   "oni_tuna",
+   "oni_ume",
+   "oni_konbu",
+   "oni_mentai",
+   "san_egg",
+   "san_mix",
+   "san_ham",
+   "san_katsu",
+   "oni_sake",
+   "pan_melon",
+   "oni_tuna",
+   "pan_shio",
+   "pan_an",
+   "sn_chips",
+   "sn_choco",
+   "sn_nuts",
+   "gm_peach",
+   "gm_grape",
+   null,
+   "sn_stick",
+   "sn_stick",
+   "sn_nori",
+   "gm_grape",
+   "gm_nodo"
+  ],
+  "tobacco": [
+   "tb_a",
+   "tb_a",
+   "tb_a",
+   "tb_b",
+   "tb_b",
+   "tb_b",
+   "tb_c",
+   "tb_c"
+  ],
+  "hot": [
+   "hot_niku",
+   "hot_niku",
+   "hot_an",
+   "hot_dog",
+   "hot_dog",
+   "hot_potato"
+  ],
+  "warmer": [
+   "hd_bitou",
+   "hd_bitou",
+   "hd_tea",
+   "hd_soup"
+  ],
+  "umbrella": [
+   "um_vinyl"
+  ],
+  "rack": [
+   "pp_daily",
+   "pp_sports",
+   "mg_weekly",
+   "mg_manga",
+   "mg_fashion"
+  ]
+ },
+ "trends": [
+  {
+   "id": "karaage",
+   "name": "唐揚げブーム",
+   "tags": [
+    "karaage"
+   ],
+   "amp": 1.0,
+   "text": "テレビや動画で唐揚げの食べ歩きが話題です。"
+  },
+  {
+   "id": "donut",
+   "name": "生ドーナツブーム",
+   "tags": [
+    "donut",
+    "namadonut"
+   ],
+   "amp": 1.2,
+   "text": "とろける食感の生ドーナツに行列ができています。"
+  },
+  {
+   "id": "fruitsand",
+   "name": "フルーツサンドブーム",
+   "tags": [
+    "fruitsand"
+   ],
+   "amp": 1.3,
+   "text": "断面がきれいなフルーツサンドがSNSで人気です。"
+  },
+  {
+   "id": "shiopan",
+   "name": "塩パンブーム",
+   "tags": [
+    "shiopan"
+   ],
+   "amp": 0.8,
+   "text": "塩バターパンのお店が次々に開いています。"
+  }
+ ],
+ "trendTiming": {
+  "gap": [
+   6,
+   18
+  ],
+  "len": [
+   12,
+   30
+  ],
+  "note": "ブームとブームのあいだの運行日数と、ブームが続く運行日数。"
+ },
+ "regulars": {
+  "join": 0.007,
+  "max": 40,
+  "loyalty": 5,
+  "note": "よく買われる商品（regular の高いもの）を買った人が常連になる割合。目当ての品が切れていると気持ちが離れ、0になると来なくなる。"
+ },
+ "mania": {
+  "rate": 0.04,
+  "note": "mania の高い商品を目当てに来る人（通る人の数に対する割合×mania）。発売日（漫画誌は月曜）や新しく置いた日に来る。"
+ },
+ "reviews": {
+  "sweetHi": [
+   "甘すぎた",
+   "思ったより甘い",
+   "甘さがくどい"
+  ],
+  "sweetLo": [
+   "甘さが足りない",
+   "もう少し甘くてもいい"
+  ],
+  "richHi": [
+   "味が濃い",
+   "しょっぱい",
+   "のどがかわく"
+  ],
+  "richLo": [
+   "味がうすい",
+   "ぼんやりした味"
+  ],
+  "volLo": [
+   "量が少ない",
+   "すぐ食べ終わった",
+   "ちょっと小さい"
+  ],
+  "volHi": [
+   "量が多くて食べきれない",
+   "おなかいっぱい"
+  ],
+  "priceHi": [
+   "値段のわりに…",
+   "ちょっと高い"
+  ],
+  "priceOk": [
+   "この値段ならうれしい",
+   "安くて助かる"
+  ],
+  "good": [
+   "おいしかった",
+   "また買いたい",
+   "ちょうどいい",
+   "電車を待つあいだにちょうどいい"
+  ],
+  "warm": [
+   "温かくてほっとした"
+  ],
+  "cold": [
+   "よく冷えていた"
+  ],
+  "crush": [
+   "つぶれていた"
+  ]
+ },
+ "sns": {
+  "good": [
+   "{st}駅のホームの売店で{item}見つけた",
+   "{item}おいしい。電車待ちのおやつ",
+   "{st}駅の{item}がかわいい"
+  ],
+  "bad": [
+   "{st}駅の売店、{item}が売り切れてた…",
+   "{item}高くない？"
+  ]
+ }
+}
