@@ -105,14 +105,21 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const hotRate=(pid,h)=>{const f=state.hotF&&state.hotF[pid];return f&&f[h]!=null?f[h]:(HC.prior||0.6)*hm(ix.G.hot.hours,h);};
   const expire=(pid,t)=>{const q=hotQ[pid]||[];let n=0;while(q.length&&t-q[0].t>HOLD){const x=q.shift();waste+=x.c;add(wasteBy,pid,1);n++;}
     if(n)ev.push({t:Math.min(t,O1),k:'waste',pid,n,why:'保温時間切れ'});};
-  const cookOne=(pid,t)=>{const q=hotQ[pid]||(hotQ[pid]=[]);expire(pid,t);if(t>=O1-(HC.stopBeforeClose||30))return;
+  const cookOne=(pid,t)=>{const q=hotQ[pid]||(hotQ[pid]=[]);expire(pid,t);if(t>=O1-(HC.stopBeforeClose||30)||!anyOn(t))return;   // 店員がいないと温められない
     const h=Math.floor(t/60),ah=(HC.ahead||45)/60,need=hotRate(pid,h)*ah;
     const want=clamp(Math.ceil(need-0.15),q.length?0:1,SI[pid].cap);   // 空のときは少なくとも1個
     if(q.length<want){const g2=take(pid,want-q.length);for(let i=0;i<g2.got;i++)q.push({t:t+6,c:g2.cost/g2.got});if(g2.got)ev.push({t,k:'cook',pid,n:g2.got});}};
   const cook=t=>{for(const pid in SI)if(P[pid].genre==='hot')cookOne(pid,t);};
   const hotStock=pid=>(hotQ[pid]||[]).length;
   // 列：店員の数だけ同時に会計できる
-  let servers=new Array(cur.staff).fill(O0);
+  // 店員：きょう働く人と時間（シフト）。会計・品出しは、その時間にいる人だけ。だれもいない時間は売店を閉める
+  const KS=root.KioskStaff,W=KS.today(cfg,state,ctx.cond.day,ctx.day),free=W.map(()=>O0),served=W.map(()=>0),hasCrew=!!state.crew;
+  const anyOn=t=>W.some(w=>KS.onAt(w,t));
+  const eff=(k,t)=>KS.nextStart(W[k],Math.max(t,free[k]));                    // その人が次に会計を始められる時刻
+  const pickS=t=>{let b=-1,bt=Infinity;for(let k=0;k<W.length;k++){const x=eff(k,t);if(x<bt){bt=x;b=k;}}return [b,bt];};
+  const closedSp=[];{let a=O0;const cov=W.flatMap(w=>w.spans).sort((x,y)=>x[0]-y[0]);for(const [s0,e0] of cov){if(s0>a&&a<O1)closedSp.push([a,Math.min(s0,O1)]);a=Math.max(a,e0);}if(a<O1)closedSp.push([a,O1]);}
+  for(const [a,b] of closedSp)ev.push({t:a,k:'closed',to:b});
+  let closedN=0;
   // 世の中のブーム
   const trend=state.trend?cfg.trends.find(x=>x.id===state.trend.id):null;
   const trendOn=it=>trend&&it.tags.some(t=>trend.tags.includes(t))?1+trend.amp:1;
@@ -125,13 +132,12 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const applyEdit=t=>{while(ei<edits.length&&edits[ei].t<=t){const e=setAt(edits[ei].t);const old=SI;SI=shelfInfo(cfg,e.layout);cur=e;
       for(const pid in shelf)if(!SI[pid]){shelf[pid]=0;}                      // 棚から外した物は裏へ
       for(const pid in SI)if(shelf[pid]>SI[pid].cap)shelf[pid]=SI[pid].cap;
-      if(e.staff!==servers.length){const ns=new Array(e.staff).fill(edits[ei].t);servers=ns;}
       ev.push({t:edits[ei].t,k:'edit'});shelfFill(edits[ei].t,'変えた棚に並べる');ei++;}};
   const takeSnap=t=>{while(nextSnap<=t){const o={},b={};for(const pid in SI){o[pid]=stockOf(pid);b[pid]=P[pid].genre==='hot'?backQ(pid):Math.max(0,backQ(pid)-(shelf[pid]||0));}snap.push({t:nextSnap,s:o,b});nextSnap+=SNAP;}};
   const tick=t=>{applyEdit(t);
     while(di<deliveries.length&&deliveries[di].t<=t){nowT=deliveries[di].t;deliver(deliveries[di],deliveries[di].t);shelfFill(deliveries[di].t,'納品のあと品出し');cook(deliveries[di].t);di++;}
-    while(nextRestock<=t){nowT=nextRestock;const s0=servers.indexOf(Math.min(...servers));
-      if(servers[s0]<=nextRestock+5){const moved=shelfFill(nextRestock,'品出し');if(moved)servers[s0]=Math.max(servers[s0],nextRestock)+cfg.restockMin;}
+    while(nextRestock<=t){nowT=nextRestock;let s0=-1;for(let k=0;k<W.length;k++)if(KS.onAt(W[k],nextRestock)&&free[k]<=nextRestock+5&&(s0<0||free[k]<free[s0]))s0=k;
+      if(s0>=0){const moved=shelfFill(nextRestock,'品出し');if(moved)free[s0]=Math.max(free[s0],nextRestock)+cfg.restockMin/KS.speed(cfg,W[s0].p,'stock');}
       cook(nextRestock);nextRestock+=cfg.restockEvery;}
     takeSnap(t);};
   tick(O0);
@@ -139,16 +145,16 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const recent=[],motives={};   // recent：直前に売れた品（前の人につられる）
   const herdF=(pid,t)=>{let n=0;for(let i=recent.length-1;i>=0&&t-recent[i].t<=(M.herdWin||4);i--)if(recent[i].pid===pid)n++;return 1+(M.herd||0)*Math.min(M.herdMax||3,n);};
   const newF=pid=>state.placedAt[pid]!=null&&ctx.day-state.placedAt[pid]>=0&&ctx.day-state.placedAt[pid]<(M.newDays||0)?(M.newBoost||1):1;
-  for(const v of visitors){tick(v.t);nowT=v.t;const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
+  for(const v of visitors){tick(v.t);nowT=v.t;if(!anyOn(v.t)){closedN++;continue;}const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
     if(v.imp){   // なんとなく：棚全体から目に入った物（安い・手軽・映える・いま売れている物ほど）を手に取る
       const all=Object.keys(SI).map(k=>P[k]).filter(c=>stockOf(c.id)>0&&!ix.G[c.genre].age&&!(M.fixed||[]).includes(c.genre));if(!all.length)continue;
       const ws=all.map(c=>c.w*SI[c.id].vis*(1+c.photo)*(priceOf(c.id)<=200?1.4:0.8)*(c.ease/5)*herdF(c.id,v.t)*(moodG[c.genre]||1)*buzzF(c.id)*trendOn(c)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(priceOf(c.id)/c.price-1)));
-      const c=all[pickW(ws,r)];const qd=Math.min(...servers)>v.t+0.2;   // 会計に人が並んでいると気になる
+      const c=all[pickW(ws,r)];const [k2,st2]=pickS(v.t),qd=st2>v.t+0.2;   // 会計に人が並んでいると気になる
       if(r()>(M.impulseBuy||0.5)*(qd?(M.queueLure||1):1))continue;
-      const S2=cfg.service,svc2=S2.base+(v.em?S2.emoney:S2.cash)+(c.genre==='hot'?S2.hot:0),k2=servers.indexOf(Math.min(...servers)),st2=Math.max(v.t,servers[k2]);
-      if(st2-v.t>ps.patience*1.2)continue;servers[k2]=st2+svc2/60;const g2=takeShelf(c.id,1);if(!g2.got)continue;
+      const S2=cfg.service,svc2=(S2.base+(v.em?S2.emoney:S2.cash)+(c.genre==='hot'?S2.hot:0))/KS.speed(cfg,W[k2].p,'reg');
+      if(st2-v.t>ps.patience*1.2)continue;free[k2]=st2+svc2/60;served[k2]++;const g2=takeShelf(c.id,1);if(!g2.got)continue;
       const y2=g2.got*priceOf(c.id);add(sold,c.id,g2.got);add(gross,c.id,y2);add(cogs,c.id,g2.cost);hourly[h]+=y2;hourlyN[h]++;add(byPs,v.ps,1);
-      const mot=qd?'queue':'impulse';add(motives,mot,1);ev.push({t:st2,k:'buy',ps:v.ps,items:[[c.id,g2.got]],yen:y2,em:v.em,wait:st2-v.t,mot});recent.push({t:st2,pid:c.id});
+      const mot=qd?'queue':'impulse';add(motives,mot,1);ev.push({t:st2,k:'buy',ps:v.ps,items:[[c.id,g2.got]],yen:y2,em:v.em,wait:st2-v.t,mot,by:hasCrew?W[k2].p.id:undefined});recent.push({t:st2,pid:c.id});
       if(r()<ps.sns*c.photo*0.35){const p2={t:st2+2,pid:c.id,ps:v.ps,good:true};posts.push(p2);ev.push({t:p2.t,k:'sns',pid:c.id,ps:v.ps,good:true});}
       continue;}
     const minor=v.a===0;
@@ -179,10 +185,10 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     if(!v.reg&&!v.mania&&r()<cfg.visit.addOn){const ig=['gummy','colddrink','coffee','snack','hotdrink'].filter(g=>g!==want);const c2=ig.flatMap(g=>ix.byG[g]).filter(c=>SI[c.id]&&stockOf(c.id)>0&&!(ix.G[c.genre].age&&minor));
       if(c2.length){const ws=c2.map(c=>c.w*SI[c.id].vis);const k=pickW(ws,r);if(k>=0)items.push([c2[k].id,1]);}}
     const S=cfg.service;let svc=S.base+S.perItem*(items.length-1)+(v.em?S.emoney:S.cash);for(const [pid] of items){if(P[pid].genre==='hot')svc+=S.hot;if(ix.G[P[pid].genre].age)svc+=S.age;}
-    const k0=servers.indexOf(Math.min(...servers)),start=Math.max(v.t,servers[k0]),wait=start-v.t;
+    const [k0,start]=pickS(v.t),wait=start-v.t;svc/=KS.speed(cfg,W[k0].p,'reg');
     const patience=ps.patience*(state.place==='home'?clamp(v.dw*0.7,0.6,3):3);
     if(wait>patience){logLook(it.id,'列が長い');if(v.reg)regEvents.push({g:v.reg,ok:false,why:'列が長い'});continue;}
-    servers[k0]=start+svc/60;
+    free[k0]=start+svc/60;served[k0]++;
     // 売る
     let yen=0,bought=[];
     for(const [pid,q] of items){const g2=takeShelf(pid,q);if(!g2.got)continue;const y=g2.got*priceOf(pid);yen+=y;add(sold,pid,g2.got);add(gross,pid,y);add(cogs,pid,g2.cost);bought.push([pid,g2.got]);}
@@ -193,11 +199,11 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     if(!mot){const mp=P[bought[0][0]],fx={herd:herdF(mp.id,v.t)-1,sns:buzzF(mp.id)-1,trend:trendOn(mp)-1,new:newF(mp.id)-1};let best=null;for(const k in fx)if(fx[k]>0.25&&(!best||fx[k]>fx[best]))best=k;
       mot=best&&r()<fx[best]/(1+fx[best])?best:(mp.genre==='umbrella'&&(ctx.cond.wx==='rain'||ctx.cond.wx==='snow'))?'rain':'plan';}
     add(motives,mot,1);recent.push({t:start,pid:bought[0][0]});if(recent.length>60)recent.splice(0,20);
-    const e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1};ev.push(e);
+    const e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1,by:hasCrew?W[k0].p.id:undefined};ev.push(e);
     if(v.reg)regEvents.push({g:v.reg,ok:true});
     // 評価
     const main=P[bought[0][0]];
-    if(main.taste[0]+main.taste[1]>0&&r()<ps.review){const rv=review(cfg,ps,main,priceOf(main.id)/main.price,r);rv.t=start+3;rv.pid=main.id;rv.ps=v.ps;reviews.push(rv);ev.push({t:rv.t,k:'review',pid:main.id,ps:v.ps,stars:rv.stars,text:rv.text});}
+    if(main.taste[0]+main.taste[1]>0&&r()<ps.review){const rv=review(cfg,ps,main,priceOf(main.id)/main.price,r,hasCrew?(KS.careOf(cfg,W[k0].p)-1)*((cfg.crew.care||{}).stars||2.5):0);rv.t=start+3;rv.pid=main.id;rv.ps=v.ps;reviews.push(rv);ev.push({t:rv.t,k:'review',pid:main.id,ps:v.ps,stars:rv.stars,text:rv.text});}
     // SNS
     if(r()<ps.sns*main.photo*0.35){const p2={t:start+2,pid:main.id,ps:v.ps,good:true};posts.push(p2);ev.push({t:p2.t,k:'sns',pid:main.id,ps:v.ps,good:true});}
     // 常連になる
@@ -217,25 +223,28 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 収支
   let sales=0,em=0;for(const e of ev)if(e.k==='buy'){sales+=e.yen;if(e.em)em+=e.yen;}
   let cg=0;for(const k in cogs)cg+=cogs[k];
-  const staffH=edits.reduce((s,e,i)=>{const t0=Math.max(O0,e.t),t1=i+1<edits.length?Math.max(O0,edits[i+1].t):O1;return s+Math.max(0,t1-t0)/60*setAt(e.t).staff;},0);
-  const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:staffH*cfg.wage,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
-  pl.cost=pl.cogs+pl.waste+pl.express+pl.staff+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
-  return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F};}
+  const crewRes=W.map((w,k)=>{const x=KS.payOf(cfg,w,O0,O1);return {id:w.p.id,name:w.p.name,h:x.h,yen:x.yen,served:served[k],spans:w.spans};});
+  const recruit=hasCrew?(state.crew.ads||[]).filter(a=>a.day===ctx.day).length*cfg.crew.ad.fee:0;
+  const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:crewRes.reduce((s,x)=>s+x.yen,0),recruit,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
+  pl.cost=pl.cogs+pl.waste+pl.express+pl.staff+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
+  return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,closed:closedSp,closedN};}
 
 /* 評価：客層の好み（甘さ・味の濃さ・量）と商品の味のずれ、値段 */
-function review(cfg,ps,it,ratio,r){const [s,k,v]=it.taste,[ps1,pk,pv]=ps.taste,T=cfg.reviews;let stars=4.3+(r()-0.5)*0.8;const bad=[];
+function review(cfg,ps,it,ratio,r,care){care=care||0;const [s,k,v]=it.taste,[ps1,pk,pv]=ps.taste,T=cfg.reviews;let stars=4.3+(r()-0.5)*0.8;const bad=[];
   if(s>0||it.genre==='donut'||it.genre==='bread'){if(s-ps1>1.2){stars-=(s-ps1-1)*0.9;bad.push('sweetHi');}else if(s>=3&&ps1-s>1.6){stars-=0.6;bad.push('sweetLo');}}
   if(k-pk>1.2){stars-=(k-pk-1)*0.8;bad.push('richHi');}else if(pk-k>1.8){stars-=0.6;bad.push('richLo');}
   if(pv-v>1.2){stars-=(pv-v-1)*0.8;bad.push('volLo');}else if(v-pv>1.6){stars-=0.5;bad.push('volHi');}
   if(ratio>1.08){stars-=(ratio-1)*4*ps.priceSens;bad.push('priceHi');}
-  stars=clamp(Math.round(stars),1,5);let key;
-  if(bad.length&&stars<=3)key=bad[Math.floor(r()*bad.length)];else if(ratio<0.95)key='priceOk';else if(it.temp==='hot'&&r()<0.4)key='warm';else if(it.temp==='cold'&&r()<0.25)key='cold';else key='good';
+  stars=clamp(Math.round(stars+care),1,5);let key;const CR=cfg.crew&&cfg.crew.care||{};
+  if(care<(CR.bad??-0.15)&&T.staffBad&&r()<0.3)key='staffBad';else if(care>(CR.good??0.25)&&T.staffGood&&stars>=4&&r()<0.25)key='staffGood';
+  else if(bad.length&&stars<=3)key=bad[Math.floor(r()*bad.length)];else if(ratio<0.95)key='priceOk';else if(it.temp==='hot'&&r()<0.4)key='warm';else if(it.temp==='cold'&&r()<0.25)key='cold';else key='good';
   const list=T[key];return {stars,key,text:list[Math.floor(r()*list.length)],bad};}
 
 /* ---------- 運行日を締める：評判・SNSの話題・常連・ブーム・在庫の持ちこし・知らせ ---------- */
 function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.stringify(state)),day=res.day,news=[];
   const say=(kind,title,text,pid)=>{const n={day,kind,title,text,pid};news.push(n);st.news.push(n);};
   st.lots=res.carry;st.closed=day;st.cash+=res.pl.profit;
+  if(root.KioskStaff&&st.crew)root.KioskStaff.close(cfg,st,res,day,(kind,title,text)=>say(kind,title,text));
   {const hc=ix.G.hot&&ix.G.hot.cook,L=hc&&hc.learn||0.4,dem={};
     for(const e of res.ev){const h=Math.floor(e.t/60);if(e.k==='buy'){for(const [pid,q] of e.items)if(ix.P[pid].genre==='hot'){const a=dem[pid]||(dem[pid]=new Array(27).fill(0));a[h]+=q;}}
       else if(e.k==='look'&&e.pid&&e.why==='売り切れ'&&ix.P[e.pid].genre==='hot'){const a=dem[e.pid]||(dem[e.pid]=new Array(27).fill(0));a[h]+=1;}}

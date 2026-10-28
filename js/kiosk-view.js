@@ -8,7 +8,7 @@
 (function(){
 'use strict';
 if(typeof KioskCore==='undefined'||typeof ResearchCore==='undefined')return;
-const KC=KioskCore,RC=ResearchCore,KEY='dia-kiosk',H=KC.H;
+const KC=KioskCore,RC=ResearchCore,KS=KioskStaff,KEY='dia-kiosk',H=KC.H;
 const STORDER=['C','S','U','M','K','N','P','F','T','O'],PLACES=['home','naka','gate'];
 const $=id=>document.getElementById(id);
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
@@ -27,7 +27,7 @@ const narrow=()=>window.innerWidth<760;
 addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=n;if(V.open)render(true);}});
 /* ---------- 読み込み・保存 ---------- */
 Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();})])
-  .then(([c,rc])=>{V.cfg=c;V.rcfg=rc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1)V.st=s;}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
+  .then(([c,rc])=>{V.cfg=c;V.rcfg=rc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
@@ -83,6 +83,7 @@ function expressConfirm(pid,q,idAdd,idNew,idNo){const ob=openExpress(),P=ix().P[
     <div>${same?'前の注文に':'この品も同じ便にのせて、'}${q}個を足せます。届く時刻は${at}のまま、料金は増えません（足した分の原価${yen(q*P.cost)}）。のせられるのは到着の${V.cfg.express.addUntil}分前（${fmtT(expArrive(ob)-V.cfg.express.addUntil)}）まで。</div>
     <div class="ks-sbtns"><button type="button" class="ks-btn pri" id="${idAdd}">${same?`前の注文に${q}個追加する`:`同じ便にのせる（料金なし）`}</button>${!same&&expressOpen()?`<button type="button" class="ks-btn" id="${idNew}">別の便で頼む（${yen(V.cfg.express.fee)}・${fmtT(gT()+V.cfg.express.lead)}着）</button>`:''}<button type="button" class="ks-btn" id="${idNo}">やめる</button></div></div>`;}
 /* 設定を変える（その時刻から先が変わる） */
+function onDuty(){const r=V.res,t=gT();return r&&r.crew?r.crew.filter(w=>w.spans.some(([a,b])=>t>=a&&t<b)):[];}
 function curSet(){const S=V.st,day=gDay();if(S.today&&S.today.day===day&&S.today.edits.length)return S.today.edits.at(-1);return {layout:S.layout,price:S.price,order:S.order,staff:S.staff};}
 function edit(fn){const S=V.st,day=gDay(),c=JSON.parse(JSON.stringify(curSet()));fn(c);c.t=Math.max(gT(),(S.openedDay===day?S.openedT:0)+0.01);
   if(!S.today||S.today.day!==day)S.today={day,edits:[]};const L=S.today.edits;if(L.length&&Math.abs(L.at(-1).t-c.t)<1)L[L.length-1]=c;else L.push(c);
@@ -131,6 +132,13 @@ const CSS=`
 .ks-tags{display:inline-flex;gap:3px;flex-wrap:wrap}.ks-tags i{font-style:normal;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);white-space:nowrap}
 .ks-tags i.hot{color:#c9573f;border-color:#e3b0a5}.ks-tags i.cold{color:#2e7fd1;border-color:#a9c8ea}.ks-tags i.trend{color:#b0711f;border-color:#e4c38f;font-weight:700}.ks-tags i.age{color:#8a3c8a;border-color:#d4a9d4}
 .ks-log{display:grid;gap:3px;font-size:12.5px}
+.ks-crews{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:8px}.ks-crew{border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:grid;gap:6px;background:var(--paper)}.ks-crew.warn{border-color:#c9573f}
+.ks-crew-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.ks-crew-h b{font-size:14.5px}.ks-crew .mut,.ks-crew small.mut{color:var(--muted);font-size:11.5px}
+.ks-mood{height:7px;background:var(--line);border-radius:4px;overflow:hidden}.ks-mood u{display:block;height:100%}.ks-crew-m{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}.ks-crew-m span{color:var(--muted)}
+.ks-tag{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 7px;margin:0 3px 2px 0;color:var(--muted)}.ks-tag.pos{color:#2f8a4a;border-color:#2f8a4a55}.ks-tag.neg{color:#c9573f;border-color:#c9573f55}
+.ks-shift td,.ks-shift th{text-align:center}.ks-cell{font:inherit;font-size:12px;min-width:44px;min-height:34px;border:1px dashed var(--line);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}.ks-cell[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);font-weight:700}
+.ks-today tr.now td{background:color-mix(in srgb,var(--accent) 12%,transparent)}.ks-today small{color:var(--muted)}.ks-small{font-size:12px;padding:4px 10px;min-height:30px}
+#ksAdWage{font:inherit;font-size:13px;padding:4px 6px;min-height:34px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
 .ks-flt{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:end;margin:0 0 8px;font-size:11.5px;color:var(--muted)}.ks-flt label{display:grid;gap:2px}.ks-flt label>span{display:flex;gap:3px;align-items:center}.ks-flt select{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-height:32px;max-width:11em}.ks-flt-b{display:flex;gap:6px;flex-wrap:wrap}.ks-fd>summary{cursor:pointer;font-size:12.5px;font-weight:700;padding:4px 0;min-height:32px}.ks-fd[open]>summary{margin-bottom:4px}
 .ks-lsum{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:0 0 8px;font-variant-numeric:tabular-nums}.ks-lsum b{width:100%}
 .ks-newpill{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:50%;transform:translateX(-50%);z-index:69;padding:9px 16px;border-radius:999px;font-size:14px;display:block;margin:0;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;box-shadow:0 2px 8px rgb(0 0 0 / .2)}
@@ -182,7 +190,7 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   $('ksClose').onclick=()=>setOpen(false);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open){if(V.sheet){closeSheet();return;}setOpen(false);}});
   $('ksSpd').innerHTML=[1,30,180].map(m=>`<button type="button" class="ks-chip" data-m="${m}">×${m}</button>`).join(' ');
   $('ksSpd').querySelectorAll('button').forEach(b=>b.onclick=()=>{setMult(Number(b.dataset.m));});
-  const TABS=[['log','売れ行き'],['items','商品・値段・仕入れ'],['layout','棚割り'],['people','客層・時間帯'],['money','収支'],['news','お知らせ']];
+  const TABS=[['log','売れ行き'],['items','商品・値段・仕入れ'],['layout','棚割り'],['people','客層・時間帯'],['crew','店員'],['money','収支'],['news','お知らせ']];
   $('ksTabs').innerHTML=TABS.map(([k,n])=>`<button type="button" class="ks-tab" role="tab" data-tab="${k}">${n}</button>`).join('');
   $('ksTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{V.tab=b.dataset.tab;V.logRes=null;if(V.tab==='news'&&V.st){V.st.unread=0;persist();badge();}render(true);});
   V.cv=$('ksCanvas');V.cx=V.cv.getContext('2d');V.cv.addEventListener('click',onCanvasClick);}
@@ -202,7 +210,7 @@ function renderSetup(){const f=V.form,R=V.rcfg,studies=g(()=>JSON.parse(localSto
     <button type="button" class="ks-btn pri" id="ksOpen">${stName(f.st)}駅・${R.places[f.place].name}に売店を出す</button></div>`;
   $('ksTop').querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{f.st=b.dataset.st;render(true);});
   $('ksTop').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{f.place=b.dataset.pl;render(true);});
-  $('ksOpen').onclick=()=>{const day=gDay();V.st=KC.create(V.cfg,{seed:(Date.now()%100000)+1,st:f.st,place:f.place,day});V.st.openedT=gT();V.st.openedDay=day;V.st.unread=0;
+  $('ksOpen').onclick=()=>{const day=gDay();V.st=KC.create(V.cfg,{seed:(Date.now()%100000)+1,st:f.st,place:f.place,day});KS.migrate(V.cfg,V.st);V.st.openedT=gT();V.st.openedDay=day;V.st.unread=0;
     V.st.news.push({day,kind:'open',title:`${stName(f.st)}駅・${R.places[f.place].name}に売店を開いた`,text:'はじめは、よくある売店の並べ方と値段です。売れ行きを見ながら変えていきましょう。'});persist();V.res=null;render(true);};}
 
 /* ---------- 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） ---------- */
@@ -266,11 +274,11 @@ function renderKpi(){const res=ensureRes();if(!res)return;const o=KC.soFar(V.cfg
   const share=res.pl.sales?o.sales/res.pl.sales:0;
   $('ksKpi').innerHTML=`<div><span>きょうの売上（いままで）</span><b>${yen(o.sales)}</b></div><div><span>お客さん</span><b>${num(o.cust)}人</b></div>
     <div><span>見たけど買わなかった</span><b>${num(o.looks-(V.cfg.hideLost?(o.why['売り切れ']||0):0))}人</b></div><div><span>粗利（売上−原価）</span><b>${yen(o.sales-o.cogs)}</b></div>
-    <div><span>店員</span><b>${curSet().staff}人</b></div><div><span>積み立て</span><b class="${V.st.cash<0?'neg':'pos'}">${man(V.st.cash)}</b></div>`;}
+    <div><span>いまの店員</span><b>${onDuty().length?onDuty().map(w=>esc(w.name)).join('・'):'だれもいない'}</b></div><div><span>積み立て</span><b class="${V.st.cash<0?'neg':'pos'}">${man(V.st.cash)}</b></div>`;}
 function renderBody(full){const b=$('ksBody'),res=ensureRes();if(!res)return;
   if(V.tab==='log')return renderLog(b,res,full);
   if(!full)return;
-  if(V.tab==='items')renderItems(b,res);else if(V.tab==='layout')renderLayout(b);else if(V.tab==='people')renderPeople(b,res);else if(V.tab==='money')renderMoney(b,res);else renderNews(b);}
+  if(V.tab==='items')renderItems(b,res);else if(V.tab==='layout')renderLayout(b);else if(V.tab==='people')renderPeople(b,res);else if(V.tab==='crew')renderCrew(b,res);else if(V.tab==='money')renderMoney(b,res);else renderNews(b);}
 
 /* 売れ行き：いまの時刻までの出来事（新しい順） */
 function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps:'';
@@ -282,7 +290,8 @@ function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps
   if(e.k==='restock')return ['sys','',`${e.why}（${e.n}個）`,''];
   if(e.k==='cook')return ['sys','',`${P[e.pid].short}を${e.n}個温めた`,''];
   if(e.k==='waste')return ['sys','',`${P[e.pid].short}を${e.n}個捨てた（${e.why}）`,''];
-  if(e.k==='edit')return ['sys','','棚・値段・仕入れを変えた',''];return ['sys','',e.k,''];}
+  if(e.k==='edit')return ['sys','','棚・値段・仕入れを変えた',''];
+  if(e.k==='closed')return ['sys','',`店員がいないので閉めている（${fmtT(e.to)}まで）`,''];return ['sys','',e.k,''];}
 /* 絞り込み：種類・客層・きっかけ・ジャンル・商品・理由・評価・時間帯。絞った分だけを一覧と集計に出す */
 const LF0={k:'',ps:'',mot:'',genre:'',pid:'',why:'',stars:'',h0:5,h1:26};
 if(!V.lf)V.lf={...LF0};
@@ -440,17 +449,89 @@ function renderPeople(b,res){const I=ix(),T0=gT(),k=KC.idxAt(res,T0),ps={},psLoo
         <p class="ks-note">${tot?`${addon.n}人は、ついでにもう1品買っていました。`:''}${res.moodG?'きょうの気分：'+Object.entries(res.moodG).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([gid,v])=>`${I.G[gid].name}がふだんの${Math.round(v*100)}%`).join('・')+'、'+Object.entries(res.moodG).sort((a,b)=>a[1]-b[1]).slice(0,1).map(([gid,v])=>`${I.G[gid].name}は${Math.round(v*100)}%`).join('')+'。':''}「なんとなく」は目につく場所・安い・手軽な品、「前の人につられて」は数分前に同じ品が売れたとき、「SNSを見て」は話題の品を目当てに来た人です。</p>`;})()}</div>
     <div class="ks-card"><h3><span>時間帯の売上</span><small>いまの時刻まで</small></h3><div class="ks-hrs">${Array.from({length:19},(_,j)=>{const h=j+5;return `<span class="${h===hN?'now':''}" style="height:${hr[h]/hm*100}%" title="${h}時台 ${yen(hr[h])}"></span>`;}).join('')}</div><div class="ks-hlab"><span>5時</span><span>9</span><span>13</span><span>17</span><span>21</span><span>23時</span></div></div></div>`;}
 
+/* 店員：きょうのシフト・一人ずつのようす・時給・あすからのシフト表・募集と応募 */
+const crewOf=()=>V.st.crew;
+const shNext=()=>{const c=crewOf();if(!c.shiftNext)c.shiftNext=JSON.parse(JSON.stringify(c.shift));return c.shiftNext;};
+const tmr=()=>gDay()+1;
+function crewSave(recalc){persist();if(recalc){V.editRev=(V.editRev||0)+1;V.res=null;ensureRes();}render(true);}
+function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond().day,BL=C.blocks,TN=C.dayTypes,t=gT();
+  if(V.crewType==null)V.crewType=type;const ty=V.crewType,sn=cr.shiftNext||cr.shift;
+  const work={};for(const w of (res.crew||[]))work[w.id]=w;
+  const nm=id=>{const p=cr.people.find(x=>x.id===id);return p?p.name:'';};
+  // 1時間あたりのお客さん（きょうの結果から。時間帯ごと）
+  const perH=BL.map(bk=>{let n=0;for(let h=bk.from;h<bk.to;h++)n+=res.hourlyN[h]||0;return n/(bk.to-bk.from);});
+  const todayRows=BL.map((bk,i)=>{const who=(res.crew||[]).filter(w=>w.spans.some(([a,b2])=>a<bk.to*60&&b2>bk.from*60)).map(w=>w.name),now=t>=bk.from*60&&t<bk.to*60;
+    return `<tr class="${now?'now':''}"><td class="l">${bk.name}<br><small>${bk.from}〜${bk.to}時</small></td><td class="l">${who.length?who.map(esc).join('・'):'<b class="neg">だれもいない（閉める）</b>'}</td><td>約${Math.round(perH[i])}人／時${who.length?`<br><small>1人あたり${Math.round(perH[i]/who.length)}人</small>`:''}</td></tr>`;}).join('');
+  const people=cr.people.filter(p=>p.leave==null||p.leave>day);
+  const card=p=>{const w=work[p.id],tr=KS.traits(p),wk=KS.weekHours(V.cfg,cr,p.id,true),next=p.wageNext??p.wage,sp=Math.round(KS.expF(V.cfg,p)*KS.moraleF(p.morale)*100);
+    const av=KS.TYPES.map(tp=>`${TN[tp].slice(0,2)}：${p.avail[tp].length?p.avail[tp].map(id=>KS.blk(V.cfg,id).name).join('・'):'—'}`).join('　');
+    const mc=p.morale>=60?'#2f8a4a':p.morale>=45?'#c9a35c':'#c9573f';
+    return `<div class="ks-crew${p.warn?' warn':''}"><div class="ks-crew-h"><b>${esc(p.name)}さん</b><span class="mut">${C.kinds.find(k=>k.id===p.kind).name}</span>${p.from>day?'<span class="ks-tag">あすから</span>':''}${p.leave!=null?'<span class="ks-tag neg">あすで辞める</span>':''}</div>
+      <div class="ks-mood"><u style="width:${p.morale}%;background:${mc}"></u></div><div class="ks-crew-m"><b style="color:${mc}">${KS.moodWord(p.morale)}</b>${p.notes&&p.notes.length?`<span>気にしていること：${p.notes.map(esc).join('・')}</span>`:''}</div>
+      ${p.ask?`<div class="ks-pend" role="alert"><b>時給を${yen(p.ask)}にしてほしい（いま${yen(p.wage)}）</b><div class="ks-sbtns"><button type="button" class="ks-btn pri" data-raise="${p.id}">${yen(p.ask)}にする（あすから）</button><button type="button" class="ks-btn" data-noraise="${p.id}">見送る</button></div></div>`:''}
+      <div class="ks-sg"><span>時給</span><span class="ks-num"><button type="button" data-wage="${p.id}" data-d="-1" aria-label="${C.step}円下げる">−</button><b class="${next!==p.wage?'chg':''}">${yen(next)}</b><button type="button" data-wage="${p.id}" data-d="1" aria-label="${C.step}円上げる">＋</button></span>
+        ${next!==p.wage?`<span></span><small class="ks-note" style="margin:0">あすから（いま${yen(p.wage)}）</small>`:''}
+        <span>仕事の速さ</span><b>${sp}%<small class="mut">（慣れ ${p.days}日）</small></b>
+        <span>得意</span><span>${tr.length?tr.map(x=>`<span class="ks-tag ${x.good?'pos':'neg'}">${x.t}</span>`).join(''):'<span class="mut">ふつう</span>'}</span>
+        <span>週のシフト</span><b class="${wk>p.want*C.morale.over?'neg':wk<p.want*C.morale.under?'neg':''}">${wk}時間<small class="mut">（希望 ${p.want}時間）</small></b>
+        <span>きょう</span><b>${w?`${+w.h.toFixed(1)}時間・会計${w.served}人`:'休み'}</b>
+        <span>入れる時間</span><small>${av}</small></div>
+      ${p.leave==null&&p.from<=day?(V.fireAsk===p.id?`<div class="ks-pend"><b>${esc(p.name)}さんに辞めてもらいますか？</b><div>きょうまで働いて、あすから来なくなります。</div><div class="ks-sbtns"><button type="button" class="ks-btn" data-fire="${p.id}">辞めてもらう</button><button type="button" class="ks-btn" data-firecancel>やめる</button></div></div>`:`<div class="ks-sbtns"><button type="button" class="ks-btn ks-small" data-fireask="${p.id}">辞めてもらう…</button></div>`):''}</div>`;};
+  // あすからのシフト表
+  const rows=people.filter(p=>p.leave==null);
+  const cnt=BL.map(bk=>rows.filter(p=>(sn[ty][p.id]||[]).includes(bk.id)).length);
+  const costDay=rows.reduce((s2,p)=>{let y=0;for(const id of (sn[ty][p.id]||[])){const bk=KS.blk(V.cfg,id);const nt=Math.max(0,bk.to-Math.max(bk.from,C.night.from));y+=((bk.to-bk.from)+nt*(C.night.rate-1))*(p.wageNext??p.wage);}return s2+y;},0);
+  const grid=`<table class="ks-t ks-shift"><thead><tr><th class="l">店員</th>${BL.map((bk,i)=>`<th>${bk.name}<br><small>${bk.from}〜${bk.to}時</small></th>`).join('')}<th>週</th></tr></thead><tbody>
+    ${rows.map(p=>`<tr><td class="l">${esc(p.name)}</td>${BL.map(bk=>{const ok=p.avail[ty].includes(bk.id),on=(sn[ty][p.id]||[]).includes(bk.id);return `<td>${ok?`<button type="button" class="ks-cell" data-cell="${p.id}|${bk.id}" aria-pressed="${on}" aria-label="${esc(p.name)} ${bk.name}">${on?'入る':''}</button>`:'<span class="mut" title="入れない">—</span>'}</td>`;}).join('')}<td class="${KS.weekHours(V.cfg,cr,p.id,true)>p.want*C.morale.over?'neg':''}">${KS.weekHours(V.cfg,cr,p.id,true)}/${p.want}</td></tr>`).join('')}
+    <tr><td class="l"><b>人数</b></td>${cnt.map(n=>`<td class="${n?'':'neg'}"><b>${n}</b>${n?'':'<br><small>閉める</small>'}</td>`).join('')}<td></td></tr></tbody></table>`;
+  // 募集
+  const ads=KS.adsOpen(V.cfg,cr,day),adOpts=[];for(let wv=C.minWage;wv<=C.maxWage;wv+=C.step)adOpts.push(wv);if(V.adWage==null)V.adWage=C.market;
+  const app=a=>`<div class="ks-crew"><div class="ks-crew-h"><b>${esc(a.name)}さん</b><span class="mut">${C.kinds.find(k=>k.id===a.kind).name}</span><span class="ks-tag">あと${a.until-day}日</span></div>
+      <div class="ks-sg"><span>時給</span><b>${yen(a.wage)}</b><span>週の希望</span><b>${a.want}時間</b><span>得意</span><span>${KS.traits(a).map(x=>`<span class="ks-tag ${x.good?'pos':'neg'}">${x.t}</span>`).join('')||'<span class="mut">ふつう</span>'}</span>
+        <span>入れる時間</span><small>${KS.TYPES.map(tp=>`${TN[tp].slice(0,2)}：${a.avail[tp].length?a.avail[tp].map(id=>KS.blk(V.cfg,id).name).join('・'):'—'}`).join('　')}</small></div>
+      <div class="ks-sbtns"><button type="button" class="ks-btn pri" data-hire="${a.id}" ${cr.people.length>=C.max?'disabled':''}>採用する（あすから）</button><button type="button" class="ks-btn" data-pass="${a.id}">見送る</button></div></div>`;
+  b.innerHTML=`<div class="ks-g2"><div class="ks-card"><h3><span>きょうのシフト</span><small>${TN[type]}の型・いまは${fmtT(t)}</small></h3><table class="ks-t ks-today"><tbody>${todayRows}</tbody></table>
+      <p class="ks-note">だれもいない時間は売店を閉めます（ホットスナックも温めません）。1時間に会計する人が1人あたり${C.morale.busy}人を超えると「忙しすぎる」と感じます。</p></div>
+    <div class="ks-card"><h3><span>あすからのシフト</span><small>押すと「入る」・「—」は入れない時間</small></h3>
+      <div class="ks-sbtns" style="margin-bottom:6px">${KS.TYPES.map(tp=>`<button type="button" class="ks-chip" data-ty="${tp}" aria-pressed="${ty===tp}">${TN[tp]}${tp===type?'（きょう）':''}</button>`).join('')}</div>
+      <div class="ks-scroll">${grid}</div>
+      <p class="ks-note">${TN[ty]}1日の人件費の見込み：<b>${yen(costDay)}</b>（22時からは2割5分増し）。「週」は平日5日・土曜1日・日曜祝日1日の合計／希望の時間。シフトの変更は次の運行日から効きます。${cr.shiftNext?'<button type="button" class="ks-btn ks-small" id="ksShReset">いまのシフトに戻す</button>':''}</p></div></div>
+    <div class="ks-card"><h3><span>店員</span><small>${people.length}人（最大${C.max}人）・相場の時給 ${yen(C.market)}・時給の変更はあすから</small></h3><div class="ks-crews">${people.map(card).join('')}</div></div>
+    <div class="ks-card"><h3><span>募集</span><small>1回${yen(C.ad.fee)}・${C.ad.days}日間・時給を高くすると応募が多い</small></h3>
+      <div class="ks-sbtns"><label class="ks-note" style="margin:0">時給 <select id="ksAdWage">${adOpts.map(wv=>`<option value="${wv}" ${wv===V.adWage?'selected':''}>${yen(wv)}</option>`).join('')}</select></label><button type="button" class="ks-btn pri" id="ksAd" ${ads.some(a=>a.day===day)?'disabled':''}>募集を出す（${yen(C.ad.fee)}）</button>
+        ${ads.length?`<span class="ks-note" style="margin:0">募集中：${ads.map(a=>`${yen(a.wage)}（あと${C.ad.days-(day-a.day)}日）`).join('・')}。応募は運行日の終わりに届きます。</span>`:''}</div>
+      ${cr.applicants.length?`<div class="ks-crews" style="margin-top:8px">${cr.applicants.map(app).join('')}</div>`:'<p class="ks-note">いま応募している人はいません。</p>'}</div>`;
+  // 操作
+  const find=id=>cr.people.find(p=>p.id===id);
+  b.querySelectorAll('[data-ty]').forEach(x=>x.onclick=()=>{V.crewType=x.dataset.ty;render(true);});
+  b.querySelectorAll('[data-cell]').forEach(x=>x.onclick=()=>{const [id,bk]=x.dataset.cell.split('|'),S2=shNext(),L=S2[ty][id]||(S2[ty][id]=[]);const i=L.indexOf(bk);if(i>=0)L.splice(i,1);else L.push(bk);crewSave(false);});
+  if($('ksShReset'))$('ksShReset').onclick=()=>{delete cr.shiftNext;crewSave(false);};
+  b.querySelectorAll('[data-wage]').forEach(x=>x.onclick=()=>{const p=find(x.dataset.wage),v=clampW((p.wageNext??p.wage)+Number(x.dataset.d)*C.step);if(v===p.wage)delete p.wageNext;else p.wageNext=v;crewSave(false);});
+  b.querySelectorAll('[data-raise]').forEach(x=>x.onclick=()=>{const p=find(x.dataset.raise);p.wageNext=Math.max(p.wageNext??p.wage,p.ask);crewSave(false);});
+  b.querySelectorAll('[data-noraise]').forEach(x=>x.onclick=()=>{const p=find(x.dataset.noraise);p.ask=null;p.morale=Math.max(0,p.morale-6);V.st.news.push({day,kind:'crew',title:`${p.name}さんの昇給を見送った`,text:'がっかりしたようです（やる気が下がりました）。'});crewSave(false);});
+  b.querySelectorAll('[data-fireask]').forEach(x=>x.onclick=()=>{V.fireAsk=x.dataset.fireask;render(true);});
+  b.querySelectorAll('[data-firecancel]').forEach(x=>x.onclick=()=>{V.fireAsk=null;render(true);});
+  b.querySelectorAll('[data-fire]').forEach(x=>x.onclick=()=>{const p=find(x.dataset.fire);p.leave=tmr();const S2=shNext();for(const tp of KS.TYPES)delete S2[tp][p.id];V.fireAsk=null;
+    V.st.news.push({day,kind:'crew',title:`${p.name}さんに辞めてもらった`,text:'きょうまで働いて、あすからは来ません。'});crewSave(false);});
+  $('ksAdWage').onchange=e=>{V.adWage=Number(e.target.value);};
+  $('ksAd').onclick=()=>{cr.ads.push({day,wage:V.adWage});V.st.news.push({day,kind:'crew',title:`時給${yen(V.adWage)}で募集を出した`,text:`${C.ad.days}日間。応募は運行日の終わりに届きます（${yen(C.ad.fee)}）。`});crewSave(true);};
+  b.querySelectorAll('[data-hire]').forEach(x=>x.onclick=()=>{const i=cr.applicants.findIndex(a=>a.id===x.dataset.hire);if(i<0||cr.people.length>=C.max)return;const a=cr.applicants.splice(i,1)[0];
+    a.from=tmr();delete a.until;delete a.came;cr.people.push(a);for(const tp of KS.TYPES){cr.shift[tp][a.id]=[];shNext()[tp][a.id]=[];}
+    V.st.news.push({day,kind:'crew',title:`${a.name}さんを採用した`,text:'あすから働けます。「あすからのシフト」に入れてください。'});crewSave(false);});
+  b.querySelectorAll('[data-pass]').forEach(x=>x.onclick=()=>{cr.applicants=cr.applicants.filter(a=>a.id!==x.dataset.pass);crewSave(false);});}
+const clampW=v=>Math.max(V.cfg.crew.minWage,Math.min(V.cfg.crew.maxWage,v));
+
 /* 収支 */
 function renderMoney(b,res){const S=V.st,P=res.pl,o=KC.soFar(V.cfg,res,gT());
   const row=(n,v,cls)=>`<tr><td class="l">${n}</td><td class="${cls||''}">${yen(v)}</td></tr>`;
   b.innerHTML=`<div class="ks-g2"><div class="ks-card"><h3><span>きょう1日の見込み</span><small>このまま閉店まで続けた場合（いまの設定で）</small></h3><table class="ks-t"><tbody>
-      ${row('売上',P.sales)}${row('仕入れ原価（売れた分）',-P.cogs,'mut')}${row('廃棄（売れ残り・保温切れ）',-P.waste,'mut')}${P.express?row('臨時便の料金',-P.express,'mut'):''}${row('人件費',-P.staff,'mut')}${row('場所代（売上の'+Math.round(V.rcfg.places[S.place].rentRate*100)+'%か最低額）',-P.rent,'mut')}${row('電子マネーの手数料',-P.fee,'mut')}${row('電気代など',-P.util,'mut')}
+      ${row('売上',P.sales)}${row('仕入れ原価（売れた分）',-P.cogs,'mut')}${row('廃棄（売れ残り・保温切れ）',-P.waste,'mut')}${P.express?row('臨時便の料金',-P.express,'mut'):''}${row('人件費（シフトの時間×時給）',-P.staff,'mut')}${P.recruit?row('募集の広告',-P.recruit,'mut'):''}${row('場所代（売上の'+Math.round(V.rcfg.places[S.place].rentRate*100)+'%か最低額）',-P.rent,'mut')}${row('電子マネーの手数料',-P.fee,'mut')}${row('電気代など',-P.util,'mut')}
       <tr><td class="l"><b>損益</b></td><td class="${P.profit<0?'neg':'pos'}"><b>${yen(P.profit)}</b></td></tr></tbody></table>
       <p class="ks-note">いまの時刻までの売上は ${yen(o.sales)}。新聞・雑誌の売れ残りは返品するので、捨てる分には入りません。</p></div>
     <div class="ks-card"><h3><span>これまでの運行日</span><small>積み立て ${man(S.cash)}</small></h3><div class="ks-scroll" style="max-height:300px"><table class="ks-t"><thead><tr><th class="l">運行日</th><th>客</th><th>売上</th><th>廃棄</th><th>損益</th><th class="l">売れ筋</th></tr></thead><tbody>
       ${S.hist.slice().reverse().map(h=>`<tr><td class="l">${h.day}（${DAYN[h.cond.day]}・${WXN[h.cond.wx]}）</td><td>${h.cust}</td><td>${yen(h.sales)}</td><td>${yen(h.waste)}</td><td class="${h.profit<0?'neg':'pos'}">${yen(h.profit)}</td><td class="l">${h.top.slice(0,3).map(([p,q])=>ix().P[p].short+q).join('・')}</td></tr>`).join('')||'<tr><td class="l" colspan="6">まだ締めた日はありません（26:00を過ぎると締めます）。</td></tr>'}</tbody></table></div>
-      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="font-size:12.5px">店員の人数</span>${[1,2,3].map(n=>`<button type="button" class="ks-chip" data-staff="${n}" aria-pressed="${curSet().staff===n}">${n}人</button>`).join('')}<span class="ks-note" style="margin:0">ふやすと列が短くなり、電車の時間で帰る人が減ります。人件費は1人1時間${yen(V.cfg.wage)}。</span></div></div></div>`;
-  b.querySelectorAll('[data-staff]').forEach(x=>x.onclick=()=>edit(c=>{c.staff=Number(x.dataset.staff);}));}
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="ks-btn" id="ksToCrew">店員・シフト・時給を見る</button><span class="ks-note" style="margin:0">人件費は、シフトに入っている時間×その人の時給（22時からは2割5分増し）です。</span></div></div></div>`;
+  $('ksToCrew').onclick=()=>{V.tab='crew';render(true);};}
 function renderNews(b){const S=V.st,list=S.news.slice().reverse();
   b.innerHTML=`<div class="ks-card"><h3><span>お知らせ</span><small>ブーム・SNS・常連・評価・売り切れ・廃棄など（運行日の終わりに届きます）</small></h3><div class="ks-news">${list.map(n=>`<div class="${n.kind}"><b>${esc(n.title)}</b><small>運行日${n.day}</small> ${esc(n.text)}</div>`).join('')||'<p class="ks-note">まだありません。</p>'}</div></div>`;}
 
@@ -493,7 +574,7 @@ function drawKiosk(c,res,Tn){const I=ix(),set=curSet(),si=KC.shelfInfo(V.cfg,set
   // 会計カウンターと店員
   c.fillStyle='#b9b2a3';c.fillRect(540,330,180,40);c.fillStyle='#e9e5dc';c.fillRect(540,370,150,136);c.fillStyle='#4a5056';rr(c,600,300,70,34,4);c.fill();c.fillStyle='#9fd3c7';c.fillRect(608,306,40,12);
   c.fillStyle='#2f8a6e';rr(c,560,392,70,28,3);c.fill();c.fillStyle='#fff';c.font='700 11px sans-serif';c.fillText('お会計',574,410);
-  const n=curSet().staff;for(let i=0;i<n;i++){const sx=580+i*55,sy=262;c.fillStyle='#f0c9a0';c.beginPath();c.arc(sx,sy,13,0,7);c.fill();c.fillStyle='#24345a';c.beginPath();c.arc(sx,sy-4,13,Math.PI,0);c.fill();c.fillRect(sx-16,sy+12,32,30);c.fillStyle='#fff';c.fillRect(sx-6,sy+14,12,26);}
+  const n=onDuty().length;if(!n){c.fillStyle='#7a2e2e';rr(c,560,250,150,40,6);c.fill();c.fillStyle='#fff';c.font='700 15px sans-serif';c.fillText('ただいま休止中',578,276);}for(let i=0;i<n;i++){const sx=580+i*55,sy=262;c.fillStyle='#f0c9a0';c.beginPath();c.arc(sx,sy,13,0,7);c.fill();c.fillStyle='#24345a';c.beginPath();c.arc(sx,sy-4,13,Math.PI,0);c.fill();c.fillRect(sx-16,sy+12,32,30);c.fillStyle='#fff';c.fillRect(sx-6,sy+14,12,26);}
   // ラックの名札
   c.fillStyle='#55504a';c.fillText('新聞・雑誌',870,146);}
 function personColor(ps){const p=ix().PS[ps];return p?p.icon:'#555';}
