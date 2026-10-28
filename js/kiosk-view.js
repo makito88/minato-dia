@@ -82,7 +82,9 @@ const CSS=`
 .ks-num b{min-width:3.4em;text-align:center;font-family:var(--f-mono);font-weight:400}
 .ks-tags{display:inline-flex;gap:3px;flex-wrap:wrap}.ks-tags i{font-style:normal;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);white-space:nowrap}
 .ks-tags i.hot{color:#c9573f;border-color:#e3b0a5}.ks-tags i.cold{color:#2e7fd1;border-color:#a9c8ea}.ks-tags i.trend{color:#b0711f;border-color:#e4c38f;font-weight:700}.ks-tags i.age{color:#8a3c8a;border-color:#d4a9d4}
-.ks-log{display:grid;gap:3px;max-height:420px;overflow:auto;font-size:12.5px}.ks-log div{display:grid;grid-template-columns:3.4em 6em minmax(0,1fr) auto;gap:8px;padding:3px 4px;border-bottom:1px dashed var(--line)}
+.ks-log{display:grid;gap:3px;max-height:520px;overflow:auto;overscroll-behavior:contain;font-size:12.5px}
+.ks-newpill{position:sticky;top:44px;z-index:2;display:block;margin:0 auto 6px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;box-shadow:0 2px 8px rgb(0 0 0 / .2)}
+@media (max-width:760px){#ksMore{margin-bottom:72px}.ks-newpill{position:fixed;top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);left:50%;transform:translateX(-50%);margin:0;padding:10px 16px;border-radius:999px;font-size:14px}.ks-log{max-height:none;overflow:visible}.ks-log div{grid-template-columns:3.2em 5.2em minmax(0,1fr);}.ks-log div em{grid-column:3;justify-self:end}}.ks-log div{display:grid;grid-template-columns:3.4em 6em minmax(0,1fr) auto;gap:8px;padding:3px 4px;border-bottom:1px dashed var(--line)}
 .ks-log time{font-family:var(--f-mono);color:var(--muted)}.ks-log .ps{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ks-log em{font-style:normal;font-family:var(--f-mono)}
 .ks-log .buy em{color:#2f8a4a}.ks-log .look{color:var(--muted)}.ks-log .rv{color:#9a6a1a}.ks-log .sns{color:#3a64b8}.ks-log .sys{color:var(--muted);font-size:11.5px}
 .ks-zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
@@ -116,7 +118,7 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   $('ksSpd').querySelectorAll('button').forEach(b=>b.onclick=()=>{setMult(Number(b.dataset.m));});
   const TABS=[['log','売れ行き'],['items','商品・値段・仕入れ'],['layout','棚割り'],['people','客層・時間帯'],['money','収支'],['news','お知らせ']];
   $('ksTabs').innerHTML=TABS.map(([k,n])=>`<button type="button" class="ks-tab" role="tab" data-tab="${k}">${n}</button>`).join('');
-  $('ksTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{V.tab=b.dataset.tab;if(V.tab==='news'&&V.st){V.st.unread=0;persist();badge();}render(true);});
+  $('ksTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{V.tab=b.dataset.tab;V.logRes=null;if(V.tab==='news'&&V.st){V.st.unread=0;persist();badge();}render(true);});
   V.cv=$('ksCanvas');V.cx=V.cv.getContext('2d');V.cv.addEventListener('click',onCanvasClick);}
 function setMult(m){g(()=>{speed=m/60;const ms=$('mspeed');if(ms)ms.textContent='×'+m;});document.querySelectorAll('#ksSpd button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.m)===m)));}
 function badge(){const n=V.st?V.st.unread||0:0;for(const id of ['ksBtn','mks']){const b=$(id);if(!b)continue;const d=b.querySelector('.dot');d.hidden=!n;d.textContent=n>9?'9+':String(n);}}
@@ -153,7 +155,7 @@ function renderKpi(){const res=ensureRes();if(!res)return;const o=KC.soFar(V.cfg
     <div><span>見たけど買わなかった</span><b>${num(o.looks)}人</b></div><div><span>粗利（売上−原価）</span><b>${yen(o.sales-o.cogs)}</b></div>
     <div><span>店員</span><b>${curSet().staff}人</b></div><div><span>積み立て</span><b class="${V.st.cash<0?'neg':'pos'}">${man(V.st.cash)}</b></div>`;}
 function renderBody(full){const b=$('ksBody'),res=ensureRes();if(!res)return;
-  if(V.tab==='log')return renderLog(b,res);
+  if(V.tab==='log')return renderLog(b,res,full);
   if(!full)return;
   if(V.tab==='items')renderItems(b,res);else if(V.tab==='layout')renderLayout(b);else if(V.tab==='people')renderPeople(b,res);else if(V.tab==='money')renderMoney(b,res);else renderNews(b);}
 
@@ -168,8 +170,27 @@ function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps
   if(e.k==='cook')return ['sys','',`${P[e.pid].short}を${e.n}個温めた`,''];
   if(e.k==='waste')return ['sys','',`${P[e.pid].short}を${e.n}個捨てた（${e.why}）`,''];
   if(e.k==='edit')return ['sys','','棚・値段・仕入れを変えた',''];return ['sys','',e.k,''];}
-function renderLog(b,res){const k=KC.idxAt(res,gT()),list=res.ev.slice(Math.max(0,k-120),k).reverse();
-  b.innerHTML=`<div class="ks-card"><h3><span>売れ行き</span><small>いまの時刻までの出来事・新しい順（会計・見たけど買わなかった・評価・SNS・品出しなど）</small></h3><div class="ks-log">${list.map(e=>{const [c,ps,tx,r]=evText(e);return `<div class="${c}"><time>${fmtT(e.t)}</time><span class="ps">${esc(ps)}</span><span>${esc(tx)}</span><em>${esc(r)}</em></div>`;}).join('')||'<p class="ks-note">まだ何も起きていません。</p>'}</div></div>`;}
+/* 一覧は作り直さない：新しい出来事を上に足すだけ。下の方を読んでいるあいだは足さずに「新しい出来事 ○件」を出す（スクロールが先頭に戻らないように） */
+const logRow=e=>{const [c,ps,tx,r]=evText(e);return `<div class="${c}"><time>${fmtT(e.t)}</time><span class="ps">${esc(ps)}</span><span>${esc(tx)}</span><em>${esc(r)}</em></div>`;};
+function renderLog(b,res,full){const k=KC.idxAt(res,gT());let box=$('ksLog');
+  const rebuild=full||!box||V.logRes!==res||k<V.logK||!b.contains(box);
+  if(rebuild){V.logRes=res;V.logK=k;V.logFrom=Math.max(0,k-80);
+    b.innerHTML=`<div class="ks-card"><h3><span>売れ行き</span><small>いまの時刻までの出来事・新しい順（会計・見たけど買わなかった・評価・SNS・品出しなど）</small></h3>
+      <button type="button" class="ks-btn ks-newpill" id="ksNew" hidden></button><div class="ks-log" id="ksLog">${res.ev.slice(V.logFrom,k).reverse().map(logRow).join('')||'<p class="ks-note" id="ksLogEmpty">まだ何も起きていません。</p>'}</div>
+      <div style="margin-top:8px;text-align:center"><button type="button" class="ks-btn" id="ksMore" ${V.logFrom>0?'':'hidden'}>もっと前を見る</button></div></div>`;
+    box=$('ksLog');
+    $('ksMore').onclick=()=>{const r=V.logRes,to=V.logFrom,from=Math.max(0,to-100);box.insertAdjacentHTML('beforeend',r.ev.slice(from,to).reverse().map(logRow).join(''));V.logFrom=from;$('ksMore').hidden=from<=0;};
+    $('ksNew').onclick=()=>{flushLog(true);if(narrow())box.scrollIntoView({block:'start',behavior:'smooth'});else box.scrollTop=0;};
+    return;}
+  if(k===V.logK)return;
+  // 読んでいる途中か：パソコンは一覧の中のスクロール、スマホはページのスクロールで判断
+  const reading=narrow()?box.getBoundingClientRect().top<70:box.scrollTop>4;
+  if(reading){const n=k-V.logK;const pill=$('ksNew');pill.hidden=false;pill.textContent=`↑ 新しい出来事 ${n}件`;V.logPend=k;return;}
+  flushLog(false);}
+function flushLog(force){const box=$('ksLog'),res=V.logRes;if(!box||!res)return;const k=force?KC.idxAt(res,gT()):KC.idxAt(res,gT());
+  const add=res.ev.slice(V.logK,k).reverse().map(logRow).join('');const em=$('ksLogEmpty');if(em)em.remove();
+  if(add)box.insertAdjacentHTML('afterbegin',add);V.logK=k;$('ksNew').hidden=true;
+  while(box.children.length>400){box.lastElementChild.remove();V.logFrom++;}if($('ksMore'))$('ksMore').hidden=V.logFrom<=0;}
 
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
 function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT());
