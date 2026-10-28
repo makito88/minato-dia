@@ -23,6 +23,8 @@ const DAYN={wd:'平日',sat:'土曜',hol:'日曜・祝日'},WXN={sun:'晴れ',cl
 const V={cfg:null,rcfg:null,err:null,st:null,open:false,res:null,resKey:'',lastDay:null,tab:'log',form:{st:'C',place:'home'},
   cv:null,cx:null,raf:0,lastTs:0,people:[],bubbles:[],evI:0,lastT:null,slotAt:null,pend:null,showAll:false,panelT:0,heavyT:0};
 
+const narrow=()=>window.innerWidth<760;
+addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=n;if(V.open)render(true);}});
 /* ---------- 読み込み・保存 ---------- */
 Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();})])
   .then(([c,rc])=>{V.cfg=c;V.rcfg=rc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1)V.st=s;}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
@@ -70,7 +72,7 @@ const CSS=`
 .ks-stage{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#2a2f33}.ks-stage canvas{display:block;width:100%;height:auto}
 .ks-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.ks-kpi div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
 .ks-kpi span{display:block;font-size:11px;color:var(--muted)}.ks-kpi b{font-family:var(--f-mono);font-size:17px;font-variant-numeric:tabular-nums}.ks-kpi .neg{color:#c9573f}.ks-kpi .pos{color:#2f8a4a}
-.ks-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.ks-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);position:sticky;top:calc(-10px - env(safe-area-inset-top,0px));z-index:3;background:var(--paper);padding-top:4px}
 .ks-tab{font:inherit;font-size:13px;border:1px solid transparent;border-bottom:none;background:none;color:var(--muted);padding:7px 12px;border-radius:7px 7px 0 0;cursor:pointer}
 .ks-tab[aria-selected="true"]{background:var(--panel);border-color:var(--line);color:var(--ink);font-weight:700;margin-bottom:-1px}
 .ks-t{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}.ks-t th{font-size:11px;color:var(--muted);font-weight:400;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--panel)}
@@ -87,7 +89,7 @@ const CSS=`
 .ks-zone h4{margin:0 0 4px;font-size:12.5px;display:flex;justify-content:space-between}.ks-zone h4 small{color:var(--muted);font-weight:400}
 .ks-grid{display:grid;gap:3px}.ks-slot{font:inherit;font-size:10.5px;min-height:34px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--ink);cursor:pointer;padding:2px;line-height:1.2;overflow:hidden;text-align:center;position:relative}
 .ks-slot i{position:absolute;left:0;right:0;bottom:0;height:4px}.ks-slot.empty{color:var(--muted);border-style:dashed}.ks-slot[aria-pressed="true"]{outline:2px solid var(--accent)}
-.ks-pick{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.ks-pick select{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);max-width:100%}
+.ks-pick{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;position:sticky;bottom:0;z-index:2;background:var(--panel);padding:8px 0;border-top:1px solid var(--line);box-shadow:0 -6px 12px -8px rgb(0 0 0 / .25)}.ks-pick select{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);max-width:100%}
 .ks-bars{display:grid;gap:4px}.ks-bars div{display:grid;grid-template-columns:7.5em minmax(0,1fr) 4.5em;gap:8px;align-items:center;font-size:12.5px}.ks-bars u{display:block;height:10px;border-radius:3px;background:var(--accent);text-decoration:none}.ks-bars em{font-style:normal;font-family:var(--f-mono);font-size:11.5px;text-align:right;color:var(--muted)}
 .ks-hrs{display:flex;align-items:flex-end;gap:2px;height:90px;border-bottom:1px solid var(--line)}.ks-hrs span{flex:1;background:var(--accent);opacity:.85;border-radius:2px 2px 0 0;min-height:1px}.ks-hrs span.now{background:#d9822b;opacity:1}
 .ks-hlab{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);font-family:var(--f-mono);margin-top:3px}
@@ -96,6 +98,10 @@ const CSS=`
 .ks-g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
 .ks-note{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.65}
 .ks-scroll{overflow:auto;max-height:520px}
+.ks-cards{display:grid;gap:8px;margin-top:8px}.ks-pc{border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:var(--paper)}.ks-pc.off{opacity:.6}
+.ks-pc-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:4px}.ks-pc-h b{font-size:14px}.ks-pc-h .mut,.ks-pc .mut{color:var(--muted);font-size:11.5px}
+.ks-pc-g{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 10px;align-items:center;margin-top:6px;font-size:12.5px}.ks-pc-g>span:nth-child(odd){color:var(--muted);font-size:11.5px}.ks-pc-g b{font-weight:400;font-family:var(--f-mono)}.ks-pc .neg{color:#c9573f}.ks-pc .pos{color:#2f8a4a}
+@media (max-width:760px){.ks-num button{width:34px;height:34px;font-size:16px}.ks-slot{min-height:42px;font-size:11.5px}.ks-tab{padding:8px 10px}.ks-pick select{flex:1 1 100%;font-size:15px;padding:8px}}
 `;
 function mount(){const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
   const after=$('rsBtn')||$('tayoriBtn')||document.querySelector('.clockbox');
@@ -177,6 +183,14 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
   const rep=pid=>{const x=S.rep[pid];if(!x||!x.n)return '<span class="mut">—</span>';const avg=x.sum/x.n,keys=Object.entries(x.keys).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k2,n])=>({sweetHi:'甘すぎ',sweetLo:'甘さ不足',richHi:'濃い',richLo:'うすい',volLo:'量が少ない',volHi:'多すぎ',priceHi:'高い',priceOk:'安い',good:'満足',warm:'温かい',cold:'冷えてる',crush:'つぶれ'})[k2]+n).join('・');return `★${avg.toFixed(1)}（${x.n}）<br><span class="mut" style="font-size:11px">${keys}</span>`;};
   b.innerHTML=`<div class="ks-card"><h3><span>商品・値段・仕入れ</span><small>値段は「世の中のふつうの値段」との比も出します。仕入れ数は、その日のうちに売る物は1日の合計（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」（朝の便でそこまで足す）</small></h3>
     <label style="font-size:12.5px"><input type="checkbox" id="ksAll" ${V.showAll?'checked':''}> 棚に置いていない商品も出す</label>
+    ${narrow()?`<div class="ks-cards">${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
+      return `<div class="ks-pc ${s?'':'off'}"><div class="ks-pc-h"><b>${esc(p.name)}</b><span class="mut">${I.G[p.genre].name}</span></div>${tag(p)}
+        <div class="ks-pc-g"><span>値段</span><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span>
+          <span>ふつう比・原価率</span><b class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%・<span class="${cr>0.7?'neg':''}">${Math.round(cr*100)}%</span></b>
+          <span>仕入れ数</span>${s?`<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b>${set.order[p.id]||0}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span>`:'<span class="mut">棚になし</span>'}
+          <span>棚・いま</span><b>${s?`${s.face}列×${Math.round(s.cap/s.face)}・${stock[p.id]||0}個`:'—'}</b>
+          <span>きょう</span><b>売れた${o.items[p.id]||0}・<span class="${lostSO[p.id]?'neg':''}">売切で逃した${lostSO[p.id]||0}</span>・見て買わず${looked[p.id]||0}</b>
+          <span>評価</span><span>${rep(p.id)}</span></div></div>`;}).join('')}</div>`:`
     <div class="ks-scroll" style="margin-top:6px"><table class="ks-t" style="min-width:1100px"><thead><tr><th class="l">商品</th><th class="l">ようす</th><th>値段</th><th>ふつう比</th><th>原価（原価率）</th><th>仕入れ数</th><th>棚（列×奥）</th><th>いまの棚</th><th>きょう売れた</th><th>売切で逃した</th><th>見て買わず</th><th class="l">評価</th></tr></thead><tbody>
     ${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
       return `<tr class="${s?'':'off'}"><td class="l"><b>${esc(p.name)}</b><br><span class="mut" style="font-size:11px">${I.G[p.genre].name}</span></td><td class="l">${tag(p)}</td>
@@ -184,7 +198,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
       <td class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%</td><td class="${cr>0.7?'neg':''}">${yen(p.cost)}（${Math.round(cr*100)}%）</td>
       <td>${s?`<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1">−</button><b>${set.order[p.id]||0}</b><button type="button" data-or="${p.id}" data-d="1">＋</button></span>`:'<span class="mut">棚になし</span>'}</td>
       <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td>${s?(stock[p.id]||0):'—'}</td><td>${o.items[p.id]||0}</td><td class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td><td>${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
-    </tbody></table></div><p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
+    </tbody></table></div>`}<p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
   $('ksAll').onchange=e=>{V.showAll=e.target.checked;render(true);};
   b.querySelectorAll('[data-pr]').forEach(x=>x.onclick=()=>edit(c=>{const pid=x.dataset.pr;c.price[pid]=Math.max(10,(c.price[pid]??I.P[pid].price)+Number(x.dataset.d));}));
   b.querySelectorAll('[data-or]').forEach(x=>x.onclick=()=>edit(c=>{const pid=x.dataset.or,st=I.G[I.P[pid].genre].life===0?1:2;c.order[pid]=Math.max(0,(c.order[pid]||0)+Number(x.dataset.d)*st);}));}
@@ -194,10 +208,10 @@ function renderLayout(b){const I=ix(),set=curSet(),Z=V.cfg.zones,sel=V.slotSel;
   let pick='';if(sel){const z=Z[sel.z],cur=set.layout[sel.z][sel.i],ok=V.cfg.products.filter(p=>I.G[p.genre].zones.includes(sel.z));
     pick=`<div class="ks-pick"><span>${z.name}の${Math.floor(sel.i/z.cols)+1}段目・${sel.i%z.cols+1}列目：</span><select id="ksPickSel"><option value="">（空ける）</option>${ok.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.name)}（${yen(set.price[p.id]??p.price)}）</option>`).join('')}</select>
       <button type="button" class="ks-btn" id="ksPickClose">閉じる</button><span class="ks-note" style="margin:0">同じ品を隣の枠にも置くと「列」が増え、目につきやすく、たくさん並べられます。</span></div>`;}
-  b.innerHTML=`<div class="ks-card"><h3><span>棚割り</span><small>枠を押して、置く品を選びます（区画ごとに置ける品が決まっています）</small></h3>${pick}
+  b.innerHTML=`<div class="ks-card"><h3><span>棚割り</span><small>枠を押して、置く品を選びます（区画ごとに置ける品が決まっています）</small></h3>
     <div class="ks-zones" style="margin-top:10px">${Object.entries(Z).map(([zk,z])=>`<div class="ks-zone"><h4>${z.name}<small>${z.rows}段×${z.cols}列・1列に${z.depth}個</small></h4>
       <div class="ks-grid" style="grid-template-columns:repeat(${z.cols},minmax(0,1fr))">${(set.layout[zk]||[]).map((pid,i)=>{const p=pid&&I.P[pid];return `<button type="button" class="ks-slot ${p?'':'empty'}" data-z="${zk}" data-i="${i}" aria-pressed="${!!(sel&&sel.z===zk&&sel.i===i)}">${p?esc(p.short):'空き'}${p?`<i style="background:${p.color}"></i>`:''}</button>`;}).join('')}</div></div>`).join('')}</div>
-    <p class="ks-note">目の高さ（冷蔵ケースの2・3段目、中央の棚の2・3段目など）ほど目につきます。いま置いていない品：${V.cfg.products.filter(p=>!KC.shelfInfo(V.cfg,set.layout)[p.id]).map(p=>p.short).join('・')}</p></div>`;
+    ${pick}<p class="ks-note">目の高さ（冷蔵ケースの2・3段目、中央の棚の2・3段目など）ほど目につきます。いま置いていない品：${V.cfg.products.filter(p=>!KC.shelfInfo(V.cfg,set.layout)[p.id]).map(p=>p.short).join('・')}</p></div>`;
   b.querySelectorAll('.ks-slot').forEach(x=>x.onclick=()=>{V.slotSel={z:x.dataset.z,i:Number(x.dataset.i)};render(true);});
   if($('ksPickSel'))$('ksPickSel').onchange=e=>{const {z,i}=V.slotSel,v=e.target.value||null;edit(c=>{c.layout[z][i]=v;if(v&&!c.order[v])c.order[v]=KC.defaultOrder(V.cfg,v,V.cfg.zones[z].depth);});};
   if($('ksPickClose'))$('ksPickClose').onclick=()=>{V.slotSel=null;render(true);};}
