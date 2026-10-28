@@ -3244,7 +3244,8 @@ function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
   if(RIDE.on)RIDE.tick(dt);
   $('#clock').textContent=fmt(T);if(!$('#minibar').hidden){$('#mclock').textContent=fmt(T);const mb=band(T)+'・'+condLabel();if($('#mband').textContent!==mb)$('#mband').textContent=mb;}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
-  drawMap();if(SND.S.on)SND.tick(ts);acc+=dt;if(acc>0.15||!playing&&acc>0.3){acc=0;drawDia();refreshPanels(false);}
+  const covered=!!document.querySelector('.rsv:not([hidden]),.ksv:not([hidden])');   // リサーチ・売店の画面が全体をおおっているあいだは、見えない地図とダイヤグラムを描かない（電池の節約）
+  if(!covered)drawMap();if(SND.S.on)SND.tick(ts);acc+=dt;if(!covered&&(acc>0.15||!playing&&acc>0.3)){acc=0;drawDia();refreshPanels(false);}
   requestAnimationFrame(frame);}
 /* ---------- 場面（コレクション）：data/scenes.json の場面を地図のピンにし、押すと小窓で開く ---------- */
 let SCENES=[],SCPIN=[];

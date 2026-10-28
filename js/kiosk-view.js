@@ -34,7 +34,7 @@ const ix=()=>KC.index(V.cfg);
 
 /* ---------- その日の計算 ---------- */
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
-  const stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}
+  let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
   return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0};}
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
@@ -346,7 +346,7 @@ function draw(dt,time){const c=V.cx,Tn=gT();if(!c)return;c.clearRect(0,0,1000,60
 function onCanvasClick(ev){if(!V.st)return;const r=V.cv.getBoundingClientRect(),x=(ev.clientX-r.left)*1000/r.width,y=(ev.clientY-r.top)*600/r.height;
   for(const zk in BOX){const sl=zoneSlots(zk);for(let i=0;i<sl.length;i++){const [sx,sy,sw,sh]=sl[i];if(x>=sx&&x<=sx+sw&&y>=sy&&y<=sy+sh){V.tab='layout';V.slotSel={z:zk,i};render(true);$('ksBody').scrollIntoView({behavior:'smooth',block:'start'});return;}}}}
 function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=ts;if(!V.open)return;
-  if(V.cfg)draw(dt,ts/1000);V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
+  V.drawAcc=(V.drawAcc||0)+dt;const fps=g(()=>playing,true)?30:8;if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
   V.heavyT+=dt;if(V.heavyT>4){V.heavyT=0;if(V.st&&(V.tab==='items'||V.tab==='people'||V.tab==='money')&&!document.activeElement.closest?.('#ksBody'))renderBody(true);}
   V.raf=requestAnimationFrame(loop);}
 

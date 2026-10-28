@@ -241,7 +241,7 @@ function platEvents(st){const d=gD();if(!d)return [];if(V.peD===d&&V.peSt===st)r
   for(const k of [0,1]){const L=pe.filter(e=>e.trk===k);for(let j=0;j<L.length;j++){const e=L[j];e.vis0=e.o0-0.6;e.vis1=e.o1+0.6;if(j>0&&L[j-1].vis1>e.vis0){const m=(L[j-1].o1+e.o0)/2;L[j-1].vis1=Math.min(L[j-1].vis1,m);e.vis0=Math.max(e.vis0,m);}}}
   V.peD=d;V.peSt=st;V.pe=pe;return pe;}
 function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=ts;if(!V.open)return;
-  if(V.cfg)draw(dt,ts/1000);V.panelT+=dt;if(V.panelT>1){V.panelT=0;if(activeStudy())renderPlan();}
+  V.drawAcc=(V.drawAcc||0)+dt;const fps=g(()=>playing,true)?30:8;if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>1){V.panelT=0;if(activeStudy())renderPlan();}
   V.raf=requestAnimationFrame(loop);}
 const COATS=['#2f4858','#7a3b3b','#33658a','#55586a','#8a6d3b','#3d6b4f','#5b4a7a','#a2574a','#2b2b2b','#6b7b8c','#b08d57','#486c8f'];
 const rnd=(a,b)=>a+Math.random()*(b-a);
