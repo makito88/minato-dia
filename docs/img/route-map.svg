@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+<!-- みなと川沿線 おさんぽマップ（架空）。駅の並び・距離の順・本線と支線・川と海の位置は、カルテの設定どおり。手描き風の線は filter でゆらしている -->
+<defs>
+  <filter id="paper"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" seed="4"/><feColorMatrix values="0 0 0 0 .55  0 0 0 0 .45  0 0 0 0 .32  0 0 0 .07 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+  <filter id="wob" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter>
+  <filter id="wash" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".02" numOctaves="3" seed="2" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="22"/><feGaussianBlur stdDeviation="1.2"/></filter>
+  <pattern id="paddy" width="18" height="12" patternUnits="userSpaceOnUse"><path d="M0 6 h18 M9 0 v12" stroke="#9cb36a" stroke-width="1.2" opacity=".7"/></pattern>
+  <pattern id="wave" width="40" height="18" patternUnits="userSpaceOnUse"><path d="M2 10 q8 -7 16 0 t16 0" stroke="#6f9fb8" stroke-width="2" fill="none" opacity=".55" stroke-linecap="round"/></pattern>
+  <style>
+    .t{font-family:"Noto Serif CJK JP","Hiragino Mincho ProN",serif;fill:#3b2f25}
+    .s{font-family:"Noto Sans CJK JP","Hiragino Sans",sans-serif;fill:#3b2f25}
+    .nm{font-size:30px;font-weight:700}.sm{font-size:17px;fill:#6b5b4b}.tag{font-size:15px;fill:#7a5c3c}
+  </style>
+</defs>
+<!-- 紙 -->
+<rect width="1080" height="1350" fill="#f4ead5"/>
+<rect width="1080" height="1350" filter="url(#paper)" fill="#f4ead5"/>
+<rect x="22" y="22" width="1036" height="1306" fill="none" stroke="#7a5c3c" stroke-width="2.5" rx="6"/>
+<rect x="32" y="32" width="1016" height="1286" fill="none" stroke="#7a5c3c" stroke-width="1" rx="4" stroke-dasharray="2 5"/>
+
+<g filter="url(#wob)">
+  <!-- 山（上） -->
+  <path d="M40 470 L130 330 L210 420 L300 250 L390 370 L470 210 L560 330 L640 150 L730 290 L810 120 L900 260 L980 160 L1045 250 L1045 40 L40 40 Z" fill="#c9b48c" opacity=".35" filter="url(#wash)"/>
+  <g fill="#a4795a" opacity=".55">
+    <path d="M100 520 l60 -110 l60 110z"/><path d="M200 470 l75 -140 l75 140z"/><path d="M330 430 l70 -130 l70 130z"/>
+    <path d="M430 360 l80 -150 l80 150z"/><path d="M880 520 l60 -110 l60 110z"/><path d="M980 470 l40 -80 l40 80z"/>
+  </g>
+  <!-- 紅葉の森（支線のまわり） -->
+  <g opacity=".85">
+    <circle cx="560" cy="520" r="26" fill="#d9783f"/><circle cx="600" cy="560" r="20" fill="#c9573f"/><circle cx="660" cy="470" r="24" fill="#e0a84f"/>
+    <circle cx="720" cy="560" r="22" fill="#d9783f"/><circle cx="790" cy="470" r="20" fill="#c9573f"/><circle cx="840" cy="360" r="24" fill="#e0a84f"/>
+    <circle cx="700" cy="330" r="18" fill="#7a9a5a"/><circle cx="630" cy="400" r="18" fill="#7a9a5a"/><circle cx="910" cy="300" r="20" fill="#d9783f"/>
+    <circle cx="960" cy="210" r="18" fill="#c9573f"/><circle cx="770" cy="250" r="16" fill="#7a9a5a"/><circle cx="520" cy="610" r="18" fill="#e0a84f"/>
+  </g>
+  <!-- 海（右下） -->
+  <path d="M1045 900 C980 960 960 1040 900 1090 C850 1140 860 1220 800 1260 C760 1290 740 1310 730 1318 L1045 1318 Z" fill="#a9cbd9" filter="url(#wash)"/>
+  <path d="M1045 900 C980 960 960 1040 900 1090 C850 1140 860 1220 800 1260 C760 1290 740 1310 730 1318 L1045 1318 Z" fill="url(#wave)"/>
+  <!-- みなと川：山の湯ノ谷から、支線に沿って下り、川辺の河川敷を通って港の海へ -->
+  <path d="M1000 90 C960 170 930 210 900 250 C860 300 820 330 790 370 C740 430 700 470 680 520 C650 590 650 650 630 720 C610 790 640 840 690 880 C750 930 800 980 850 1030 C890 1070 920 1090 950 1110" fill="none" stroke="#7fb3cc" stroke-width="16" stroke-linecap="round" opacity=".85"/>
+  <path d="M1000 90 C960 170 930 210 900 250 C860 300 820 330 790 370 C740 430 700 470 680 520 C650 590 650 650 630 720 C610 790 640 840 690 880 C750 930 800 980 850 1030 C890 1070 920 1090 950 1110" fill="none" stroke="#d8ecf4" stroke-width="4" stroke-linecap="round" stroke-dasharray="14 18" opacity=".9"/>
+  <!-- 田んぼ（新田のまわり） -->
+  <path d="M640 1000 l140 -20 l40 90 l-150 30z" fill="#dfe6b8" opacity=".8"/><path d="M640 1000 l140 -20 l40 90 l-150 30z" fill="url(#paddy)"/>
+  <!-- 町（中央・桜町・大学前のあたり） -->
+  <path d="M70 1080 C120 990 260 960 400 960 C460 980 470 1060 430 1120 C360 1200 180 1230 90 1190 Z" fill="#e9c9a8" opacity=".55" filter="url(#wash)"/>
+  <!-- 丘（緑ヶ丘） -->
+  <path d="M420 880 C450 820 540 800 590 850 C600 890 560 920 500 925 C460 925 430 910 420 880 Z" fill="#b9cf9a" opacity=".7"/>
+
+  <!-- 線路：本線（複線は二重線） -->
+  <path id="main" d="M150 1150 L270 1095 L390 1040 L470 950 L600 860 L720 1030 L870 1150" fill="none" stroke="#3b2f25" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M150 1150 L270 1095 L390 1040 L470 950 L600 860 L720 1030 L870 1150" fill="none" stroke="#f4ead5" stroke-width="5" stroke-linejoin="round" stroke-dasharray="16 12"/>
+  <!-- 温泉支線（単線は細い一本線＋まくらぎ） -->
+  <path d="M600 860 L600 700 L700 560 L760 450 L860 300 L930 200" fill="none" stroke="#3b2f25" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M600 860 L600 700 L700 560 L760 450 L860 300 L930 200" fill="none" stroke="#3b2f25" stroke-width="16" stroke-dasharray="2 14" stroke-linejoin="round"/>
+</g>
+
+<!-- 名所の小さな絵 -->
+<g filter="url(#wob)">
+  <!-- 中央：赤屋根の駅舎と時計 -->
+  <g transform="translate(28 1158)"><path d="M0 30 L40 0 L80 30 Z" fill="#c9573f"/><rect x="8" y="30" width="64" height="36" fill="#efe1c8" stroke="#3b2f25" stroke-width="2"/><circle cx="40" cy="18" r="8" fill="#fff" stroke="#3b2f25" stroke-width="2"/><path d="M40 13 v5 l4 3" stroke="#3b2f25" stroke-width="1.6" fill="none"/></g>
+  <!-- 桜町：城跡の石垣と桜 -->
+  <g transform="translate(225 960)"><path d="M0 60 L10 30 L60 30 L70 60 Z" fill="#a89a86" stroke="#3b2f25" stroke-width="2"/><path d="M15 30 L35 12 L55 30 Z" fill="#5d4a3a"/><circle cx="-6" cy="38" r="15" fill="#f2b6c4"/><circle cx="78" cy="40" r="13" fill="#f2b6c4"/></g>
+  <!-- 大学前：時計台 -->
+  <g transform="translate(455 1040)"><rect x="12" y="10" width="26" height="56" fill="#e9dcc4" stroke="#3b2f25" stroke-width="2"/><path d="M8 12 L25 -6 L42 12 Z" fill="#5d6f86"/><circle cx="25" cy="24" r="7" fill="#fff" stroke="#3b2f25" stroke-width="1.6"/><rect x="-8" y="44" width="66" height="22" fill="#e9dcc4" stroke="#3b2f25" stroke-width="2"/></g>
+  <!-- 緑ヶ丘：給水塔「きのこ」 -->
+  <g transform="translate(432 836)"><rect x="17" y="22" width="10" height="44" fill="#d8d2c4" stroke="#3b2f25" stroke-width="2"/><path d="M0 22 C2 2 42 2 44 22 Z" fill="#e8e1d2" stroke="#3b2f25" stroke-width="2"/></g>
+  <!-- 川辺：河川敷公園とモール -->
+  <g transform="translate(660 760)"><rect x="0" y="20" width="80" height="34" rx="4" fill="#e4d7bf" stroke="#3b2f25" stroke-width="2"/><rect x="8" y="28" width="64" height="10" fill="#9fc7d4"/><circle cx="-20" cy="60" r="12" fill="#7a9a5a"/></g>
+  <!-- 新田：直売所と稲 -->
+  <g transform="translate(690 1080)"><path d="M0 22 L24 4 L48 22 Z" fill="#b5651d"/><rect x="5" y="22" width="38" height="22" fill="#efe1c8" stroke="#3b2f25" stroke-width="2"/><path d="M60 44 q4 -20 0 -32 M68 44 q4 -20 8 -30" stroke="#c9a33f" stroke-width="3" fill="none"/></g>
+  <!-- 港：赤レンガ倉庫と客船 -->
+  <g transform="translate(860 1180)"><rect x="0" y="10" width="40" height="30" fill="#b5523b" stroke="#3b2f25" stroke-width="2"/><rect x="44" y="10" width="40" height="30" fill="#b5523b" stroke="#3b2f25" stroke-width="2"/><path d="M5 25 h30 M49 25 h30" stroke="#f4ead5" stroke-width="2"/></g>
+  <g transform="translate(930 1060)"><path d="M0 40 L100 40 L88 60 L10 60 Z" fill="#fff" stroke="#3b2f25" stroke-width="2"/><rect x="20" y="22" width="60" height="18" fill="#fff" stroke="#3b2f25" stroke-width="2"/><rect x="42" y="8" width="12" height="14" fill="#c9573f"/></g>
+  <!-- 森下：杉 -->
+  <g transform="translate(470 610)" fill="#4f6f45"><path d="M0 60 L18 0 L36 60 Z"/><path d="M30 64 L50 4 L70 64 Z"/><rect x="15" y="60" width="6" height="10" fill="#6b4b33"/><rect x="47" y="64" width="6" height="8" fill="#6b4b33"/></g>
+  <!-- 峠：赤い鉄橋と滝 -->
+  <g transform="translate(788 400)"><path d="M0 30 L90 30" stroke="#c9573f" stroke-width="6"/><path d="M0 30 L15 54 L30 30 L45 54 L60 30 L75 54 L90 30" stroke="#c9573f" stroke-width="3" fill="none"/><path d="M15 54 h60" stroke="#c9573f" stroke-width="3"/></g>
+  <g transform="translate(612 440)"><path d="M10 0 L10 60" stroke="#fff" stroke-width="8" stroke-linecap="round"/><path d="M10 0 L10 60" stroke="#9fc7d4" stroke-width="3"/><ellipse cx="10" cy="66" rx="18" ry="6" fill="#9fc7d4"/></g>
+  <!-- 温泉：湯けむりと湯屋 -->
+  <g transform="translate(960 220)"><path d="M0 30 L28 8 L56 30 Z" fill="#5d4a3a"/><rect x="6" y="30" width="44" height="26" fill="#efe1c8" stroke="#3b2f25" stroke-width="2"/><path d="M14 4 q-8 -12 0 -24 M28 0 q-8 -12 0 -26 M42 4 q-8 -12 0 -24" stroke="#c9b9a6" stroke-width="3.5" fill="none" stroke-linecap="round"/></g>
+</g>
+
+<!-- 駅 -->
+<g class="s">
+  <!-- 本線 -->
+  <g><circle cx="150" cy="1150" r="17" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="150" y="1120" text-anchor="middle">中央</text><text class="s tag" x="150" y="1084" text-anchor="middle">県庁・駅ビル</text></g>
+  <g><circle cx="270" cy="1095" r="13" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="275" y="1150" text-anchor="middle">桜町</text><text class="s tag" x="275" y="1172" text-anchor="middle">城跡と寺町</text></g>
+  <g><circle cx="390" cy="1040" r="15" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="395" y="1095" text-anchor="middle">大学前</text><text class="s tag" x="395" y="1117" text-anchor="middle">学生街</text></g>
+  <g><circle cx="470" cy="950" r="13" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="420" y="962" text-anchor="end">緑ヶ丘</text><text class="s tag" x="420" y="984" text-anchor="end">ニュータウン</text></g>
+  <g><circle cx="600" cy="860" r="20" fill="#fff" stroke="#c23b3b" stroke-width="6"/><text class="s nm" x="582" y="840" text-anchor="end">川辺</text><text class="s tag" x="582" y="806" text-anchor="end">のりかえ・河川敷</text></g>
+  <g><circle cx="720" cy="1030" r="13" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="672" y="1040" text-anchor="end">新田</text><text class="s tag" x="672" y="1062" text-anchor="end">棚田と直売所</text></g>
+  <g><circle cx="870" cy="1150" r="17" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="820" y="1158" text-anchor="end">港</text><text class="s tag" x="820" y="1180" text-anchor="end">赤レンガ倉庫</text></g>
+  <!-- 温泉支線 -->
+  <g><circle cx="700" cy="560" r="12" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="730" y="580" >森下</text><text class="s tag" x="730" y="602">杉と沢</text></g>
+  <g><circle cx="760" cy="450" r="12" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="740" y="440" text-anchor="end">峠</text><text class="s tag" x="740" y="402" text-anchor="end">鉄橋と大滝</text></g>
+  <g><circle cx="930" cy="200" r="17" fill="#fff" stroke="#3b2f25" stroke-width="5"/><text class="s nm" x="900" y="184" text-anchor="end">温泉</text><text class="s tag" x="900" y="146" text-anchor="end">湯ノ谷・湯けむり坂</text></g>
+  <!-- 川と海の名前 -->
+  <text class="t" x="770" y="905" font-size="18" transform="rotate(43 770 905)" style="fill:#4f86a0;letter-spacing:.3em">みなと川</text>
+  <text class="t" x="880" y="1262" font-size="22" style="fill:#4f86a0;letter-spacing:.4em">みなと湾</text>
+</g>
+
+<!-- 題字 -->
+<g>
+  <rect x="58" y="62" width="452" height="168" rx="8" fill="#fbf5e8" stroke="#7a5c3c" stroke-width="2"/>
+  <text class="t" x="82" y="112" font-size="22" style="letter-spacing:.2em">みなと川電鉄で行く</text>
+  <text class="t" x="80" y="168" font-size="46" font-weight="700" style="letter-spacing:.06em">沿線おさんぽ</text>
+  <text class="t" x="82" y="210" font-size="20" style="fill:#7a5c3c">中央 ― 港 21.5km ／ 川辺 ― 温泉 12.9km</text>
+</g>
+<!-- 凡例と方位 -->
+<g class="s" transform="translate(58 1236)">
+  <path d="M0 10 h56" stroke="#3b2f25" stroke-width="12" stroke-linecap="round"/><path d="M0 10 h56" stroke="#f4ead5" stroke-width="5" stroke-dasharray="16 12"/><text class="s sm" x="68" y="16">本線（複線）</text>
+  <path d="M0 50 h56" stroke="#3b2f25" stroke-width="6"/><path d="M0 50 h56" stroke="#3b2f25" stroke-width="16" stroke-dasharray="2 14"/><text class="s sm" x="68" y="56">温泉支線（単線）</text>
+  <circle cx="250" cy="12" r="10" fill="#fff" stroke="#c23b3b" stroke-width="5"/><text class="s sm" x="268" y="18">のりかえ駅</text>
+</g>
+<g transform="translate(1000 640)"><circle r="30" fill="#fbf5e8" stroke="#7a5c3c" stroke-width="2"/><path d="M0 -24 L8 4 L0 0 L-8 4 Z" fill="#c23b3b"/><text class="t" y="-34" font-size="18" text-anchor="middle">北</text></g>
+<text class="s" x="1030" y="1306" font-size="13" text-anchor="end" style="fill:#9a8a76">架空の路線です</text>
+</svg>
