@@ -171,7 +171,7 @@ const CSS=`
 .ks-sbox{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--paper);display:grid;gap:6px}.ks-sbox h4{margin:0;font-size:13px}.ks-sbox p{margin:0;font-size:12px;color:var(--muted);line-height:1.6}
 .ks-sbtns{display:flex;flex-wrap:wrap;gap:6px}
 .ks-pend{border:1px dashed var(--accent);border-radius:9px;padding:8px 10px;margin:8px 0;font-size:12.5px;display:grid;gap:4px}.ks-pend b{color:var(--accent)}.ks-pend button{font:inherit;font-size:11.5px;padding:1px 7px;border:1px solid var(--line);border-radius:5px;background:var(--panel);color:var(--ink);cursor:pointer;margin-left:6px}
-.ks-diff{display:block;font-size:11px;color:var(--accent);white-space:nowrap}.ks-pname{font:inherit;background:none;border:none;padding:0;color:var(--ink);text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.ks-diff{display:block;font-size:11px;color:var(--accent);white-space:nowrap;min-height:1.4em}.ks-diff.off{visibility:hidden}.ks-pname{font:inherit;background:none;border:none;padding:0;color:var(--ink);text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .ks-pname b{font-weight:700}
 @media (max-width:760px){.ks-sheet{top:auto;bottom:0;right:0;left:0;width:auto;max-height:78vh;border-radius:14px 14px 0 0;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}}
 .ks-num b.chg{color:var(--accent);font-weight:700}.ks-exp{font-size:12px;padding:3px 8px}.ks-exp:disabled{opacity:.4}
@@ -375,7 +375,7 @@ function flushLog(force){const box=$('ksLog'),res=V.logRes;if(!box||!res)return;
 
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
 function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT()),na=nextOrderDay(),nextO=orderFor(na),today=orderFor(gDay());
-  const ordCell=(p,s)=>{const v=nextO[p.id]||0,cur=today[p.id]||0;if(!s&&!v)return '<span class="mut">棚になし</span>';return `<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b class="${v!==cur?'chg':''}">${v}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span>${v!==cur?`<span class="ks-diff">きょう${cur}から${v>cur?'＋':'−'}${Math.abs(v-cur)}</span>`:''}`;};
+  const ordCell=(p,s)=>{const v=nextO[p.id]||0,cur=today[p.id]||0;if(!s&&!v)return '<span class="mut">棚になし</span>';return `<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b class="${v!==cur?'chg':''}">${v}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span><span class="ks-diff${v!==cur?'':' off'}">${v!==cur?`きょう${cur}から${v>cur?'＋':'−'}${Math.abs(v-cur)}`:'変更なし'}</span>`;};
   // 発注の予定：まだ効いていない変更を、何日目からかと増減でまとめる（取り消しもできる）
   const pend=[];for(const e of (S.orderQ||[]).slice().sort((a,b)=>a.from-b.from)){const before=orderFor(e.from-1);for(const pid in e.order){if((e.order[pid]||0)!==(before[pid]||0))pend.push({from:e.from,pid,a:before[pid]||0,b:e.order[pid]||0});}}
   const pendBox=pend.length?`<div class="ks-pend"><div><b>発注の予定（まだ届いていない変更）</b></div>${pend.map(x=>`<div>第${x.from}運行日（${dayWord(x.from).replace('の便から','')}）から：${esc(I.P[x.pid].name)} ${x.a} → <b>${x.b}</b>（${x.b>x.a?'＋':'−'}${Math.abs(x.b-x.a)}）<button type="button" data-undo="${x.from}|${x.pid}">取り消す</button></div>`).join('')}</div>`:'';
@@ -421,7 +421,12 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
   b.querySelectorAll('[data-sh]').forEach(x=>x.onclick=()=>openSheet(x.dataset.sh));
   b.querySelectorAll('[data-undo]').forEach(x=>x.onclick=()=>{const [f,pid]=x.dataset.undo.split('|'),e=(S.orderQ||[]).find(q=>q.from===Number(f));if(e){e.order[pid]=orderFor(e.from-1)[pid]||0;persist();render(true);}});
   b.querySelectorAll('[data-pr]').forEach(x=>x.onclick=()=>edit(c=>{const pid=x.dataset.pr;c.price[pid]=Math.max(10,(c.price[pid]??I.P[pid].price)+Number(x.dataset.d));}));
-  b.querySelectorAll('[data-or]').forEach(x=>x.onclick=()=>{const pid=x.dataset.or,st=I.G[I.P[pid].genre].life===0?1:2;editOrder(pid,Number(x.dataset.d)*st);});
+  b.querySelectorAll('[data-or]').forEach(x=>x.onclick=()=>{const pid=x.dataset.or,d=x.dataset.d,st=I.G[I.P[pid].genre].life===0?1:2;
+    const top=x.getBoundingClientRect().top,sc=x.closest('.ks-scroll'),sl=sc?sc.scrollLeft:0;
+    editOrder(pid,Number(d)*st);
+    const y=document.querySelector(`[data-or="${pid}"][data-d="${d}"]`);if(!y)return;const s2=y.closest('.ks-scroll');if(s2)s2.scrollLeft=sl;
+    const dy=y.getBoundingClientRect().top-top;if(Math.abs(dy)>1){const box=document.getElementById('ksv');const pane=box&&box.scrollHeight>box.clientHeight?box:null;if(pane)pane.scrollTop+=dy;else window.scrollBy(0,dy);}
+    try{y.focus({preventScroll:true});}catch(e){}});
   b.querySelectorAll('[data-ex]').forEach(x=>x.onclick=()=>{const pid=x.dataset.ex;V.expSel=pid;V.expConfirm=null;V.expQ=Math.max(1,(si[pid]&&si[pid].cap)||5);render(true);});
   if($('ksExM')){$('ksExM').onclick=()=>{V.expQ=Math.max(1,V.expQ-1);render(true);};$('ksExP').onclick=()=>{V.expQ+=1;render(true);};if($('ksExGo'))$('ksExGo').onclick=()=>{if(openExpress()){V.expConfirm=V.expSel;render(true);return;}orderExpress(V.expSel,V.expQ);};if($('ksExNew'))$('ksExNew').onclick=()=>orderExpress(V.expSel,V.expQ);
     if($('ksExAdd'))$('ksExAdd').onclick=()=>addToExpress(V.expSel,V.expQ);$('ksExNo').onclick=()=>{V.expSel=null;V.expConfirm=null;render(true);};}}
