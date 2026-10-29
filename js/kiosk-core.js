@@ -81,7 +81,9 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const ev=[],snap=[],sold={},lostSO={},looked={},rev={},gross={},cogs={},hourly=new Float64Array(H),hourlyN=new Float64Array(H),byPs={},miss={},reasons={},reviews=[],posts=[],regEvents=[];
   const add=(o,k,v)=>{o[k]=(o[k]||0)+v;};
   let waste=0,wasteBy={},returned=0,deliveredCost=0;
-  const shelfFill=(t,why)=>{let moved=0;for(const pid in SI){if(P[pid].genre==='hot')continue;const have=shelf[pid]||0,cap=SI[pid].cap;if(have>=cap)continue;const inBack=backQ(pid)-have;const k=Math.min(cap-have,Math.max(0,inBack));if(k>0){shelf[pid]=have+k;moved+=k;}}
+  const gapQ={},shrinkBy={};let shrinkCost=0,shrinkN=0;   // gapQ：なくなったが、まだ気づいていない品
+  const noticeGap=t=>{const ks=Object.keys(gapQ).filter(k=>gapQ[k]>0);if(!ks.length)return;ev.push({t,k:'gap',items:ks.map(k=>[k,gapQ[k]])});for(const k of ks)gapQ[k]=0;};
+  const shelfFill=(t,why)=>{if(why)noticeGap(t);let moved=0;for(const pid in SI){if(P[pid].genre==='hot')continue;const have=shelf[pid]||0,cap=SI[pid].cap;if(have>=cap)continue;const inBack=backQ(pid)-have;const k=Math.min(cap-have,Math.max(0,inBack));if(k>0){shelf[pid]=have+k;moved+=k;}}
     if(moved&&why)ev.push({t,k:'restock',n:moved,why});return moved;};
   // 棚にある数は「ロットのうち棚に出した数」。ロットの合計＝棚＋裏
   for(const pid in SI)shelf[pid]=0;
@@ -145,7 +147,15 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const recent=[],motives={};   // recent：直前に売れた品（前の人につられる）
   const herdF=(pid,t)=>{let n=0;for(let i=recent.length-1;i>=0&&t-recent[i].t<=(M.herdWin||4);i--)if(recent[i].pid===pid)n++;return 1+(M.herd||0)*Math.min(M.herdMax||3,n);};
   const newF=pid=>state.placedAt[pid]!=null&&ctx.day-state.placedAt[pid]>=0&&ctx.day-state.placedAt[pid]<(M.newDays||0)?(M.newBoost||1):1;
-  for(const v of visitors){tick(v.t);nowT=v.t;if(!anyOn(v.t)){closedN++;continue;}const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
+  const SH=cfg.shrink,rS=rng(hash(state.seed,ctx.day,'shrink')),guard=state.guard||{};
+  const gMul=SH?Object.keys(SH.guard).filter(k=>guard[k]).reduce((m,k)=>m*SH.guard[k].mul,1):1;
+  const steal=v=>{if(!SH)return;const h=Math.floor(v.t/60),on=W.filter(w=>KS.onAt(w,v.t)).length,busy=Math.min(1,Math.max(0,(Math.min(...free)-v.t)/2));
+    const p=SH.base*(SH.place[state.place]??1)*(SH.station[state.st]??1)*(h>=SH.night.from?SH.night.mul:1)*(SH.staff[Math.min(SH.staff.length-1,Math.max(0,on-1))]||1)*(1+SH.busy*busy)*gMul;
+    if(rS()>=p)return;
+    const c=Object.keys(SI).filter(k=>P[k].genre!=='hot'&&(shelf[k]||0)>0).map(k=>{const zs=Object.keys(SI[k].zones);const zf=Math.max(...zs.map(z=>SH.zone[z]??1));return [k,zf*(SH.genre[P[k].genre]??0.6)*Math.sqrt(SI[k].face)];}).filter(x=>x[1]>0);
+    if(!c.length)return;let tot=c.reduce((a,x)=>a+x[1],0),u=rS()*tot,pid=c[c.length-1][0];for(const [k,w] of c){u-=w;if(u<=0){pid=k;break;}}
+    shelf[pid]-=1;const g2=take(pid,1);shrinkCost+=g2.cost;shrinkN+=1;add(shrinkBy,pid,1);add(gapQ,pid,1);};
+  for(const v of visitors){tick(v.t);nowT=v.t;if(!anyOn(v.t)){closedN++;continue;}steal(v);const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
     if(v.imp){   // なんとなく：棚全体から目に入った物（安い・手軽・映える・いま売れている物ほど）を手に取る
       const all=Object.keys(SI).map(k=>P[k]).filter(c=>stockOf(c.id)>0&&!ix.G[c.genre].age&&!(M.fixed||[]).includes(c.genre));if(!all.length)continue;
       const ws=all.map(c=>c.w*SI[c.id].vis*(1+c.photo)*(priceOf(c.id)<=200?1.4:0.8)*(c.ease/5)*herdF(c.id,v.t)*(moodG[c.genre]||1)*buzzF(c.id)*trendOn(c)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(priceOf(c.id)/c.price-1)));
@@ -210,7 +220,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     if(!v.reg&&!v.mania&&main.regular>0.3&&state.regulars.length<cfg.regulars.max&&r()<cfg.regulars.join*main.regular){
       regEvents.push({join:{id:'r'+ctx.day+'_'+Math.floor(v.t),ps:v.ps,p:v.p,a:v.a,em:v.em,pid:main.id,t:Math.round(v.t),wd:v.p<=1,loyal:cfg.regulars.loyalty,since:ctx.day}});}
   }
-  tick(O1);
+  tick(O1);noticeGap(O1);
   for(const pst of posts)if(!pst.good)ev.push({t:pst.t,k:'sns',pid:pst.pid,ps:pst.ps,good:false});
   // 閉店：その日のうちに売る物は廃棄、新聞・雑誌（返品できる物）は返品、パンは日持ちの分だけ残す
   const carry={};
@@ -224,10 +234,11 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   let sales=0,em=0;for(const e of ev)if(e.k==='buy'){sales+=e.yen;if(e.em)em+=e.yen;}
   let cg=0;for(const k in cogs)cg+=cogs[k];
   const crewRes=W.map((w,k)=>{const x=KS.payOf(cfg,w,O0,O1);return {id:w.p.id,name:w.p.name,h:x.h,yen:x.yen,served:served[k],spans:w.spans};});
+  const guardFee=SH?Object.keys(SH.guard).filter(k=>guard[k]).reduce((a,k)=>a+SH.guard[k].perDay,0):0;
   const recruit=hasCrew?(state.crew.ads||[]).filter(a=>a.day===ctx.day).length*cfg.crew.ad.fee:0;
-  const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:crewRes.reduce((s,x)=>s+x.yen,0),recruit,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
-  pl.cost=pl.cogs+pl.waste+pl.express+pl.staff+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
-  return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,closed:closedSp,closedN};}
+  const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:crewRes.reduce((s,x)=>s+x.yen,0),recruit,shrink:shrinkCost,guard:guardFee,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
+  pl.cost=pl.cogs+pl.waste+(pl.shrink||0)+(pl.guard||0)+pl.express+pl.staff+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
+  return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,shrinkBy,shrinkN,closed:closedSp,closedN};}
 
 /* 評価：客層の好み（甘さ・味の濃さ・量）と商品の味のずれ、値段 */
 function review(cfg,ps,it,ratio,r,care){care=care||0;const [s,k,v]=it.taste,[ps1,pk,pv]=ps.taste,T=cfg.reviews;let stars=4.3+(r()-0.5)*0.8;const bad=[];
@@ -273,6 +284,10 @@ function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.str
     st.trend={id:t.id,start:day+1,end:day+1+cfg.trendTiming.len[0]+Math.floor(r()*(cfg.trendTiming.len[1]-cfg.trendTiming.len[0]))};st.lastTrend=t.id;
     const have=cfg.products.filter(p=>p.tags.some(x=>t.tags.includes(x)));say('trend',`世の中は${t.name}`,`${t.text}　関係のある品：${have.map(p=>p.name).join('・')}。`);}
   // 売り切れ・置いていない・廃棄の多い品
+  if(res.shrinkN){const sold=Object.values(res.sold).reduce((a,b)=>a+b,0),rate=res.shrinkN/(sold+res.shrinkN)*100,top=Object.entries(res.shrinkBy).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,n])=>ix.P[k].short+n).join('・');
+    st.shrinkHist=(st.shrinkHist||[]).concat([{day,n:res.shrinkN,rate:+rate.toFixed(2),yen:Math.round(res.pl.shrink)}]).slice(-30);
+    if(res.shrinkN>=3)say('shrink',`棚の数が合わない品が${res.shrinkN}個あった（万引きの疑い）`,`${top}など。原価で${Math.round(res.pl.shrink).toLocaleString()}円の損。売れた数に対して${rate.toFixed(1)}%。入口に近いフックやラックの小さな品ほどなくなりやすく、店員が1人の時間や、レジが混んでいる時間に多くなります。防犯ミラーやカメラは「収支」で付けられます。`);}
+  if(st.guardNext){st.guard={...st.guardNext};delete st.guardNext;}
   const so=Object.entries(res.lostSO).sort((a,b)=>b[1]-a[1])[0];if(so&&so[1]>=8)say('soldout',cfg.hideLost?`「${ix.P[so[0]].name}」が売り切れてから、棚の前で残念そうにする人がいたようです`:`「${ix.P[so[0]].name}」が売り切れて${so[1]}人が買えなかった`,cfg.hideLost?'何人が買えなかったかは分かりません。仕入れ数や棚の並べ方（フェイス）を増やすと、どうなるでしょう。':'仕入れ数や棚の並べ方（フェイス）を増やすと、逃す客が減ります。',so[0]);
   const ms=Object.entries(res.miss).sort((a,b)=>b[1]-a[1])[0];if(ms&&ms[1]>=6)say('miss',`${ix.G[ms[0]].name}を探して、置いていなくて帰った人が${ms[1]}人`,'棚に置いていないジャンルを探しに来た人の数です。',null);
   const ws=Object.entries(res.wasteBy).sort((a,b)=>b[1]-a[1])[0];if(ws&&ws[1]>=8)say('waste',`「${ix.P[ws[0]].name}」を${ws[1]}個捨てた`,'売れ残りや保温時間切れ。仕入れ数を見直す手がかりになります。',ws[0]);

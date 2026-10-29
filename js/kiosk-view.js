@@ -132,6 +132,7 @@ const CSS=`
 .ks-tags{display:inline-flex;gap:3px;flex-wrap:wrap}.ks-tags i{font-style:normal;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);white-space:nowrap}
 .ks-tags i.hot{color:#c9573f;border-color:#e3b0a5}.ks-tags i.cold{color:#2e7fd1;border-color:#a9c8ea}.ks-tags i.trend{color:#b0711f;border-color:#e4c38f;font-weight:700}.ks-tags i.age{color:#8a3c8a;border-color:#d4a9d4}
 .ks-log{display:grid;gap:3px;font-size:12.5px}
+.ks-kv{display:flex;flex-wrap:wrap;gap:6px 22px;margin:4px 0 6px}.ks-kv div{display:grid}.ks-kv span{font-size:11.5px;color:var(--muted)}.ks-kv b{font-family:var(--f-mono);font-size:20px}
 .ks-gbar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.ks-gbar .ks-chip.warn{border-color:#c9573f;color:#c9573f}.ks-gbar .ks-chip.warn[aria-pressed="true"]{background:#c9573f;color:#fff}
 @media (max-width:760px){.ks-gbar{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}.ks-gbar .ks-chip{flex:0 0 auto;white-space:nowrap}}
 .ks-crews{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:8px}.ks-crew{border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:grid;gap:6px;background:var(--paper)}.ks-crew.warn{border-color:#c9573f}
@@ -147,7 +148,7 @@ const CSS=`
 #ksMore{margin-bottom:72px}
 @media (max-width:760px){.ks-log div{grid-template-columns:3.2em 5.2em minmax(0,1fr);}.ks-log div em{grid-column:3;justify-self:end}}.ks-log div{display:grid;grid-template-columns:3.4em 6em minmax(0,1fr) auto;gap:8px;padding:3px 4px;border-bottom:1px dashed var(--line)}
 .ks-log time{font-family:var(--f-mono);color:var(--muted)}.ks-log .ps{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ks-log em{font-style:normal;font-family:var(--f-mono)}
-.ks-log .buy em{color:#2f8a4a}.ks-log .look{color:var(--muted)}.ks-log .rv{color:#9a6a1a}.ks-log .sns{color:#3a64b8}.ks-log .sys{color:var(--muted);font-size:11.5px}
+.ks-log .buy em{color:#2f8a4a}.ks-log .look{color:var(--muted)}.ks-log .rv{color:#9a6a1a}.ks-log .sns{color:#3a64b8}.ks-log .gap{color:#b0442c;font-size:12px}.ks-log .sys{color:var(--muted);font-size:11.5px}
 .ks-zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
 .ks-zone h4{margin:0 0 4px;font-size:12.5px;display:flex;justify-content:space-between}.ks-zone h4 small{color:var(--muted);font-weight:400}
 .ks-grid{display:grid;gap:3px}.ks-slot{font:inherit;font-size:10.5px;min-height:34px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--ink);cursor:pointer;padding:2px;line-height:1.2;overflow:hidden;text-align:center;position:relative}
@@ -293,14 +294,15 @@ function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps
   if(e.k==='cook')return ['sys','',`${P[e.pid].short}を${e.n}個温めた`,''];
   if(e.k==='waste')return ['sys','',`${P[e.pid].short}を${e.n}個捨てた（${e.why}）`,''];
   if(e.k==='edit')return ['sys','','棚・値段・仕入れを変えた',''];
+  if(e.k==='gap')return ['gap','',`品出しのとき、${e.items.map(([p,q])=>P[p].short+(q>1?'×'+q:'')).join('・')}の数が合わなかった（万引きの疑い）`,''];
   if(e.k==='closed')return ['sys','',`店員がいないので閉めている（${fmtT(e.to)}まで）`,''];return ['sys','',e.k,''];}
 /* 絞り込み：種類・客層・きっかけ・ジャンル・商品・理由・評価・時間帯。絞った分だけを一覧と集計に出す */
 const LF0={k:'',ps:'',mot:'',genre:'',pid:'',why:'',stars:'',h0:5,h1:26};
 if(!V.lf)V.lf={...LF0};
 const lfOn=()=>Object.keys(LF0).some(k=>V.lf[k]!==LF0[k]);
-const KIND={buy:'会計',look:'見たけど買わなかった',review:'評価',sns:'SNS',sys:'品出し・便・廃棄など'};
-const kindOf=e=>e.k==='buy'||e.k==='look'||e.k==='review'||e.k==='sns'?e.k:'sys';
-const pidsOf=e=>e.k==='buy'?e.items.map(x=>x[0]):e.pid?[e.pid]:[];
+const KIND={buy:'会計',look:'見たけど買わなかった',review:'評価',sns:'SNS',gap:'数が合わない（万引きの疑い）',sys:'品出し・便・廃棄など'};
+const kindOf=e=>e.k==='buy'||e.k==='look'||e.k==='review'||e.k==='sns'||e.k==='gap'?e.k:'sys';
+const pidsOf=e=>e.k==='buy'||e.k==='gap'?e.items.map(x=>x[0]):e.pid?[e.pid]:[];
 function lfMatch(e){if(hideE(e))return false;const f=V.lf,I=ix();if(f.k&&kindOf(e)!==f.k)return false;if(f.ps&&e.ps!==f.ps)return false;
   if(f.mot&&(e.k!=='buy'||(f.mot==='addon'?!e.addon:(e.mot||'plan')!==f.mot)))return false;
   if(f.why&&(e.k!=='look'||e.why!==f.why))return false;
@@ -542,13 +544,25 @@ const clampW=v=>Math.max(V.cfg.crew.minWage,Math.min(V.cfg.crew.maxWage,v));
 function renderMoney(b,res){const S=V.st,P=res.pl,o=KC.soFar(V.cfg,res,gT());
   const row=(n,v,cls)=>`<tr><td class="l">${n}</td><td class="${cls||''}">${yen(v)}</td></tr>`;
   b.innerHTML=`<div class="ks-g2"><div class="ks-card"><h3><span>きょう1日の見込み</span><small>このまま閉店まで続けた場合（いまの設定で）</small></h3><table class="ks-t"><tbody>
-      ${row('売上',P.sales)}${row('仕入れ原価（売れた分）',-P.cogs,'mut')}${row('廃棄（売れ残り・保温切れ）',-P.waste,'mut')}${P.express?row('臨時便の料金',-P.express,'mut'):''}${row('人件費（シフトの時間×時給）',-P.staff,'mut')}${P.recruit?row('募集の広告',-P.recruit,'mut'):''}${row('場所代（売上の'+Math.round(V.rcfg.places[S.place].rentRate*100)+'%か最低額）',-P.rent,'mut')}${row('電子マネーの手数料',-P.fee,'mut')}${row('電気代など',-P.util,'mut')}
+      ${row('売上',P.sales)}${row('仕入れ原価（売れた分）',-P.cogs,'mut')}${row('廃棄（売れ残り・保温切れ）',-P.waste,'mut')}${P.shrink?row('数が合わない品（万引きの疑い・原価）',-P.shrink,'mut'):''}${P.guard?row('防犯の対策',-P.guard,'mut'):''}${P.express?row('臨時便の料金',-P.express,'mut'):''}${row('人件費（シフトの時間×時給）',-P.staff,'mut')}${P.recruit?row('募集の広告',-P.recruit,'mut'):''}${row('場所代（売上の'+Math.round(V.rcfg.places[S.place].rentRate*100)+'%か最低額）',-P.rent,'mut')}${row('電子マネーの手数料',-P.fee,'mut')}${row('電気代など',-P.util,'mut')}
       <tr><td class="l"><b>損益</b></td><td class="${P.profit<0?'neg':'pos'}"><b>${yen(P.profit)}</b></td></tr></tbody></table>
       <p class="ks-note">いまの時刻までの売上は ${yen(o.sales)}。新聞・雑誌の売れ残りは返品するので、捨てる分には入りません。</p></div>
     <div class="ks-card"><h3><span>これまでの運行日</span><small>積み立て ${man(S.cash)}</small></h3><div class="ks-scroll" style="max-height:300px"><table class="ks-t"><thead><tr><th class="l">運行日</th><th>客</th><th>売上</th><th>廃棄</th><th>損益</th><th class="l">売れ筋</th></tr></thead><tbody>
       ${S.hist.slice().reverse().map(h=>`<tr><td class="l">${h.day}（${DAYN[h.cond.day]}・${WXN[h.cond.wx]}）</td><td>${h.cust}</td><td>${yen(h.sales)}</td><td>${yen(h.waste)}</td><td class="${h.profit<0?'neg':'pos'}">${yen(h.profit)}</td><td class="l">${h.top.slice(0,3).map(([p,q])=>ix().P[p].short+q).join('・')}</td></tr>`).join('')||'<tr><td class="l" colspan="6">まだ締めた日はありません（26:00を過ぎると締めます）。</td></tr>'}</tbody></table></div>
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="ks-btn" id="ksToCrew">店員・シフト・時給を見る</button><span class="ks-note" style="margin:0">人件費は、シフトに入っている時間×その人の時給（22時からは2割5分増し）です。</span></div></div></div>`;
-  $('ksToCrew').onclick=()=>{V.tab='crew';render(true);};}
+  $('ksToCrew').onclick=()=>{V.tab='crew';render(true);};
+  b.insertAdjacentHTML('beforeend',shrinkCard(res));
+  b.querySelectorAll('[data-guard]').forEach(x=>x.onclick=()=>{const k=x.dataset.guard,S=V.st,n={...(S.guardNext||S.guard||{})};n[k]=!n[k];S.guardNext=n;persist();render(true);});}
+/* 万引きの疑い：品出しのときに数が合わなかった品。いまの時刻まで・これまでの日・防犯の対策 */
+function shrinkCard(res){const SH=V.cfg.shrink;if(!SH)return '';const S=V.st,I=ix(),T0=gT(),c={};let n=0;
+  for(const e of res.ev){if(e.t>T0)break;if(e.k==='gap')for(const [p,q] of e.items){c[p]=(c[p]||0)+q;n+=q;}}
+  const sold=Object.values(counts(res,T0).sold).reduce((a,b)=>a+b,0),rate=n?n/(n+sold)*100:0,H=(S.shrinkHist||[]).slice(-7),avg=H.length?H.reduce((a,x)=>a+x.rate,0)/H.length:null;
+  const cur=S.guard||{},nx=S.guardNext||cur;
+  return `<div class="ks-card" style="margin-top:12px"><h3><span>万引きの疑い（棚の数が合わない品）</span><small>品出しのときに気づいた分</small></h3>
+    <div class="ks-kv"><div><span>きょう（いままで）</span><b>${n}個${n?`・${rate.toFixed(1)}%`:''}</b></div><div><span>直近${H.length}日の平均</span><b>${avg==null?'—':avg.toFixed(1)+'%'}</b></div></div>
+    <p class="ks-note">${n?'きょう合わなかった品：'+Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([p,q])=>`${esc(I.P[p].short)}${q}`).join('・')+'。':''}割合は、売れた数となくなった数の合計に対する、なくなった数。入口に近いフック・吊り下げ・ラックの小さな品ほどなくなりやすく、店員が1人の時間・レジが混む時間・夜に多くなります。たばこと温かい物は店員の後ろなので、なくなりません。</p>
+    <div class="ks-sbtns">${Object.entries(SH.guard).map(([k,g])=>`<button type="button" class="ks-chip" data-guard="${k}" aria-pressed="${!!nx[k]}">${esc(g.name)}${g.perDay?`（1日${yen(g.perDay)}）`:''}</button>`).join('')}</div>
+    <p class="ks-note">防犯の対策は次の運行日から効きます。${JSON.stringify(cur)!==JSON.stringify(nx)?'<b>あすから変わります。</b>':''}いま：${Object.keys(SH.guard).filter(k=>cur[k]).map(k=>SH.guard[k].name).join('・')||'なし'}</p></div>`;}
 function renderNews(b){const S=V.st,list=S.news.slice().reverse();
   b.innerHTML=`<div class="ks-card"><h3><span>お知らせ</span><small>ブーム・SNS・常連・評価・売り切れ・廃棄など（運行日の終わりに届きます）</small></h3><div class="ks-news">${list.map(n=>`<div class="${n.kind}"><b>${esc(n.title)}</b><small>運行日${n.day}</small> ${esc(n.text)}</div>`).join('')||'<p class="ks-note">まだありません。</p>'}</div></div>`;}
 
