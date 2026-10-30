@@ -59,7 +59,7 @@ function clampInt(v,[a,b]){v=Math.round(+v);if(!isFinite(v))v=a;return Math.max(
 function run(keepTime){
   if(R){prev={cfg:R.cfg,summary:R.summary};}
   R=F.simulate(D,cfg);resultShown=false;
-  $('scrub').max=R.N-1;if(!keepTime)cur=0;cur=Math.min(cur,R.N-1);
+  $('scrub').max=R.N-1;if(!keepTime)cur=0;cur=Math.min(cur,R.N-1);beltM=madeAt(cur);
   if(selected!=null&&!R.batches[selected])selected=null;
   $('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`;
   $('result').hidden=true;$('resultWait').hidden=false;
@@ -72,18 +72,23 @@ function buildPlay(){
   for(const b of $('speeds').children)b.onclick=()=>{speed=+b.dataset.v;markSpeed();};
   markSpeed();
   $('playBtn').onclick=()=>{playing=!playing;if(playing&&cur>=R.N-1)cur=0;markPlay();lastFrame=performance.now();};
-  $('scrub').oninput=e=>{cur=+e.target.value;drawAll(true);};
+  $('scrub').oninput=e=>{cur=+e.target.value;beltM=madeAt(cur);drawAll(true);};
   $('peek').onclick=()=>showResult();
 }
 function markSpeed(){for(const b of $('speeds').children){const on=+b.dataset.v===speed;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}}
 function markPlay(){$('playBtn').textContent=playing?'❚❚ 止める':'▶ 再生';$('playBtn').setAttribute('aria-label',playing?'止める':'再生');}
 function tick(now){
-  if(playing&&R){const dt=Math.min(0.25,(now-lastFrame)/1000);cur+=dt*speed/60;
+  if(playing&&R){const dt=Math.min(0.25,(now-lastFrame)/1000);const m0=madeAt(cur);cur+=dt*speed/60;
     if(cur>=R.N-1){cur=R.N-1;playing=false;markPlay();}
+    // ベルトの上のおにぎりは、実際に包んだ数だけ流す。1秒に BELT_MAX 個を超える速さでは目で追えないので、そこで頭打ちにする
+    const dm=madeAt(cur)-m0;beltFast=dm>dt*BELT_MAX+1e-9;beltM+=Math.min(dm,dt*BELT_MAX);
     drawAll(false);}
   lastFrame=now;requestAnimationFrame(tick);
 }
 let lastSide=-1;
+const BELT_MAX=12,BELT_N=8;let beltM=0,beltFast=false;
+/** 18:00 から cur 分までに包んだ数（分の途中は直線でつなぐ） */
+function madeAt(x){const i=Math.floor(x),f=x-i,a=i>0?R.agg.made[i-1]:0,b=R.agg.made[Math.min(i,R.N-1)];return a+(b-a)*f;}
 function drawAll(force){
   const i=Math.floor(cur);
   $('scrub').value=i;$('clock').textContent=hm(R.T0+i);
@@ -233,13 +238,16 @@ function drawForm(c,[x,y,w,h],i,t){
   for(let k=0;k<crew;k++){const px=bx+12+k*((bw-24)/Math.max(1,crew-1||1)),py=by-46;c.fillStyle=css('--muted');c.globalAlpha=fat<0.95?0.55:0.9;
     c.beginPath();c.arc(px,py,6,0,7);c.fill();c.fillRect(px-6,py+7,12,12);c.globalAlpha=1;}
   if(fat<0.95)txt(c,'☾ 疲れ',x+w-8,y+30,{align:'right',size:11,color:css('--warn')});
-  if(b){const per=8;const sp=rate/40;for(let k=0;k<per;k++){const u=((k/per)+cur*0.6*sp)%1;const ox=bx+u*bw,oy=by-3;
+  if(b){// 1個ずつ左から入り、ベルトの端まで BELT_N 個ぶん流れて出ていく
+    const top=Math.floor(beltM);
+    for(let k=top;k>top-BELT_N;k--){const u=(beltM-k)/BELT_N;if(u<0||u>=1)continue;const ox=bx+u*bw,oy=by-3;
       c.fillStyle=css('--rice');c.strokeStyle=css('--ink');c.lineWidth=0.8;c.beginPath();c.moveTo(ox,oy-12);c.lineTo(ox-8,oy);c.lineTo(ox+8,oy);c.closePath();c.fill();c.stroke();
       c.fillStyle='#24323e';c.fillRect(ox-5,oy-5,10,5);}
     c.lineWidth=1;
     txt(c,`釜${b.no}　${rate.toFixed(0)}個／分`,x+8,y+h-26,{size:12,bold:true});
-    const done=Math.round(D.batchUnits*Math.min(1,(R.T0+i-b.tForm)*rate/D.batchUnits));
-    txt(c,`この釜 ${Math.min(D.batchUnits,done)}／${D.batchUnits}個`,x+8,y+h-10,{size:11,color:css('--muted')});
+    if(beltFast)txt(c,'速すぎるので、流れは間引いて表示',x+8,y+h-44,{size:10,color:css('--muted')});
+    const bi=b.tForm-R.T0;const done=Math.round(madeAt(cur)-(bi>0?R.agg.made[bi-1]:0));
+    txt(c,`この釜 ${Math.max(0,Math.min(D.batchUnits,done))}／${D.batchUnits}個`,x+8,y+h-10,{size:11,color:css('--muted')});
     hit(bx,by-20,bw,30,b);if(selected===b.id){c.strokeStyle=css('--focus');c.lineWidth=2;c.strokeRect(bx-2,by-22,bw+4,34);c.lineWidth=1;}}
   else txt(c,'米を待っている',x+8,y+h-10,{size:11,color:css('--muted')});
 }
