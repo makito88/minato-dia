@@ -60,6 +60,8 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 .topv .hd{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;justify-content:space-between}
 .topv h1{margin:0;font-size:clamp(22px,4vw,30px);letter-spacing:.04em}.topv .lede{margin:4px 0 0;color:var(--muted);font-size:14px;max-width:62ch;line-height:1.7}
 .topv .go{font:inherit;font-weight:700;font-size:15px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:10px 18px;cursor:pointer;min-height:44px}
+.topv .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.topv .memo{font-size:14px;font-weight:700;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:8px 16px;min-height:44px;display:inline-flex;align-items:center;gap:6px}.topv .memo small{font-weight:400;color:var(--muted);font-size:12px}.topv .memo:hover{border-color:var(--accent)}
 .topv .grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .topv .ly{grid-column:span 2;border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;display:flex;flex-direction:column}
 .topv .ly.wide{grid-column:span 3}
@@ -80,13 +82,13 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 function render(){const box=$('topv');
   box.innerHTML=`<div class="in"><div class="hd"><div><h1>みなと川電鉄 ダイヤ工房</h1>
       <p class="lede">世界の出来事は、どうやって駅の売店まで届くのか。売店でのあなたの小さな判断は、どこまで届くのか。5つのレイヤーを行き来しながら、架空の沿線を動かしてみてください。</p></div>
-      <button type="button" class="go" id="topGo">路線図とダイヤへ</button></div>
+      <div class="acts"><a class="memo" href="docs/ideas.html" target="_blank" rel="noopener">アイデア帳<small>これから足すこと</small>↗</a><button type="button" class="go" id="topGo">路線図とダイヤへ</button></div></div>
     <div class="grid">${L.map((x,i)=>`<section class="ly${i>=3?' wide':''}" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
       <div class="bd"><div class="nm"><b>${x.name}</b><small>${x.sub}</small><span class="st${x.state==='遊べる'?' ok':''}">${x.state==='遊べる'?'遊べる':'読める（一部）'}</span></div>
       ${x.items.map(([t,a])=>`<button type="button" class="it${a.startsWith('karte')?' ext':''}" data-go="${a}">${t}</button>`).join('')}
       ${x.soon?`<div class="soon">準備中：${x.soon}</div>`:''}</div></section>`).join('')}</div>
     <div class="ft"><label><input type="checkbox" id="topSkip" ${g(()=>localStorage.getItem(KEY)==='1',false)?'checked':''}> 次から、開いたときにこのページを出さない</label>
-      <span>上の帯の「トップ」で、いつでもここに戻れます。↗ は街のカルテ（別のタブ）が開きます。</span>
+      <span>上の帯の「トップ」で、いつでもここに戻れます。↗ は別のタブで開きます（街のカルテ・アイデア帳）。</span>
       <span>沿線・会社・人はすべて架空です。歴史や数字の多くは、現実の出来事や統計を元に作っています。</span></div></div>`;
   box.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   $('topGo').onclick=()=>go('play');
