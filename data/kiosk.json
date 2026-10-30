@@ -461,7 +461,12 @@
    }
   }
  ],
- "products": [
+ "brands": {
+    "nitta": {"name": "にったの雫", "mark": "雫", "color": "#0F6E56",
+      "note": "新田の棚田米。石の水路の水で育てた米を、港浜工場が釜で炊く",
+      "_brands": "品の brand にこの id を書くと、値札・商品カード・売れ行き・商品の表に印が出る。名前（name・short）は短いまま"}
+  },
+  "products": [
   {
    "id": "oni_sake",
    "genre": "onigiri",
@@ -577,6 +582,8 @@
    "tags": [],
    "color": "#e8e2d0"
   },
+    {"id":  "oni_shio_n", "genre":  "onigiri", "name":  "おにぎり 塩むすび", "short":  "塩むすび", "brand":  "nitta", "price":  170, "cost":  110, "temp":  "room", "ease":  5, "health":  4, "sudden":  0, "taste":  [0, 2.5, 3], "photo":  0.25, "regular":  0.6, "mania":  0, "w":  0.9, "tags":  [], "color":  "#e8e2d0"},
+    {"id":  "oni_hesiko_n", "genre":  "onigiri", "name":  "おにぎり 鯖へしこ", "short":  "へしこ", "brand":  "nitta", "price":  210, "cost":  134, "temp":  "room", "ease":  5, "health":  3, "sudden":  0, "taste":  [0, 4.5, 3], "photo":  0.3, "regular":  0.4, "mania":  0.1, "w":  0.6, "tags":  [], "color":  "#e8e2d0"},
   {
    "id": "san_egg",
    "genre": "sand",

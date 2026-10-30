@@ -132,6 +132,7 @@ const CSS=`
 .ks-num{display:inline-flex;align-items:center;gap:2px}.ks-num button{font:inherit;font-size:12px;width:22px;height:22px;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:5px;cursor:pointer;padding:0}
 .ks-num b{min-width:3.4em;text-align:center;font-family:var(--f-mono);font-weight:400}
 .ks-tags{display:inline-flex;gap:3px;flex-wrap:wrap}.ks-tags i{font-style:normal;font-size:10.5px;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);white-space:nowrap}
+.ks-tags i.brand{color:#0f6e56;border-color:#5dcaa5;background:#e1f5ee;font-weight:700}.ks-bm{color:#0f6e56;font-weight:700;margin-right:1px}.ks-bnote{margin:2px 0 6px}@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ks-tags i.brand{color:#9fe1cb;border-color:#1d9e75;background:#085041}:root:not([data-theme="light"]) .ks-bm{color:#5dcaa5}}:root[data-theme="dark"] .ks-tags i.brand{color:#9fe1cb;border-color:#1d9e75;background:#085041}:root[data-theme="dark"] .ks-bm{color:#5dcaa5}
 .ks-tags i.hot{color:#c9573f;border-color:#e3b0a5}.ks-tags i.cold{color:#2e7fd1;border-color:#a9c8ea}.ks-tags i.trend{color:#b0711f;border-color:#e4c38f;font-weight:700}.ks-tags i.age{color:#8a3c8a;border-color:#d4a9d4}
 .ks-log{display:grid;gap:3px;font-size:12.5px}
 .ks-kv{display:flex;flex-wrap:wrap;gap:6px 22px;margin:4px 0 6px}.ks-kv div{display:grid}.ks-kv span{font-size:11.5px;color:var(--muted)}.ks-kv b{font-family:var(--f-mono);font-size:20px}
@@ -234,7 +235,7 @@ function openSheet(pid){V.sheet=pid;V.shQ=null;V.shConfirm=null;renderSheet();$(
 function closeSheet(){V.sheet=null;$('ksSheet').hidden=true;}
 function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!res||!box)return;const I=ix(),p=I.P[pid],x=pinfo(pid,res),set=curSet(),pr=set.price[pid]??p.price,o=orderDiff(pid),E=V.cfg.express;if(!openExpress()&&V.shConfirm===pid)V.shConfirm=null;
   if(V.shQ==null)V.shQ=Math.max(1,x.cap||5);const life=I.G[p.genre].life,unit=life===0?'1日に届く数':'裏も合わせた目標の数';
-  box.innerHTML=`<h3><span>${esc(p.name)}</span><button type="button" class="ks-btn" id="shClose">閉じる</button></h3>
+  box.innerHTML=`<h3><span>${esc(p.name)}${brandOf(p)?` <span class="ks-tags">${brandBadge(p)}</span>`:''}</span><button type="button" class="ks-btn" id="shClose">閉じる</button></h3>${brandOf(p)?`<p class="ks-note ks-bnote">${esc(brandOf(p).note||'')}</p>`:''}
     <div><span class="ks-st ${x.st}" id="shSt">${ST_LABEL[x.st]}</span> <small class="ks-note">${I.G[p.genre].name}・${yen(pr)}（原価${yen(p.cost)}）</small></div>
     <div class="ks-sg"><span>棚</span><b id="shShelf">${x.s?`${x.s.face}列×${Math.round(x.cap/x.s.face)}（最大${x.cap}個）`:'置いていない'}</b>
       <span>いま</span><b id="shNow">棚に${x.stock}個・裏に${x.back}個</b>
@@ -286,18 +287,24 @@ function renderBody(full){const b=$('ksBody'),res=ensureRes();if(!res)return;
   if(!full)return;
   if(V.tab==='items')renderItems(b,res);else if(V.tab==='layout')renderLayout(b);else if(V.tab==='people')renderPeople(b,res);else if(V.tab==='crew')renderCrew(b,res);else if(V.tab==='money')renderMoney(b,res);else renderNews(b);}
 
+/* ブランドの印（data/kiosk.json の brands）。売れ行きでは \u0001印\u0002 で包み、表示のときに色を付ける */
+const brandOf=p=>p&&p.brand&&V.cfg.brands?V.cfg.brands[p.brand]:null;
+const sh=p=>{const b=brandOf(p);return (b?'\u0001'+b.mark+'\u0002':'')+p.short;};
+const markHtml=s=>s.replace(/\u0001(.*?)\u0002/g,'<b class="ks-bm">$1</b>');
+const plainMark=s=>String(s).replace(/[\u0001\u0002]/g,'');
+const brandBadge=p=>{const b=brandOf(p);return b?`<i class="brand" title="${esc(b.note||'')}">${esc(b.mark)} ${esc(b.name)}</i>`:'';};
 /* 売れ行き：いまの時刻までの出来事（新しい順） */
 function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps:'';
-  if(e.k==='buy')return ['buy',ps+(e.reg?'（常連）':e.mania?'（マニア）':''),e.items.map(([p,q])=>P[p].short+(q>1?'×'+q:'')).join('・')+(motL(e.mot)&&!e.reg&&!e.mania?`〔${motL(e.mot)}〕`:'')+(e.items.length>1?e.items.slice(1).map(x=>x[2]==='r'?`〔ついでに${P[x[0]].short}〕`:`〔一緒に${P[x[0]].short}〕`).join(''):'')+(e.wait>0.5?`（${Math.round(e.wait*60)}秒待ち）`:''),yen(e.yen)];
-  if(e.k==='look')return ['look',ps+(e.reg?'（常連）':''),(e.pid?P[e.pid].short:I.G[e.genre].name)+'… '+e.why,''];
-  if(e.k==='review')return ['rv',ps,`${P[e.pid].short}「${e.text}」`,'★'.repeat(e.stars)];
-  if(e.k==='sns')return ['sns',ps,`${P[e.pid].short}について投稿${e.good?'':'（不満）'}`,'SNS'];
+  if(e.k==='buy')return ['buy',ps+(e.reg?'（常連）':e.mania?'（マニア）':''),e.items.map(([p,q])=>sh(P[p])+(q>1?'×'+q:'')).join('・')+(motL(e.mot)&&!e.reg&&!e.mania?`〔${motL(e.mot)}〕`:'')+(e.items.length>1?e.items.slice(1).map(x=>x[2]==='r'?`〔ついでに${sh(P[x[0]])}〕`:`〔一緒に${sh(P[x[0]])}〕`).join(''):'')+(e.wait>0.5?`（${Math.round(e.wait*60)}秒待ち）`:''),yen(e.yen)];
+  if(e.k==='look')return ['look',ps+(e.reg?'（常連）':''),(e.pid?sh(P[e.pid]):I.G[e.genre].name)+'… '+e.why,''];
+  if(e.k==='review')return ['rv',ps,`${sh(P[e.pid])}「${e.text}」`,'★'.repeat(e.stars)];
+  if(e.k==='sns')return ['sns',ps,`${sh(P[e.pid])}について投稿${e.good?'':'（不満）'}`,'SNS'];
   if(e.k==='delivery')return ['sys','',`${e.name}が届いた（${e.n}個・${yen(e.cost)}）`,''];
   if(e.k==='restock')return ['sys','',`${e.why}（${e.n}個）`,''];
-  if(e.k==='cook')return ['sys','',`${P[e.pid].short}を${e.n}個温めた`,''];
-  if(e.k==='waste')return ['sys','',`${P[e.pid].short}を${e.n}個捨てた（${e.why}）`,''];
+  if(e.k==='cook')return ['sys','',`${sh(P[e.pid])}を${e.n}個温めた`,''];
+  if(e.k==='waste')return ['sys','',`${sh(P[e.pid])}を${e.n}個捨てた（${e.why}）`,''];
   if(e.k==='edit')return ['sys','','棚・値段・仕入れを変えた',''];
-  if(e.k==='gap')return ['gap','',`品出しのとき、${e.items.map(([p,q])=>P[p].short+(q>1?'×'+q:'')).join('・')}の数が合わなかった（万引きの疑い）`,''];
+  if(e.k==='gap')return ['gap','',`品出しのとき、${e.items.map(([p,q])=>sh(P[p])+(q>1?'×'+q:'')).join('・')}の数が合わなかった（万引きの疑い）`,''];
   if(e.k==='closed')return ['sys','',`店員がいないので閉めている（${fmtT(e.to)}まで）`,''];return ['sys','',e.k,''];}
 /* 絞り込み：種類・客層・きっかけ・ジャンル・商品・理由・評価・時間帯。絞った分だけを一覧と集計に出す */
 const LF0={k:'',ps:'',mot:'',genre:'',pid:'',why:'',stars:'',pts:'',h0:5,h1:26};
@@ -349,11 +356,11 @@ function lfCsv(res){const I=ix(),L=V.cfg.mood&&V.cfg.mood.labels||{},k=KC.idxAt(
   const rows=[['運行日','時刻','種類','客層','品','個数','金額','きっかけ','ついで','待ち秒','理由','星','内容']];
   for(let i=0;i<k;i++){const e=res.ev[i];if(!lfMatch(e))continue;const ps=e.ps?(I.PS[e.ps]||{}).name||e.ps:'',kd=KIND[kindOf(e)];
     if(e.k==='buy')rows.push([res.day,fmtT(e.t),kd,ps,e.items.map(([p])=>I.P[p].short).join('・'),e.items.reduce((a,x)=>a+x[1],0),Math.round(e.yen),e.reg?'いつもの':e.mania?'発売日を待って':L[e.mot||'plan']||'',e.addon?'あり':'',Math.round((e.wait||0)*60),'','','']);
-    else{const [,,tx]=evText(e);rows.push([res.day,fmtT(e.t),kd,ps,e.pid?I.P[e.pid].short:e.genre?I.G[e.genre].name:'','','','','','',e.why||'',e.stars||'',tx]);}}
+    else{const [,,tx]=evText(e);rows.push([res.day,fmtT(e.t),kd,ps,e.pid?I.P[e.pid].short:e.genre?I.G[e.genre].name:'','','','','','',e.why||'',e.stars||'',plainMark(tx)]);}}
   const blob=new Blob(['﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv'}),a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download=`売店_売れ行き_運行日${res.day}.csv`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);}
 /* 一覧は作り直さない：新しい出来事を上に足すだけ。下の方を読んでいるあいだは足さずに「新しい出来事 ○件」を出す（スクロールが先頭に戻らないように） */
-const logRow=e=>{const [c,ps,tx,r]=evText(e);return `<div class="${c}"><time>${fmtT(e.t)}</time><span class="ps">${esc(ps)}</span><span>${esc(tx)}</span><em>${esc(r)}</em></div>`;};
+const logRow=e=>{const [c,ps,tx,r]=evText(e);return `<div class="${c}"><time>${fmtT(e.t)}</time><span class="ps">${esc(ps)}</span><span>${markHtml(esc(tx))}</span><em>${esc(r)}</em></div>`;};
 const PAGE=120;
 function renderLog(b,res,full){const k=KC.idxAt(res,gT());let box=$('ksLog');
   const rebuild=full||!box||V.logRes!==res||k<V.logK||!b.contains(box);
@@ -399,7 +406,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
   const tag=p=>{const t=[];const G=I.G[p.genre];t.push(p.temp==='hot'?'<i class="hot">温</i>':p.temp==='cold'?'<i class="cold">冷</i>':'<i>常温</i>');
     if(p.ease>=5)t.push('<i>手軽</i>');if(p.health>=4)t.push('<i>健康</i>');if(p.sudden)t.push('<i>突発</i>');if(p.genre==='hot')t.push('<i>温め・調理</i>');
     if(p.photo>=0.6)t.push('<i>映え</i>');if(p.regular>=0.6)t.push('<i>常連向き</i>');if(p.mania>=0.4)t.push('<i>マニア</i>');if(G.age)t.push('<i class="age">年齢確認</i>');
-    if(G.returnable)t.push('<i>返品できる</i>');if(G.life===0)t.push('<i>その日限り</i>');if(tr&&p.tags.some(x=>tr.tags.includes(x)))t.push(`<i class="trend">${tr.name}</i>`);if((S.buzz[p.id]||0)>0.05)t.push('<i class="trend">SNSで話題</i>');return `<span class="ks-tags">${t.join('')}</span>`;};
+    if(G.returnable)t.push('<i>返品できる</i>');if(G.life===0)t.push('<i>その日限り</i>');if(tr&&p.tags.some(x=>tr.tags.includes(x)))t.push(`<i class="trend">${tr.name}</i>`);if((S.buzz[p.id]||0)>0.05)t.push('<i class="trend">SNSで話題</i>');if(brandOf(p))t.unshift(brandBadge(p));return `<span class="ks-tags">${t.join('')}</span>`;};
   const rep=pid=>{const x=S.rep[pid];if(!x||!x.n)return '<span class="mut">—</span>';const avg=x.sum/x.n,keys=Object.entries(x.keys).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k2,n])=>({sweetHi:'甘すぎ',sweetLo:'甘さ不足',richHi:'濃い',richLo:'うすい',volLo:'量が少ない',volHi:'多すぎ',priceHi:'高い',priceOk:'安い',good:'満足',warm:'温かい',cold:'冷えてる',crush:'つぶれ'})[k2]+n).join('・');return `★${avg.toFixed(1)}（${x.n}）<br><span class="mut" style="font-size:11px">${keys}</span>`;};
   b.innerHTML=`<div class="ks-card"><h3><span>商品・値段・仕入れ</span><small>値段は「世の中のふつうの値段」との比も出します</small></h3>
     <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。</p>
@@ -445,7 +452,7 @@ function updateItems(){const res=V.res;if(!res||V.tab!=='items')return;const T0=
 /* 棚割り：区画ごとの枠に、どの品を置くか */
 function renderLayout(b){const I=ix(),set=curSet(),Z=V.cfg.zones,sel=V.slotSel;
   let pick='';if(sel){const z=Z[sel.z],cur=set.layout[sel.z][sel.i],ok=V.cfg.products.filter(p=>I.G[p.genre].zones.includes(sel.z));
-    pick=`<div class="ks-pick"><span>${z.name}の${Math.floor(sel.i/z.cols)+1}段目・${sel.i%z.cols+1}列目：</span><select id="ksPickSel"><option value="">（空ける）</option>${ok.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.name)}（${yen(set.price[p.id]??p.price)}）</option>`).join('')}</select>
+    pick=`<div class="ks-pick"><span>${z.name}の${Math.floor(sel.i/z.cols)+1}段目・${sel.i%z.cols+1}列目：</span><select id="ksPickSel"><option value="">（空ける）</option>${ok.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.name)}${brandOf(p)?'〔'+esc(brandOf(p).mark)+'〕':''}（${yen(set.price[p.id]??p.price)}）</option>`).join('')}</select>
       <button type="button" class="ks-btn" id="ksPickClose">閉じる</button><span class="ks-note" style="margin:0">同じ品を隣の枠にも置くと「列」が増え、目につきやすく、たくさん並べられます。新しく置いた品は、仕入れの締め切りしだいで${dayWord(nextOrderDay())}届きます（急ぐなら「商品」の臨時便）。</span></div>`;}
   b.innerHTML=`<div class="ks-card"><h3><span>棚割り</span><small>枠を押して、置く品を選びます（区画ごとに置ける品が決まっています）</small></h3>
     <div class="ks-zones" style="margin-top:10px">${Object.entries(Z).map(([zk,z])=>`<div class="ks-zone"><h4>${z.name}<small>${z.rows}段×${z.cols}列・1列に${z.depth}個</small></h4>
@@ -597,7 +604,7 @@ const BOX={hook:[136,118,170,190],top:[320,110,380,40],fridge:[136,316,190,190],
 function zoneSlots(zk){const z=V.cfg.zones[zk],[x,y,w,h]=BOX[zk],out=[];const cw=w/z.cols,rh=h/z.rows;for(let i=0;i<z.rows*z.cols;i++){const r=Math.floor(i/z.cols),c=i%z.cols;out.push([x+c*cw,y+r*rh,cw,rh]);}return out;}
 function rr(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r);}
 function drawItem(c,p,x,y,w,h,k){const col=p.color,gid=p.genre;c.save();
-  if(gid==='onigiri'){for(let j=0;j<k;j++){const xx=x+4+j*(w-8)/Math.max(1,k);c.fillStyle='#f4f1e6';c.beginPath();c.moveTo(xx+w*0.14,y+h*0.25);c.lineTo(xx,y+h*0.85);c.lineTo(xx+w*0.28,y+h*0.85);c.closePath();c.fill();c.fillStyle='#1d2b22';c.fillRect(xx+w*0.06,y+h*0.62,w*0.16,h*0.23);}}
+  if(gid==='onigiri'){for(let j=0;j<k;j++){const xx=x+4+j*(w-8)/Math.max(1,k);c.fillStyle='#f4f1e6';c.beginPath();c.moveTo(xx+w*0.14,y+h*0.25);c.lineTo(xx,y+h*0.85);c.lineTo(xx+w*0.28,y+h*0.85);c.closePath();c.fill();c.fillStyle='#1d2b22';c.fillRect(xx+w*0.06,y+h*0.62,w*0.16,h*0.23);const bd=brandOf(p);if(bd){c.fillStyle=bd.color||'#0f6e56';c.beginPath();c.arc(xx+w*0.14,y+h*0.47,Math.max(2,w*0.045),0,7);c.fill();}}}
   else if(gid==='colddrink'||gid==='coffee'||gid==='energy'||gid==='alcohol'||gid==='hotdrink'){const can=gid!=='colddrink';for(let j=0;j<Math.min(3,k);j++){const bw=can?w*0.22:w*0.2,xx=x+3+j*(w-6)/3;c.fillStyle=col;rr(c,xx,y+(can?h*0.3:h*0.12),bw,h*(can?0.62:0.8),2);c.fill();c.fillStyle='rgba(255,255,255,.35)';c.fillRect(xx+1,y+h*0.4,2,h*0.3);if(!can){c.fillStyle='#ddd';c.fillRect(xx+bw*0.3,y+h*0.05,bw*0.4,h*0.08);}}}
   else if(gid==='bread'||gid==='donut'||gid==='hot'){for(let j=0;j<Math.min(3,k);j++){const xx=x+w*0.18+j*w*0.3;c.fillStyle=col;c.beginPath();c.ellipse(xx,y+h*0.62,w*0.15,h*0.26,0,0,7);c.fill();if(gid==='donut'){c.fillStyle='rgba(0,0,0,.25)';c.beginPath();c.arc(xx,y+h*0.62,w*0.04,0,7);c.fill();}}}
   else if(gid==='sand'){for(let j=0;j<Math.min(2,k);j++){const xx=x+4+j*w*0.45;c.fillStyle='#fbf6e8';c.beginPath();c.moveTo(xx,y+h*0.85);c.lineTo(xx+w*0.38,y+h*0.85);c.lineTo(xx+w*0.38,y+h*0.25);c.closePath();c.fill();c.fillStyle=col;c.fillRect(xx+w*0.05,y+h*0.62,w*0.3,h*0.08);}}
@@ -626,6 +633,7 @@ function drawKiosk(c,res,Tn){const I=ix(),set=curSet(),si=KC.shelfInfo(V.cfg,set
       // 値札・売切
       const pr=set.price[pid]??p.price,sv=stock[pid]||0,lowS=s&&sv>0&&sv<=Math.max(1,Math.ceil(s.cap*0.25));
       c.fillStyle=sv<=0?'#d8382e':lowS?'#e0a21b':'#ffffff';c.fillRect(x+2,y+h-11,Math.min(w-4,42),9);c.fillStyle=sv<=0||lowS?'#fff':'#333';c.font='8px sans-serif';c.textAlign='left';c.fillText(sv<=0?'売切':lowS?'残り'+sv:pr+'円',x+4,y+h-4);
+      {const bd=brandOf(p);if(bd){const tw=Math.min(w-4,42),bx=Math.min(x+2+tw+2,x+w-12);c.fillStyle=bd.color||'#0f6e56';c.fillRect(bx,y+h-11,10,9);c.fillStyle='#fff';c.font='700 7px sans-serif';c.textAlign='center';c.fillText(bd.mark,bx+5,y+h-4);c.textAlign='left';}}
       if(V.sheet===pid){c.strokeStyle='#0b6b64';c.lineWidth=3;c.strokeRect(x,y,w,h);}});}
   c.fillStyle='#55504a';c.font='11px sans-serif';c.textAlign='left';c.fillText('たばこ（年齢確認）',540,156);c.fillText('ホットスナック',724,246);
   // 会計カウンターと店員
