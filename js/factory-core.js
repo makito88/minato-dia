@@ -4,6 +4,8 @@
    ・成形・包装は1本のライン：成形機 → 具入れ（人）→ 包装機 → ラベル → 検品 → 急冷 → 番重（店ごと）。
      具は決めた順に1種類ずつ作る（検品を通った数が注文に届いたら次の具へ）。ご飯は待っている釜から順に使う。
      雫の具には雫の米（新田の棚田米）の釜が要る。具を替えるたびに掃除で止まり、包装機はときどき詰まり、検品ではじいた分は出荷しない
+   ・人：具入れ（交代で休憩・疲れ）、機械の番（詰まりを直す・重さのずれに気づく）、品質管理（温度の記録・抜き取り・表示の確認）。
+     人が動いた場面は visits（いつ・誰が・どこで・何を）に残し、絵に出す
    ・材料・人・菌にそれぞれの時計がある：
        吸水（水温で速さが変わる）、温度（ニュートンの冷却）、菌（10〜52℃で増える）、人の疲れ（3時ごろ）
    ・釜の数・冷却の場所・成形の速さに限りがあり、詰まりは前の工程へ逆流する
@@ -18,8 +20,8 @@
 const ST={WAIT:0,WASH:1,SOAK:2,COOK:3,STEAM:4,POT:5,COOL:6,HOLD:7,FORM:8,DONE:9,CANCEL:-1};
 const ST_LABEL={0:'まだ',1:'洗米',2:'浸漬',3:'炊飯',4:'蒸らし',5:'釜で待ち',6:'冷却',7:'待ち',8:'成形・包装',9:'冷蔵',[-1]:'取りやめ'};
 /* ラインの状態（1分ごと） */
-const LN={RUN:0,IDLE:1,CHANGE:2,JAM:3,METAL:4};
-const LN_LABEL={0:'動いている',1:'米を待っている',2:'具の切り替え（掃除）',3:'包装機の詰まり',4:'異物の確認'};
+const LN={RUN:0,IDLE:1,CHANGE:2,JAM:3,METAL:4,ADJUST:5};
+const LN_LABEL={0:'動いている',1:'米を待っている',2:'具の切り替え（掃除）',3:'包装機の詰まり',4:'異物の確認',5:'成形機の重さ合わせ'};
 
 function rng(seed){let a=seed>>>0;return function(){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
 function gauss(r){let u=0,v=0;while(u===0)u=r();while(v===0)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
@@ -91,11 +93,24 @@ function simulate(D,cfgIn){
   const cooler=[];           // 冷却中
   const hold=[];             // 成形を待つ
   let onLine=null;           // 成形中
-  const agg={made:new Float32Array(N),rate:new Float32Array(N),inCool:new Int8Array(N),line:new Int8Array(N),rej:new Float32Array(N),formed:new Float32Array(N),fill:new Int8Array(N).fill(-1),got:new Float32Array(N),tgt:new Float32Array(N)};
+  const agg={made:new Float32Array(N),rate:new Float32Array(N),inCool:new Int8Array(N),line:new Int8Array(N),rej:new Float32Array(N),formed:new Float32Array(N),fill:new Int8Array(N).fill(-1),got:new Float32Array(N),tgt:new Float32Array(N),hands:new Int8Array(N),off:new Int8Array(N),away:new Int8Array(N)};
   // ラインの出来事は、夜の番号と季節で決まる（条件を変えても、同じ時刻に同じくじを引く）
   const rl=rng((cfg.seed*104729+({winter:1,mid:2,summer:3}[cfg.season]||0)*7)>>>0);
-  const jamRoll=new Float32Array(N).map(()=>rl());const jamLen=new Int8Array(N).map(()=>PL.jam.min[0]+Math.floor(rl()*(PL.jam.min[1]-PL.jam.min[0]+1)));
+  const jamRoll=new Float32Array(N).map(()=>rl());const SF=D.staff;const jr=cfg.tech?SF.tech.jamWith:SF.tech.jamWithout;
+  const jamLen=new Float32Array(N).map(()=>rl()).map(u=>jr[0]+Math.floor(u*(jr[1]-jr[0]+1)));
   const metalAt=rl()<PL.metal.perNight?T0+240+Math.floor(rl()*300):null;let metalDone=false;
+  const driftRoll=new Float32Array(N).map(()=>rl());const labelRoll=new Float32Array(40).map(()=>rl());let changeNo=0;
+  /* 人 */
+  const visits=[];const visit=(t0,t1,who,where,text)=>visits.push({t0,t1,who,where,text});
+  const BR=SF.break;const bStart=BR.at[cfg.breakAt]||BR.at.mid;
+  const brk=Array.from({length:cfg.crew},(_,k)=>[bStart+k*BR.min,bStart+(k+1)*BR.min]);
+  const fatG=t=>{const f=D.form.fatigue;const z=(t-f.center)/f.width;return f.drop*Math.exp(-z*z);};
+  // 具入れの手：休憩中の人は抜け、休んだあとの人は疲れが軽い。away は貼り直しなどで手を離れた人数
+  const hands=(t,away)=>{let n=0,f=0,off=0;for(const [a,b] of brk){if(t>=a&&t<b){off++;continue;}const rec=t>=b&&t-b<BR.recoverMin;n++;f+=1-fatG(t)*(rec?1-BR.recover:1);}
+    if(cfg.relief&&off){n+=off;f+=off*(1-fatG(t)*(1-BR.recover));off=0;} // 交代の人が入る（来たばかりなので疲れは軽い）
+    const k=Math.min(away,n);if(k>0){f-=f/n*k;n-=k;}return {n,f,off};};
+  let drift=null,wrongLabel=null,relabelUntil=-1;const discardFill={};const pp={temps:0,samples:0,checks:0,relabel:{n:0,units:0,min:0},drift:{n:0,extra:0},breakAt:bStart};
+  const lastRun={t:-999};
   let stop=null,curFill=null,jamEnd=-99,formedAll=0,rejAll=0,settleLeft=0,planDone=null,riceLeft=0;const stops=[];
   const plan=seq.slice();let pi=0;const got={};for(const id of seq)got[id]=0;
   const tgt=(id,t)=>t<D.orderConfirm?D.forecast*FILL[id].share:fo[id];
@@ -113,6 +128,21 @@ function simulate(D,cfgIn){
   log(T0,'info',`${S.label}の夜。水温${S.water}℃、部屋${S.room}℃。この水温だと吸水に${soakNeed(D,S.water)}分ほどかかります。`);
   log(T0,'info',`見込みは${D.forecast.toLocaleString()}個（${cfg.batches}釜を仕込む予定）。本当の注文は${hm(D.orderConfirm)}に届きます。`);
 
+  function fixDrift(t,how){const m=SF.drift.adjust;if(!stop){stop={code:LN.ADJUST,t0:t+1,until:t+1+m};stops.push(stop);}
+    visit(t+1,t+1+m,cfg.tech?'tech':'crew','form','重さを合わせる');pp.drift.n++;
+    log(t,'warn',`成形機のご飯の重さがずれていました（${hm(drift.t0)}から）。${how}。${m}分止めて合わせます。そのあいだ重さではじく分がふえていました。`);drift=null;}
+  function findLabel(t,how){const w=wrongLabel;wrongLabel=null;const u=Math.max(0,Math.round(got[w.fill]-w.got0));if(!u)return;
+    const fs=SF.label.fixStop;if(!stop){stop={code:LN.ADJUST,t0:t+1,until:t+1+fs,label:true};stops.push(stop);}
+    const hidden=(FILL[w.fill].allergen||[]).filter(a=>!(FILL[w.from].allergen||[]).includes(a));
+    pp.relabel.n++;
+    if(hidden.length){ // 表示にないアレルゲンが入っている → 捨てる
+      got[w.fill]-=u;rejT.label=(rejT.label||0)+u;rejAll+=u;made-=u;pp.relabel.discard=(pp.relabel.discard||0)+u;
+      discardFill[w.fill]=(discardFill[w.fill]||0)+u;
+      visit(t,t+fs,'qc','label','印字を直す・捨てる分を分ける');
+      log(t,'bad',`${how}、${FILL[w.fill].name}のラベルが${FILL[w.from].name}のままだと分かりました。中身の${hidden.join('・')}が表示にないので、貼り直さずに${u}個を捨てます。印字を直すのに${fs}分止めます。`);return;}
+    const m=Math.ceil(u/SF.label.relabel);relabelUntil=t+1+fs+m;pp.relabel.units+=u;pp.relabel.min+=m;
+    visit(t,t+fs,'qc','label','印字を直す');visit(t+fs,t+fs+m,'qc','relabel',`貼り直し ${u}個`);
+    log(t,'bad',`${how}、${FILL[w.fill].name}のラベルが${FILL[w.from].name}のままだと分かりました（表示の確認を省いた切り替え）。印字を直すのに${fs}分止め、${u}個を品質管理と具入れ1人で${m}分かけて貼り直します。`);}
   for(let i=0;i<N;i++){const t=T0+i;
     /* 注文の確定 */
     if(t===D.orderConfirm){
@@ -130,7 +160,21 @@ function simulate(D,cfgIn){
       for(const m of msg)log(t,'order',m+'。');
     }
 
+    /* 人の見回り：温度の記録（2時間ごと）と抜き取り（毎時30分） */
+    if(t>=SF.records.tempFrom&&(t-SF.records.tempFrom)%SF.records.tempEvery===0){pp.temps++;
+      const cT=cooler.length?Math.round(cooler.reduce((a,b)=>a+b.T,0)/cooler.length):null;
+      visit(t,t+3,'qc','cool',`温度を記録：冷却${cT==null?'（空）':cT+'℃'}`);visit(t+3,t+6,'qc','chill',`温度を記録：急冷 ${PL.chill.to}℃`);
+      log(t,'rec',`温度の記録（品質管理）：冷却の米${cT==null?'なし':`平均${cT}℃`}・冷却の空気${S.coolAir}℃・急冷のトンネル${PL.chill.to}℃。`);}
+    if(t%60===SF.records.sampleAt&&t-lastRun.t<=30){pp.samples++;
+      const fid=curFill;let msg=`抜き取り：${fid?FILL[fid].name:''}1個。`;
+      if(drift){msg+=`重さ${SF.records.weight+7}g。ずれている！`;}else msg+=`重さ${SF.records.weight}g・具よし`;
+      if(wrongLabel)msg+='・表示がちがう！';
+      visit(t,t+4,'qc','insp',msg);
+      if(drift)fixDrift(t,'抜き取りで見つかりました');
+      if(wrongLabel)findLabel(t,'抜き取りで');}
+    if(t===D.deadline&&wrongLabel)findLabel(t,'締め切りの検品で');
     /* 成形・包装のライン（下流から先に進めて、場所を空ける）
+
        成形機 → 具入れ（人）→ 包装機 → ラベル → 検品（重さ・金属・包み）→ 急冷 → 番重 */
     let rate=0,code=LN.IDLE,formedNow=0;
     const finish=(b)=>{b.st=ST.DONE;b.tDone=t;b.tExpire=t+PL.labelHours*60;lastDone=t;judge(b,t);};
@@ -147,8 +191,13 @@ function simulate(D,cfgIn){
         log(t,'info',`注文の分が全部そろいました。${n?`残ったご飯（${n}釜・${Math.round(u)}個分）は飼料へ。`:''}${w?`まだ洗っていない${w}釜は取りやめ。`:''}`);}
       else if(pi<plan.length){const want=plan[pi];
         if(curFill==null){curFill=want;settleLeft=PL.settle.units;}
-        else if(curFill!==want){const m=washMin(D,curFill,want);stop={code:LN.CHANGE,t0:t,until:t+m,from:curFill,to:want};stops.push(stop);
-          log(t,'line',`具の切り替え：${FILL[curFill].name}→${FILL[want].name}。${m===PL.wash.up?'薄い味から濃い味へなので、軽く拭いて':'濃い味から薄い味へ戻るので、全部洗って'}${m}分止まります。`);}}}
+        else if(curFill!==want){const m=washMin(D,curFill,want);const ck=cfg.labelCheck?SF.label.check:0;
+          stop={code:LN.CHANGE,t0:t,until:t+m+ck,from:curFill,to:want,check:ck};stops.push(stop);
+          visit(t,t+m,'crew','fill',m===PL.wash.up?'具の台を拭く':'具の台を全部洗う');
+          if(ck){visit(t+m,t+m+ck,'qc','label',`表示を確かめる：${FILL[want].name}`);pp.checks++;}
+          else if(labelRoll[changeNo%labelRoll.length]<SF.label.miss&&!wrongLabel)wrongLabel={fill:want,from:curFill,t0:t+m,got0:got[want]};
+          changeNo++;
+          log(t,'line',`具の切り替え：${FILL[curFill].name}→${FILL[want].name}。${m===PL.wash.up?'薄い味から濃い味へなので、軽く拭いて':'濃い味から薄い味へ戻るので、全部洗って'}${m}分${ck?`、表示の確認に${ck}分`:''}止まります。`);}}}
     if(!stop&&planDone==null&&pi<plan.length&&curFill===plan[pi]){
       const k=riceKind(D,curFill);
       if(onLine&&onLine.left<=1e-6){finish(onLine);onLine=null;}
@@ -163,12 +212,13 @@ function simulate(D,cfgIn){
           const others=plan.slice(pi+1).some(id=>id!==curFill);
           if(!soon&&others&&!deferred.has(curFill)&&t>=D.orderConfirm){deferred.add(curFill);const id=plan.splice(pi,1)[0];plan.push(id);
             log(t,'warn',`${FILL[id].name}に使う${kindName(k)}がすぐには炊き上がらないので、${FILL[id].name}の残りを後回しにします。`);}}}
-      if(onLine){code=LN.RUN;const b=onLine;rate=formRate(D,cfg.crew,t);
+      if(onLine){code=LN.RUN;const b=onLine;const H=hands(t,t<relabelUntil?1:0);rate=Math.min(lineCap(D),D.form.perPerson*H.f);lastRun.t=t;
         const r0=PL.weightReject+PL.wrapReject+(t-jamEnd<PL.jam.after?PL.jam.afterReject:0);
         const need=Math.max(0,tgt(curFill,t)-got[curFill]);
         const n=Math.min(b.left,rate,need/(1-r0)+0.01);
         let rw=n*PL.weightReject,rp=n*PL.wrapReject,rm=0;
         if(settleLeft>0){const q=Math.min(n,settleLeft);rw+=q*PL.settle.reject;settleLeft-=q;}
+        if(drift){const x=n*SF.drift.extra;rw+=x;pp.drift.extra+=x;}
         if(t-jamEnd<PL.jam.after)rp+=n*PL.jam.afterReject;
         if(metalAt!=null&&!metalDone&&t>=metalAt){metalDone=true;rm=n-rw-rp;
           stop={code:LN.METAL,t0:t+1,until:t+1+PL.metal.stop};stops.push(stop);
@@ -180,9 +230,15 @@ function simulate(D,cfgIn){
         b.T+=(S.room-b.T)*D.hold.k;
         if(b.left<=1e-6){finish(b);onLine=null;}
         if(!stop&&jamRoll[i]<PL.jam.perMin){const m=jamLen[i];stop={code:LN.JAM,t0:t+1,until:t+1+m};stops.push(stop);
-          log(t+1,'line',`包装機が詰まりました。フィルムを直して${m}分後に動かします（直したあと少しのあいだ、包みの崩れがふえます）。`);}}}
+          visit(t+1,t+1+m,cfg.tech?'tech':'crew','wrap','フィルムを直す');
+          log(t+1,'line',cfg.tech?`包装機が詰まりました。機械の番がフィルムを直し、${m}分後に動かします（直したあと少しのあいだ、包みの崩れがふえます）。`:`包装機が詰まりました。機械の番がいないので、具入れの人が手を止めて直しに行き、${m}分止まります。`);}
+        // 成形機の重さのずれ
+        if(!drift&&!stop&&driftRoll[i]<SF.drift.perMin){drift={t0:t,detect:t+(cfg.tech?SF.drift.detectWith:SF.drift.detectWithout)};}
+        if(drift&&!stop&&t>=drift.detect){fixDrift(t,cfg.tech?'機械の番が気づきました':'ずれたまま流れていたのに、やっと気づきました');}}}
     else if(stop&&onLine){onLine.T+=(S.room-onLine.T)*D.hold.k;}
     if(stop&&t>=stop.t0)code=stop.code;else if(planDone!=null)code=LN.IDLE;
+    {const H=hands(t,t<relabelUntil?1:0);agg.hands[i]=H.n;agg.off[i]=H.off;agg.away[i]=t<relabelUntil?1:0;}
+    if(i>0&&t===bStart)log(t,'rec',`具入れの休憩が始まります（1人ずつ${BR.min}分の交代。${hm(bStart+BR.min*cfg.crew)}まで1人少ない）。`);
     agg.rate[i]=formedNow;agg.line[i]=code;
     if(curFill!=null&&planDone==null){agg.fill[i]=PL.fillings.findIndex(f=>f.id===curFill);agg.got[i]=got[curFill];agg.tgt[i]=tgt(curFill,t);}
     /* 待ち */
@@ -246,7 +302,7 @@ function simulate(D,cfgIn){
     if(b.st===ST.DONE&&b.rank==='×'){bad+=b.made;continue;}
     for(const id in b.parts){fills[id].good+=b.partsBy[id]||0;fills[id].late+=b.parts[id]-(b.partsBy[id]||0);}}
   let shipped=0,surplus=0,late=0;
-  for(const id of seq){const f=fills[id];f.good=Math.floor(f.good+1e-6);f.late=Math.floor(f.late+1e-6);f.shipped=Math.min(f.order,f.good);f.short=f.order-f.shipped;
+  for(const id of seq){const f=fills[id];const dc=discardFill[id]||0;{const a=Math.min(f.good,dc);f.good-=a;f.late=Math.max(0,f.late-(dc-a));}f.good=Math.floor(f.good+1e-6);f.late=Math.floor(f.late+1e-6);f.shipped=Math.min(f.order,f.good);f.short=f.order-f.shipped;
     f.surplus=f.good-f.shipped;f.lateUse=Math.min(f.short,f.late);f.unmade=f.short-f.lateUse;
     shipped+=f.shipped;surplus+=f.surplus;late+=f.lateUse;unfinished+=f.unmade;}
   const short=order-shipped;
@@ -257,7 +313,7 @@ function simulate(D,cfgIn){
   /* 費用（仮） */
   const C=D.cost;let labor=0;
   const endWork=Math.max(lastDone||T1,T0+60);
-  for(let t=cfg.start;t<endWork;t++){const r=(t>=C.nightFrom?C.nightRate:1)*C.wage/60;labor+=r*(cfg.crew+C.fixedStaff);}
+  for(let t=cfg.start;t<endWork;t++){const r=(t>=C.nightFrom?C.nightRate:1)*C.wage/60;labor+=r*(cfg.crew+C.fixedStaff+(cfg.tech?1:0)+(cfg.relief&&brk.some(([a,b])=>t>=a&&t<b)?1:0));}
   const rice=batches.filter(b=>b.tWash!=null).length*D.riceKg*C.ricePerKg;
   const other=formedAll*C.otherPerUnit;
   const total=Math.round(labor+rice+other+coolYen);
@@ -265,12 +321,12 @@ function simulate(D,cfgIn){
   const neck=waits.slice().sort((a,b)=>b[1]-a[1])[0];
   const gMax=Math.max(0,...live.filter(b=>b.gAtCheck!=null).map(b=>b.gAtCheck));
   const summary={order,forecast:D.forecast,planned:cfg.batches,batches:batches.filter(b=>b.tWash!=null).length,shipped,short,surplus:Math.max(0,surplus)+Math.round(riceLeft),riceLeft:Math.round(riceLeft),planDone,late,bad:Math.round(bad),unfinished:Math.round(unfinished),
-    fills:seq.map(id=>fills[id]),stores,crates:stores.reduce((a,x)=>a+x.crates,0),rej:{weight:Math.round(rejT.weight),wrap:Math.round(rejT.wrap),metal:Math.round(rejT.metal),all:Math.round(rejAll)},lineStops,
+    fills:seq.map(id=>fills[id]),people:Object.assign(pp,{crew:cfg.crew,tech:!!cfg.tech,fixed:C.fixedStaff,drift:{n:pp.drift.n,extra:Math.round(pp.drift.extra)}}),stores,crates:stores.reduce((a,x)=>a+x.crates,0),rej:{weight:Math.round(rejT.weight),wrap:Math.round(rejT.wrap),metal:Math.round(rejT.metal),label:Math.round(rejT.label||0),all:Math.round(rejAll)},lineStops,
     ranks,firstForm,lastDone,gMax,waits,neck,soakNeed:soakNeed(D,S.water),
     yen:{labor:Math.round(labor),rice,other:Math.round(other),cool:coolYen,total,perUnit:shipped?Math.round(total/shipped):null}};
   if(lastDone!=null)log(lastDone,'info',`最後の釜の成形が終わりました（${hm(lastDone)}）。`);
   ev.sort((a,b)=>a.t-b.t);
-  return {cfg,season:S,T0,T1,N,batches,agg,ev,summary,tauW,stops};
+  return {cfg,season:S,T0,T1,N,batches,agg,ev,summary,tauW,stops,visits,brk};
 }
 
 root.FactoryCore={ST,ST_LABEL,LN,LN_LABEL,simulate,tau,soakNeed,mu,fatigue,formRate,lineCap,washMin,fillOrder,riceKind,actualOrder,hm};

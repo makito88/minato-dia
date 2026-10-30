@@ -54,7 +54,7 @@
       {"id": "konbu", "name": "昆布", "share": 0.12},
       {"id": "ume", "name": "梅", "share": 0.15},
       {"id": "sake", "name": "鮭", "share": 0.24},
-      {"id": "tuna", "name": "ツナマヨ", "share": 0.20},
+      {"id": "tuna", "name": "ツナマヨ", "share": 0.20, "allergen": ["卵"]},
       {"id": "mentai", "name": "明太子", "share": 0.11},
       {"id": "hesiko", "name": "鯖へしこ", "brand": "雫", "share": 0.08}],
     "_fillings": "上から味が薄い順。売店の品（data/kiosk.json の oni_*）に合わせた。雫＝にったの雫の米を使う釜",
@@ -78,12 +78,31 @@
     "stores": [["中央", 0.2], ["川辺", 0.12], ["桜町", 0.1], ["大学前", 0.12], ["緑ヶ丘", 0.08], ["森下", 0.07], ["新田", 0.08], ["港", 0.1], ["峠", 0.06], ["温泉", 0.07]],
     "_stores": "店ごとの割合（仮）。番重はセンターで店ごとのトラックに積む"
   },
+  "staff": {
+    "_note": "工場の人。具入れは「夕方に決める」の人数。ほかに決まった持ち場の人と、選べる「機械の番」。数字はすべて仮",
+    "posts": [
+      {"id": "kama", "name": "釜番", "where": "cook", "note": "炊き上がりと火加減を見る"},
+      {"id": "eye", "name": "目で見る検品", "where": "insp", "note": "形と包みの崩れを抜く"},
+      {"id": "box", "name": "番重詰め", "where": "crate", "note": "店ごとに数えて箱へ。店の札を付ける"},
+      {"id": "qc", "name": "品質管理", "where": "roam", "note": "温度の記録・抜き取り・表示の確認・異物の判断"}],
+    "_posts": "決まった持ち場（休憩は交代の人が埋める）。費用は cost.fixedStaff の人数で数える",
+    "tech": {"jamWith": [2, 4], "jamWithout": [6, 10],
+      "_tech": "機械の番がいれば包装機の詰まりは2〜4分で直る。いなければ具入れの人が手を止めて呼びに行き、6〜10分かかる"},
+    "drift": {"perMin": 0.004, "extra": 0.06, "detectWith": 3, "detectWithout": 20, "adjust": 2,
+      "_drift": "成形機のご飯の重さが、ときどきずれる。ずれているあいだは重さではじく割合が6%ふえる。機械の番は3分で気づき、いなければ20分（その前に抜き取りがあればそこで）。合わせるのに2分止める"},
+    "label": {"check": 3, "miss": 0.08, "relabel": 15, "fixStop": 5,
+      "_label": "具の切り替えのたびに、品名・消費期限・原材料の表示を3分かけて確かめる。省くと8%の確率でラベルが前の具のまま。次の抜き取り（なければ締め切りの検品）で見つかり、ラインを5分止めて印字を直し、それまでの分を品質管理と具入れ1人で1分15個ずつ貼り直す。中身に卵が入っているのに表示に卵がないときは、貼り直さずに捨てる"},
+    "break": {"min": 45, "reliefWage": 1250, "at": {"early": 1350, "mid": 1440, "late": 1530}, "recover": 0.5, "recoverMin": 150,
+      "_break": "具入れの人は1人ずつ交代で45分休む。交代の人を呼べば手は減らない（そのぶんの時給がかかる）。呼ばなければそのあいだ1人少ない。休んだ人は、そのあと2時間半ほど疲れが半分になる"},
+    "records": {"tempEvery": 120, "tempFrom": 1140, "sampleEvery": 60, "sampleAt": 30, "weight": 110,
+      "_records": "品質管理が、19:00から2時間ごとに温度を記録し、毎時30分にラインから1個抜いて重さ・具・表示を確かめる"}
+  },
   "germ": {"init": 1.0, "tmin": 10, "topt": 37, "tmax": 52, "muOpt": 1.2, "warn": 2.2, "discard": 2.8,
     "_germ": "菌の数の目安（log10）。10℃〜52℃のあいだで増え、37℃で1時間に1.2（約16倍）。2.2で注意、2.8で出荷しない。仮の数字"},
   "quality": {"underSoak": 300, "crackPerMin": 6, "crackCap": 30, "potWaitFree": 10, "potWaitPerMin": 2, "potWaitCap": 30,
     "dryFree": 90, "dryPerMin": 3, "dryCap": 40,
     "ranks": [[85, "◎"], [70, "○"], [50, "△"], [0, "×"]]},
-  "cost": {"ricePerKg": 420, "otherPerUnit": 24, "wage": 1250, "nightFrom": 1320, "nightRate": 1.25, "fixedStaff": 3},
-  "defaults": {"season": "mid", "batches": 33, "start": 1095, "soak": 70, "fan": "mid", "crew": 4, "order": "nitta", "seed": 1},
+  "cost": {"ricePerKg": 420, "otherPerUnit": 24, "wage": 1250, "nightFrom": 1320, "nightRate": 1.25, "fixedStaff": 4},
+  "defaults": {"season": "mid", "batches": 33, "start": 1095, "soak": 70, "fan": "mid", "crew": 4, "order": "nitta", "tech": true, "breakAt": "mid", "relief": true, "labelCheck": true, "seed": 1},
   "ranges": {"batches": [20, 40], "start": [1080, 1260], "soak": [20, 240], "crew": [2, 6]}
 }

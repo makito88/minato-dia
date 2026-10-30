@@ -35,6 +35,13 @@ function buildPlan(){
   <div><label>冷却の強さ</label><div class="seg" id="fan" role="group" aria-label="冷却の強さ">
     <button data-v="weak">弱</button><button data-v="mid">中</button><button data-v="strong">強</button></div><div class="hint" id="fanHint"></div></div>
   <div><label for="crew">具入れの人数</label><input type="number" id="crew" min="${g.crew[0]}" max="${g.crew[1]}" step="1" style="width:70px"> <span class="hint" id="crewHint"></span></div>
+  <div><label>機械の番</label><div class="seg" id="tech" role="group" aria-label="機械の番">
+    <button data-v="1">置く</button><button data-v="0">置かない</button></div><div class="hint" id="techHint"></div></div>
+  <div><label>具入れの休憩（1人ずつ${D.staff.break.min}分）</label><div class="seg" id="breakAt" role="group" aria-label="休憩の時間帯">
+    ${Object.entries(D.staff.break.at).map(([k,v])=>`<button data-v="${k}">${hm(v)}から</button>`).join('')}</div>
+    <div class="seg" id="relief" role="group" aria-label="交代の人" style="margin-top:6px"><button data-v="1">交代の人を呼ぶ</button><button data-v="0">呼ばない</button></div><div class="hint" id="breakHint"></div></div>
+  <div><label>具の切り替えのときの表示の確認</label><div class="seg" id="labelCheck" role="group" aria-label="表示の確認">
+    <button data-v="1">確かめる</button><button data-v="0">省く</button></div><div class="hint" id="labelHint"></div></div>
   <div><label>具を作る順番</label><div class="seg" id="order" role="group" aria-label="具を作る順番">
     <button data-v="light">薄い味から</button><button data-v="big">注文の多い順</button><button data-v="nitta">雫を先に</button></div><div class="hint" id="orderHint"></div></div>`;
   const sync=()=>{
@@ -48,6 +55,12 @@ function buildPlan(){
     $('fanHint').textContent=`電気代 ${D.cool.yenPerMin[cfg.fan]}円／分（冷やしているあいだ）`;
     $('crewHint').textContent=`手で${D.form.perPerson*cfg.crew}個／分（機械は成形${D.packLine.formMachine}・包装${D.packLine.wrapMachine}個／分まで）`;
     for(const b of $('order').children)b.classList.toggle('on',b.dataset.v===cfg.order),b.setAttribute('aria-pressed',b.dataset.v===cfg.order);
+    const SF=D.staff,mark=(id,v)=>{for(const b of $(id).children){const on=b.dataset.v===String(v);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}};
+    mark('tech',cfg.tech?1:0);mark('breakAt',cfg.breakAt);mark('relief',cfg.relief?1:0);mark('labelCheck',cfg.labelCheck?1:0);
+    $('techHint').textContent=cfg.tech?`包装機の詰まりは${SF.tech.jamWith.join('〜')}分で直り、成形機の重さのずれに${SF.drift.detectWith}分で気づく（1人分の時給）`:`詰まりは具入れの人が直しに行くので${SF.tech.jamWithout.join('〜')}分。重さのずれは抜き取りか${SF.drift.detectWithout}分たってから気づく`;
+    const bs=SF.break.at[cfg.breakAt],be=bs+SF.break.min*cfg.crew;
+    $('breakHint').textContent=`${hm(bs)}〜${hm(be)}に${cfg.crew}人が順に休む。${cfg.relief?'交代の人が入るので手は減らない（そのぶんの時給）':'そのあいだ具入れが1人少ない'}。休んだ人はそのあと2時間半ほど疲れが半分`;
+    $('labelHint').textContent=cfg.labelCheck?`切り替えのたびに品質管理が${SF.label.check}分かけて品名・期限・原材料を確かめる`:`切り替えが${SF.label.check}分ずつ早い。ただし${Math.round(SF.label.miss*100)}%の確率でラベルが前の具のまま→見つかるまでの分を貼り直す（卵が表示にないときは捨てる）`;
     const seq=F.fillOrder(D,cfg.order).map(id=>D.packLine.fillings.find(f=>f.id===id));
     let ws=0,wl=0;for(let k=1;k<seq.length;k++){const m=F.washMin(D,seq[k-1].id,seq[k].id);m===D.packLine.wash.up?ws++:wl++;}
     $('orderHint').textContent=`${seq.map(f=>f.name+(f.brand?'〔'+f.brand+'〕':'')).join('→')}。掃除は短い${ws}回・長い${wl}回（注文が増えた具は最後にもう一度）`;
@@ -59,6 +72,10 @@ function buildPlan(){
   $('crew').onchange=e=>{cfg.crew=clampInt(e.target.value,g.crew);sync();};
   for(const b of $('fan').children)b.onclick=()=>{cfg.fan=b.dataset.v;sync();};
   for(const b of $('order').children)b.onclick=()=>{cfg.order=b.dataset.v;sync();};
+  for(const b of $('tech').children)b.onclick=()=>{cfg.tech=b.dataset.v==='1';sync();};
+  for(const b of $('breakAt').children)b.onclick=()=>{cfg.breakAt=b.dataset.v;sync();};
+  for(const b of $('relief').children)b.onclick=()=>{cfg.relief=b.dataset.v==='1';sync();};
+  for(const b of $('labelCheck').children)b.onclick=()=>{cfg.labelCheck=b.dataset.v==='1';sync();};
   sync();
 }
 function clampInt(v,[a,b]){v=Math.round(+v);if(!isFinite(v))v=a;return Math.max(a,Math.min(b,v));}
@@ -116,13 +133,13 @@ function drawClocks(i){const t=R.T0+i,S=R.season;
    <div class="clk"><b>水の時計（吸水）</b><span class="v">水温 <span class="num">${S.water}℃</span>・目安 <span class="num">${F.soakNeed(D,S.water)}</span>分</span><div class="small muted">浸しているのは ${soaking.length} 釜／タンク ${D.soak.tanks}</div></div>
    <div class="clk"><b>熱の時計（冷え方）</b><span class="v">冷却中 <span class="num">${cooling}</span>／${D.cool.slots} 釜</span><div class="small muted">冷却の空気 ${S.coolAir}℃・部屋 ${S.room}℃</div></div>
    <div class="clk"><b>菌の時計</b><span class="v">${gTop.b?`いちばん多い 釜${gTop.b.no}：<span class="num" style="color:${gTop.g>=D.germ.warn?css('--bad'):'inherit'}">${gTop.g.toFixed(2)}</span>`:'まだ炊いていません'}</span><div class="small muted">注意 ${D.germ.warn}・出荷しない ${D.germ.discard}（仮の目安）</div></div>
-   <div class="clk"><b>人の時計（疲れ）</b><span class="v">具入れ <span class="num">${R.agg.rate[i].toFixed(0)}</span>個／分</span><div class="small muted">${fat<0.95?`疲れで ${Math.round((1-fat)*100)}% 遅い`:'まだ元気'}・${cfg.crew}人</div></div>`;
+   <div class="clk"><b>人の時計（疲れ）</b><span class="v">具入れ <span class="num">${R.agg.rate[i].toFixed(0)}</span>個／分</span><div class="small muted">具入れ ${R.agg.hands[i]}人${R.agg.off[i]?`・休憩 ${R.agg.off[i]}人`:''}${R.agg.away[i]?'・貼り直しに1人':''}${inBreak(t)&&cfg.relief?'・交代の人':''}・${fat<0.95?`疲れで ${Math.round((1-fat)*100)}% 遅い`:'まだ元気'}</div></div>`;
 }
 
 /* ---------------- 工程の絵 ---------------- */
 function layout(w){
-  if(w<640){return {W:400,H:1240,box:{
-    wash:[12,30,110,180],soak:[134,30,254,180],cook:[12,250,376,150],cool:[12,440,376,150],hold:[12,620,376,104],form:[12,754,376,300],ship:[12,1084,376,140]},tankCols:4,lineRows:2,
+  if(w<640){return {W:400,H:1264,box:{
+    wash:[12,30,110,180],soak:[134,30,254,180],cook:[12,250,376,150],cool:[12,440,376,150],hold:[12,620,376,104],form:[12,754,376,326],ship:[12,1110,376,140]},tankCols:4,lineRows:2,
     links:[['wash','soak','h'],['soak','cook','v'],['cook','cool','v'],['cool','hold','v'],['hold','form','v'],['form','ship','v']]};}
   return {W:1040,H:700,box:{
     wash:[16,36,120,190],soak:[156,36,440,190],cook:[616,36,408,190],cool:[16,280,560,180],hold:[596,280,428,180],form:[16,500,866,190],ship:[902,500,122,190]},tankCols:8,lineRows:1,
@@ -209,7 +226,8 @@ function drawPots(c,[x,y,w,h],i,t){
     txt(c,'釜'+b.no,px+pw/2,py+ph/2-6,{align:'center',bold:true});
     txt(c,{3:'炊飯',4:'蒸らし',5:'待ち'}[s]+` ${T.toFixed(0)}℃`,px+pw/2,py+ph/2+10,{align:'center',size:11,num:false});
     hit(px,py,pw,ph,b);selRing(c,px,py,pw,ph,b);}
-  txt(c,`炊飯${D.cook.min}分＋蒸らし${D.cook.steam}分`,x+w-8,y+16,{align:'right',size:10,color:css('--muted')});
+  const kt=`釜番1人・炊飯${D.cook.min}分＋蒸らし${D.cook.steam}分`;txt(c,kt,x+w-8,y+16,{align:'right',size:10,color:css('--muted')});
+  c.font='10px '+css('--f-body');person(c,x+w-8-c.measureText(kt).width-10,y+6,'post');
 }
 function drawCooler(c,[x,y,w,h],i){
   const bx=x+12,bw=w-24,by=y+h/2+10;
@@ -225,6 +243,7 @@ function drawCooler(c,[x,y,w,h],i){
     germDot(c,tx+tw-4,ty+4,b,i);hit(tx,ty,tw,th,b);selRing(c,tx,ty,tw,th,b);}
   txt(c,`95℃ →`,bx,y+h-14,{size:10,color:css('--muted')});txt(c,`→ ${D.cool.target}℃で次へ`,bx+bw,y+h-14,{size:10,color:css('--muted'),align:'right'});
   txt(c,`同時に${D.cool.slots}釜まで・風「${{weak:'弱',mid:'中',strong:'強'}[cfg.fan]}」`,x+w-8,y+16,{align:'right',size:10,color:css('--muted')});
+  const qv=visitsAt(R.T0+cur).find(v=>v.who==='qc'&&v.where==='cool');if(qv){person(c,x+112,y+11,'qc');bubble(c,x+186,y+28,qv.text,[x,y,w,h],ROLE_COLOR.qc);}
 }
 function drawHold(c,[x,y,w,h],i){
   const inH=R.batches.filter(b=>b.hs[i]===ST.HOLD).sort((a,b)=>a.tHold-b.tHold);
@@ -242,6 +261,17 @@ function drawHold(c,[x,y,w,h],i){
 const FILL_COLOR={shio:'#d9d3c1',konbu:'#3f4b2c',ume:'#c2445e',sake:'#e8835a',tuna:'#d4b26f',mentai:'#cf4a3f',hesiko:'#7c6a4e'};
 const STATIONS=['成形機','具入れ','包装機','ラベル','検品','急冷','番重'];
 function nittaTag(c,x,y){c.fillStyle=(D.packLine&&'#0F6E56');c.fillRect(x,y,11,11);txt(c,'雫',x+5.5,y+9.5,{align:'center',size:8.5,bold:true,color:'#fff'});}
+/* 人：具入れ（青）・機械の番（橙）・品質管理（青緑、記録板つき）・決まった持ち場（灰）・交代の人（緑） */
+const ROLE_COLOR={crew:'#5d7896',tech:'#d9822b',qc:'#2f7f8a',post:'#7d8792',relief:'#4f9a62'};
+function person(c,x,y,role,dim){c.globalAlpha=dim?0.4:1;c.fillStyle=ROLE_COLOR[role]||'#888';c.beginPath();c.arc(x,y,4.5,0,7);c.fill();rr(c,x-5,y+6,10,10,3);c.fill();
+  if(role==='qc'){c.fillStyle='#fff';c.fillRect(x+2,y+8,5,7);c.fillStyle=ROLE_COLOR.qc;c.fillRect(x+3,y+10,3,1);c.fillRect(x+3,y+12,3,1);}
+  if(role==='tech'){c.fillStyle='#fff';c.fillRect(x-4.5,y-3.5,9,2.2);}
+  c.globalAlpha=1;}
+function bubble(c,x,y,text,[bx0,by0,bw0],color){c.font='10.5px '+css('--f-body');const w=c.measureText(text).width+12,h=17;
+  const bx=Math.max(bx0+4,Math.min(x-w/2,bx0+bw0-w-4));c.fillStyle=css('--sheet');c.strokeStyle=color||css('--line');c.lineWidth=1.2;rr(c,bx,y,w,h,8);c.fill();c.stroke();c.lineWidth=1;
+  txt(c,text,bx+6,y+12.5,{size:10.5,color:css('--ink')});}
+function inBreak(t){return R&&R.brk&&R.brk.some(([a,b])=>t>=a&&t<b);}
+function visitsAt(t){return R.visits.filter(v=>v.t0<=t&&t<v.t1);}
 function expiryText(e){return (e<2880?'翌日':'翌々日')+hm(e);}
 function drawForm(c,[x,y,w,h],i,t,rows){
   const PL=D.packLine,LN=F.LN,code=R.agg.line[i],fi=R.agg.fill[i],fill=fi>=0?PL.fillings[fi]:null;
@@ -258,9 +288,9 @@ function drawForm(c,[x,y,w,h],i,t,rows){
   txt(c,state,x+w-10,y+17,{align:'right',size:rows>1?11:12,bold:true,color:sc});
   // ベルトの道すじと、持ち場の位置
   let path,pos;const x0=x+14,x1=x+w-14;
-  if(rows>1){const y1=y+112,y2=y+250;path=[[x0,y1],[x1,y1],[x1,y2],[x0,y2]];
+  if(rows>1){const y1=y+122,y2=y+262;path=[[x0,y1],[x1,y1],[x1,y2],[x0,y2]];
     pos=STATIONS.map((_,k)=>k<4?[x0+(k+0.5)*(x1-x0)/4,y1]:[x1-(k-4+0.5)*(x1-x0)/3,y2]);}
-  else{const yb=y+114;path=[[x0,yb],[x1,yb]];pos=STATIONS.map((_,k)=>[x0+(k+0.5)*(x1-x0)/7,yb]);}
+  else{const yb=y+122;path=[[x0,yb],[x1,yb]];pos=STATIONS.map((_,k)=>[x0+(k+0.5)*(x1-x0)/7,yb]);}
   const segs=[];let total=0;for(let k=1;k<path.length;k++){const L=Math.hypot(path[k][0]-path[k-1][0],path[k][1]-path[k-1][1]);segs.push([total,L,path[k-1],path[k]]);total+=L;}
   const at=d=>{for(const [s0,L,a,b2] of segs){if(d<=s0+L){const u=(d-s0)/L;return [a[0]+(b2[0]-a[0])*u,a[1]+(b2[1]-a[1])*u];}}return path[path.length-1];};
   const dist=([px,py])=>{let best=0,bd=1e9;for(const [s0,L,a,b2] of segs){const u=Math.max(0,Math.min(1,((px-a[0])*(b2[0]-a[0])+(py-a[1])*(b2[1]-a[1]))/(L*L)));const qx=a[0]+(b2[0]-a[0])*u,qy=a[1]+(b2[1]-a[1])*u;const dd=Math.hypot(px-qx,py-qy);if(dd<bd){bd=dd;best=s0+u*L;}}return best;};
@@ -269,11 +299,10 @@ function drawForm(c,[x,y,w,h],i,t,rows){
   // 持ち場の札
   const sw=Math.min(104,(rows>1?(x1-x0)/4:(x1-x0)/7)-8);
   const tunnelW=sw*0.9;
-  pos.forEach(([px,py],k)=>{const bx=px-sw/2,by=py-64;const busy=code===LN.RUN||(k===5||k===6);
+  pos.forEach(([px,py],k)=>{const bx=px-sw/2,by=py-72;const busy=code===LN.RUN||(k===5||k===6);
     let hot=false;if(k===2&&code===LN.JAM)hot=true;if(k===4&&code===LN.METAL)hot=true;if(k===1&&code===LN.CHANGE)hot=true;
-    c.fillStyle=css('--sheet');c.strokeStyle=hot?(code===LN.CHANGE?css('--warn'):css('--bad')):css('--line');c.lineWidth=hot?2.5:1;rr(c,bx,by,sw,28,6);c.fill();c.stroke();c.lineWidth=1;
-    txt(c,STATIONS[k],px,by+18,{align:'center',size:11.5,bold:true,color:busy||k>4?css('--ink'):css('--muted')});
-    c.fillStyle=css('--line');c.fillRect(px-1,by+28,2,py-by-34);});
+    c.fillStyle=css('--sheet');c.strokeStyle=hot?(code===LN.CHANGE?css('--warn'):css('--bad')):css('--line');c.lineWidth=hot?2.5:1;rr(c,bx,by,sw,24,6);c.fill();c.stroke();c.lineWidth=1;
+    txt(c,STATIONS[k],px,by+16.5,{align:'center',size:11.5,bold:true,color:busy||k>4?css('--ink'):css('--muted')});});
   // 急冷のトンネル（下に）
   {const [tx,ty]=pos[5];c.fillStyle=css('--water');c.globalAlpha=0.5;rr(c,tx-tunnelW/2,ty-26,tunnelW,32,6);c.fill();c.globalAlpha=1;}
   // ベルトの上のおにぎり（検品を通った数だけ流れる）
@@ -288,14 +317,14 @@ function drawForm(c,[x,y,w,h],i,t,rows){
   {const [tx,ty]=pos[5];c.strokeStyle=css('--water2');c.globalAlpha=0.9;rr(c,tx-tunnelW/2,ty-26,tunnelW,32,6);c.stroke();c.globalAlpha=0.25;c.fillStyle=css('--water2');c.fill();c.globalAlpha=1;}
   // 番重（箱）
   const iC=Math.max(0,i-PL.chill.min);const passed=iC>0?R.agg.made[iC-1]:0;const crates=Math.floor(passed/PL.crate);
-  {const [cx,cy]=pos[6];const n=Math.min(4,crates);for(let k=0;k<n;k++){c.fillStyle=k%2?'#4f86b8':'#3f74a6';c.fillRect(cx-14,cy-8-k*7,28,6);}
-    if(crates>0){c.strokeStyle=css('--sheet');for(let k=0;k<n;k++){c.beginPath();c.moveTo(cx-14,cy-8-k*7+3);c.lineTo(cx+14,cy-8-k*7+3);c.stroke();}}}
+  {const [cx0,cy]=pos[6];const cx=cx0+(rows>1?-22:24);const n=Math.min(4,crates);for(let k=0;k<n;k++){c.fillStyle=k%2?'#4f86b8':'#3f74a6';c.fillRect(cx-12,cy-8-k*7,24,6);}
+    if(crates>0){c.strokeStyle=css('--sheet');for(let k=0;k<n;k++){c.beginPath();c.moveTo(cx-12,cy-8-k*7+3);c.lineTo(cx+12,cy-8-k*7+3);c.stroke();}}}
   // 持ち場ごとの数
   const madeNow=madeAt(cur),inTunnel=Math.max(0,Math.round(madeNow-passed));const rej=Math.round(R.agg.rej[i]);
   const fat=F.fatigue(D,t);const run=code===LN.RUN;
   const lines=[
     b?[`釜${b.no}${b.kind==='n'?'〔雫〕':''}`,run?`${R.agg.rate[i].toFixed(0)}個／分`:'止まっている']:['米を待つ',''],
-    [fill?fill.name:'—',`${cfg.crew}人${fat<0.95?'・☾疲れ':''}`],
+    [fill?fill.name:'—',`${R.agg.hands[i]}人${fat<0.95?'・☾疲れ':''}`],
     code===LN.JAM?['詰まり！',`あと${leftMin}分`]:[run?'動いている':'止まっている',`上限${PL.wrapMachine}／分`],
     ['消費期限',run||code!==LN.IDLE?expiryText(t+PL.labelHours*60):'—'],
     code===LN.METAL?['金属の反応',`あと${leftMin}分`]:['はじいた',`${rej.toLocaleString()}個`],
@@ -304,9 +333,34 @@ function drawForm(c,[x,y,w,h],i,t,rows){
   pos.forEach(([px,py],k)=>{const [a,b2]=lines[k];const bad=(k===2&&code===LN.JAM)||(k===4&&code===LN.METAL);
     txt(c,a,px,py+21,{align:'center',size:11,bold:true,color:bad?css('--bad'):css('--ink')});
     if(b2)txt(c,b2,px,py+35,{align:'center',size:10,color:bad?css('--bad'):css('--muted')});});
+  drawLinePeople(c,[x,y,w,h],i,t,pos,sw,code);
   if(b){if(rows>1){hit(x0,path[0][1]-30,x1-x0,40,b);hit(x0,path[2][1]-30,x1-x0,40,b);}else hit(x0,path[0][1]-30,x1-x0,40,b);
-    if(selected===b.id){c.strokeStyle=css('--focus');c.lineWidth=2;c.strokeRect(pos[0][0]-sw/2-2,pos[0][1]-66,sw+4,32);c.lineWidth=1;}}
+    if(selected===b.id){c.strokeStyle=css('--focus');c.lineWidth=2;c.strokeRect(pos[0][0]-sw/2-2,pos[0][1]-74,sw+4,28);c.lineWidth=1;}}
   if(beltFast)txt(c,'速すぎるので、ベルトの流れは間引いて表示',x+10,y+h-8,{size:10,color:css('--muted')});
+}
+/* ラインのまわりの人と、ときどき出る吹き出し */
+function drawLinePeople(c,box,i,t,pos,sw,code){const [x,y,w,h]=box;const LN=F.LN;
+  const vs=visitsAt(t);const at={};const say={};const put=(k,role,dim)=>{(at[k]=at[k]||[]).push([role,dim]);};const tell=(k,text,col)=>{(say[k]=say[k]||[]).push([text,col]);};
+  const ST_OF={form:0,fill:1,wrap:2,label:3,relabel:3,insp:4,chill:5,crate:6};
+  // 具入れ（休憩中の人はいない。交代の人は緑）
+  let crew=R.agg.hands[i];const reliefIn=cfg.relief&&inBreak(t);
+  const crewAway=vs.filter(v=>v.who==='crew'&&v.where!=='fill');
+  for(const v of crewAway)if(ST_OF[v.where]!=null){put(ST_OF[v.where],'crew');crew--;tell(ST_OF[v.where],v.text,css('--warn'));}
+  if(R.agg.away[i]){put(3,'crew');}
+  for(let k=0;k<crew;k++)put(1,reliefIn&&k===crew-1?'relief':'crew',code!==LN.RUN&&code!==LN.CHANGE);
+  for(const v of vs.filter(v=>v.who==='crew'&&v.where==='fill'))tell(1,v.text,css('--warn'));
+  // 決まった持ち場
+  put(4,'post');put(6,'post');
+  // 機械の番
+  if(cfg.tech){const tv=vs.find(v=>v.who==='tech');const k=tv&&ST_OF[tv.where]!=null?ST_OF[tv.where]:2;put(k,'tech');if(tv)tell(k,tv.text,ROLE_COLOR.tech);}
+  // 品質管理
+  for(const v of vs.filter(v=>v.who==='qc'&&ST_OF[v.where]!=null)){put(ST_OF[v.where],'qc');tell(ST_OF[v.where],v.text,ROLE_COLOR.qc);}
+  for(const k in at){const [px,py]=pos[k];const L=at[k],gap=Math.min(13,(sw-6)/Math.max(1,L.length));
+    L.forEach(([role,dim],j)=>person(c,px+(j-(L.length-1)/2)*gap,py-40,role,dim));}
+  for(const k in say){const [px,py]=pos[k];const tx=say[k].map(z=>z[0]).join('・');bubble(c,px,py-94,tx,box,say[k][0][1]);}
+  const off=R.agg.off[i];
+  const note=reliefIn?`休憩中1人・交代の人が入っている`:off?`休憩中 ${off}人（具入れが少ない）`:'';
+  if(note)txt(c,'☕ '+note,x+w-10,y+h-8,{align:'right',size:10.5,color:reliefIn?ROLE_COLOR.relief:css('--warn')});
 }
 function drawShip(c,[x,y,w,h],i,t){
   const made=Math.floor(R.agg.made[Math.min(i,R.N-1)]);
@@ -417,7 +471,13 @@ function showResult(){resultShown=true;const s=R.summary;$('resultWait').hidden=
    <div class="tw"><table class="fills"><thead><tr><th>具</th><th class="r">注文</th><th class="r">送れた</th><th class="r">足りない</th></tr></thead><tbody>
    ${s.fills.map(f=>`<tr><th>${f.brand?`<b class="nm">${f.brand}</b>`:''}${f.name}</th><td class="r num">${f.order.toLocaleString()}</td><td class="r num">${f.shipped.toLocaleString()}</td><td class="r num">${f.short?`<span class="down">${f.short.toLocaleString()}</span>`:'<span class="muted">0</span>'}</td></tr>`).join('')}
    </tbody></table></div>
-   <p class="small">ラインが止まったのは、具の切り替え ${s.lineStops[F.LN.CHANGE].n}回・${s.lineStops[F.LN.CHANGE].min}分、包装機の詰まり ${s.lineStops[F.LN.JAM].n}回・${s.lineStops[F.LN.JAM].min}分${s.lineStops[F.LN.METAL].n?`、異物の確認 ${s.lineStops[F.LN.METAL].n}回・${s.lineStops[F.LN.METAL].min}分`:''}。検品ではじいたのは ${s.rej.all.toLocaleString()}個（重さ${s.rej.weight}・包みの崩れ${s.rej.wrap}${s.rej.metal?`・金属${s.rej.metal}`:''}）。</p>
+   <p class="small">ラインが止まったのは、具の切り替え ${s.lineStops[F.LN.CHANGE].n}回・${s.lineStops[F.LN.CHANGE].min}分、包装機の詰まり ${s.lineStops[F.LN.JAM].n}回・${s.lineStops[F.LN.JAM].min}分${s.lineStops[F.LN.METAL].n?`、異物の確認 ${s.lineStops[F.LN.METAL].n}回・${s.lineStops[F.LN.METAL].min}分`:''}。検品ではじいたのは ${s.rej.all.toLocaleString()}個（重さ${s.rej.weight}・包みの崩れ${s.rej.wrap}${s.rej.metal?`・金属${s.rej.metal}`:''}${s.rej.label?`・表示の間違いで捨てた${s.rej.label}`:''}）。</p>
+   ${(()=>{const q=s.people;if(!q)return '';const parts=[];
+     parts.push(`具入れ ${q.crew}人${q.tech?'・機械の番 1人':''}・決まった持ち場 ${q.fixed}人（釜番・目で見る検品・番重詰め・品質管理）${R.cfg.relief?'・休憩の交代の人':''}`);
+     const rec=[`温度の記録 ${q.temps}回`,`抜き取り ${q.samples}回`];if(q.checks)rec.push(`表示の確認 ${q.checks}回`);
+     const ev=[];if(q.drift.n)ev.push(`成形機の重さのずれ ${q.drift.n}回（重さではじく分が${q.drift.extra}個ふえた）`);
+     if(q.relabel.n)ev.push(`ラベルの間違い ${q.relabel.n}回${q.relabel.units?`（${q.relabel.units}個を${q.relabel.min}分かけて貼り直し）`:''}${q.relabel.discard?`（卵が表示になく${q.relabel.discard}個を捨てた）`:''}`);
+     return `<p class="small">人：${parts.join('')}。品質管理の仕事：${rec.join('・')}。${ev.length?'<span class="down">'+ev.join('、')+'。</span>':'人が手を入れて止めた大きな出来事はなし。'}</p>`;})()}
    <p class="small muted">店ごとの番重（${D.packLine.crate}個入り）：${s.stores.map(x=>`${x.name} ${x.crates}`).join('・')}</p>
    <p class="small">いちばん詰まったところ：<b>${s.neck[1]?s.neck[0]:'特になし'}</b>（釜ごとの待ちの合計 ${s.neck[1].toLocaleString()}分）。品質 ◎${s.ranks['◎']}・○${s.ranks['○']}・△${s.ranks['△']}・×${s.ranks['×']}釜。菌の目安はいちばん多い釜で ${s.gMax.toFixed(2)}。</p>
    ${p?`<p class="small muted">右は前の夜（${sameNight?'同じ夜・同じ注文':'<b>別の夜か季節なので注文が違います</b>'}）。${cfgDiff.length?'変えた条件：'+cfgDiff.join('、'):'条件は同じ'}</p>`:''}
@@ -439,8 +499,8 @@ function showResult(){resultShown=true;const s=R.summary;$('resultWait').hidden=
    <p class="note">待ちの内訳：${s.waits.map(w=>`${w[0]} ${w[1].toLocaleString()}分`).join('・')}。費用は仮の目安です。条件を1つだけ変えて「この条件で夜を回す」を押すと、同じ夜（同じ注文）で比べられます。</p>`;
   save();
 }
-function changes(a,b){const out=[];const L={season:'季節',batches:'釜の数',start:'洗米の開始',soak:'浸す時間',fan:'冷却',crew:'具入れの人数',order:'具の順番'};
-  const fmt=(k,v)=>k==='season'?D.seasons[v].label:k==='start'?hm(v):k==='fan'?{weak:'弱',mid:'中',strong:'強'}[v]:k==='order'?({light:'薄い味から',big:'注文の多い順',nitta:'雫を先に'}[v]||'薄い味から'):v;
+function changes(a,b){const out=[];const L={season:'季節',batches:'釜の数',start:'洗米の開始',soak:'浸す時間',fan:'冷却',crew:'具入れの人数',order:'具の順番',tech:'機械の番',breakAt:'休憩',relief:'交代の人',labelCheck:'表示の確認'};
+  const fmt=(k,v)=>k==='season'?D.seasons[v].label:k==='start'?hm(v):k==='fan'?{weak:'弱',mid:'中',strong:'強'}[v]:k==='order'?({light:'薄い味から',big:'注文の多い順',nitta:'雫を先に'}[v]||'薄い味から'):k==='tech'||k==='relief'?(v?'あり':'なし'):k==='labelCheck'?(v?'確かめる':'省く'):k==='breakAt'?hm(D.staff.break.at[v]||0)+'から':v;
   for(const k in L)if(a[k]!==b[k])out.push(`${L[k]} ${fmt(k,a[k])}→${fmt(k,b[k])}`);return out;}
 
 /* ---------------- クリック ---------------- */
