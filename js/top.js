@@ -39,7 +39,7 @@ const L=[
   pins:[{x:44,y:31,t:COUNTRY,main:1},{x:8.4,y:19.5,t:'姉妹港'},{x:71.6,y:31,t:'北米西岸'},{x:32.5,y:48.5,t:'東南アジア'}],
   items:[['港の荷主をのぞく（海外とのお金の流れ）','karte:port'],['姉妹港ヴェステルハーフェンの歩み','karte:history']],soon:'資源の値段や為替が、売店まで届く道すじ（因果カード）'},
  {id:'japan',name:COUNTRY,sub:'日本にあたる架空の島国（名前は仮）・産業・港湾・鉄道・物流',img:'docs/img/map-country.jpg',art:SVG_JAPAN,state:'一部',
-  pins:[{x:54.5,y:52,t:'みなと川沿線・港浜',main:1},{x:51.5,y:31,t:'湯ノ谷'}],
+  pins:[{x:54.5,y:52,t:'みなと川沿線',main:1}],   // 沿線は全長30km余り。国の地図では1点になるので、印は1つだけ
   items:[['沿線の歩み 1885〜2026（日本の地方鉄道に似せた歴史）','karte:history'],['国・県と町のお金の流れ（交付税など）','karte:money']],soon:'国内の物流と産業の地図'},
  {id:'line',name:'沿線',sub:'人口・土地利用・駅・商業施設',img:'docs/img/route-map-painted.jpg',state:'遊べる',
   items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station']]},
