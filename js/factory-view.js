@@ -157,7 +157,7 @@ function drawWash(c,[x,y,w,h],i,t){
   if(now){const a=t*1.7;c.strokeStyle=css('--water2');c.lineWidth=2;for(let k=0;k<3;k++){c.beginPath();c.arc(cx,cy,r*0.6,a+k*2.1,a+k*2.1+1.2);c.stroke();}c.lineWidth=1;
     c.fillStyle=css('--rice');c.beginPath();c.arc(cx,cy,r*0.35,0,7);c.fill();
     txt(c,'釜'+now.no,cx,cy+4,{align:'center',bold:true});hit(cx-r,cy-r,2*r,2*r,now);selRing(c,cx-r,cy-r,2*r,2*r,now);}
-  else txt(c,t<cfg.start?`${hm(cfg.start)}から`:'止まっている',cx,cy+4,{align:'center',color:css('--muted'),size:11});
+  else txt(c,t<cfg.start?`${hm(cfg.start)}から`:queue?'待ち':'洗い終わり',cx,cy+4,{align:'center',color:css('--muted'),size:11});
   txt(c,`洗う前 ${queue}釜`,x+8,y+h-10,{color:css('--muted'),size:11});
 }
 function drawTanks(c,[x,y,w,h],i,cols){
@@ -256,8 +256,9 @@ function drawShip(c,[x,y,w,h],i,t){
   c.strokeStyle=css('--sheet');for(let k=1;k<6;k++){c.beginPath();c.moveTo(bx,by+bh*k/6);c.lineTo(bx+bw,by+bh*k/6);c.stroke();}
   txt(c,`${showMade.toLocaleString()}`,x+w/2,by+bh+16,{align:'center',num:true,bold:true});
   txt(c,`／${order.toLocaleString()}個${t<D.orderConfirm?'（見込み）':''}`,x+w/2,by+bh+30,{align:'center',size:10,color:css('--muted')});
-  const left=dl-t;
-  txt(c,left>0?`出発まで ${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`:'荷物列車は出発',x+w/2,y+h-10,{align:'center',size:11,bold:true,color:left>0&&left<60?css('--warn'):css('--ink')});
+  const left=dl-t,S2=D.ship;
+  const msg=left>0?`${hm(dl)}締め切りまで ${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`:t<S2.depart?`積み込み中・${hm(S2.depart)} 出発`:t<S2.store?`${S2.to}へ走行中・${hm(S2.store)} 着`:`${S2.to}の売店に届いた`;
+  txt(c,msg,x+w/2,y+h-10,{align:'center',size:11,bold:true,color:left>0&&left<60?css('--warn'):css('--ink')});
 }
 
 /* ---------------- 釜ごとの帯 ---------------- */
@@ -299,7 +300,7 @@ function drawBatch(){
   if(seen(b.tCool)){const end=b.tHold!=null&&b.tHold<=t?b.tHold:t;rowsSt.push([hm(b.tCool),`冷却 ${end-b.tCool}分`]);}
   if(seen(b.tHold)){const end=b.tForm!=null&&b.tForm<=t?b.tForm:t;rowsSt.push([hm(b.tHold),`成形を待つ ${end-b.tHold}分`]);}
   if(seen(b.tForm))rowsSt.push([hm(b.tForm),'成形・包装']);
-  if(seen(b.tDone))rowsSt.push([hm(b.tDone),`検品：<b>${b.rank}</b>（${b.score}点）${b.tDone>=D.deadline?'・荷物列車に間に合わない':''}`]);
+  if(seen(b.tDone))rowsSt.push([hm(b.tDone),`検品：<b>${b.rank}</b>（${b.score}点）${b.tDone>=D.deadline?`・${hm(D.deadline)}の締め切りに間に合わない`:''}`]);
   const why=seen(b.tDone)?(b.why.length?`<div class="small" style="margin-top:6px">${b.why.map(w=>`・${w[0]}${w[1]?`（${w[1]}）`:''}`).join('<br>')}</div>`:'<div class="small muted" style="margin-top:6px">減点なし</div>'):'';
   const g=b.hg[i];
   box.innerHTML=`<div class="row" style="justify-content:space-between"><b class="big">釜${b.no}${b.late?' <span class="tag">20:00の追加</span>':''}</b>
@@ -340,7 +341,7 @@ function showResult(){resultShown=true;const s=R.summary;$('resultWait').hidden=
   const sameNight=p&&pc&&pc.seed===R.cfg.seed&&pc.season===R.cfg.season;
   const cfgDiff=p?changes(pc,R.cfg):[];
   el.innerHTML=`
-   <p class="big">注文 <b class="num">${s.order.toLocaleString()}</b>個のうち、<b class="num">${s.shipped.toLocaleString()}</b>個を荷物列車に積めました。${s.short?`<span class="down">${s.short.toLocaleString()}個足りません。</span>`:'<span class="up">全部そろいました。</span>'}</p>
+   <p class="big">注文 <b class="num">${s.order.toLocaleString()}</b>個のうち、<b class="num">${s.shipped.toLocaleString()}</b>個を${D.ship.to}行きのトラックに積めました（${hm(D.ship.depart)} 出発・${hm(D.ship.store)} 売店着）。${s.short?`<span class="down">${s.short.toLocaleString()}個足りません。</span>`:'<span class="up">全部そろいました。</span>'}</p>
    <p class="small">いちばん詰まったところ：<b>${s.neck[1]?s.neck[0]:'特になし'}</b>（釜ごとの待ちの合計 ${s.neck[1].toLocaleString()}分）。品質 ◎${s.ranks['◎']}・○${s.ranks['○']}・△${s.ranks['△']}・×${s.ranks['×']}釜。菌の目安はいちばん多い釜で ${s.gMax.toFixed(2)}。</p>
    ${p?`<p class="small muted">右は前の夜（${sameNight?'同じ夜・同じ注文':'<b>別の夜か季節なので注文が違います</b>'}）。${cfgDiff.length?'変えた条件：'+cfgDiff.join('、'):'条件は同じ'}</p>`:''}
    <table><thead><tr><th></th><th class="r">この夜</th>${p?'<th class="r">前の夜</th><th class="r">差</th>':''}</tr></thead><tbody>
@@ -348,7 +349,7 @@ function showResult(){resultShown=true;const s=R.summary;$('resultWait').hidden=
    ${row('積めた',s.shipped,p&&p.shipped,'up')}
    ${row('足りない',s.short,p&&p.short,'down')}
    ${row('検品で不合格',s.bad,p&&p.bad,'down')}
-   ${row('4:30に間に合わなかった',s.late+s.unfinished,p&&(p.late+p.unfinished),'down')}
+   ${row(`${hm(D.deadline)}に間に合わなかった`,s.late+s.unfinished,p&&(p.late+p.unfinished),'down')}
    ${row('作りすぎ（飼料へ）',s.surplus,p&&p.surplus,'down')}
    ${row('最後の成形',s.lastDone||0,p&&p.lastDone,null,v=>v?hm(v):'—')}
    ${row('人件費',s.yen.labor,p&&p.yen.labor,'down',yen)}
@@ -372,13 +373,13 @@ function onStageClick(e){const cv=$('stage');const r=cv.getBoundingClientRect();
 
 function legends(){
   $('tempLegend').innerHTML=[[10,'10℃'],[25,'25℃'],[32,'32℃'],[50,'50℃'],[70,'70℃'],[95,'95℃']].map(([T,l])=>`<span><i style="background:${tempColor(T)}"></i>${l}</span>`).join('')+`<span><i style="background:${css('--bad')};border-radius:50%"></i>菌が注意の線をこえた</span>`;
-  $('stLegend').innerHTML=[1,2,3,4,5,6,7,8,9].map(s=>`<span><i style="background:${ST_COLOR[s]}"></i>${F.ST_LABEL[s]}</span>`).join('')+`<span><i style="background:${css('--bad')}"></i>赤い縦線：20:00 注文確定・4:30 荷物列車</span>`;
+  $('stLegend').innerHTML=[1,2,3,4,5,6,7,8,9].map(s=>`<span><i style="background:${ST_COLOR[s]}"></i>${F.ST_LABEL[s]}</span>`).join('')+`<span><i style="background:${css('--bad')}"></i>赤い縦線：20:00 注文確定・${hm(D.deadline)} 包装の締め切り（${D.ship.to}行きトラック）</span>`;
 }
 
 async function init(){
   try{const r=await fetch('data/factory.json',{cache:'no-cache'});D=await r.json();}
   catch(e){document.querySelector('.wrap').insertAdjacentHTML('beforeend','<p class="card">設定（data/factory.json）を読めませんでした。GitHub Pages か、ローカルのサーバー（python3 -m http.server）で開いてください。</p>');return;}
-  $('factoryName').textContent=D.name+'（架空）';$('lineName').textContent=D.line;
+  $('factoryName').textContent=D.name+'（架空）';$('lineName').textContent=D.line;$('place').textContent=(D.location||'')+'。';
   const st=load();cfg=Object.assign({},D.defaults,st.cfg||{});prev=st.prev||null;
   buildPlan();buildPlay();legends();
   $('run').onclick=()=>{run(false);playing=true;markPlay();};

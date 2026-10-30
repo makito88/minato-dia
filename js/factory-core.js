@@ -127,7 +127,8 @@ function simulate(D,cfgIn){
     /* 記録 */
     for(const b of batches){b.hs[i]=b.st;b.hT[i]=b.T;b.hf[i]=b.f;b.hg[i]=b.g==null?-1:b.g;}
     agg.made[i]=made;
-    if(t===D.deadline)log(t,'ship',`${hm(t)}、荷物列車が出ました。`);
+    if(t===D.deadline)log(t,'ship',`${hm(t)}、包装の締め切り。ここまでの${Math.floor(made).toLocaleString()}個から、検品を通った分を${D.ship.to}行きのトラックに積みます。`);
+    if(t===D.ship.depart)log(t,'ship',`${hm(t)}、${D.ship.to}行きのトラックが出発（約${D.ship.km}km、${hm(D.ship.store)}に売店へ届く予定）。`);
   }
 
   function judge(b,t){const Q=D.quality;let s=100;const why=[];
