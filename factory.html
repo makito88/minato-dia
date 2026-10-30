@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おにぎり工場の一晩</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 夜の工場：白い台紙の上に、工程の箱を2段で並べる。温度は青→赤、菌は赤い点。数字は等幅 */
+:root{
+  --paper:#eef1f2;--sheet:#fbfcfc;--ink:#18263a;--muted:#5d6a78;--line:#cfd6dc;--line2:#e2e7ea;--rail:#c23b3b;--focus:#2f5d8a;
+  --ok:#2e7d4f;--warn:#b7791f;--bad:#c23b3b;--water:#cfe3f1;--water2:#8db8d8;--rice:#f4f1e6;--steel:#9aa6b1;--night:#1d2a3c;
+  --f-disp:"Dela Gothic One","Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#11161c;--sheet:#182029;--ink:#e3e9ee;--muted:#9aa8b5;--line:#2c3742;--line2:#222c36;--rail:#e2615c;--focus:#7fb0de;--ok:#5fbf86;--warn:#e0a84a;--bad:#e2615c;--water:#22384a;--water2:#3f6f93;--rice:#d9d4c3;--steel:#5d6b78;--night:#0b1118;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#11161c;--sheet:#182029;--ink:#e3e9ee;--muted:#9aa8b5;--line:#2c3742;--line2:#222c36;--rail:#e2615c;--focus:#7fb0de;--ok:#5fbf86;--warn:#e0a84a;--bad:#e2615c;--water:#22384a;--water2:#3f6f93;--rice:#d9d4c3;--steel:#5d6b78;--night:#0b1118;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.6}
+.wrap{max-width:1120px;margin:0 auto;padding:14px 16px 60px}
+header h1{font-family:var(--f-disp);font-weight:400;font-size:22px;margin:0;letter-spacing:.02em}
+header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:12px}
+.card h2{font-size:15px;margin:0 0 8px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--sheet);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;min-height:36px}
+button:hover{border-color:var(--focus)}
+button.primary{background:var(--focus);color:#fff;border-color:var(--focus)}
+button.on{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+select,input[type=number]{background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-height:34px}
+.plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 16px}
+.plan label{display:block;font-size:12px;color:var(--muted)}
+.plan .val{font-size:14px;color:var(--ink)}
+.plan .hint{font-size:12px;color:var(--muted)}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.seg button{min-height:32px;padding:4px 10px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.play{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.play input[type=range]{flex:1;min-width:160px}
+.clock{font-family:var(--f-num);font-size:26px;min-width:84px}
+.clocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}
+.clk{border:1px solid var(--line2);border-radius:8px;padding:6px 10px;background:var(--paper)}
+.clk b{font-size:12px;color:var(--muted);font-weight:500;display:block}
+.clk .v{font-size:15px}
+@media (max-width:500px){.clocks{grid-template-columns:1fr 1fr}.clk{padding:5px 8px}.clk .v{font-size:13px}}
+#stage{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px;touch-action:manipulation;cursor:pointer}
+#gantt{display:block;width:100%;height:auto;cursor:pointer}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:12px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+#events{max-height:260px;overflow:auto;margin:0;padding:0;list-style:none}
+#events li{padding:4px 0;border-bottom:1px solid var(--line2);font-size:13px;display:flex;gap:8px}
+#events li .num{color:var(--muted);min-width:42px}
+#events li.warn{color:var(--warn)} #events li.bad,#events li.germ{color:var(--bad)}
+#events li[data-b]{cursor:pointer}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:4px 6px;border-bottom:1px solid var(--line2);text-align:left}
+td.r,th.r{text-align:right;white-space:nowrap}
+@media (max-width:500px){.big{font-size:16px}table{font-size:12px}th,td{padding:3px 4px}}
+.big{font-size:20px}
+.tag{display:inline-block;padding:0 6px;border-radius:4px;font-size:12px;border:1px solid var(--line)}
+.up{color:var(--ok)} .down{color:var(--bad)}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+#batchCard canvas{width:100%;height:auto;display:block;margin-top:6px}
+.steps{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px}
+.steps .num{color:var(--muted)}
+#result[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>おにぎり工場の一晩</h1>
+  <p><span id="factoryName"></span>・<span id="lineName"></span>（試作）。夕方に決めて、夜は眺め、朝に答え合わせ。</p>
+</header>
+
+<section class="card" aria-labelledby="h-plan">
+  <h2 id="h-plan">夕方に決める</h2>
+  <div class="plan" id="plan"></div>
+  <div class="row" style="margin-top:12px">
+    <button class="primary" id="run">この条件で夜を回す</button>
+    <button id="newNight">別の夜にする（注文が変わる）</button>
+    <span class="small muted" id="nightInfo"></span>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="h-night">
+  <h2 id="h-night">夜の工場</h2>
+  <div class="play">
+    <span class="clock" id="clock">18:00</span>
+    <button id="playBtn" aria-label="再生">▶ 再生</button>
+    <div class="seg" id="speeds" role="group" aria-label="速さ"></div>
+    <input type="range" id="scrub" min="0" max="660" step="1" value="0" aria-label="時刻">
+  </div>
+  <div class="clocks" id="clocks"></div>
+  <canvas id="stage" width="1040" height="480" aria-label="工場のラインの絵。釜を押すと、その釜の一晩が出ます"></canvas>
+  <div class="legend" id="tempLegend"></div>
+</section>
+
+<div class="two">
+<section class="card" aria-labelledby="h-batch" id="batchCard">
+  <h2 id="h-batch">釜を一つ追いかける</h2>
+  <div id="batchBody" class="muted small">絵の中の釜・タンク・トレイ、または下の表の行を押すと、その釜の一晩が出ます。</div>
+</section>
+<section class="card" aria-labelledby="h-ev">
+  <h2 id="h-ev">工場の記録</h2>
+  <ul id="events"></ul>
+</section>
+</div>
+
+<section class="card" aria-labelledby="h-gantt">
+  <h2 id="h-gantt">釜ごとの一晩（横が時刻）</h2>
+  <canvas id="gantt" width="1040" height="300"></canvas>
+  <div class="legend" id="stLegend"></div>
+</section>
+
+<section class="card" aria-labelledby="h-res">
+  <h2 id="h-res">朝の答え合わせ</h2>
+  <div id="resultWait" class="muted small">5:00 まで進むと出ます。<button id="peek" style="margin-left:8px">先に見る</button></div>
+  <div id="result" hidden></div>
+</section>
+
+<p class="note">名前・会社・数字はすべて架空のゲームの目安です。吸水・冷え方・菌の増え方は、現実の性質（水温で吸水が変わる、ニュートンの冷却、菌は10〜50℃台で増えやすい）の形だけを借りた仮の数字で、実際の食品衛生の基準ではありません。設定は <code>data/factory.json</code>。</p>
+</div>
+<script src="js/factory-core.js"></script>
+<script src="js/factory-view.js"></script>
+</body>
+</html>
