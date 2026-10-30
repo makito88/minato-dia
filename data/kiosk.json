@@ -63,7 +63,6 @@
    0.014
   ],
   "dwellPow": 0.35,
-  "addOn": 0.22,
   "note": "通る人のうち売店に寄る人の割合（目的ごと）。立ち止まれる時間が長いほど寄る。"
  },
  "price": {
@@ -3141,5 +3140,132 @@
    }
   },
   "note": "万引きの疑い（数が合わない品）。寄った人1人ごとに base×場所×駅（その町の犯罪の多さ）×時間帯×その時間に店にいる店員の人数（1人・2人・3人・4人以上）×会計の混み具合（busy）×防犯の対策 の確率で、棚の小さな品が1つなくなる。なくなった品は、次の品出しのときに「数が合わない」と気づく。棚の場所（入口近くのフック・吊り下げ・ラックはなくなりやすい、たばこと温かい物は店員の後ろなのでなくならない）とジャンル（小さく高い物ほど）で、どれがなくなるかが変わる。原価が損になる。防犯の対策は次の運行日から効く。"
+ },
+ "basket": {
+  "add": 0.26,
+  "decay": 0.5,
+  "max": 5,
+  "unrelated": 0.18,
+  "double": 0.07,
+  "ps": {
+   "salM": 1.0,
+   "salF": 1.05,
+   "jk": 0.9,
+   "stu": 0.75,
+   "sen": 0.85,
+   "tou": 1.6,
+   "hou": 1.35
+  },
+  "hours": [
+   [
+    6,
+    9,
+    0.8
+   ],
+   [
+    11,
+    14,
+    1.25
+   ],
+   [
+    17,
+    20,
+    1.25
+   ],
+   [
+    20,
+    24,
+    1.45
+   ]
+  ],
+  "pairs": {
+   "onigiri": {
+    "colddrink": 2.4,
+    "hotdrink": 1.6,
+    "onigiri": 1.4,
+    "hot": 1.1,
+    "sand": 0.6
+   },
+   "sand": {
+    "coffee": 2.2,
+    "colddrink": 1.6,
+    "hotdrink": 1.2
+   },
+   "bread": {
+    "coffee": 2.4,
+    "colddrink": 1.3,
+    "bread": 1.1,
+    "hotdrink": 1.1
+   },
+   "donut": {
+    "coffee": 2.6,
+    "hotdrink": 1.6,
+    "donut": 1.3
+   },
+   "hot": {
+    "alcohol": 2.6,
+    "colddrink": 1.6,
+    "onigiri": 1.2,
+    "coffee": 0.8
+   },
+   "alcohol": {
+    "snack": 2.8,
+    "hot": 2.2,
+    "alcohol": 1.4,
+    "colddrink": 0.8
+   },
+   "snack": {
+    "alcohol": 1.8,
+    "colddrink": 1.6,
+    "gummy": 0.8
+   },
+   "gummy": {
+    "colddrink": 1.3,
+    "gummy": 0.9,
+    "energy": 0.8
+   },
+   "magazine": {
+    "colddrink": 1.3,
+    "coffee": 1.2,
+    "gummy": 1.0,
+    "snack": 0.8
+   },
+   "paper": {
+    "coffee": 2.0,
+    "hotdrink": 1.0
+   },
+   "coffee": {
+    "bread": 1.3,
+    "donut": 1.1,
+    "gummy": 0.8
+   },
+   "colddrink": {
+    "onigiri": 1.2,
+    "gummy": 1.0,
+    "snack": 1.0
+   },
+   "hotdrink": {
+    "onigiri": 1.1,
+    "bread": 1.0
+   },
+   "energy": {
+    "gummy": 1.4,
+    "onigiri": 1.0,
+    "colddrink": 0.6
+   },
+   "daily": {
+    "colddrink": 1.0,
+    "gummy": 0.8
+   },
+   "umbrella": {
+    "colddrink": 0.6,
+    "hotdrink": 0.8
+   },
+   "tobacco": {
+    "coffee": 2.2,
+    "energy": 1.0
+   }
+  },
+  "note": "1回の買い物（かご）。最初の1品のあと、add×客層（ps）×時間帯（hours）の確率でもう1品を足し、1品足すごとに確率が decay 倍になる（最大 max 品）。足す品は、unrelated の確率で棚の目立つ品から関係なく、それ以外は最初の品のジャンルとの相性（pairs：大きいほど一緒に買われやすい）で選ぶ。double の確率で同じ品を2つ。"
  }
 }

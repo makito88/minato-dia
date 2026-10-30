@@ -101,6 +101,8 @@ function pinfo(pid,res){const T0=gT(),set=curSet(),s=KC.shelfInfo(V.cfg,set.layo
 const motL=m=>m&&m!=='plan'?((V.cfg.mood&&V.cfg.mood.labels||{})[m]||''):'';   // 買ったきっかけ（「買うつもりで」は出さない）
 function motText(pid,res){const T0=gT(),c={};let n=0;for(const e of res.ev){if(e.t>T0)break;if(e.k==='buy'&&e.items.some(([q])=>q===pid)){const m=e.mot||'plan';c[m]=(c[m]||0)+1;n++;}}
   if(!n)return 'まだ売れていません';const L=V.cfg.mood&&V.cfg.mood.labels||{};return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([m,k])=>`${L[m]||m} ${Math.round(k/n*100)}%`).join('・');}
+function withText(pid,res){const S=basketStats(res,gT()),I=ix(),L=S.pairs.filter(x=>x.x===pid||x.y===pid).slice(0,3);if(!L.length)return 'まだありません';
+  return L.map(x=>`${I.P[x.x===pid?x.y:x.x].short}${x.c}回`).join('・')+`（この品を買った${S.cnt[pid]||0}人のうち）`;}
 const ST_LABEL={out:'売り切れ',wait:'棚が空（裏にあり・品出し待ち）',low:'残りわずか',ok:'在庫あり',none:'棚に置いていない'};
 const nextText=n=>n?`${fmtT(n.t)} ${n.name}で＋${n.q}個`:'きょうはもう届きません';
 /* 仕入れの変更が、いつから・いくつ変わるか */
@@ -238,7 +240,8 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
       <span>いま</span><b id="shNow">棚に${x.stock}個・裏に${x.back}個</b>
       <span>きょう</span><b id="shToday">売れた${x.sold}${V.cfg.hideLost?'':'・売り切れで逃した'+x.lost}・見て買わず${x.looked}</b>
       <span>次の便</span><b id="shNext">${nextText(x.next)}</b>
-      <span>きっかけ</span><b id="shMot">${motText(pid,res)}</b></div>
+      <span>きっかけ</span><b id="shMot">${motText(pid,res)}</b>
+      <span>一緒に</span><b id="shWith">${withText(pid,res)}</b></div>
     <div class="ks-sbox"><h4>仕入れ（${unit}）</h4>
       <div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>${dayWord(o.na)}</span><span class="ks-num"><button type="button" id="shOm" aria-label="減らす">−</button><b class="${o.d?'chg':''}">${o.nx}</b><button type="button" id="shOp" aria-label="増やす">＋</button></span></div>
       <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>
@@ -260,7 +263,7 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
   $('shTab').onclick=()=>{V.tab='items';closeSheet();render(true);setTimeout(()=>{const r=document.querySelector(`[data-row="${pid}"]`);if(r)r.scrollIntoView({block:'center'});},50);};}
 /* 商品カードの数字だけを書きかえる（ボタンは作り直さないので、押している途中でも消えない） */
 function updateSheet(){const pid=V.sheet,res=V.res;if(!pid||!res||!$('shNow'))return;const x=pinfo(pid,res);
-  const set=(id,t)=>{const e=$(id);if(e&&e.textContent!==t)e.textContent=t;};set('shNow',`棚に${x.stock}個・裏に${x.back}個`);set('shToday',`売れた${x.sold}${V.cfg.hideLost?'':'・売り切れで逃した'+x.lost}・見て買わず${x.looked}`);set('shNext',nextText(x.next));set('shMot',motText(pid,res));
+  const set=(id,t)=>{const e=$(id);if(e&&e.textContent!==t)e.textContent=t;};set('shNow',`棚に${x.stock}個・裏に${x.back}個`);set('shToday',`売れた${x.sold}${V.cfg.hideLost?'':'・売り切れで逃した'+x.lost}・見て買わず${x.looked}`);set('shNext',nextText(x.next));set('shMot',motText(pid,res));set('shWith',withText(pid,res));
   const s=$('shSt');if(s&&!s.classList.contains(x.st)){s.className='ks-st '+x.st;s.textContent=ST_LABEL[x.st];}}
 
 /* ---------- 画面全体 ---------- */
@@ -285,7 +288,7 @@ function renderBody(full){const b=$('ksBody'),res=ensureRes();if(!res)return;
 
 /* 売れ行き：いまの時刻までの出来事（新しい順） */
 function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps:'';
-  if(e.k==='buy')return ['buy',ps+(e.reg?'（常連）':e.mania?'（マニア）':''),e.items.map(([p,q])=>P[p].short+(q>1?'×'+q:'')).join('・')+(motL(e.mot)&&!e.reg&&!e.mania?`〔${motL(e.mot)}〕`:'')+(e.addon?'〔ついでに'+P[e.items[e.items.length-1][0]].short+'も〕':'')+(e.wait>0.5?`（${Math.round(e.wait*60)}秒待ち）`:''),yen(e.yen)];
+  if(e.k==='buy')return ['buy',ps+(e.reg?'（常連）':e.mania?'（マニア）':''),e.items.map(([p,q])=>P[p].short+(q>1?'×'+q:'')).join('・')+(motL(e.mot)&&!e.reg&&!e.mania?`〔${motL(e.mot)}〕`:'')+(e.items.length>1?e.items.slice(1).map(x=>x[2]==='r'?`〔ついでに${P[x[0]].short}〕`:`〔一緒に${P[x[0]].short}〕`).join(''):'')+(e.wait>0.5?`（${Math.round(e.wait*60)}秒待ち）`:''),yen(e.yen)];
   if(e.k==='look')return ['look',ps+(e.reg?'（常連）':''),(e.pid?P[e.pid].short:I.G[e.genre].name)+'… '+e.why,''];
   if(e.k==='review')return ['rv',ps,`${P[e.pid].short}「${e.text}」`,'★'.repeat(e.stars)];
   if(e.k==='sns')return ['sns',ps,`${P[e.pid].short}について投稿${e.good?'':'（不満）'}`,'SNS'];
@@ -297,7 +300,7 @@ function evText(e){const I=ix(),P=I.P,PS=I.PS,ps=e.ps?(PS[e.ps]||{}).short||e.ps
   if(e.k==='gap')return ['gap','',`品出しのとき、${e.items.map(([p,q])=>P[p].short+(q>1?'×'+q:'')).join('・')}の数が合わなかった（万引きの疑い）`,''];
   if(e.k==='closed')return ['sys','',`店員がいないので閉めている（${fmtT(e.to)}まで）`,''];return ['sys','',e.k,''];}
 /* 絞り込み：種類・客層・きっかけ・ジャンル・商品・理由・評価・時間帯。絞った分だけを一覧と集計に出す */
-const LF0={k:'',ps:'',mot:'',genre:'',pid:'',why:'',stars:'',h0:5,h1:26};
+const LF0={k:'',ps:'',mot:'',genre:'',pid:'',why:'',stars:'',pts:'',h0:5,h1:26};
 if(!V.lf)V.lf={...LF0};
 const lfOn=()=>Object.keys(LF0).some(k=>V.lf[k]!==LF0[k]);
 const KIND={buy:'会計',look:'見たけど買わなかった',review:'評価',sns:'SNS',gap:'数が合わない（万引きの疑い）',sys:'品出し・便・廃棄など'};
@@ -306,6 +309,7 @@ const pidsOf=e=>e.k==='buy'||e.k==='gap'?e.items.map(x=>x[0]):e.pid?[e.pid]:[];
 function lfMatch(e){if(hideE(e))return false;const f=V.lf,I=ix();if(f.k&&kindOf(e)!==f.k)return false;if(f.ps&&e.ps!==f.ps)return false;
   if(f.mot&&(e.k!=='buy'||(f.mot==='addon'?!e.addon:(e.mot||'plan')!==f.mot)))return false;
   if(f.why&&(e.k!=='look'||e.why!==f.why))return false;
+  if(f.pts){if(e.k!=='buy')return false;const q=e.items.reduce((a,x)=>a+x[1],0);if(f.pts==='1'?q!==1:q<Number(f.pts))return false;}
   if(f.stars&&(e.k!=='review'||(f.stars==='lo'?e.stars>2:f.stars==='mid'?e.stars!==3:e.stars<4)))return false;
   const h=e.t/60;if(h<f.h0||h>=f.h1)return false;
   if(f.pid||f.genre){const ps=pidsOf(e);if(f.pid&&!ps.includes(f.pid))return false;if(f.genre&&!ps.some(p=>I.P[p].genre===f.genre)&&e.genre!==f.genre)return false;}
@@ -323,19 +327,20 @@ function lfBar(res){const I=ix(),f=V.lf,L=V.cfg.mood&&V.cfg.mood.labels||{},opt=
     <label>ジャンル<select data-f="genre">${opt('','すべて',f.genre)}${V.cfg.genres.map(g=>opt(g.id,g.name,f.genre)).join('')}</select></label>
     <label>商品<select data-f="pid">${opt('','すべて',f.pid)}${prods.map(p=>opt(p.id,p.short,f.pid)).join('')}</select></label>
     <label>買わなかった理由<select data-f="why">${opt('','すべて',f.why)}${whys.map(w=>opt(w,w,f.why)).join('')}</select></label>
+    <label>点数<select data-f="pts">${opt('','すべて',f.pts)}${opt('1','1点',f.pts)}${opt('2','2点以上',f.pts)}${opt('3','3点以上',f.pts)}</select></label>
     <label>評価<select data-f="stars">${opt('','すべて',f.stars)}${opt('lo','★1〜2（不満）',f.stars)}${opt('mid','★3',f.stars)}${opt('hi','★4〜5（満足）',f.stars)}</select></label>
     <label>時間帯<span><select data-f="h0">${hs.map(h=>opt(h,h+'時',f.h0)).join('')}</select>〜<select data-f="h1">${hs.slice(1).concat([27]).map(h=>opt(h,h+'時',f.h1)).join('')}</select></span></label>
     <span class="ks-flt-b"><button type="button" class="ks-btn" id="ksLfClr" ${lfOn()?'':'disabled'}>絞り込みを外す</button><button type="button" class="ks-btn" id="ksCsv">表として保存（CSV）</button></span></div></details>
     <div class="ks-lsum" id="ksLogSum"></div>`;}
 /* 絞った分の集計 */
-function lfSummary(res,k){const I=ix(),L=V.cfg.mood&&V.cfg.mood.labels||{};let n=0,buy=0,yenS=0,look=0,rv=0,stars=0,sns=0;const it={},mot={},ps={},why={};
+function lfSummary(res,k){const I=ix(),L=V.cfg.mood&&V.cfg.mood.labels||{};let n=0,buy=0,yenS=0,ptsS=0,look=0,rv=0,stars=0,sns=0;const it={},mot={},ps={},why={};
   for(let i=0;i<k;i++){const e=res.ev[i];if(!lfMatch(e))continue;n++;
-    if(e.k==='buy'){buy++;yenS+=e.yen;const m=e.mot||'plan';mot[m]=(mot[m]||0)+1;ps[e.ps]=(ps[e.ps]||0)+1;for(const [p,q] of e.items)it[p]=(it[p]||0)+q;}
+    if(e.k==='buy'){buy++;yenS+=e.yen;ptsS+=e.items.reduce((a,x)=>a+x[1],0);const m=e.mot||'plan';mot[m]=(mot[m]||0)+1;ps[e.ps]=(ps[e.ps]||0)+1;for(const [p,q] of e.items)it[p]=(it[p]||0)+q;}
     else if(e.k==='look'){look++;why[e.why]=(why[e.why]||0)+1;}else if(e.k==='review'){rv++;stars+=e.stars;}else if(e.k==='sns')sns++;}
   const top=(o,f,m)=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,m||3).map(([x,v])=>f(x)+' '+v).join('・');
   const cv=buy+look?Math.round(buy/(buy+look)*100):null;
   return `<b>${lfOn()?'絞り込んだ結果':'きょうのいままで'}：${n}件</b>`
-    +(buy?`<span>会計 ${buy}人・売上 ${yen(yenS)}・客単価 ${yen(yenS/buy)}</span>`:'')
+    +(buy?`<span>会計 ${buy}人・売上 ${yen(yenS)}・客単価 ${yen(yenS/buy)}・1人${(ptsS/buy).toFixed(2)}点</span>`:'')
     +(look?`<span>見たけど買わなかった ${look}人${cv!=null?`（寄った人のうち買った割合 ${cv}%）`:''}</span>`:'')
     +(rv?`<span>評価 ${rv}件・平均 ★${(stars/rv).toFixed(1)}</span>`:'')+(sns?`<span>SNS ${sns}件</span>`:'')
     +(buy?`<span>よく売れた：${top(it,p=>I.P[p].short)}</span><span>きっかけ：${top(mot,m=>L[m]||m,4)}</span><span>客層：${top(ps,p=>(I.PS[p]||{}).short||p)}</span>`:'')
@@ -451,6 +456,16 @@ function renderLayout(b){const I=ix(),set=curSet(),Z=V.cfg.zones,sel=V.slotSel;
   if($('ksPickClose'))$('ksPickClose').onclick=()=>{V.slotSel=null;render(true);};}
 
 /* 客層・時間帯・買わなかった理由・置いていなくて帰った人 */
+/* かご：客単価・点数・一緒に買われた組み合わせ（いまの時刻まで） */
+function basketStats(res,T0){const k=KC.idxAt(res,T0),I=ix(),PRS=(V.cfg.basket||{}).pairs||{};let n=0,yen=0,pts=0;const byN={},byPs={},byH={},cnt={},pair={},gpair={};
+  const band=h=>h<10?'朝（〜10時）':h<14?'昼（10〜14時）':h<18?'夕方（14〜18時）':'夜（18時〜）';
+  for(let i=0;i<k;i++){const e=res.ev[i];if(e.k!=='buy')continue;const q=e.items.reduce((a,x)=>a+x[1],0),nk=Math.min(4,q);n++;yen+=e.yen;pts+=q;
+    const A=(o,key)=>{const x=o[key]||(o[key]={n:0,yen:0,pts:0});x.n++;x.yen+=e.yen;x.pts+=q;};A(byN,nk);A(byPs,e.ps);A(byH,band(Math.floor(e.t/60)));
+    const ids=[...new Set(e.items.map(x=>x[0]))];for(const id of ids)cnt[id]=(cnt[id]||0)+1;
+    for(let a=0;a<ids.length;a++)for(let c=a+1;c<ids.length;c++){const [x,y]=[ids[a],ids[c]].sort(),key=x+'|'+y;pair[key]=(pair[key]||0)+1;const g=[I.P[x].genre,I.P[y].genre].sort().join('|');gpair[g]=(gpair[g]||0)+1;}}
+  const aff=(g1,g2)=>Math.max((PRS[g1]||{})[g2]||0,(PRS[g2]||{})[g1]||0);
+  const pairs=Object.entries(pair).map(([key,c])=>{const [x,y]=key.split('|');return {x,y,c,lift:n?c*n/(cnt[x]*cnt[y]):0,same:I.P[x].genre===I.P[y].genre,usual:aff(I.P[x].genre,I.P[y].genre)>=1.2};}).sort((a,b)=>b.c-a.c||b.lift-a.lift);
+  return {n,yen,pts,byN,byPs,byH,cnt,pairs,gpair,aff};}
 function renderPeople(b,res){const I=ix(),T0=gT(),k=KC.idxAt(res,T0),ps={},psLook={},why={},miss={},hr=new Float64Array(H),items={},mot={},addon={n:0};
   for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){ps[e.ps]=(ps[e.ps]||0)+1;const mm=e.mot||'plan';mot[mm]=(mot[mm]||0)+1;if(e.addon)addon.n++;hr[Math.floor(e.t/60)]+=e.yen;const m=items[e.ps]||(items[e.ps]={});for(const [p,q] of e.items)m[p]=(m[p]||0)+q;}
     else if(e.k==='look'&&!hideE(e)){psLook[e.ps]=(psLook[e.ps]||0)+1;why[e.why]=(why[e.why]||0)+1;if(e.why==='置いていない')miss[e.genre]=(miss[e.genre]||0)+1;}}
@@ -463,6 +478,17 @@ function renderPeople(b,res){const I=ix(),T0=gT(),k=KC.idxAt(res,T0),ps={},psLoo
         const C={plan:'#8aa1b8',impulse:'#e0a84f',queue:'#d98a5b',herd:'#c97bb0',sns:'#5b8fd9',trend:'#d9645b',new:'#5bb08a',rain:'#6aa7c9',regular:'#9a8a6a',mania:'#7a6ad9'};
         return `<div class="ks-bars">${en.map(([m,n])=>`<div><span>${L[m]||m}</span><u style="width:${n/m2*100}%;background:${C[m]||'#999'}"></u><em>${n}人</em></div>`).join('')||'<p class="ks-note">まだいません。</p>'}</div>
         <p class="ks-note">${tot?`${addon.n}人は、ついでにもう1品買っていました。`:''}${res.moodG?'きょうの気分：'+Object.entries(res.moodG).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([gid,v])=>`${I.G[gid].name}がふだんの${Math.round(v*100)}%`).join('・')+'、'+Object.entries(res.moodG).sort((a,b)=>a[1]-b[1]).slice(0,1).map(([gid,v])=>`${I.G[gid].name}は${Math.round(v*100)}%`).join('')+'。':''}「なんとなく」は目につく場所・安い・手軽な品、「前の人につられて」は数分前に同じ品が売れたとき、「SNSを見て」は話題の品を目当てに来た人です。</p>`;})()}</div>
+    ${(()=>{const S=basketStats(res,T0),I2=ix();if(!S.n)return '';const av=(x)=>x&&x.n?yen(x.yen/x.n):'—',ap=x=>x&&x.n?(x.pts/x.n).toFixed(2):'—',mxN=Math.max(...Object.values(S.byN).map(x=>x.n));
+      const nl={1:'1点',2:'2点',3:'3点',4:'4点以上'};
+      return `<div class="ks-card"><h3><span>客単価と点数</span><small>いままで</small></h3>
+        <div class="ks-kv"><div><span>客単価</span><b>${yen(S.yen/S.n)}</b></div><div><span>1人の点数</span><b>${(S.pts/S.n).toFixed(2)}点</b></div><div><span>2点以上の人</span><b>${Math.round((S.n-(S.byN[1]?S.byN[1].n:0))/S.n*100)}%</b></div></div>
+        <div class="ks-bars">${[1,2,3,4].filter(k=>S.byN[k]).map(k=>`<div><span>${nl[k]}</span><u style="width:${S.byN[k].n/mxN*100}%;background:#5b8fd9"></u><em>${S.byN[k].n}人・${av(S.byN[k])}</em></div>`).join('')}</div>
+        <table class="ks-t" style="margin-top:8px"><thead><tr><th class="l">客層</th><th>人</th><th>点数</th><th>客単価</th></tr></thead><tbody>${V.cfg.personas.filter(p=>S.byPs[p.id]).map(p=>`<tr><td class="l">${p.name}</td><td>${S.byPs[p.id].n}</td><td>${ap(S.byPs[p.id])}</td><td>${av(S.byPs[p.id])}</td></tr>`).join('')}
+          ${Object.keys(S.byH).map(h=>`<tr><td class="l mut">${h}</td><td>${S.byH[h].n}</td><td>${ap(S.byH[h])}</td><td>${av(S.byH[h])}</td></tr>`).join('')}</tbody></table></div>
+      <div class="ks-card"><h3><span>一緒に買われた組み合わせ</span><small>同じ人のかご・いままで</small></h3>
+        <table class="ks-t"><thead><tr><th class="l">組み合わせ</th><th>回</th><th title="たまたまより何倍よく一緒に買われたか">相性</th><th class="l"></th></tr></thead><tbody>
+        ${S.pairs.slice(0,10).map(x=>`<tr><td class="l">${esc(I2.P[x.x].short)}＋${esc(I2.P[x.y].short)}</td><td>${x.c}</td><td>${x.lift.toFixed(1)}倍</td><td class="l">${x.same?'<span class="mut">似た品</span>':x.usual?'<span class="mut">定番</span>':'<b style="color:#c97bb0">意外</b>'}</td></tr>`).join('')||'<tr><td class="l" colspan="4">まだ2点以上買った人がいません。</td></tr>'}</tbody></table>
+        <p class="ks-note">「相性」は、それぞれの品が売れた回数から見て、たまたま同じかごに入る場合の何倍よく一緒に買われたか（1倍より大きいほど相性がよい。回数が少ないうちは大きくぶれます）。「定番」はパンとコーヒー、お酒とおつまみのような関連のある組み合わせ、「似た品」は同じジャンルどうし（グミを2種類など）、「意外」は関係のなさそうな組み合わせ。近くの棚に並べると、一緒に買われやすくなる…かもしれません。</p></div>`;})()}
     <div class="ks-card"><h3><span>時間帯の売上</span><small>いまの時刻まで</small></h3><div class="ks-hrs">${Array.from({length:19},(_,j)=>{const h=j+5;return `<span class="${h===hN?'now':''}" style="height:${hr[h]/hm*100}%" title="${h}時台 ${yen(hr[h])}"></span>`;}).join('')}</div><div class="ks-hlab"><span>5時</span><span>9</span><span>13</span><span>17</span><span>21</span><span>23時</span></div></div></div>`;}
 
 /* 店員：きょうのシフト・一人ずつのようす・時給・あすからのシフト表・募集と応募 */

@@ -147,7 +147,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const recent=[],motives={};   // recent：直前に売れた品（前の人につられる）
   const herdF=(pid,t)=>{let n=0;for(let i=recent.length-1;i>=0&&t-recent[i].t<=(M.herdWin||4);i--)if(recent[i].pid===pid)n++;return 1+(M.herd||0)*Math.min(M.herdMax||3,n);};
   const newF=pid=>state.placedAt[pid]!=null&&ctx.day-state.placedAt[pid]>=0&&ctx.day-state.placedAt[pid]<(M.newDays||0)?(M.newBoost||1):1;
-  const SH=cfg.shrink,rS=rng(hash(state.seed,ctx.day,'shrink')),guard=state.guard||{};
+  const rB=rng(hash(state.seed,ctx.day,'basket')),SH=cfg.shrink,rS=rng(hash(state.seed,ctx.day,'shrink')),guard=state.guard||{};
   const gMul=SH?Object.keys(SH.guard).filter(k=>guard[k]).reduce((m,k)=>m*SH.guard[k].mul,1):1;
   const steal=v=>{if(!SH)return;const h=Math.floor(v.t/60),on=W.filter(w=>KS.onAt(w,v.t)).length,busy=Math.min(1,Math.max(0,(Math.min(...free)-v.t)/2));
     const p=SH.base*(SH.place[state.place]??1)*(SH.station[state.st]??1)*(h>=SH.night.from?SH.night.mul:1)*(SH.staff[Math.min(SH.staff.length-1,Math.max(0,on-1))]||1)*(1+SH.busy*busy)*gMul;
@@ -192,8 +192,14 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
         if(it.photo>0.6&&r()<ps.sns*0.3)posts.push({t:v.t,pid:it.id,ps:v.ps,good:false});continue;}}
     // 列：電車の時間までに買えるか
     const items=[[it.id,v.mania?(1+Math.floor(r()*3)):1]];
-    if(!v.reg&&!v.mania&&r()<cfg.visit.addOn){const ig=['gummy','colddrink','coffee','snack','hotdrink'].filter(g=>g!==want);const c2=ig.flatMap(g=>ix.byG[g]).filter(c=>SI[c.id]&&stockOf(c.id)>0&&!(ix.G[c.genre].age&&minor));
-      if(c2.length){const ws=c2.map(c=>c.w*SI[c.id].vis);const k=pickW(ws,r);if(k>=0)items.push([c2[k].id,1]);}}
+    // かご：最初の品との相性で、もう1品・2品…と足す（関係のない品を手に取る人も、同じ品を2つの人もいる）
+    const BK=cfg.basket;if(BK&&!v.mania){const bh=hm(BK.hours,h),bp=BK.ps[v.ps]??1;let pr=BK.add*bp*bh*(v.reg?0.5:1);
+      const have=new Set(items.map(x=>x[0])),ok=c=>SI[c.id]&&stockOf(c.id)>0&&!have.has(c.id)&&!(ix.G[c.genre].age&&minor)&&c.genre!=='tobacco'&&(c.genre!=='hot'||hotStock(c.id)>0);
+      if(rB()<BK.double*bp&&['colddrink','onigiri','gummy','coffee','bread'].includes(it.genre))items[0][1]=2;
+      for(let n=1;n<BK.max&&rB()<pr;n++){const base=P[items[0][0]].genre,PR=BK.pairs[base]||{};let pick=null,kind;
+        if(rB()<BK.unrelated){const all=Object.keys(SI).map(k=>P[k]).filter(ok);if(all.length){pick=all[pickW(all.map(c=>c.w*SI[c.id].vis),rB)];kind='r';}}
+        else{const gs=Object.keys(PR).filter(g=>ix.byG[g]&&ix.byG[g].some(ok));if(gs.length){const g=gs[pickW(gs.map(g=>PR[g]*((cfg.genres.find(x=>x.id===g)||{}).season?.[ctx.cond.season]||1)),rB)];const cs=ix.byG[g].filter(ok);pick=cs[pickW(cs.map(c=>c.w*SI[c.id].vis*repF(c.id)),rB)];kind='p';}}
+        if(!pick)break;items.push([pick.id,1,kind]);have.add(pick.id);pr*=BK.decay;}}
     const S=cfg.service;let svc=S.base+S.perItem*(items.length-1)+(v.em?S.emoney:S.cash);for(const [pid] of items){if(P[pid].genre==='hot')svc+=S.hot;if(ix.G[P[pid].genre].age)svc+=S.age;}
     const [k0,start]=pickS(v.t),wait=start-v.t;svc/=KS.speed(cfg,W[k0].p,'reg');
     const patience=ps.patience*(state.place==='home'?clamp(v.dw*0.7,0.6,3):3);
@@ -201,7 +207,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     free[k0]=start+svc/60;served[k0]++;
     // 売る
     let yen=0,bought=[];
-    for(const [pid,q] of items){const g2=takeShelf(pid,q);if(!g2.got)continue;const y=g2.got*priceOf(pid);yen+=y;add(sold,pid,g2.got);add(gross,pid,y);add(cogs,pid,g2.cost);bought.push([pid,g2.got]);}
+    for(const [pid,q,kd] of items){const g2=takeShelf(pid,q);if(!g2.got)continue;const y=g2.got*priceOf(pid);yen+=y;add(sold,pid,g2.got);add(gross,pid,y);add(cogs,pid,g2.cost);bought.push(kd?[pid,g2.got,kd]:[pid,g2.got]);}
     if(!bought.length){logLook(it.id,'売り切れ');continue;}
     hourly[h]+=yen;hourlyN[h]++;add(byPs,v.ps,1);
     // きっかけ：いちばん効いた「気分」の要素（前の人・SNS・ブーム・新商品）、なければ雨・買うつもり
