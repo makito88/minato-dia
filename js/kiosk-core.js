@@ -32,7 +32,7 @@ function defaultOrder(cfg,pid,cap){const ix=index(cfg),g=ix.G[ix.P[pid].genre];r
 /* ---------- 状態 ---------- */
 function create(cfg,opts){const ix=index(cfg);const st={v:1,seed:(opts&&opts.seed)||1,st:(opts&&opts.st)||'C',place:(opts&&opts.place)||'home',openedDay:(opts&&opts.day)||1,closed:((opts&&opts.day)||1)-1,
   staff:1,layout:JSON.parse(JSON.stringify(cfg.layout)),price:{},order:{},lots:{},rep:{},buzz:{},regulars:[],trend:null,nextTrend:((opts&&opts.day)||1)+4,news:[],hist:[],placedAt:{},cash:0};
-  for(const p of cfg.products)st.price[p.id]=p.price;
+  for(const p of cfg.products)st.price[p.id]=p.price;st.priceV=cfg.priceV;
   const si=shelfInfo(cfg,st.layout);for(const pid in si){st.order[pid]=defaultOrder(cfg,pid,si[pid].cap);st.placedAt[pid]=-99;}
   return st;}
 
@@ -239,11 +239,14 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 収支
   let sales=0,em=0;for(const e of ev)if(e.k==='buy'){sales+=e.yen;if(e.em)em+=e.yen;}
   let cg=0;for(const k in cogs)cg+=cogs[k];
-  const crewRes=W.map((w,k)=>{const x=KS.payOf(cfg,w,O0,O1);return {id:w.p.id,name:w.p.name,h:x.h,yen:x.yen,served:served[k],spans:w.spans};});
+  const crewRes=W.map((w,k)=>{const x=KS.payOf(cfg,w,O0,O1);return {id:w.p.id,name:w.p.name,h:x.h,yen:x.yen,served:served[k],spans:w.spans,commute:x.h>0?(w.p.commute||0):0,insured:!!w.p.insured};});
+  // 交通費（働いた日だけ）と社会保険のお店の負担（給料＋交通費に対する割合）
+  const SO=(cfg.move&&cfg.move.social)||{employer:0};
+  const commute=crewRes.reduce((s,x)=>s+x.commute,0),social=crewRes.reduce((s,x)=>s+(x.insured?(x.yen+x.commute)*(SO.employer||0):0),0);
   const guardFee=SH?Object.keys(SH.guard).filter(k=>guard[k]).reduce((a,k)=>a+SH.guard[k].perDay,0):0;
   const recruit=hasCrew?(state.crew.ads||[]).filter(a=>a.day===ctx.day).length*cfg.crew.ad.fee:0;
-  const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:crewRes.reduce((s,x)=>s+x.yen,0),recruit,shrink:shrinkCost,guard:guardFee,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
-  pl.cost=pl.cogs+pl.waste+(pl.shrink||0)+(pl.guard||0)+pl.express+pl.staff+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
+  const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:crewRes.reduce((s,x)=>s+x.yen,0),recruit,shrink:shrinkCost,guard:guardFee,commute,social,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
+  pl.cost=pl.cogs+pl.waste+(pl.shrink||0)+(pl.guard||0)+pl.express+pl.staff+pl.commute+pl.social+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
   return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,shrinkBy,shrinkN,closed:closedSp,closedN};}
 
 /* 評価：客層の好み（甘さ・味の濃さ・量）と商品の味のずれ、値段 */
@@ -308,6 +311,28 @@ function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.str
   if(st.news.length>80)st.news=st.news.slice(-80);
   return {state:st,news};}
 
+/* ---------- 移転：別の駅・場所へ移す（次の運行日から） ----------
+   棚割り・品物・広さ・店員・在庫・積み立ては持っていく。値段は値段の初期値に戻す。
+   常連・SNSの話題・ホットスナックの売れ方の覚え・時間ごとのお客さんの見込みは、新しい場所で一から。
+   いっしょに移る店員：時給＋wageUp、交通費（その人の家の最寄り駅から新しい駅までの往復。fare(a,b) は片道の運賃）、社会保険。
+   state をそのまま書きかえ、知らせ（{title,text}）を返す */
+function relocate(cfg,state,mv,fare){const MV=cfg.move||{},up=MV.wageUp||0,from={st:state.st,place:state.place},people=[];
+  state.st=mv.st;state.place=mv.place;
+  for(const p of cfg.products)state.price[p.id]=p.price;
+  state.regulars=[];state.buzz={};state.hotF={};state.custH={};
+  const crew=state.crew;
+  if(crew)for(const p of crew.people){if(p.leave!=null)continue;if(!p.home)p.home=from.st;
+    p.wage+=up;if(p.wageNext!=null)p.wageNext+=up;if(p.ask)p.ask+=up;
+    p.commute=p.home===mv.st?0:2*Math.max(0,Math.round(fare(p.home,mv.st)||0));p.insured=true;p.movedDay=mv.day;people.push(p);}
+  (state.moves||(state.moves=[])).push({day:mv.day,from,to:{st:mv.st,place:mv.place},crew:people.map(p=>p.id)});
+  delete state.moveNext;
+  return {people,from};}
+
+/* 値段の初期値を新しくしたとき（priceV）：前の保存の値段のうち、前の初期値のままの品だけを新しい初期値にする。変えた品の数を返す */
+function migratePrices(cfg,state){if(!cfg.priceV||state.priceV===cfg.priceV)return 0;const old=cfg.priceOld||{};let n=0;
+  for(const p of cfg.products){if(state.price[p.id]==null||state.price[p.id]===old[p.id]){if(state.price[p.id]!==p.price)n++;state.price[p.id]=p.price;}}
+  state.priceV=cfg.priceV;return n;}
+
 /* その時刻の棚の在庫（5分ごとの記録から） */
 function backAt(res,T){let lo=0,hi=res.snap.length-1;if(hi<0)return {};while(lo<hi){const m=(lo+hi+1)>>1;if(res.snap[m].t<=T)lo=m;else hi=m-1;}return res.snap[lo].b||{};}
 function stockAt(res,T){let lo=0,hi=res.snap.length-1;if(hi<0)return {};while(lo<hi){const m=(lo+hi+1)>>1;if(res.snap[m].t<=T)lo=m;else hi=m-1;}return res.snap[lo].s;}
@@ -317,5 +342,5 @@ function soFar(cfg,res,T){const k=idxAt(res,T),o={sales:0,cust:0,cogs:0,looks:0,
   for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='buy'){o.sales+=e.yen;o.cust++;o.ps[e.ps]=(o.ps[e.ps]||0)+1;for(const [pid,q] of e.items){o.items[pid]=(o.items[pid]||0)+q;o.cogs+=q*ix.P[pid].cost;}}else if(e.k==='look'){o.looks++;o.why[e.why]=(o.why[e.why]||0)+1;}}
   return o;}
 
-root.KioskCore={H,index,shelfInfo,defaultOrder,backAt,create,simulate,closeDay,stockAt,idxAt,soFar,review};
+root.KioskCore={H,index,shelfInfo,defaultOrder,backAt,create,simulate,closeDay,relocate,migratePrices,stockAt,idxAt,soFar,review};
 })(typeof window!=='undefined'?window:globalThis);

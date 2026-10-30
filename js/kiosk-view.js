@@ -9,7 +9,7 @@
 'use strict';
 if(typeof KioskCore==='undefined'||typeof ResearchCore==='undefined')return;
 const KC=KioskCore,RC=ResearchCore,KS=KioskStaff,KEY='dia-kiosk',H=KC.H;
-const STORDER=['C','S','U','M','K','N','P','F','T','O'],PLACES=['home','naka','gate'];
+const STORDER=['C','S','U','M','K','N','P','F','T','O'],PLACES=['home','naka','gate','soto'];
 const $=id=>document.getElementById(id);
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
 const gT=()=>g(()=>T,600),gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
@@ -27,10 +27,11 @@ const narrow=()=>window.innerWidth<760;
 addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=n;if(V.open)render(true);}});
 /* ---------- 読み込み・保存 ---------- */
 Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();})])
-  .then(([c,rc])=>{V.cfg=c;V.rcfg=rc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
+  .then(([c,rc])=>{V.cfg=c;V.rcfg=rc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
+const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム本体の運賃表）
 
 /* ---------- その日の計算 ---------- */
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
@@ -52,6 +53,8 @@ function closeToday(res){const S=V.st;
   const r=KC.closeDay(V.cfg,S,res,{});V.st=r.state;
   if(last){V.st.layout=last.layout;V.st.price=last.price;V.st.staff=last.staff;for(const pid in KC.shelfInfo(V.cfg,last.layout))if(!before.has(pid))V.st.placedAt[pid]=res.day+1;}
   {const S=V.st,nd=res.day+1;S.order=orderFor(nd);S.orderQ=(S.orderQ||[]).filter(e=>e.from>nd);}
+  {const S=V.st,mv=S.moveNext;if(mv&&mv.day<=res.day+1){const R=V.rcfg,x=KC.relocate(V.cfg,S,mv,fareOf),C=V.cfg.move||{};
+    S.news.push({day:res.day+1,kind:'move',title:`${stName(mv.st)}駅・${R.places[mv.place].name}に移った`,text:`棚割り・品物・店員・在庫はそのまま、${stName(x.from.st)}駅・${R.places[x.from.place].name}から移りました。値段は駅ナカのコンビニの目安に戻しました。いっしょに来た${x.people.length}人は時給を${C.wageUp}円上げ、交通費を払い、社会保険に入れました（${x.people.map(p=>`${p.name}さん ${yen(p.wage)}・交通費1日${yen(p.commute)}`).join('、')}）。常連さんは前の場所に残り、新しい場所で一からです。`});r.news.push(1);}}
   V.st.today=null;V.st.unread=(V.st.unread||0)+r.news.length;persist();badge();if(V.open)setTimeout(()=>render(true),0);}
 /* 発注：締め切り（20:00）までに変えた数は次の運行日から、過ぎたらその次から。予定は orderQ に「何日目から」で持つ */
 function orderFor(day){const S=V.st,o={...S.order};for(const e of (S.orderQ||[]).slice().sort((a,b)=>a.from-b.from))if(e.from<=day)Object.assign(o,e.order);return o;}
@@ -274,7 +277,7 @@ function render(full){if(!V.open)return;
   $('ksTabs').hidden=false;$('ksTop').innerHTML='';const S=V.st,c=gCond();
   $('ksTitle').textContent=`みなとスタンド ${stName(S.st)}駅${V.rcfg.places[S.place].name}店`;
   const tr=S.trend?V.cfg.trends.find(x=>x.id===S.trend.id):null;
-  $('ksSub').textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]}・${WXN[c.wx]}・${SEAN[c.season]}${tr?'・世の中は'+tr.name:''}・常連 ${S.regulars.length}人`;
+  $('ksSub').textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]}・${WXN[c.wx]}・${SEAN[c.season]}${tr?'・世の中は'+tr.name:''}・常連 ${S.regulars.length}人${S.moveNext?`・第${S.moveNext.day}運行日から${stName(S.moveNext.st)}駅へ移転`:''}`;
   $('ksTabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===V.tab)));
   renderKpi();renderAlert(true);if(V.sheet)renderSheet();if(full||V.tab==='log')renderBody(full);}
 function renderKpi(){const res=ensureRes();if(!res)return;const o=KC.soFar(V.cfg,res,gT()),P=res.pl;
@@ -520,6 +523,7 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
       ${p.ask?`<div class="ks-pend" role="alert"><b>時給を${yen(p.ask)}にしてほしい（いま${yen(p.wage)}）</b><div class="ks-sbtns"><button type="button" class="ks-btn pri" data-raise="${p.id}">${yen(p.ask)}にする（あすから）</button><button type="button" class="ks-btn" data-noraise="${p.id}">見送る</button></div></div>`:''}
       <div class="ks-sg"><span>時給</span><span class="ks-num"><button type="button" data-wage="${p.id}" data-d="-1" aria-label="${C.step}円下げる">−</button><b class="${next!==p.wage?'chg':''}">${yen(next)}</b><button type="button" data-wage="${p.id}" data-d="1" aria-label="${C.step}円上げる">＋</button></span>
         ${next!==p.wage?`<span></span><small class="ks-note" style="margin:0">あすから（いま${yen(p.wage)}）</small>`:''}
+        ${p.commute||p.insured?`<span>手当</span><span>${p.commute?`<span class="ks-tag">交通費 1日${yen(p.commute)}</span>`:''}${p.insured?'<span class="ks-tag pos">社会保険</span>':''}</span>`:''}
         <span>仕事の速さ</span><b>${sp}%<small class="mut">（慣れ ${p.days}日）</small></b>
         <span>得意</span><span>${tr.length?tr.map(x=>`<span class="ks-tag ${x.good?'pos':'neg'}">${x.t}</span>`).join(''):'<span class="mut">ふつう</span>'}</span>
         <span>週のシフト</span><b class="${wk>p.want*C.morale.over?'neg':wk<p.want*C.morale.under?'neg':''}">${wk}時間<small class="mut">（希望 ${p.want}時間）</small></b>
@@ -577,7 +581,7 @@ const clampW=v=>Math.max(V.cfg.crew.minWage,Math.min(V.cfg.crew.maxWage,v));
 function renderMoney(b,res){const S=V.st,P=res.pl,o=KC.soFar(V.cfg,res,gT());
   const row=(n,v,cls)=>`<tr><td class="l">${n}</td><td class="${cls||''}">${yen(v)}</td></tr>`;
   b.innerHTML=`<div class="ks-g2"><div class="ks-card"><h3><span>きょう1日の見込み</span><small>このまま閉店まで続けた場合（いまの設定で）</small></h3><table class="ks-t"><tbody>
-      ${row('売上',P.sales)}${row('仕入れ原価（売れた分）',-P.cogs,'mut')}${row('廃棄（売れ残り・保温切れ）',-P.waste,'mut')}${P.shrink?row('数が合わない品（万引きの疑い・原価）',-P.shrink,'mut'):''}${P.guard?row('防犯の対策',-P.guard,'mut'):''}${P.express?row('臨時便の料金',-P.express,'mut'):''}${row('人件費（シフトの時間×時給）',-P.staff,'mut')}${P.recruit?row('募集の広告',-P.recruit,'mut'):''}${row('場所代（売上の'+Math.round(V.rcfg.places[S.place].rentRate*100)+'%か最低額）',-P.rent,'mut')}${row('電子マネーの手数料',-P.fee,'mut')}${row('電気代など',-P.util,'mut')}
+      ${row('売上',P.sales)}${row('仕入れ原価（売れた分）',-P.cogs,'mut')}${row('廃棄（売れ残り・保温切れ）',-P.waste,'mut')}${P.shrink?row('数が合わない品（万引きの疑い・原価）',-P.shrink,'mut'):''}${P.guard?row('防犯の対策',-P.guard,'mut'):''}${P.express?row('臨時便の料金',-P.express,'mut'):''}${row('人件費（シフトの時間×時給）',-P.staff,'mut')}${P.commute?row('交通費（働いた日・往復）',-P.commute,'mut'):''}${P.social?row('社会保険（お店の負担・給料と交通費の'+((V.cfg.move.social.employer*1000|0)/10)+'%）',-P.social,'mut'):''}${P.recruit?row('募集の広告',-P.recruit,'mut'):''}${row('場所代（売上の'+Math.round(V.rcfg.places[S.place].rentRate*100)+'%か最低額）',-P.rent,'mut')}${row('電子マネーの手数料',-P.fee,'mut')}${row('電気代など',-P.util,'mut')}
       <tr><td class="l"><b>損益</b></td><td class="${P.profit<0?'neg':'pos'}"><b>${yen(P.profit)}</b></td></tr></tbody></table>
       <p class="ks-note">いまの時刻までの売上は ${yen(o.sales)}。新聞・雑誌の売れ残りは返品するので、捨てる分には入りません。</p></div>
     <div class="ks-card"><h3><span>これまでの運行日</span><small>積み立て ${man(S.cash)}</small></h3><div class="ks-scroll" style="max-height:300px"><table class="ks-t"><thead><tr><th class="l">運行日</th><th>客</th><th>売上</th><th>廃棄</th><th>損益</th><th class="l">売れ筋</th></tr></thead><tbody>
@@ -585,7 +589,28 @@ function renderMoney(b,res){const S=V.st,P=res.pl,o=KC.soFar(V.cfg,res,gT());
       <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="ks-btn" id="ksToCrew">店員・シフト・時給を見る</button><span class="ks-note" style="margin:0">人件費は、シフトに入っている時間×その人の時給（22時からは2割5分増し）です。</span></div></div></div>`;
   $('ksToCrew').onclick=()=>{V.tab='crew';render(true);};
   b.insertAdjacentHTML('beforeend',shrinkCard(res));
+  moveCard(b);
   b.querySelectorAll('[data-guard]').forEach(x=>x.onclick=()=>{const k=x.dataset.guard,S=V.st,n={...(S.guardNext||S.guard||{})};n[k]=!n[k];S.guardNext=n;persist();render(true);});}
+/* 移転：別の駅・場所へ移す（次の運行日から）。いっしょに移る店員は時給＋wageUp・交通費・社会保険 */
+function moveCard(b){const S=V.st,R=V.rcfg,C=V.cfg.move;if(!C)return;const day=gDay(),mv=S.moveNext,people=S.crew?S.crew.people.filter(p=>p.leave==null):[];
+  if(!V.mvForm)V.mvForm={st:S.st==='M'?'C':'M',place:'soto'};const f=mv?{st:mv.st,place:mv.place}:V.mvForm,same=f.st===S.st&&f.place===S.place;
+  const rent=pl=>Math.round(R.places[pl].rentMinSqm*V.cfg.area/30);
+  const rows=people.map(p=>{const home=p.home||S.st,cm=f.st===home?0:2*fareOf(home,f.st);
+    return `<tr><td class="l" style="white-space:nowrap">${esc(p.name)}<br><small class="mut">家：${esc(stName(home))}</small></td><td>${yen(p.wageNext??p.wage)} → <b>${yen((p.wageNext??p.wage)+C.wageUp)}</b></td><td>${cm?yen(cm):'なし'}</td><td>${p.insured?'入っている':'<b>入れる</b>'}</td></tr>`;}).join('');
+  const html=`<div class="ks-card" style="margin-top:12px"><h3><span>お店を移す（移転）</span><small>いま：${esc(stName(S.st))}駅・${esc(R.places[S.place].name)}${(S.moves||[]).length?`・これまで${S.moves.length}回`:''}</small></h3>
+    ${mv?`<div class="ks-pend" role="status"><b>第${mv.day}運行日から ${esc(stName(mv.st))}駅・${esc(R.places[mv.place].name)}に移ります</b><div>きょうの営業はいまの場所のまま。運行日が終わると移ります。</div><div class="ks-sbtns"><button type="button" class="ks-btn" id="ksMvCancel">移転をやめる</button></div></div>`:
+    `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">${STORDER.map(s2=>`<button type="button" class="ks-chip" data-mvst="${s2}" aria-pressed="${f.st===s2}">${stName(s2)}</button>`).join('')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${PLACES.map(p=>`<button type="button" class="ks-chip" data-mvpl="${p}" aria-pressed="${f.place===p}">${R.places[p].name}</button>`).join('')}</div>`}
+    <p class="ks-note">${esc(R.places[f.place].note||'')} 場所代は売上の${Math.round(R.places[f.place].rentRate*100)}%か、1日${yen(rent(f.place))}（いまの場所は${Math.round(R.places[S.place].rentRate*100)}%か${yen(rent(S.place))}）。</p>
+    <p class="ks-note">持っていくもの：棚割り・品物（広さ約${V.cfg.area}㎡のまま）・店員・在庫・積み立て。値段は駅ナカのコンビニの目安（初期値）に戻します。常連さん・SNSの話題・ホットスナックの売れ方の覚えは前の場所に残り、一からです。</p>
+    ${people.length?`<div class="ks-scroll"><table class="ks-t"><thead><tr><th class="l">移る店員</th><th>時給（＋${C.wageUp}円）</th><th>交通費／日</th><th>社会保険</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="ks-note">交通費は働いた日だけ、その人の家の最寄り駅から新しい駅までの往復の運賃です。社会保険はお店が給料と交通費の約${Math.round(C.social.employer*1000)/10}%を払い、店員の給料からも約${Math.round(C.social.employee*100)}%が引かれます（かわりに厚生年金と健康保険）。移ったあとに採用した人は、近くに住む人なので交通費と社会保険はありません。</p>`:''}
+    ${mv?'':`<div class="ks-sbtns"><button type="button" class="ks-btn pri" id="ksMvGo" ${same?'disabled':''}>${esc(stName(f.st))}駅・${esc(R.places[f.place].name)}に移る（あすの運行日から）</button>${same?'<span class="ks-note" style="margin:0">いまと同じ場所です</span>':''}</div>`}</div>`;
+  b.insertAdjacentHTML('beforeend',html);
+  b.querySelectorAll('[data-mvst]').forEach(x=>x.onclick=()=>{V.mvForm.st=x.dataset.mvst;render(true);});
+  b.querySelectorAll('[data-mvpl]').forEach(x=>x.onclick=()=>{V.mvForm.place=x.dataset.mvpl;render(true);});
+  if($('ksMvGo'))$('ksMvGo').onclick=()=>{S.moveNext={day:day+1,st:f.st,place:f.place};S.news.push({day,kind:'move',title:`${stName(f.st)}駅・${R.places[f.place].name}への移転を決めた`,text:`第${day+1}運行日から新しい場所で開きます。きょうはいまの場所で営業します。`});persist();render(true);};
+  if($('ksMvCancel'))$('ksMvCancel').onclick=()=>{const m=S.moveNext;delete S.moveNext;S.news.push({day,kind:'move',title:`${stName(m.st)}駅への移転をやめた`,text:'いまの場所で営業を続けます。'});persist();render(true);};}
 /* 万引きの疑い：品出しのときに数が合わなかった品。いまの時刻まで・これまでの日・防犯の対策 */
 function shrinkCard(res){const SH=V.cfg.shrink;if(!SH)return '';const S=V.st,I=ix(),T0=gT(),c={};let n=0;
   for(const e of res.ev){if(e.t>T0)break;if(e.k==='gap')for(const [p,q] of e.items){c[p]=(c[p]||0)+q;n+=q;}}

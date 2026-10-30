@@ -357,7 +357,8 @@ function clerkInfo(id){const KS=kkKiosk(),CL=DATA.kakei.clerk,B=KCFG&&KCFG.crew?
   const H=(KS.hist||[]).slice(-30),days=H.filter(h=>h.crew).length,earned=H.reduce((a,h)=>a+((h.crew||[]).find(c=>c[0]===p.id)||[0,0])[1],0);
   const year=days>=14?earned/days*365:p.wage*week*52;   // 2週間分たまるまでは、時給×シフトの時間×52週
   const sales=days?H.filter(h=>h.crew).reduce((a,h)=>a+h.sales,0)/days:null,cust=days?H.filter(h=>h.crew).reduce((a,h)=>a+h.cust,0)/days:null,staff=days?H.filter(h=>h.crew).reduce((a,h)=>a+(h.staff||0),0)/days:null;
-  return {people,p,name:p.name+'さん',kind:p.kind,kindName:(kinds.find(k=>k.id===p.kind)||{}).name,wage:p.wage,week,year,src:days>=14?`ゲームの直近${days}日の実際の稼ぎから`:'時給×週の時間×52週',sales,cust,staff,mine:days?earned/days:null,kinds};}
+  const so=KCFG&&KCFG.move&&KCFG.move.social?KCFG.move.social.employee:0.15,take=p.insured?year*(1-so):year;
+  return {people,p,insured:!!p.insured,commute:p.commute||0,so,take,name:p.name+'さん',kind:p.kind,kindName:(kinds.find(k=>k.id===p.kind)||{}).name,wage:p.wage,week,year,src:days>=14?`ゲームの直近${days}日の実際の稼ぎから`:'時給×週の時間×52週',sales,cust,staff,mine:days?earned/days:null,kinds};}
 function clerkHead(CI){const KD=DATA.kakei,CL=KD.clerk,y=v=>Math.round(v).toLocaleString('ja-JP')+'円';
   const sel=CI.people.length?`<label class="hint">店員 <select id="kkClerk" style="font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--sheet);color:var(--ink)">${CI.people.map(p=>`<option value="${p.id}" ${CI.p&&p.id===CI.p.id?'selected':''}>${esc(p.name)}さん</option>`).join('')}</select></label>`:'<p class="hint">ゲームでまだ売店を出していないので、例の店員で見ています。売店を出すと、あなたの店の店員で見られます。</p>';
   const spent=Object.values(CL.plan[CI.kind]||{}).reduce((a,b)=>a+b,0);
@@ -365,17 +366,17 @@ function clerkHead(CI){const KD=DATA.kakei,CL=KD.clerk,y=v=>Math.round(v).toLoca
       駅の売店に、1日 <b>${Math.round(CI.cust)}人</b> のお客さんが来て <b>${y(CI.sales)}</b> を払う（通勤の人・学生・観光客…）<br>
       → そのうち店員の給料（人件費）は <b>${y(CI.staff)}</b>（売上の${Math.round(CI.staff/CI.sales*100)}%）<br>
       → ${esc(CI.name)}の分は1日 <b>${y(CI.mine)}</b>。お客さん1人の買い物のうち、およそ <b>${Math.round(CI.mine/CI.cust)}円</b> が${esc(CI.name)}の稼ぎになっている<br>
-      → 1か月でおよそ <b>${y(CI.year/12)}</b>。それを、下の図のように沿線で使う</p><p class="hint" style="margin:0">1日の数字は、ゲームの直近の運行日の平均です。1年の稼ぎは、2週間分の記録がたまるまでは時給×週の時間×52週、たまったら実際の稼ぎから出します。</p></div>`:'';
+      → 1か月でおよそ <b>${y(CI.year/12)}</b>${CI.insured?`（社会保険を引いた手取りは <b>${y(CI.take/12)}</b>）`:''}。それを、下の図のように沿線で使う</p><p class="hint" style="margin:0">1日の数字は、ゲームの直近の運行日の平均です。1年の稼ぎは、2週間分の記録がたまるまでは時給×週の時間×52週、たまったら実際の稼ぎから出します。</p></div>`:'';
   return `<p class="hint" style="max-width:72ch">${esc(CL.lede)}</p>${sel}
     <dl class="tiles"><div class="tile" style="--c:#2f8a4a"><dt>${esc(CI.name)}（${esc(CI.kindName||'')}）</dt><dd>${y(CI.wage)}<small>時給・週${CI.week}時間</small></dd></div>
-      <div class="tile" style="--c:#2f8a4a"><dt>1か月の稼ぎ</dt><dd>${y(CI.year/12)}<small>${esc(CI.src)}・1年で${y(CI.year)}</small></dd></div>
+      <div class="tile" style="--c:#2f8a4a"><dt>1か月の稼ぎ</dt><dd>${y(CI.year/12)}<small>${esc(CI.src)}・1年で${y(CI.year)}${CI.insured?`・社会保険に入っていて、給料から約${Math.round(CI.so*100)}%引かれる（手取り月${y(CI.take/12)}。かわりに厚生年金と健康保険）`:''}${CI.commute?`・交通費は別に1日${y(CI.commute)}（往復の運賃に消える）`:''}</small></dd></div>
       <div class="tile" style="--c:var(--line)"><dt>暮らし</dt><dd style="font-size:13px;font-family:var(--f-body)">${esc(CL.live[CI.kind]||'')}</dd></div>
-      <div class="tile" style="--c:var(--line)"><dt>使わずに残る（貯金）</dt><dd>${Math.round((1-spent)*100)}%<small>月${y(CI.year/12*(1-spent))}</small></dd></div></dl>${chain}
+      <div class="tile" style="--c:var(--line)"><dt>使わずに残る（貯金）</dt><dd>${Math.round((1-spent)*100)}%<small>月${y((CI.take??CI.year)/12*(1-spent))}</small></dd></div></dl>${chain}
     <p class="hint">${esc(CL.note)}</p>`;}
 function kakei(){const KD=DATA.kakei,box=$('#kakei');if(!cur.kk)cur.kk={mode:kkMine()?'mine':'model',sel:null};const st=cur.kk,mine=kkMine()||{};
   const CI=st.mode==='clerk'?clerkInfo(st.clerk):null,plan=CI?(KD.clerk.plan[CI.kind]||KD.clerk.plan.free):null;
   const TWN=CI?(KD.clerk.town[CI.kind]||'緑野市'):'緑野市',PN=p=>KD.payees[p].name.replace('緑野市',TWN),PS=p=>KD.payees[p].story.replace(/緑野市/g,TWN);
-  const val=c=>st.mode==='mine'?Math.max(0,Number(mine[c.id]||0)):CI?Math.round(CI.year/12*(plan[c.id]||0)/100)*100:c.v;
+  const val=c=>st.mode==='mine'?Math.max(0,Number(mine[c.id]||0)):CI?Math.round((CI.take??CI.year)/12*(plan[c.id]||0)/100)*100:c.v;
   const cats=KD.cats.map(c=>({...c,val:val(c)})).filter(c=>c.val>0),tot=cats.reduce((a,c)=>a+c.val,0);
   // 流れ
   const cp={},pd={},dt={},cd={};for(const c of cats){cd[c.id]={};for(const [p,sh] of Object.entries(c.to)){const v=c.val*sh;cp[c.id+'|'+p]=v;const S2=KD.payees[p].split;for(const [k,f] of Object.entries(S2)){if(!f)continue;pd[p+'|'+k]=(pd[p+'|'+k]||0)+v*f;dt[k]=(dt[k]||0)+v*f;cd[c.id][k]=(cd[c.id][k]||0)+v*f;}}}
