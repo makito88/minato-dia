@@ -98,14 +98,16 @@ function simulate(D,cfgIn){
         if(b.T<=D.cool.target){cooler.splice(j,1);b.st=ST.HOLD;b.tHold=t;hold.push(b);}}
       hold.sort((a,b)=>a.tHold-b.tHold||a.id-b.id);}
       agg.inCool[i]=cooler.length;}
-    /* 釜：炊飯 → 蒸らし → 冷却へ（満杯なら釜で待つ） */
+    /* 釜：炊飯 → 蒸らし → 冷却へ（満杯なら釜で待つ）。冷却へは炊き上がった順に送る */
+    const readyPots=[];
     for(let p=0;p<pots.length;p++){const b=pots[p];if(!b)continue;
       if(b.st===ST.COOK){b.T=Math.min(D.cook.temp,b.T+6);if(t-b.tCook>=D.cook.min){b.st=ST.STEAM;b.tSteam=t;b.T=D.cook.temp;b.g=D.germ.init;}}
-      else if(b.st===ST.STEAM||b.st===ST.POT){
-        const ready=b.st===ST.POT||t-b.tSteam>=D.cook.steam;
-        if(ready){if(cooler.length<D.cool.slots){pots[p]=null;b.st=ST.COOL;b.tCool=t;cooler.push(b);}
-          else{if(b.st!==ST.POT){b.st=ST.POT;b.tPotWait=t;}b.potWait++;wait.pot++;b.T+=(D.potHold.temp-b.T)*0.2;
-            if(!coolBusyLogged&&b.potWait>=10){coolBusyLogged=true;log(t,'warn',`冷却がいっぱいで、炊き上がった釜（${b.no}）が10分待っています。釜が空かないので、次の米が炊けません。`,b.id);}}}}}
+      else if(b.st===ST.POT||(b.st===ST.STEAM&&t-b.tSteam>=D.cook.steam))readyPots.push(p);}
+    readyPots.sort((x,y)=>pots[x].tSteam-pots[y].tSteam||pots[x].id-pots[y].id);
+    for(const p of readyPots){const b=pots[p];
+      if(cooler.length<D.cool.slots){pots[p]=null;b.st=ST.COOL;b.tCool=t;cooler.push(b);}
+      else{if(b.st!==ST.POT){b.st=ST.POT;b.tPotWait=t;}b.potWait++;wait.pot++;b.T+=(D.potHold.temp-b.T)*0.2;
+        if(!coolBusyLogged&&b.potWait>=10){coolBusyLogged=true;log(t,'warn',`冷却がいっぱいで、炊き上がった釜（${b.no}）が10分待っています。釜が空かないので、次の米が炊けません。`,b.id);}}}
     /* 浸漬 → 空いた釜へ（浸した順） */
     for(const b of tanks){b.soakMin++;b.f=1-Math.exp(-b.soakMin/tauW);
       if(b.soakMin>cfg.soak)wait.tank++;}
@@ -127,8 +129,7 @@ function simulate(D,cfgIn){
     /* 記録 */
     for(const b of batches){b.hs[i]=b.st;b.hT[i]=b.T;b.hf[i]=b.f;b.hg[i]=b.g==null?-1:b.g;}
     agg.made[i]=made;
-    if(t===D.deadline)log(t,'ship',`${hm(t)}、包装の締め切り。ここまでの${Math.floor(made).toLocaleString()}個から、検品を通った分を${D.ship.to}行きのトラックに積みます。`);
-    if(t===D.ship.depart)log(t,'ship',`${hm(t)}、${D.ship.to}行きのトラックが出発（約${D.ship.km}km、${hm(D.ship.store)}に売店へ届く予定）。`);
+    for(const [st,lab,note] of (D.ship.steps||[])){if(st===t&&!(st===D.deadline&&lab!=='包装の締め切り'))log(t,'ship',st===D.deadline?`${hm(t)}、包装の締め切り。ここまでの${Math.floor(made).toLocaleString()}個から、検品を通った分を${D.ship.via}へ送ります。`:`${hm(t)}、${lab}。${note}。`);}
   }
 
   function judge(b,t){const Q=D.quality;let s=100;const why=[];

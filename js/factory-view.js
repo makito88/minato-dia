@@ -112,7 +112,7 @@ function layout(w){
     wash:[12,30,110,180],soak:[134,30,254,180],cook:[12,250,376,150],cool:[12,440,376,150],hold:[12,630,180,170],form:[208,630,180,170],ship:[12,840,376,140]},tankCols:4,
     links:[['wash','soak','h'],['soak','cook','v'],['cook','cool','v'],['cool','hold','v'],['hold','form','h'],['form','ship','v']]};}
   return {W:1040,H:480,box:{
-    wash:[16,36,120,190],soak:[156,36,440,190],cook:[616,36,408,190],cool:[16,280,400,180],hold:[436,280,180,180],form:[636,280,230,180],ship:[886,280,138,180]},tankCols:6,
+    wash:[16,36,120,190],soak:[156,36,440,190],cook:[616,36,408,190],cool:[16,280,400,180],hold:[436,280,180,180],form:[636,280,230,180],ship:[886,280,138,180]},tankCols:8,
     links:[['wash','soak','h'],['soak','cook','h'],['cook','cool','u'],['cool','hold','h'],['hold','form','h'],['form','ship','h']]};
 }
 const TITLES={wash:'洗米',soak:'浸漬（タンク）',cook:'炊飯・蒸らし（釜）',cool:'ほぐし・冷却',hold:'待ち',form:'成形・包装',ship:'出荷'};
@@ -256,9 +256,10 @@ function drawShip(c,[x,y,w,h],i,t){
   c.strokeStyle=css('--sheet');for(let k=1;k<6;k++){c.beginPath();c.moveTo(bx,by+bh*k/6);c.lineTo(bx+bw,by+bh*k/6);c.stroke();}
   txt(c,`${showMade.toLocaleString()}`,x+w/2,by+bh+16,{align:'center',num:true,bold:true});
   txt(c,`／${order.toLocaleString()}個${t<D.orderConfirm?'（見込み）':''}`,x+w/2,by+bh+30,{align:'center',size:10,color:css('--muted')});
-  const left=dl-t,S2=D.ship;
-  const msg=left>0?`${hm(dl)}締め切りまで ${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`:t<S2.depart?`積み込み中・${hm(S2.depart)} 出発`:t<S2.store?`${S2.to}へ走行中・${hm(S2.store)} 着`:`${S2.to}の売店に届いた`;
-  txt(c,msg,x+w/2,y+h-10,{align:'center',size:11,bold:true,color:left>0&&left<60?css('--warn'):css('--ink')});
+  const left=dl-t,S2=D.ship;let msg;
+  if(left>0)msg=`${hm(dl)}締め切りまで ${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;
+  else{const st=(S2.steps||[]).filter(x=>x[0]<=t).pop();msg=st?(st[0]>=S2.store?st[1]:`${st[1]}・${hm(S2.store)} 並ぶ`):'出荷';}
+  txt(c,msg,x+w/2,y+h-10,{align:'center',size:10.5,bold:true,color:left>0&&left<60?css('--warn'):css('--ink')});
 }
 
 /* ---------------- 釜ごとの帯 ---------------- */
@@ -341,7 +342,7 @@ function showResult(){resultShown=true;const s=R.summary;$('resultWait').hidden=
   const sameNight=p&&pc&&pc.seed===R.cfg.seed&&pc.season===R.cfg.season;
   const cfgDiff=p?changes(pc,R.cfg):[];
   el.innerHTML=`
-   <p class="big">注文 <b class="num">${s.order.toLocaleString()}</b>個のうち、<b class="num">${s.shipped.toLocaleString()}</b>個を${D.ship.to}行きのトラックに積めました（${hm(D.ship.depart)} 出発・${hm(D.ship.store)} 売店着）。${s.short?`<span class="down">${s.short.toLocaleString()}個足りません。</span>`:'<span class="up">全部そろいました。</span>'}</p>
+   <p class="big">注文 <b class="num">${s.order.toLocaleString()}</b>個のうち、<b class="num">${s.shipped.toLocaleString()}</b>個を${D.ship.via}経由で${D.ship.to}の売店へ送れました（${hm(D.ship.depart)} 工場を出発・${hm(D.ship.store)} 売店に並ぶ）。${s.short?`<span class="down">${s.short.toLocaleString()}個足りません。</span>`:'<span class="up">全部そろいました。</span>'}</p>
    <p class="small">いちばん詰まったところ：<b>${s.neck[1]?s.neck[0]:'特になし'}</b>（釜ごとの待ちの合計 ${s.neck[1].toLocaleString()}分）。品質 ◎${s.ranks['◎']}・○${s.ranks['○']}・△${s.ranks['△']}・×${s.ranks['×']}釜。菌の目安はいちばん多い釜で ${s.gMax.toFixed(2)}。</p>
    ${p?`<p class="small muted">右は前の夜（${sameNight?'同じ夜・同じ注文':'<b>別の夜か季節なので注文が違います</b>'}）。${cfgDiff.length?'変えた条件：'+cfgDiff.join('、'):'条件は同じ'}</p>`:''}
    <table><thead><tr><th></th><th class="r">この夜</th>${p?'<th class="r">前の夜</th><th class="r">差</th>':''}</tr></thead><tbody>
@@ -373,7 +374,7 @@ function onStageClick(e){const cv=$('stage');const r=cv.getBoundingClientRect();
 
 function legends(){
   $('tempLegend').innerHTML=[[10,'10℃'],[25,'25℃'],[32,'32℃'],[50,'50℃'],[70,'70℃'],[95,'95℃']].map(([T,l])=>`<span><i style="background:${tempColor(T)}"></i>${l}</span>`).join('')+`<span><i style="background:${css('--bad')};border-radius:50%"></i>菌が注意の線をこえた</span>`;
-  $('stLegend').innerHTML=[1,2,3,4,5,6,7,8,9].map(s=>`<span><i style="background:${ST_COLOR[s]}"></i>${F.ST_LABEL[s]}</span>`).join('')+`<span><i style="background:${css('--bad')}"></i>赤い縦線：20:00 注文確定・${hm(D.deadline)} 包装の締め切り（${D.ship.to}行きトラック）</span>`;
+  $('stLegend').innerHTML=[1,2,3,4,5,6,7,8,9].map(s=>`<span><i style="background:${ST_COLOR[s]}"></i>${F.ST_LABEL[s]}</span>`).join('')+`<span><i style="background:${css('--bad')}"></i>赤い縦線：20:00 注文確定・${hm(D.deadline)} 包装の締め切り（${D.ship.via}経由で${D.ship.to}へ）</span>`;
 }
 
 async function init(){
