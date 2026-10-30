@@ -198,7 +198,7 @@ const $=s=>document.querySelector(s);
 const fmt=(v,d=0)=>v==null?'—':Number(v).toLocaleString('ja-JP',{maximumFractionDigits:d,minimumFractionDigits:d});
 const S=DATA.stations,ORD=DATA.stationOrder,TW=DATA.towns;
 let cur={st:'K',town:'midorino',view:'station',kinds:null};
-try{const h=location.hash.slice(1);if(['station','towns','money','table','history','yukari'].includes(h))cur.view=h;}catch(e){}
+try{const h=location.hash.slice(1);if(['station','towns','money','table','history','yukari'].includes(h))cur.view=h;else if(h==='port'||h==='clerk'){cur.view='money';if(h==='clerk')cur.kk={mode:'clerk',sel:null};setTimeout(()=>{const t=document.getElementById(h==='port'?'port':'kakei');if(t)t.scrollIntoView();},300);}}catch(e){}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ---- 路線図 ---- */

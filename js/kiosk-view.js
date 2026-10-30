@@ -686,6 +686,7 @@ function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=
 /* ---------- 起動 ---------- */
 mount();setInterval(tick,1000);
 window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()=>setOpen(true),
+  openTab:t=>{if(['log','items','layout','people','crew','money','news'].includes(t))V.tab=t;setOpen(true);if(V.st)render(true);},   // トップから：タブを選んで開く
   // リサーチから：その駅・場所を選んだ状態で売店の画面を開く（まだ出していないとき）
   openAt:(st,place)=>{if(!V.st&&PLACES.includes(place))V.form={st,place};setOpen(true);},places:PLACES,sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},
   closeToday(){const r=ensureRes();if(r){closeToday(r);g(()=>{ENS.day=ENS.day;});}return V.st&&V.st.hist.at(-1);},   // 開発用：きょうの分で1日を締める（運行日は進めない）
