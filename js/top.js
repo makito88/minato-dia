@@ -9,6 +9,7 @@
 'use strict';
 const KEY='dia-top-skip',$=id=>document.getElementById(id),g=(f,d)=>{try{return f();}catch(e){return d;}};
 const KARTE='docs/machi-karte.html';
+const COUNTRY='澪洲国';   // 仮の島国の名前（決まったらここを変える）
 const openKarte=h=>{window.open(KARTE+(h?'#'+h:''),'_blank','noopener');};
 
 /* ---- イメージの絵（架空・説明用） ---- */
@@ -34,9 +35,11 @@ const SVG_CREW=`<svg viewBox="0 0 400 220" role="img" aria-label="従業員の�
   <text x="300" y="200" font-size="12" fill="#3b2f25">時給 ¥1,250〜</text></svg>`;
 
 const L=[
- {id:'world',name:'世界',sub:'国際貿易・資源・金融・人口移動',art:SVG_WORLD,state:'一部',
+ {id:'world',name:'世界',sub:'国際貿易・資源・金融・人口移動',img:'docs/img/map-world.jpg',art:SVG_WORLD,state:'一部',
+  pins:[{x:44,y:31,t:COUNTRY,main:1},{x:8.4,y:19.5,t:'姉妹港'},{x:71.6,y:31,t:'北米西岸'},{x:32.5,y:48.5,t:'東南アジア'}],
   items:[['港の荷主をのぞく（海外とのお金の流れ）','karte:port'],['姉妹港ヴェステルハーフェンの歩み','karte:history']],soon:'資源の値段や為替が、売店まで届く道すじ（因果カード）'},
- {id:'japan',name:'日本',sub:'国内の産業・港湾・鉄道・物流',art:SVG_JAPAN,state:'一部',
+ {id:'japan',name:COUNTRY,sub:'日本にあたる架空の島国（名前は仮）・産業・港湾・鉄道・物流',img:'docs/img/map-country.jpg',art:SVG_JAPAN,state:'一部',
+  pins:[{x:54.5,y:52,t:'みなと川沿線・港浜',main:1},{x:51.5,y:31,t:'湯ノ谷'}],
   items:[['沿線の歩み 1885〜2026（日本の地方鉄道に似せた歴史）','karte:history'],['国・県と町のお金の流れ（交付税など）','karte:money']],soon:'国内の物流と産業の地図'},
  {id:'line',name:'沿線',sub:'人口・土地利用・駅・商業施設',img:'docs/img/route-map-painted.jpg',state:'遊べる',
   items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station']]},
@@ -60,7 +63,9 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 .topv .grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .topv .ly{grid-column:span 2;border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;display:flex;flex-direction:column}
 .topv .ly.wide{grid-column:span 3}
-.topv .art{aspect-ratio:400/220;background:var(--line);overflow:hidden}.topv .art img,.topv .art svg{width:100%;height:100%;display:block;object-fit:cover}
+.topv .art{aspect-ratio:400/220;background:var(--line);overflow:hidden;position:relative}
+.topv .pin{position:absolute;transform:translate(-50%,-130%);font-size:11.5px;font-weight:700;background:rgb(255 255 255 / .88);color:#3b2f25;border:1px solid #b9a989;border-radius:6px;padding:1px 6px;white-space:nowrap;pointer-events:none}.topv .pin::after{content:'';position:absolute;left:50%;bottom:-7px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:#c23b3b;border:1.5px solid #fff;transform:translateY(100%)}.topv .pin.main{background:#c23b3b;color:#fff;border-color:#c23b3b;font-size:12.5px}
+.topv .cap{position:absolute;left:6px;bottom:4px;font-size:10px;color:#5d5045;background:rgb(255 255 255 / .7);border-radius:4px;padding:0 5px}.topv .art img,.topv .art svg{width:100%;height:100%;display:block;object-fit:cover}
 .topv .bd{padding:10px 12px 12px;display:grid;gap:6px}
 .topv .nm{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}.topv .nm b{font-size:20px}.topv .nm small{color:var(--muted);font-size:12.5px}
 .topv .st{margin-left:auto;font-size:11px;border-radius:999px;padding:1px 8px;border:1px solid var(--line);color:var(--muted)}.topv .st.ok{color:#2f8a4a;border-color:#2f8a4a66}
@@ -76,7 +81,7 @@ function render(){const box=$('topv');
   box.innerHTML=`<div class="in"><div class="hd"><div><h1>みなと川電鉄 ダイヤ工房</h1>
       <p class="lede">世界の出来事は、どうやって駅の売店まで届くのか。売店でのあなたの小さな判断は、どこまで届くのか。5つのレイヤーを行き来しながら、架空の沿線を動かしてみてください。</p></div>
       <button type="button" class="go" id="topGo">路線図とダイヤへ</button></div>
-    <div class="grid">${L.map((x,i)=>`<section class="ly${i>=3?' wide':''}" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}</div>
+    <div class="grid">${L.map((x,i)=>`<section class="ly${i>=3?' wide':''}" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
       <div class="bd"><div class="nm"><b>${x.name}</b><small>${x.sub}</small><span class="st${x.state==='遊べる'?' ok':''}">${x.state==='遊べる'?'遊べる':'読める（一部）'}</span></div>
       ${x.items.map(([t,a])=>`<button type="button" class="it${a.startsWith('karte')?' ext':''}" data-go="${a}">${t}</button>`).join('')}
       ${x.soon?`<div class="soon">準備中：${x.soon}</div>`:''}</div></section>`).join('')}</div>
