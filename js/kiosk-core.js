@@ -304,7 +304,7 @@ function closeDay(cfg,state,res,info){const ix=index(cfg),st=JSON.parse(JSON.str
     if(tot>50&&herd/tot>0.08)say('mood','前の人につられて買う人が多かった',`${herd}人が、直前に同じ品が売れたのを見て買っていました。`);}
   // 記録
   const top=Object.entries(res.sold).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  st.hist.push({day,cond:res.cond,mot:res.motives,sales:Math.round(res.pl.sales),profit:Math.round(res.pl.profit),cust:Object.values(res.byPs).reduce((a,b)=>a+b,0),waste:Math.round(res.pl.waste),top});if(st.hist.length>60)st.hist.shift();
+  st.hist.push({day,cond:res.cond,mot:res.motives,sales:Math.round(res.pl.sales),profit:Math.round(res.pl.profit),cust:Object.values(res.byPs).reduce((a,b)=>a+b,0),waste:Math.round(res.pl.waste),staff:Math.round(res.pl.staff||0),crew:(res.crew||[]).map(c=>[c.id,Math.round(c.yen),+c.h.toFixed(1)]),top});if(st.hist.length>60)st.hist.shift();
   if(st.news.length>80)st.news=st.news.slice(-80);
   return {state:st,news};}
 
