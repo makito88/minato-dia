@@ -70,7 +70,9 @@ select,input[type=number]{background:var(--sheet);border:1px solid var(--line);b
 #bstage{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px;touch-action:manipulation;cursor:pointer}
 #bgantt{display:block;width:100%;height:auto;cursor:pointer}
 #bbatchCard canvas{width:100%;height:auto;display:block;margin-top:6px}
-#bresult[hidden],#breadView[hidden],#riceView[hidden]{display:none}
+#bresult[hidden],#breadView[hidden],#riceView[hidden],#sandView[hidden],#sresult[hidden]{display:none}
+.stagecv{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px}
+.chartcv{display:block;width:100%;height:auto;margin-top:6px}
 #events{max-height:260px;overflow:auto;margin:0;padding:0;list-style:none}
 #events li,.evlist li{padding:4px 0;border-bottom:1px solid var(--line2);font-size:13px;display:flex;gap:8px}
 #events li .num{color:var(--muted);min-width:42px}
@@ -105,6 +107,7 @@ table.fills{max-width:460px}
 <div class="seg lines" id="lineTabs" role="tablist" aria-label="ライン">
   <button role="tab" data-v="rice" aria-selected="true">🍙 米のライン（おにぎり）</button>
   <button role="tab" data-v="bread" aria-selected="false">🍞 パンのライン</button>
+  <button role="tab" data-v="sand" aria-selected="false">🥪 サンドイッチのライン</button>
 </div>
 
 <div id="riceView" role="tabpanel">
@@ -203,11 +206,59 @@ table.fills{max-width:460px}
 <p class="note">パンのラインの発酵の速さ（生地の温度が10℃上がると2.5倍、38℃をこえると弱る）、仕込み水の温度の式（こね上げの温度×3 −（粉＋部屋＋摩擦））、オーブン・ホイロ・粗熱取りの大きさは、現実の性質の形だけを借りた仮の数字で、実在の工場やレシピの数字ではありません。設定は <code>data/factory.json</code> の <code>bread</code>。</p>
 </div>
 
+<div id="sandView" role="tabpanel" hidden>
+<figure class="hero" id="sandHero"></figure>
+<section class="card" aria-labelledby="sh-plan">
+  <h2 id="sh-plan">夕方に決める（サンドイッチ）</h2>
+  <div class="plan" id="splan"></div>
+  <div class="row" style="margin-top:12px">
+    <button class="primary" id="srun">この条件で夜を回す</button>
+    <button id="snewNight">別の夜にする（注文が変わる）</button>
+    <span class="small muted" id="snightInfo"></span>
+  </div>
+</section>
+<section class="card" aria-labelledby="sh-night">
+  <h2 id="sh-night">夜のサンドイッチのライン</h2>
+  <div class="play">
+    <span class="clock" id="sclock">18:00</span>
+    <button id="splayBtn" aria-label="再生">▶ 再生</button>
+    <div class="seg" id="sspeeds" role="group" aria-label="速さ"></div>
+    <input type="range" id="sscrub" min="0" max="660" step="1" value="0" aria-label="時刻">
+  </div>
+  <div class="clocks" id="sclocks"></div>
+  <canvas id="sstage" class="stagecv" width="1040" height="520" aria-label="サンドイッチのラインの絵"></canvas>
+</section>
+<div class="two">
+<section class="card" aria-labelledby="sh-tray">
+  <h2 id="sh-tray">トレーの温度（冷たさの時計）</h2>
+  <canvas id="strayChart" class="chartcv" width="500" height="170" aria-label="組み立ての台に出した具材のトレーの温度の移り変わり"></canvas>
+  <div class="legend" id="sTrayLegend"></div>
+</section>
+<section class="card" aria-labelledby="sh-ev">
+  <h2 id="sh-ev">サンドイッチのラインの記録</h2>
+  <ul id="sevents" class="evlist"></ul>
+</section>
+</div>
+<section class="card" aria-labelledby="sh-gantt">
+  <h2 id="sh-gantt">持ち場ごとの一晩（横が時刻）</h2>
+  <canvas id="sgantt" class="chartcv" width="1040" height="200"></canvas>
+  <div class="legend" id="sstLegend"></div>
+</section>
+<section class="card" aria-labelledby="sh-res">
+  <h2 id="sh-res">朝の答え合わせ（サンドイッチ）</h2>
+  <div id="sresultWait" class="muted small">5:00 まで進むと出ます。<button id="speek" style="margin-left:8px">先に見る</button></div>
+  <div id="sresult" hidden></div>
+</section>
+<p class="note">サンドイッチのラインの「10℃をこえていた時間」の線、トレーの温まり方、レタスに残る水、締めの時間、作業室の温度と手の速さは、現実の性質（冷蔵の具材は10℃以下で扱う、温まると菌が増えやすい、水分はパンに移る）の形だけを借りた仮の数字で、実際の食品衛生の基準ではありません。設定は <code>data/factory.json</code> の <code>sand</code>。</p>
+</div>
+
 <p class="note">名前・会社・数字はすべて架空のゲームの目安です。吸水・冷え方・菌の増え方と、成形・包装の機械のライン2本（機械の速さ・フィルムの枚数・具の掃除・詰まり・はじく割合・消費期限・機械の費用）は、現実の性質（水温で吸水が変わる、ニュートンの冷却、菌は10〜50℃台で増えやすい）の形だけを借りた仮の数字で、実際の食品衛生の基準や、実在の工場の数字ではありません。設定は <code>data/factory.json</code>。</p>
 </div>
 <script src="js/factory-core.js"></script>
 <script src="js/factory-view.js"></script>
 <script src="js/bread-core.js"></script>
 <script src="js/bread-view.js"></script>
+<script src="js/sand-core.js"></script>
+<script src="js/sand-view.js"></script>
 </body>
 </html>

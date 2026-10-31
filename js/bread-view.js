@@ -29,14 +29,19 @@ function pColor(p,stage){const Q=B.quality;const lo=stage===1?Q.p1Low:Q.p2Low,hi
 
 /* ---------------- 切り替え ---------------- */
 function buildTabs(){const tabs=$('lineTabs');if(!tabs)return;
-  const set=v=>{active=v==='bread';$('riceView').hidden=active;$('breadView').hidden=!active;
+  // 米・パン・サンドイッチの3つ。切り替えたら factory-tab の知らせを出す（サンドイッチの画面が聞く）
+  const PANEL={rice:'riceView',bread:'breadView',sand:'sandView'};
+  const NAME={rice:D.line,bread:B.line,sand:D.sand?D.sand.line:''};
+  const set=v=>{if(!PANEL[v]||!$(PANEL[v]))v='rice';active=v==='bread';
+    for(const k in PANEL){const el=$(PANEL[k]);if(el)el.hidden=k!==v;}
     for(const b of tabs.children){const on=b.dataset.v===v;b.classList.toggle('on',on);b.setAttribute('aria-selected',on);}
-    $('lineName').textContent=active?B.line:D.line;
+    $('lineName').textContent=NAME[v];
     try{localStorage.setItem(TAB,v);}catch(e){}
-    if(active){if(!R)run(false);else drawAll(true);}else window.dispatchEvent(new Event('resize'));};
+    window.dispatchEvent(new CustomEvent('factory-tab',{detail:v}));
+    if(active){if(!R)run(false);else drawAll(true);}else if(v==='rice')window.dispatchEvent(new Event('resize'));};
   for(const b of tabs.children)b.onclick=()=>set(b.dataset.v);
   let v='rice';try{v=localStorage.getItem(TAB)||'rice';}catch(e){}
-  if(location.hash==='#bread')v='bread';
+  if(location.hash==='#bread'||location.hash==='#sand')v=location.hash.slice(1);
   set(v);}
 
 /* ---------------- 夕方に決める ---------------- */
