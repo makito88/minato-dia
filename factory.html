@@ -39,6 +39,8 @@ select,input[type=number]{background:var(--sheet);border:1px solid var(--line);b
 .plan label{display:block;font-size:12px;color:var(--muted)}
 .plan .val{font-size:14px;color:var(--ink)}
 .plan .hint{font-size:12px;color:var(--muted)}
+.plan .loafplan{grid-column:1/-1;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--paper)}
+#sloafOpts[hidden]{display:none}
 .seg{display:flex;gap:4px;flex-wrap:wrap}
 .seg button{min-height:32px;padding:4px 10px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -253,7 +255,7 @@ table.fills{max-width:460px}
   <div id="sresultWait" class="muted small">5:00 まで進むと出ます。<button id="speek" style="margin-left:8px">先に見る</button></div>
   <div id="sresult" hidden></div>
 </section>
-<p class="note">サンドイッチのラインの「10℃をこえていた時間」の線、トレーの温まり方、レタスに残る水、締めの時間、作業室の温度と手の速さは、現実の性質（冷蔵の具材は10℃以下で扱う、温まると菌が増えやすい、水分はパンに移る）の形だけを借りた仮の数字で、実際の食品衛生の基準ではありません。設定は <code>data/factory.json</code> の <code>sand</code>。</p>
+<p class="note">サンドイッチのラインの「10℃をこえていた時間」の線、トレーの温まり方、レタスに残る水、締めの時間、作業室の温度と手の速さは、現実の性質（冷蔵の具材は10℃以下で扱う、温まると菌が増えやすい、水分はパンに移る）の形だけを借りた仮の数字で、実際の食品衛生の基準ではありません。設定は <code>data/factory.json</code> の <code>sand</code>。角型の食パン（発酵・型の8分目・焼成・芯が32℃まで冷めたら切る・1本から取れる枚数・費用）の数字も仮で、実在の工場やレシピの数字ではありません（<code>sand.loaf</code>）。</p>
 </div>
 
 <p class="note">名前・会社・数字はすべて架空のゲームの目安です。吸水・冷え方・菌の増え方と、成形・包装の機械のライン2本（機械の速さ・フィルムの枚数・具の掃除・詰まり・はじく割合・消費期限・機械の費用）は、現実の性質（水温で吸水が変わる、ニュートンの冷却、菌は10〜50℃台で増えやすい）の形だけを借りた仮の数字で、実際の食品衛生の基準や、実在の工場の数字ではありません。設定は <code>data/factory.json</code>。</p>
@@ -262,6 +264,7 @@ table.fills{max-width:460px}
 <script src="js/factory-view.js"></script>
 <script src="js/bread-core.js"></script>
 <script src="js/bread-view.js"></script>
+<script src="js/sand-loaf.js"></script>
 <script src="js/sand-core.js"></script>
 <script src="js/sand-view.js"></script>
 </body>

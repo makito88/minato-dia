@@ -12,12 +12,13 @@
    ・冷たさの時計：台に出したトレーは作業室の温度へ温まる。10℃こえが長い分は保留にして、品質確認の人が評価する。
    ・締め → カット（機械・1組を2切れに）→ 三角パックに詰める（人）→ 2:30 の締め切り → 終業の分解洗浄。
    ・消費期限は、その夜の製造に決まった期限（包装が遅れても延びない）。
+   ・食パン：仕入れ、または自社で角型を焼く（js/sand-loaf.js。午後から同じ時計で進め、切れた枚数だけ供給機が使える）。
    ・DOM を使わない。設定は data/factory.json の sand。数字はすべてゲームの仮の目安。
    ===================================================================== */
 (function(root){
 'use strict';
 
-const LC={IDLE:-1,CHANGE:10,TRIP:11,WAIT:12,DONE:13,JAM:14,CLEAR:15,QC:16,CLEAN:17};   // 組み立ての状態（0〜4はサンドの番号）
+const LC={IDLE:-1,CHANGE:10,TRIP:11,WAIT:12,DONE:13,JAM:14,CLEAR:15,QC:16,CLEAN:17,BREAD:18};   // 組み立ての状態（0〜4はサンドの番号）
 const ING=['egg','tuna','lettuce','katsu','fruit'];
 function rng(seed){let a=seed>>>0;return function(){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
 function gauss(r){let u=0,v=0;while(u===0)u=r();while(v===0)v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
@@ -50,10 +51,14 @@ function waterLeft(A,spin){return Math.exp(-spin/A.water.tau);}
 /* ベルトの速さ（組／分）：人がのせる持ち場が追いつく速さまで */
 function beltRate(A,kind,speed,staff,hand){if(!kind.hands)return speed;return Math.min(speed,staff*A.belt.handRate*hand/kind.hands);}
 
+/* 自社で焼くときは、原材料の食パンを自家製に置きかえる */
+function ownBread(D,cfg){const A=D.sand;return cfg.bread==='own'&&!!A.loaf&&!!root.SandLoaf;}
+function sandFor(D,cfg){const A=D.sand;if(!ownBread(D,cfg)||!A.ingredients.breadOwn)return A;return Object.assign({},A,{ingredients:Object.assign({},A.ingredients,{bread:A.ingredients.breadOwn})});}
+
 function simulate(D,cfgIn){
-  const A=D.sand;const cfg=Object.assign({},A.defaults,cfgIn||{});
+  const cfg=Object.assign({},D.sand.defaults,cfgIn||{});const own=ownBread(D,cfg);const A=sandFor(D,cfg);const LF=A.loaf;
   const S=D.seasons[cfg.season]||D.seasons.mid;
-  const T0=D.start,T1=D.end,N=T1-T0+1;
+  const T0=own?Math.min(D.start,cfg.bstart):D.start,T1=D.end,N=T1-T0+1;
   const P={},K={};A.products.forEach(p=>P[p.id]=p);A.kinds.forEach((k,j)=>{K[k.id]=k;k._k=j;});
   const od=orders(D,cfg.seed,cfg.season);const order=Object.values(od).reduce((a,b)=>a+b,0);
   const seq=(A.orders[cfg.order]||A.orders.safe).seq.slice();
@@ -64,9 +69,13 @@ function simulate(D,cfgIn){
   const ktgt=(k,t)=>Math.ceil(A.products.reduce((a,p)=>a+ptgt(p.id,t)*(p.pieces[k]||0),0)/2);           // 作るサンドの組数
   const needIng=(g,t)=>A.kinds.reduce((a,k)=>a+ktgt(k.id,t)*(k.use[g]||0),0)*1.02;
   const EXP=expiryAt(A.expiry),basisFrom=EXP-A.expiry.maxH*60;
+  /* 食パン（角型）：要る枚数＝作るサンドの組数×2 */
+  const loaf=own?root.SandLoaf.create(D,A,cfg,S,(t,k,m)=>ev.push({t,k,msg:m}),t=>2*A.kinds.reduce((a,k)=>a+ktgt(k.id,t),0)):null;
+  const jamF=own?(LF.feederJam[String(cfg.bthick)]||1):1;let waitBread=0,breadLogged=0;
 
   /* ---- くじ（条件を変えても、同じ時刻に同じくじ） ---- */
-  const rl=rng((cfg.seed*92821+(sk[cfg.season]||0)*17)>>>0);const roll=()=>new Float32Array(N).map(()=>rl());
+  // くじは18:00から数える（食パンを焼くと夜の始まりが早くなるが、組み立てのくじは同じ時刻に同じ）
+  const NR=T1-D.start+1;const rl=rng((cfg.seed*92821+(sk[cfg.season]||0)*17)>>>0);const roll=()=>new Float32Array(NR).map(()=>rl());
   const feedRoll=roll(),feedU=roll(),depRoll=roll(),depU=roll(),shellRoll=new Float32Array(40).map(()=>rl());
   const pick=([a,b],u)=>a+Math.floor(u*(b-a+1));
 
@@ -94,25 +103,25 @@ function simulate(D,cfgIn){
   const chunks=[];const holdBin=[];const waitIng={};ING.forEach(g=>waitIng[g]=0);const waitLogged=new Set();let expWarn=0,trayNo=0,qcWaitLine=0,qcWaitPrep=0;
   const kres={};A.kinds.forEach(k=>kres[k.id]={id:k.id,name:k.name,made:0,cutRej:0,holdN:0,holdOk:0,holdBad:0});
   const pool={};A.kinds.forEach(k=>pool[k.id]=[]);   // 切ったあとの切れの山（具ごと）
-  const res={};A.products.forEach(p=>res[p.id]={id:p.id,name:p.name,order:od[p.id],good:0,late:0,packed:0,early:0,score:0,why:{cold:0,water:0,fresh:0,bruise:0,hold:0}});
+  const res={};A.products.forEach(p=>res[p.id]={id:p.id,name:p.name,order:od[p.id],good:0,late:0,packed:0,early:0,score:0,why:{cold:0,water:0,fresh:0,bruise:0,hold:0,bread:0}});
   let packedAll=0,packedBy=0,lastPack=null,cleanStart=null,cleanEnd=null,lastCut=null;
   const agg={rate:new Float32Array(N),jam:new Int8Array(N),line:new Int8Array(N).fill(LC.IDLE),trayT:new Float32Array(N).fill(NaN),trayExp:new Float32Array(N),made:new Float32Array(N),packed:new Float32Array(N),shime:new Float32Array(N),
     cut:new Float32Array(N),pack:new Float32Array(N),qc:new Int8Array(N),qcq:new Int8Array(N),hold:new Float32Array(N),stock:{},pool:{},
     st:{boil:new Int8Array(N),bath:new Int8Array(N),peel:new Int8Array(N),check:new Int8Array(N),wash:new Int8Array(N),fry:new Int8Array(N),chill:new Int8Array(N),ft:new Int8Array(N)},bathT:[],chillT:[]};
-  for(const g of ING)agg.stock[g]=new Float32Array(N);for(const k of A.kinds)agg.pool[k.id]=new Float32Array(N);
+  for(const g of ING)agg.stock[g]=new Float32Array(N);agg.loaf=[];for(const k of A.kinds)agg.pool[k.id]=new Float32Array(N);
   const QCODE={first:1,cool:2,wash:2,mix:2,hold:3};
   const wl=waterLeft(A,cfg.spin);
   const poolHave=k=>pool[k].reduce((a,x)=>a+x.n,0);
-  const poolTake=(k,n)=>{let left=n,score=0;const why={cold:0,water:0,fresh:0,bruise:0,hold:0};
+  const poolTake=(k,n)=>{let left=n,score=0;const why={cold:0,water:0,fresh:0,bruise:0,hold:0,bread:0};
     while(left>1e-9&&pool[k].length){const x=pool[k][0];const q=Math.min(x.n,left);x.n-=q;left-=q;score+=x.score*q;for(const w in why)why[w]+=x.why[w]*q;if(x.n<=1e-9)pool[k].shift();}
     return {score,why};};
   /* 切る：1組を2切れにして、具ごとの山へ（品質の点を持たせる） */
   const cutPieces=(ch,q)=>{const kr=kres[ch.kind];const rj=A.cut.reject+Math.max(0,A.shime.maxReject*(1-cfg.shime/A.shime.good));const good=q*(1-rj);kr.cutRej+=q-good;
     const lt=K[ch.kind].use.lettuce||0;
     const wP=lt?wl*(A.water.sale+1440-ch.tAsm)/60*A.water.perHour*lt:0,bP=lt&&cfg.spin>A.water.bruise?(cfg.spin-A.water.bruise)*A.water.bruisePer*lt:0;
-    const cP=Math.max(0,Math.min(ch.exp,C.limit)-C.free)*C.perMin,hP=ch.released?A.hold.releasePenalty:0;
-    const score=Math.max(0,100-wP-bP-cP-ch.fresh-hP);
-    pool[ch.kind].push({n:good*2,score,why:{cold:cP,water:wP,fresh:ch.fresh,bruise:bP,hold:hP},tAsm:ch.tAsm});};
+    const cP=Math.max(0,Math.min(ch.exp,C.limit)-C.free)*C.perMin,hP=ch.released?A.hold.releasePenalty:0,brP=ch.bread||0;
+    const score=Math.max(0,100-wP-bP-cP-ch.fresh-hP-brP);
+    pool[ch.kind].push({n:good*2,score,why:{cold:cP,water:wP,fresh:ch.fresh,bruise:bP,hold:hP,bread:brP},tAsm:ch.tAsm});};
   /* トレーを閉じる：保留になった分があれば、品質確認の人に評価を頼む */
   const closeTray=(t)=>{const tr=tray;tray=null;if(!tr||!tr.held)return;kres[tr.kind].holdN+=tr.held;
     qcAdd(t,'hold',2,QC.hold,(t2)=>{const mine=[];for(let j=holdBin.length-1;j>=0;j--)if(holdBin[j].tray===tr.no)mine.push(holdBin.splice(j,1)[0]);
@@ -126,7 +135,8 @@ function simulate(D,cfgIn){
   log(T0,'info',`ベルトは1分${cfg.speed}組（1組＝食パン2枚）。のせる人${cfg.staff}人で、${A.kinds.filter(k=>k.hands).map(k=>`${k.name}は1分${Math.round(beltRate(A,k,cfg.speed,cfg.staff,hand))}組`).join('・')}まで（盛り付け機だけの具は${cfg.speed}組）。`);
   log(T0,'info',`見込みは${A.forecast.toLocaleString()}パック。ミックスはたまご・ツナ・ハムレタス（チーズなし）の3切れ。消費期限は${A.expiry.label}（この夜の製造に決まった期限）。`);
 
-  for(let i=0;i<N;i++){const t=T0+i;
+  for(let i=0;i<N;i++){const t=T0+i,j=t-D.start;
+    if(loaf){if(t===D.orderConfirm)loaf.confirm(t);loaf.step(t);}
     if(t===D.orderConfirm)log(t,'order',`注文が確定：${order.toLocaleString()}パック（${A.products.map(p=>p.name.replace('サンド','')+od[p.id]).join('・')}）。仕込みと組み立ての数を合わせ直します。`);
     /* ---- 品質確認の人 ---- */
     if(qcBusy&&t>=qcBusy.until){qcBusy.task.done(t);qcBusy=null;}
@@ -183,12 +193,16 @@ function simulate(D,cfgIn){
               else{let fresh=0;for(const g in K[id].use){const age=take(g,u*K[id].use[g],t);if(g==='fruit')fresh=Math.max(0,age-PR.fruit.freshFree)*PR.fruit.freshPerMin;}
                 tray={kind:id,size:u,left:u,T:C.fridge,exp:0,fresh,no:++trayNo,held:0};trips++;stop={kind:LC.TRIP,until:t+A.trip};code=LC.TRIP;
                 if(firstAsm==null){firstAsm=t;log(t,'info',`組み立てを始めました。最初は${K[id].name}。`);}}}
-            if(tray&&code!==LC.TRIP&&!stop){const n=Math.min(tray.left,beltRate(A,K[id],cfg.speed,cfg.staff,hand),ktgt(id,t)-got[id]);
-              if(n>0){tray.left-=n;got[id]+=n;kres[id].made+=n;const hold=tray.exp>C.limit;if(hold)tray.held+=n;
-                chunks.push({kind:id,n,exp:tray.exp,fresh:tray.fresh,tAsm:t,ready:t+cfg.shime,hold,tray:tray.no});code=K[id]._k;rateNow=n;if(tray.left<=1e-6)closeTray(t);
+            if(tray&&code!==LC.TRIP&&!stop){let n=Math.min(tray.left,beltRate(A,K[id],cfg.speed,cfg.staff,hand),ktgt(id,t)-got[id]);
+              // 自社の食パン：切れている枚数の分しか供給機に並べられない（1組に2枚）
+              if(loaf&&n>0){const nb=Math.floor(loaf.have()/2);if(nb<1){n=0;code=LC.BREAD;waitBread++;
+                  if(breadLogged++===0||breadLogged%60===0)log(t,'warn',`食パンの供給機に切ったパンがありません。角型が冷めて切れるのを待っています（台の${K[id].name}のトレーは温まり続けます）。`);}
+                else n=Math.min(n,nb);}
+              if(n>0){const brP=loaf?loaf.take(n*2,t):0;tray.left-=n;got[id]+=n;kres[id].made+=n;const hold=tray.exp>C.limit;if(hold)tray.held+=n;
+                chunks.push({kind:id,n,exp:tray.exp,fresh:tray.fresh,tAsm:t,ready:t+cfg.shime,hold,tray:tray.no,bread:brP});code=K[id]._k;rateNow=n;if(tray.left<=1e-6)closeTray(t);
                 const BF=A.belt;
-                if(feedRoll[i]<BF.feeder.perMin){const m=pick(BF.feeder.min,feedU[i]);stop={kind:LC.JAM,until:t+1+m,why:'feed'};jams.feed++;jams.min+=m;if(jams.feed<=3)log(t+1,'line',`食パンの供給機でパンが重なって詰まりました。ベルトを${m}分止めて直します。`);}
-                else if(K[id].deposit&&depRoll[i]<BF.deposit.perMin){const m=pick(BF.deposit.min,depU[i]);stop={kind:LC.JAM,until:t+1+m,why:'dep'};jams.dep++;jams.min+=m;if(jams.dep<=3)log(t+1,'line',`盛り付け機の口が詰まりました（${K[id].name}）。ベルトを${m}分止めて口を洗います。`);}}}}}}
+                if(feedRoll[j]<BF.feeder.perMin*jamF){const m=pick(BF.feeder.min,feedU[j]);stop={kind:LC.JAM,until:t+1+m,why:'feed'};jams.feed++;jams.min+=m;if(jams.feed<=3)log(t+1,'line',`食パンの供給機でパンが重なって詰まりました。ベルトを${m}分止めて直します。`);}
+                else if(K[id].deposit&&depRoll[j]<BF.deposit.perMin){const m=pick(BF.deposit.min,depU[j]);stop={kind:LC.JAM,until:t+1+m,why:'dep'};jams.dep++;jams.min+=m;if(jams.dep<=3)log(t+1,'line',`盛り付け機の口が詰まりました（${K[id].name}）。ベルトを${m}分止めて口を洗います。`);}}}}}}
     }
     else if(planDone!=null)code=LC.DONE;
     // 出ているトレーは作業室の温度へ（ベルトが止まっていても）
@@ -210,7 +224,7 @@ function simulate(D,cfgIn){
       if(!best)break;
       const per=Object.keys(best.pieces).length>1?A.pack.mix:A.pack.two;
       const n=Math.min(1,pcap*per,packTgt(best.id,t)-res[best.id].packed);if(n<=1e-6)break;pcap-=n/per;packNow+=n;
-      let sc=0,pc=0;const w={cold:0,water:0,fresh:0,bruise:0,hold:0};
+      let sc=0,pc=0;const w={cold:0,water:0,fresh:0,bruise:0,hold:0,bread:0};
       for(const [k,cnt] of Object.entries(best.pieces)){const r=poolTake(k,cnt*n);sc+=r.score;pc+=cnt*n;for(const x in w)w[x]+=r.why[x];}
       const r=res[best.id];r.packed+=n;r.score+=sc/pc*n;for(const x in w)r.why[x]+=w[x]/pc*n;
       if(t<basisFrom)r.early+=n;else if(t<D.deadline){r.good+=n;packedBy+=n;}else r.late+=n;packedAll+=n;lastPack=t;}
@@ -223,6 +237,7 @@ function simulate(D,cfgIn){
     agg.trayT[i]=tray?tray.T:NaN;agg.trayExp[i]=tray?tray.exp:0;agg.made[i]=Object.values(got).reduce((a,b)=>a+b,0);agg.packed[i]=packedAll;agg.cut[i]=cutNow;agg.pack[i]=packNow;
     agg.shime[i]=chunks.reduce((a,c)=>a+c.n,0);agg.hold[i]=holdBin.reduce((a,c)=>a+c.n,0);for(const g of ING)agg.stock[g][i]=have(g);for(const k of A.kinds)agg.pool[k.id][i]=poolHave(k.id);
     agg.qc[i]=qcBusy?QCODE[qcBusy.task.kind]:0;agg.qcq[i]=qcq.length;
+    if(loaf)agg.loaf.push(loaf.snap(t));
     const st=agg.st;st.boil[i]=boiler?1:0;st.bath[i]=bath.length;st.peel[i]=peeler?1:0;st.check[i]=checker?1:0;st.wash[i]=washer?1:0;st.fry[i]=fryer?1:0;st.chill[i]=chill.length;st.ft[i]=ft?(ft.ing==='fruit'?1:2):0;
     agg.bathT.push(bath.map(x=>x.T));agg.chillT.push(chill.map(x=>x.T));
     if(t===D.deadline)log(t,'ship',`${hm(t)}、包装の締め切り。ここまでのサンド${Math.floor(packedBy).toLocaleString()}パックをチルドの箱で${D.ship.via}へ送ります（消費期限 ${A.expiry.label}）。`);
@@ -233,10 +248,10 @@ function simulate(D,cfgIn){
   const prods=A.products.map(p=>{const r=res[p.id];const good=Math.floor(r.good+1e-6);const shipped=Math.min(r.order,good);const g=r.packed;
     const score=g?Math.round(r.score/g):null;const avg=k=>g?r.why[k]/g:0;
     return {id:p.id,name:p.name,order:r.order,shipped,short:r.order-shipped,surplus:good-shipped,late:Math.floor(r.late+1e-6),early:Math.floor(r.early+1e-6),score,rank:score==null?'—':ranks.find(x=>score>=x[0])[1],
-      why:{cold:avg('cold'),water:avg('water'),bruise:avg('bruise'),fresh:avg('fresh'),hold:avg('hold')}};});
+      why:{cold:avg('cold'),water:avg('water'),bruise:avg('bruise'),fresh:avg('fresh'),hold:avg('hold'),bread:avg('bread')}};});
   const kinds=A.kinds.map(k=>{const r=kres[k.id];return {id:k.id,name:k.name,target:ktgt(k.id,T1),made:Math.round(r.made),cutRej:Math.round(r.cutRej),holdN:Math.round(r.holdN),holdOk:Math.round(r.holdOk),holdBad:Math.round(r.holdBad),leftPieces:Math.round(poolHave(k.id))};});
   const shipped=prods.reduce((a,x)=>a+x.shipped,0);
-  const waits=[...ING.map(g=>[`${PR[g].name}の合格を待つ`,waitIng[g]]),['初品確認を待つ（ライン）',qcWaitLine]];const neck=waits.slice().sort((a,b)=>b[1]-a[1])[0];
+  const waits=[...ING.map(g=>[`${PR[g].name}の合格を待つ`,waitIng[g]]),['初品確認を待つ（ライン）',qcWaitLine]];if(loaf)waits.push(['食パン（角型）が冷めて切れるのを待つ',waitBread]);const neck=waits.slice().sort((a,b)=>b[1]-a[1])[0];
   const lineStart=cfg.start,endAll=cleanEnd||T1,prepEnd=Math.max(cfg.prepStart+30,...lots.map(l=>l.tReady||T1));
   const Cc=D.cost,AC=A.cost;let labor=0;const wage=t=>(t>=Cc.nightFrom?Cc.nightRate:1)*AC.wage/60;
   for(let t=cfg.prepStart;t<prepEnd;t++)labor+=wage(t)*(AC.prepFixed+cfg.sorters);
@@ -244,13 +259,17 @@ function simulate(D,cfgIn){
   for(let t=lineStart;t<endAll;t++)labor+=wage(t)*(cfg.staff+cfg.packers);
   const coldYen=Math.round((A.room.yen[String(room)]||20)*(endAll-lineStart)*(YEN_SEASON[cfg.season]||1));
   const chillYen=agg.st.chill.reduce((a,x)=>a+(x?AC.chillerPerMin:0),0);
-  const food=Math.round(A.kinds.reduce((a,k)=>a+kres[k.id].made*(k.yen||0),0));const machine=AC.machineYen||0;
-  const total=Math.round(labor+coldYen+chillYen+food+machine);
+  let food=Math.round(A.kinds.reduce((a,k)=>a+kres[k.id].made*(k.yen||0),0));const machine=AC.machineYen||0;
+  // 自社の食パン：仕入れの食パンの代金を引き、焼く人・材料・オーブン・冷却室を足す
+  let lsum=null,loafYen=0;
+  if(loaf){lsum=loaf.summary(T1);food=Math.round(food-lsum.used*LF.cost.buySlice);let ll=0;const e=Math.max(cfg.bstart+60,loaf.lastActive());
+    for(let t=cfg.bstart;t<e;t++)ll+=wage(t)*LF.cost.staff;lsum.yen.labor=Math.round(ll);loafYen=lsum.yen.labor+lsum.yen.ing+lsum.yen.oven+lsum.yen.cool;lsum.yen.total=loafYen;lsum.waitMin=waitBread;}
+  const total=Math.round(labor+coldYen+chillYen+food+machine+loafYen);
   const summary={order,forecast:A.forecast,shipped,short:order-shipped,prods,kinds,waits,neck,trips,changes,firstAsm,planDone,lastPack,lastCut,cleanStart,cleanEnd,cleanBy:A.clean.by,lots:lots.length,
     bad:kinds.reduce((a,x)=>a+x.holdBad,0),late:prods.reduce((a,x)=>a+x.late,0),early:prods.reduce((a,x)=>a+x.early,0),cutRej:kinds.reduce((a,x)=>a+x.cutRej,0),surplus:prods.reduce((a,x)=>a+x.surplus,0),
     water:wl,safeMin:safeMin(A,room),hand,jams,shellLost:Math.round(shellLost),qc:Object.assign({},qcLog,{waitLine:qcWaitLine,waitPrep:qcWaitPrep}),
     expiry:{at:EXP,label:A.expiry.label,maxH:A.expiry.maxH,basisFrom},spec:spec(A),
-    yen:{labor:Math.round(labor),cold:coldYen,chill:chillYen,food,machine,total,perUnit:shipped?Math.round(total/shipped):null}};
+    yen:{labor:Math.round(labor),cold:coldYen,chill:chillYen,food,machine,loaf:loafYen,total,perUnit:shipped?Math.round(total/shipped):null},loaf:lsum,own};
   if(planDone==null)log(T1,'bad','朝までに、注文の分を組み立て終わりませんでした。');
   if(lastPack!=null)log(lastPack,'info',`最後のパック詰めが終わりました（${hm(lastPack)}）。`);
   if(cleanEnd!=null&&cleanEnd>A.clean.by)log(cleanEnd,'warn',`終業の分解洗浄が終わったのは${hm(cleanEnd)}で、目安の${hm(A.clean.by)}をこえました。`);
@@ -259,5 +278,5 @@ function simulate(D,cfgIn){
   return {cfg,season:S,T0,T1,N,agg,ev,summary,lots,seq,od};
 }
 
-root.SandCore={LC,ING,simulate,orders,safeMin,waterLeft,washMin,washLeft,beltRate,kindAllergen,productAllergen,spec,expiryAt,hm};
+root.SandCore={LC,ING,simulate,orders,safeMin,waterLeft,washMin,washLeft,beltRate,kindAllergen,productAllergen,spec,expiryAt,hm,sandFor,ownBread};
 })(typeof window!=='undefined'?window:globalThis);
