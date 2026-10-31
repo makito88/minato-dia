@@ -59,6 +59,13 @@ select,input[type=number]{background:var(--sheet);border:1px solid var(--line);b
 .evlist{max-height:260px;overflow:auto;margin:0;padding:0;list-style:none}
 .evlist li .num{color:var(--muted);min-width:42px}
 .evlist li.warn{color:var(--warn)} .evlist li.bad{color:var(--bad)} .evlist li[data-b]{cursor:pointer}
+.hero{margin:12px 0 0}.hero:empty{display:none}
+.hero .pic{position:relative;max-width:760px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+.hero img{display:block;width:100%;height:auto}
+.hero .lb{position:absolute;transform:translate(-50%,-50%);background:rgba(255,255,255,.9);color:#18263a;font-size:12px;font-weight:700;line-height:1.3;padding:2px 7px;border-radius:10px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.hero .lb .nm{margin-right:3px}
+@media (max-width:500px){.hero .lb{font-size:9.5px;padding:1px 4px}}
+.hero figcaption{font-size:12px;color:var(--muted);margin-top:4px}
 .lines{margin-top:10px}.lines button{min-height:38px;padding:6px 14px}
 #bstage{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px;touch-action:manipulation;cursor:pointer}
 #bgantt{display:block;width:100%;height:auto;cursor:pointer}
@@ -101,6 +108,7 @@ table.fills{max-width:460px}
 </div>
 
 <div id="riceView" role="tabpanel">
+<figure class="hero" id="riceHero"></figure>
 <section class="card" aria-labelledby="h-plan">
   <h2 id="h-plan">夕方に決める</h2>
   <div class="plan" id="plan"></div>
@@ -150,6 +158,7 @@ table.fills{max-width:460px}
 </div>
 
 <div id="breadView" role="tabpanel" hidden>
+<figure class="hero" id="breadHero"></figure>
 <section class="card" aria-labelledby="bh-plan">
   <h2 id="bh-plan">夕方に決める（パン）</h2>
   <div class="plan" id="bplan"></div>

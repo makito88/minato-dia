@@ -322,12 +322,18 @@ function legends(){
   $('bLegend').innerHTML=`<span><i style="background:${css('--water2')}"></i>発酵が足りない</span><span><i style="background:${css('--ok')}"></i>ちょうどよい</span><span><i style="background:${css('--warn')}"></i>進みすぎ（酸っぱい・形がだれる）</span><span><i style="background:${css('--bad')}"></i>しぼんだ／焼く番を待つ台車</span>`;
   $('bstLegend').innerHTML=[1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(s=>`<span><i style="background:${ST_COLOR[s]}"></i>${BC.BS_LABEL[s]}</span>`).join('')+`<span><i style="background:${css('--bad')}"></i>赤い縦線：20:00 注文確定・${hm(D.deadline)} 包装の締め切り</span>`;}
 
+/* できあがりのイメージ（AIで描いた絵に、品名を重ねる） */
+function buildHeroes(){const ph=D.photo;if(!ph)return;
+  const nameOf=(line,id)=>{if(line==='bread'){const p=B.products.find(x=>x.id===id);return p?p.name:id;}
+    const f=D.packLine.fillings.find(x=>x.id===id);return f?(f.brand?`<b class="nm">${f.brand}</b>`:'')+f.name:id;};
+  for(const [line,el] of [['rice','riceHero'],['bread','breadHero']]){const h=ph[line],box=$(el);if(!h||!box)continue;
+    box.innerHTML=`<div class="pic"><img src="${h.src}" alt="${h.alt}" loading="lazy">${h.items.map(([id,x,y])=>`<span class="lb" style="left:${x}%;top:${y}%">${nameOf(line,id)}</span>`).join('')}</div><figcaption>${h.caption}。AIで描いたイメージです（品名はあとから重ねた文字）。</figcaption>`;}}
 async function init(){if(!$('breadView'))return;
   try{const r=await fetch('data/factory.json',{cache:'no-cache'});D=await r.json();}catch(e){return;}
   B=D.bread;if(!B)return;
   const st=load();let base={};try{base=(JSON.parse(localStorage.getItem('dia-factory')||'null')||{}).cfg||{};}catch(e){}
   cfg=Object.assign({},B.defaults,st.cfg||{season:base.season||B.defaults.season,seed:base.seed||B.defaults.seed});prev=st.prev||null;
-  buildPlan();buildPlay();legends();
+  buildHeroes();buildPlan();buildPlay();legends();
   $('brun').onclick=()=>{run(false);playing=true;markPlay();};
   $('bnewNight').onclick=()=>{cfg.seed=(cfg.seed%9999)+1;run(false);};
   $('bstage').addEventListener('click',onClick);
