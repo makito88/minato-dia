@@ -56,8 +56,16 @@ select,input[type=number]{background:var(--sheet);border:1px solid var(--line);b
 .legend i{display:inline-block;width:12px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:760px){.two{grid-template-columns:1fr}}
+.evlist{max-height:260px;overflow:auto;margin:0;padding:0;list-style:none}
+.evlist li .num{color:var(--muted);min-width:42px}
+.evlist li.warn{color:var(--warn)} .evlist li.bad{color:var(--bad)} .evlist li[data-b]{cursor:pointer}
+.lines{margin-top:10px}.lines button{min-height:38px;padding:6px 14px}
+#bstage{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px;touch-action:manipulation;cursor:pointer}
+#bgantt{display:block;width:100%;height:auto;cursor:pointer}
+#bbatchCard canvas{width:100%;height:auto;display:block;margin-top:6px}
+#bresult[hidden],#breadView[hidden],#riceView[hidden]{display:none}
 #events{max-height:260px;overflow:auto;margin:0;padding:0;list-style:none}
-#events li{padding:4px 0;border-bottom:1px solid var(--line2);font-size:13px;display:flex;gap:8px}
+#events li,.evlist li{padding:4px 0;border-bottom:1px solid var(--line2);font-size:13px;display:flex;gap:8px}
 #events li .num{color:var(--muted);min-width:42px}
 #events li.warn{color:var(--warn)} #events li.bad,#events li.germ{color:var(--bad)}
 #events li[data-b]{cursor:pointer}
@@ -87,7 +95,12 @@ table.fills{max-width:460px}
   <h1>おにぎり工場の一晩</h1>
   <p><span id="factoryName"></span>・<span id="lineName"></span>（試作）。<span id="place"></span>夕方に決めて、夜は眺め、朝に答え合わせ。</p>
 </header>
+<div class="seg lines" id="lineTabs" role="tablist" aria-label="ライン">
+  <button role="tab" data-v="rice" aria-selected="true">🍙 米のライン（おにぎり）</button>
+  <button role="tab" data-v="bread" aria-selected="false">🍞 パンのライン</button>
+</div>
 
+<div id="riceView" role="tabpanel">
 <section class="card" aria-labelledby="h-plan">
   <h2 id="h-plan">夕方に決める</h2>
   <div class="plan" id="plan"></div>
@@ -134,9 +147,58 @@ table.fills{max-width:460px}
   <div id="result" hidden></div>
 </section>
 
+</div>
+
+<div id="breadView" role="tabpanel" hidden>
+<section class="card" aria-labelledby="bh-plan">
+  <h2 id="bh-plan">夕方に決める（パン）</h2>
+  <div class="plan" id="bplan"></div>
+  <div class="row" style="margin-top:12px">
+    <button class="primary" id="brun">この条件で夜を回す</button>
+    <button id="bnewNight">別の夜にする（注文が変わる）</button>
+    <span class="small muted" id="bnightInfo"></span>
+  </div>
+</section>
+<section class="card" aria-labelledby="bh-night">
+  <h2 id="bh-night">夜のパンのライン</h2>
+  <div class="play">
+    <span class="clock" id="bclock">18:00</span>
+    <button id="bplayBtn" aria-label="再生">▶ 再生</button>
+    <div class="seg" id="bspeeds" role="group" aria-label="速さ"></div>
+    <input type="range" id="bscrub" min="0" max="660" step="1" value="0" aria-label="時刻">
+  </div>
+  <div class="clocks" id="bclocks"></div>
+  <canvas id="bstage" width="1040" height="520" aria-label="パンのラインの絵。生地を押すと、その生地の一晩が出ます"></canvas>
+  <div class="legend" id="bLegend"></div>
+</section>
+<div class="two">
+<section class="card" aria-labelledby="bh-batch" id="bbatchCard">
+  <h2 id="bh-batch">生地を一つ追いかける</h2>
+  <div id="bbatchBody" class="muted small">絵の中の生地の箱・台車・オーブン、または下の帯の行を押すと、その生地の一晩が出ます。</div>
+</section>
+<section class="card" aria-labelledby="bh-ev">
+  <h2 id="bh-ev">パンのラインの記録</h2>
+  <ul id="bevents" class="evlist"></ul>
+</section>
+</div>
+<section class="card" aria-labelledby="bh-gantt">
+  <h2 id="bh-gantt">生地ごとの一晩（横が時刻）</h2>
+  <canvas id="bgantt" width="1040" height="200"></canvas>
+  <div class="legend" id="bstLegend"></div>
+</section>
+<section class="card" aria-labelledby="bh-res">
+  <h2 id="bh-res">朝の答え合わせ（パン）</h2>
+  <div id="bresultWait" class="muted small">5:00 まで進むと出ます。<button id="bpeek" style="margin-left:8px">先に見る</button></div>
+  <div id="bresult" hidden></div>
+</section>
+<p class="note">パンのラインの発酵の速さ（生地の温度が10℃上がると2.5倍、38℃をこえると弱る）、仕込み水の温度の式（こね上げの温度×3 −（粉＋部屋＋摩擦））、オーブン・ホイロ・粗熱取りの大きさは、現実の性質の形だけを借りた仮の数字で、実在の工場やレシピの数字ではありません。設定は <code>data/factory.json</code> の <code>bread</code>。</p>
+</div>
+
 <p class="note">名前・会社・数字はすべて架空のゲームの目安です。吸水・冷え方・菌の増え方と、成形・包装の機械のライン2本（機械の速さ・フィルムの枚数・具の掃除・詰まり・はじく割合・消費期限・機械の費用）は、現実の性質（水温で吸水が変わる、ニュートンの冷却、菌は10〜50℃台で増えやすい）の形だけを借りた仮の数字で、実際の食品衛生の基準や、実在の工場の数字ではありません。設定は <code>data/factory.json</code>。</p>
 </div>
 <script src="js/factory-core.js"></script>
 <script src="js/factory-view.js"></script>
+<script src="js/bread-core.js"></script>
+<script src="js/bread-view.js"></script>
 </body>
 </html>

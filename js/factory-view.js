@@ -310,7 +310,7 @@ function drawForm(c,box,i,t,rows){const [x,y,w,h]=box;
     const tunnelW=sw*0.9;{const [tx,ty]=pos[6];c.fillStyle=css('--water');c.globalAlpha=0.5;rr(c,tx-tunnelW/2,ty-26,tunnelW,32,6);c.fill();c.globalAlpha=1;}
     // ベルトの上：ご飯の板 → 三角（具） → 塩 → 海苔のフィルム → ラベル（検品を通った数だけ流れる）
     const NB=Math.max(8,Math.round(total/30));const bm=beltM[l]||0,top=Math.floor(bm);const fc=fill?FILL_COLOR[fill.id]||'#888':'#888';
-    for(let k=top;k>top-NB;k--){const u=(bm-k)/NB;if(u<0||u>=1)continue;const d=u*total;if(d>dS[7]-8)continue;
+    for(let k=top;k>top-NB;k--){if(k<1)break;const u=(bm-k)/NB;if(u<0||u>=1)continue;const d=u*total;if(d>dS[7]-8)continue;
       const [ox,oy0]=at(d);const oy=oy0-3;
       if(d<dS[1]-4){c.fillStyle=css('--rice');c.strokeStyle=css('--ink');c.lineWidth=0.6;c.fillRect(ox-9,oy-5,18,6);c.strokeRect(ox-9,oy-5,18,6);continue;}   // 飯シート
       c.fillStyle=css('--rice');c.strokeStyle=css('--ink');c.lineWidth=0.8;c.beginPath();c.moveTo(ox,oy-12);c.lineTo(ox-8,oy);c.lineTo(ox+8,oy);c.closePath();c.fill();c.stroke();
