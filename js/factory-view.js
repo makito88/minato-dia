@@ -332,7 +332,7 @@ function drawForm(c,box,i,t,rows){const [x,y,w,h]=box;
       [fill?fill.name:'—',code===LN.CHANGE?`掃除 あと${leftMin}分`:'具を包む'],
       ['両面に塩',''],
       code===LN.JAM?['詰まり！',`あと${leftMin}分`]:code===LN.FILM?['フィルム切れ',`あと${leftMin}分`]:['フィルム',`残り${film}枚`],
-      ['消費期限',run||code!==LN.IDLE?expiryText(t+PL.labelHours*60):'—'],
+      ['消費期限',run||code!==LN.IDLE?expiryText(PL.expiry?PL.expiry.day*1440+PL.expiry.at:t+PL.labelHours*60):'—'],
       code===LN.METAL?['金属の反応',`あと${leftMin}分`]:l===0?['はじいた',`${rej.toLocaleString()}個（2本）`]:['重さ・金属',''],
       [`中に${inTunnel.toLocaleString()}個`,`${PL.chill.min}分で${PL.chill.to}℃`],
       [`${crates.toLocaleString()}箱`,`${PL.crate}個入り`]];
@@ -475,6 +475,7 @@ function showResult(){resultShown=true;const s=R.summary;$('resultWait').hidden=
      const ev=[];if(q.drift.n)ev.push(`シート成形機の重さのずれ ${q.drift.n}回（重さではじく分が${q.drift.extra}個ふえた）`);if(q.film.out)ev.push(`フィルム切れで止まった ${q.film.out}回`);
      if(q.relabel.n)ev.push(`ラベルの間違い ${q.relabel.n}回${q.relabel.units?`（${q.relabel.units}個を${q.relabel.min}分かけて貼り直し）`:''}${q.relabel.discard?`（卵が表示になく${q.relabel.discard}個を捨てた）`:''}`);
      return `<p class="small">人：${parts.join('')}。人の仕事：${rec.join('・')}。${ev.length?'<span class="down">'+ev.join('、')+'。</span>':'人が手を入れて止めた大きな出来事はなし。'}</p>`;})()}
+   ${s.expiry?`<p class="small muted">消費期限：${s.expiry.label}（${expiryText(s.expiry.at)}）。その夜の製造に決まった期限で、包装が遅れても延びません。最初に包んだ分は期限まで${s.expiry.longest!=null?s.expiry.longest.toFixed(1):'—'}時間（決めたときに確かめた範囲は${s.expiry.maxH}時間まで）。</p>`:''}
    <p class="small muted">店ごとの番重（${D.packLine.crate}個入り）：${s.stores.map(x=>`${x.name} ${x.crates}`).join('・')}</p>
    <p class="small">いちばん詰まったところ：<b>${s.neck[1]?s.neck[0]:'特になし'}</b>（釜ごとの待ちの合計 ${s.neck[1].toLocaleString()}分）。品質 ◎${s.ranks['◎']}・○${s.ranks['○']}・△${s.ranks['△']}・×${s.ranks['×']}釜。菌の目安はいちばん多い釜で ${s.gMax.toFixed(2)}。</p>
    ${p?`<p class="small muted">右は前の夜（${sameNight?'同じ夜・同じ注文':'<b>別の夜か季節なので注文が違います</b>'}）。${cfgDiff.length?'変えた条件：'+cfgDiff.join('、'):'条件は同じ'}</p>`:''}

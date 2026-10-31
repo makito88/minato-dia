@@ -73,6 +73,8 @@ function simulate(D,cfgIn){
   const T0=D.start,T1=D.end,N=T1-T0+1;
   const tauW=tau(D,S.water);
   const PL=D.packLine;const FILL={};PL.fillings.forEach(f=>FILL[f.id]=f);
+  // 消費期限は、その夜の製造に決まった期限（包装が遅れても延びない）。古い設定は包装から labelHours 時間
+  const XR=PL.expiry,EXP=XR?XR.day*1440+XR.at:null;
   const fo=fillOrders(D,cfg.seed,cfg.season);const order=Object.values(fo).reduce((a,b)=>a+b,0);
   const seq=fillOrder(D,cfg.order);
   const ev=[];const log=(t,k,msg,b)=>ev.push({t,k,msg,b:b==null?null:b});
@@ -184,7 +186,7 @@ function simulate(D,cfgIn){
     /* 成形・包装のライン2本（下流から先に進めて、場所を空ける）
        シート成形 → 巻き成形 → 塩振り → 包装機 → ラベル → 検品（重さ・金属・包み）→ 急冷 → 段積み */
     let rate=0,formedNow=0;const uL=new Array(NL).fill(0);
-    const finish=(b)=>{b.st=ST.DONE;b.tDone=t;b.tExpire=t+PL.labelHours*60;lastDone=t;judge(b,t);};
+    const finish=(b)=>{b.st=ST.DONE;b.tDone=t;b.tExpire=EXP!=null?EXP:t+PL.labelHours*60;lastDone=t;judge(b,t);};
     const toFeed=(b)=>{riceLeft+=b.left;b.leftover=b.left;b.left=0;};
     if(stop&&t>=stop.until){if(stop.code===LN.CHANGE){curFill=stop.to;settleLeft=PL.settle.units;}stop=null;}
     for(let l=0;l<NL;l++){const z=lstop[l];if(z&&t>=z.until){if(z.code===LN.JAM)jamEnd[l]=t;if(z.code===LN.FILM){film[l]=PL.film.stock;filmCall[l]=null;}lstop[l]=null;}}
@@ -357,7 +359,8 @@ function simulate(D,cfgIn){
   const summary={order,forecast:D.forecast,planned:cfg.batches,batches:batches.filter(b=>b.tWash!=null).length,shipped,short,surplus:Math.max(0,surplus)+Math.round(riceLeft),riceLeft:Math.round(riceLeft),planDone,late,bad:Math.round(bad),unfinished:Math.round(unfinished),
     fills:seq.map(id=>fills[id]),people:Object.assign(pp,{line:C.lineStaff,cook:C.cookStaff,relief:!!cfg.relief,drift:{n:pp.drift.n,extra:Math.round(pp.drift.extra)}}),lines:NL,stores,crates:stores.reduce((a,x)=>a+x.crates,0),rej:{weight:Math.round(rejT.weight),wrap:Math.round(rejT.wrap),metal:Math.round(rejT.metal),label:Math.round(rejT.label||0),all:Math.round(rejAll)},lineStops,
     ranks,firstForm,lastDone,gMax,waits,neck,soakNeed:soakNeed(D,S.water),
-    yen:{labor:Math.round(labor),rice,other:Math.round(other),cool:coolYen,machine,total,perUnit:shipped?Math.round(total/shipped):null}};
+    yen:{labor:Math.round(labor),rice,other:Math.round(other),cool:coolYen,machine,total,perUnit:shipped?Math.round(total/shipped):null},
+    expiry:XR?{at:EXP,label:XR.label,maxH:XR.maxH,longest:firstForm!=null?(EXP-firstForm)/60:null}:null};
   if(lastDone!=null)log(lastDone,'info',`最後の釜の成形が終わりました（${hm(lastDone)}）。`);
   ev.sort((a,b)=>a.t-b.t);
   return {cfg,season:S,T0,T1,N,batches,agg,ev,summary,tauW,stops,visits,brk,roles:ROLES};

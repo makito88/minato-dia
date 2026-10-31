@@ -269,7 +269,7 @@ function drawBatch(){const box=$('bbatchBody');if(selected==null||!R.batches[sel
   if(seen(b.tBake))rows.push([hm(b.tBake),`${p.bake==='fry'?'フライヤーで揚げる':`オーブン${b.oven+1}で焼く（${Math.ceil(b.units/B.oven.cap)}回）`}・二次の進み <b>${b.p2Bake.toFixed(2)}</b>`]);
   if(seen(b.tCool))rows.push([hm(b.tCool),`粗熱取り ${span(b.tCool,b.tCooled)}分（${B.cool.pack}℃まで）`]);
   if(seen(b.tPack))rows.push([hm(b.tPack),b.rank==='×'?'不合格で捨てた':`包装（${b.units}個）`]);
-  if(seen(b.tDone)&&b.rank!=='×')rows.push([hm(b.tDone),`検品：<b>${b.rank}</b>（${b.score}点）・消費期限 翌々日${hm(b.tExpire)}${b.tDone>=D.deadline?`・${hm(D.deadline)}の締め切りに間に合わない`:''}`]);
+  if(seen(b.tDone)&&b.rank!=='×')rows.push([hm(b.tDone),`検品：<b>${b.rank}</b>（${b.score}点）・消費期限 ${b.tExpire>=2880?'翌々日':'翌日'}${hm(b.tExpire)}（${B.expiry?B.expiry.label:'包装から'+B.lifeHours+'時間'}）${b.tDone>=D.deadline?`・${hm(D.deadline)}の締め切りに間に合わない`:''}`]);
   const why=seen(b.tBake)?(b.why.length?`<div class="small" style="margin-top:6px">${b.why.map(w=>`・${w[0]}${w[1]?`（${w[1]}）`:''}`).join('<br>')}</div>`:'<div class="small muted" style="margin-top:6px">減点なし</div>'):'';
   box.innerHTML=`<div class="row" style="justify-content:space-between"><b class="big">${p.name}（生地${b.no}）・${b.units}個${b.late?' <span class="tag">20:00の追加</span>':''}</b>
     <span class="small">いま：<b>${BC.BS_LABEL[b.hs[i]]}</b>${b.hs[i]>0?` ・<span class="num">${b.hT[i].toFixed(1)}℃</span>`:''}</span></div>
@@ -307,7 +307,7 @@ function showResult(){resultShown=true;const s=R.summary;$('bresultWait').hidden
    ${s.prods.map(f=>`<tr><th>${f.name}</th><td class="r num">${f.order.toLocaleString()}</td><td class="r num">${f.shipped.toLocaleString()}</td><td class="r num">${f.short?`<span class="down">${f.short.toLocaleString()}</span>`:'<span class="muted">0</span>'}</td><td class="r num">${f.bad?`<span class="down">${f.bad}</span>`:'<span class="muted">0</span>'}</td></tr>`).join('')}
    </tbody></table></div>
    <p class="small">焼くときの二次の進みは <b class="num">${s.p2Min.toFixed(2)}〜${s.p2Max.toFixed(2)}</b>（ちょうどよいのは${B.quality.p2Low}〜${B.quality.p2High}）。品質 ◎${s.ranks['◎']}・○${s.ranks['○']}・△${s.ranks['△']}・×${s.ranks['×']}回${s.unbaked?`・<span class="down">焼けなかった生地 ${s.unbaked}回</span>`:''}。いちばん詰まったところ：<b>${s.neck[1]?s.neck[0]:'特になし'}</b>（生地ごとの待ちの合計 ${s.neck[1].toLocaleString()}分）。</p>
-   <p class="small muted">仕込み ${s.mixed}回（見込みでは${s.planned}回）・こね上げ ${s.knead.toFixed(1)}℃（仕込み水 ${Math.round(s.waterUse)}℃）・最初に焼いた ${s.firstBake?hm(s.firstBake):'—'}・最後の包装 ${s.lastDone?hm(s.lastDone):'—'}。売店のパンは2日もつ（消費期限は包装から${B.lifeHours}時間）。</p>
+   <p class="small muted">仕込み ${s.mixed}回（見込みでは${s.planned}回）・こね上げ ${s.knead.toFixed(1)}℃（仕込み水 ${Math.round(s.waterUse)}℃）・最初に焼いた ${s.firstBake?hm(s.firstBake):'—'}・最後の包装 ${s.lastDone?hm(s.lastDone):'—'}。売店のパンは2日もつ。${s.expiry?`消費期限は${s.expiry.label}（その夜の製造に決まった期限で、包装が遅れても延びない。最初に包んだ分は期限まで${s.expiry.longest!=null?s.expiry.longest.toFixed(1):'—'}時間、決めたときに確かめた範囲は${s.expiry.maxH}時間まで）`:`消費期限は包装から${B.lifeHours}時間`}。</p>
    ${p?`<p class="small muted">右は前の夜（${same?'同じ夜・同じ注文':'<b>別の夜か季節なので注文が違います</b>'}）。${ch.length?'変えた条件：'+ch.join('、'):'条件は同じ'}</p>`:''}
    <table><thead><tr><th></th><th class="r">この夜</th>${p?'<th class="r">前の夜</th><th class="r">差</th>':''}</tr></thead><tbody>
    ${row('注文',s.order,p&&p.order)}${row('送れた',s.shipped,p&&p.shipped,'up')}${row('足りない',s.short,p&&p.short,'down')}

@@ -49,6 +49,8 @@ function simulate(D,cfgIn){
   const od=orders(D,cfg.seed,cfg.season);const order=Object.values(od).reduce((a,b)=>a+b,0);
   const ev=[];const log=(t,k,msg,b)=>ev.push({t,k,msg,b:b==null?null:b});
   const room=S.room;
+  // 消費期限は、その夜の製造に決まった期限（包装が遅れても延びない）。古い設定は包装から lifeHours 時間
+  const XR=B.expiry,EXP=XR?XR.day*1440+XR.at:null;
   // こね上げの温度：仕込み水は 1〜50℃ の範囲でしか用意できない（冬の熱すぎる水・夏の氷水には限りがある）
   const wNeed=waterFor(B,cfg.knead,room);const wUse=Math.max(1,Math.min(50,wNeed));
   const knead=(wUse+room+room+B.mix.friction)/3;
@@ -98,7 +100,7 @@ function simulate(D,cfgIn){
     /* 包装 */
     if(packing){const b=packing;const n=Math.min(b.left,B.pack.rate);b.left-=n;
       const ok=b.rank!=='×';if(ok){b.packed+=n;packedAll+=n;if(t<D.deadline){b.packedBy+=n;packedBy+=n;}}
-      if(b.left<=1e-6){b.st=BS.DONE;b.tDone=t;b.tExpire=t+B.lifeHours*60;packing=null;lastDone=t;}}
+      if(b.left<=1e-6){b.st=BS.DONE;b.tDone=t;b.tExpire=EXP!=null?EXP:t+B.lifeHours*60;packing=null;lastDone=t;}}
     if(!packing){const q=batches.filter(b=>b.st===BS.PACKQ).sort((a,b)=>a.tCooled-b.tCooled||a.id-b.id)[0];
       if(q){packing=q;q.st=BS.PACK;q.tPack=t;q.left=q.units;
         const dry=t-q.tCooled-B.cool.dryFree;if(dry>0){const d=Math.min(B.quality.dryCap,Math.round(dry*B.quality.dryPerMin));q.score=Math.max(0,q.score-d);q.why.push([`冷めてから包装まで${t-q.tCooled}分待って乾いた`,-d]);q.rank=rankOf(q.score,q.rank==='×');}
@@ -194,7 +196,8 @@ function simulate(D,cfgIn){
   const summary={order,forecast:B.forecast,shipped,short:order-shipped,prods,ranks,unbaked,mixed:live.length,planned:batches.filter(b=>!b.late).length,
     late:prods.reduce((a,x)=>a+x.late,0),bad:prods.reduce((a,x)=>a+x.bad,0),surplus:prods.reduce((a,x)=>a+x.surplus,0),
     firstBake,lastDone,waits,neck,knead,water:wNeed,waterUse:wUse,p2Max:p2s.length?Math.max(...p2s):0,p2Min:p2s.length?Math.min(...p2s):0,flow:flow(D,cfg),
-    yen:{labor:Math.round(labor),yeast:yeastYen,other,oven:Math.round(ovenYen),fry:Math.round(fryYen),total,perUnit:shipped?Math.round(total/shipped):null}};
+    yen:{labor:Math.round(labor),yeast:yeastYen,other,oven:Math.round(ovenYen),fry:Math.round(fryYen),total,perUnit:shipped?Math.round(total/shipped):null},
+    expiry:XR?{at:EXP,label:XR.label,maxH:XR.maxH,longest:(()=>{const ts=batches.filter(b=>b.tPack!=null).map(b=>b.tPack);return ts.length?(EXP-Math.min(...ts))/60:null;})()}:null};
   if(lastDone!=null)log(lastDone,'info',`最後の生地の包装が終わりました（${hm(lastDone)}）。`);
   if(unbaked)log(T1,'bad',`${unbaked}回分の生地は、朝までに焼けませんでした。`);
   ev.sort((a,b)=>a.t-b.t);
