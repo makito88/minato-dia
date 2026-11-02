@@ -37,7 +37,7 @@ const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
   let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
-  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),express:S.today&&S.today.day===day?(S.today.express||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0};}
+  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0};}
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（次の日の計算より先に）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
@@ -64,7 +64,7 @@ function editOrder(pid,delta){const S=V.st,na=nextOrderDay();S.orderQ=S.orderQ||
 const dayWord=d=>{const k=d-gDay();return k===1?'あすの便から':k===2?'あさっての便から':`${k}日後の便から`;};
 /* 臨時便：頼んでから1時間後に、その品だけ届く（1回3,000円・1日2回・6:00〜20:00） */
 function expressLeft(){const S=V.st,day=gDay(),n=S.today&&S.today.day===day&&S.today.express?S.today.express.length:0;return V.cfg.express.max-n;}
-function expressOpen(){const t=gT(),E=V.cfg.express;return t>=E.from&&t<=E.to&&expressLeft()>0;}
+function expressOpen(){const t=gT(),E=V.cfg.express;if(E.off)return false;return t>=E.from&&t<=E.to&&expressLeft()>0;}
 const expressAny=()=>expressOpen()||!!openExpress();
 /* 臨時便は1便に何品でものせられる（{t, items:{品:数}}）。まだ届いていない便には、到着の addUntil 分前まで、同じ料金で品を足せる */
 const expItems=x=>x.items||(x.pid?{[x.pid]:x.q}:{});
@@ -249,12 +249,12 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
     <div class="ks-sbox"><h4>仕入れ（${unit}）</h4>
       <div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>${dayWord(o.na)}</span><span class="ks-num"><button type="button" id="shOm" aria-label="減らす">−</button><b class="${o.d?'chg':''}">${o.nx}</b><button type="button" id="shOp" aria-label="増やす">＋</button></span></div>
       <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>
-    <div class="ks-sbox"><h4>臨時便（いますぐ足す）</h4>
+    ${E.off?'':`    <div class="ks-sbox"><h4>臨時便（いますぐ足す）</h4>
       <div class="ks-sbtns"><span class="ks-num"><button type="button" id="shEm" aria-label="減らす">−</button><b>${V.shQ}個</b><button type="button" id="shEp" aria-label="増やす">＋</button></span>
         ${V.shConfirm===pid?'':`<button type="button" class="ks-btn pri" id="shEgo" ${expressAny()&&x.s?'':'disabled'}>臨時便で頼む</button>`}</div>
       ${todayExpress().filter(e=>expArrive(e)>gT()).map(e=>`<p style="color:var(--ink)"><b>まだ届いていない臨時便：${fmtT(expArrive(e))}着（${expList(e)}）</b>${gT()<=expArrive(e)-E.addUntil?`・${fmtT(expArrive(e)-E.addUntil)}まで品を足せます`:'・積み込みずみ'}</p>`).join('')}
       ${V.shConfirm===pid?expressConfirm(pid,V.shQ,'shAdd','shNew','shNo'):''}
-      <p>${openExpress()?`まだ出ていない臨時便があるので、押すと「同じ便にのせる（料金なし）」か「別の便で頼む」かを選べます。`:expressOpen()?`${fmtT(gT()+E.lead)}ごろ届きます。${yen(E.fee)}＋原価${yen(V.shQ*p.cost)}。きょうはあと${expressLeft()}回。`:expressLeft()<=0?'きょうの臨時便は使い切りました。':`臨時便は${fmtT(E.from)}〜${fmtT(E.to)}に頼めます。`}${x.s?'':'棚に置いていない品は頼めません。'}</p></div>
+      <p>${openExpress()?`まだ出ていない臨時便があるので、押すと「同じ便にのせる（料金なし）」か「別の便で頼む」かを選べます。`:expressOpen()?`${fmtT(gT()+E.lead)}ごろ届きます。${yen(E.fee)}＋原価${yen(V.shQ*p.cost)}。きょうはあと${expressLeft()}回。`:expressLeft()<=0?'きょうの臨時便は使い切りました。':`臨時便は${fmtT(E.from)}〜${fmtT(E.to)}に頼めます。`}${x.s?'':'棚に置いていない品は頼めません。'}</p></div>`}
     <div class="ks-sbox"><h4>値段</h4><div class="ks-sbtns"><span class="ks-num"><button type="button" id="shPm" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" id="shPp" aria-label="10円上げる">＋</button></span><small class="ks-note" style="margin:0">ふつうの値段の${Math.round(pr/p.price*100)}%・すぐに効きます</small></div></div>
     <div class="ks-sbtns"><button type="button" class="ks-btn" id="shLay">棚割りで並べ方を変える</button><button type="button" class="ks-btn" id="shTab">商品の表で見る</button></div>`;
   const st=life===0?1:2;
@@ -412,7 +412,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
     if(G.returnable)t.push('<i>返品できる</i>');if(G.life===0)t.push('<i>その日限り</i>');if(tr&&p.tags.some(x=>tr.tags.includes(x)))t.push(`<i class="trend">${tr.name}</i>`);if((S.buzz[p.id]||0)>0.05)t.push('<i class="trend">SNSで話題</i>');if(brandOf(p))t.unshift(brandBadge(p));return `<span class="ks-tags">${t.join('')}</span>`;};
   const rep=pid=>{const x=S.rep[pid];if(!x||!x.n)return '<span class="mut">—</span>';const avg=x.sum/x.n,keys=Object.entries(x.keys).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k2,n])=>({sweetHi:'甘すぎ',sweetLo:'甘さ不足',richHi:'濃い',richLo:'うすい',volLo:'量が少ない',volHi:'多すぎ',priceHi:'高い',priceOk:'安い',good:'満足',warm:'温かい',cold:'冷えてる',crush:'つぶれ'})[k2]+n).join('・');return `★${avg.toFixed(1)}（${x.n}）<br><span class="mut" style="font-size:11px">${keys}</span>`;};
   b.innerHTML=`<div class="ks-card"><h3><span>商品・値段・仕入れ</span><small>値段は「世の中のふつうの値段」との比も出します</small></h3>
-    <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。</p>
+    <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。${V.cfg.express.off?'臨時便はいまはありません（ほかの店から融通する機能ができるまで休み）。足りない品は、次の定期便（朝・昼前・午後）を待ちます。':`急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。`}</p>
     ${expBox()}${pendBox}
     <label style="font-size:12.5px"><input type="checkbox" id="ksAll" ${V.showAll?'checked':''}> 棚に置いていない商品も出す</label>
     ${gBar}${list.length?'':'<p class="ks-note">このジャンルの品は、いま一覧にありません。</p>'}
@@ -421,7 +421,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
         <div class="ks-pc-g"><span>値段</span><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span>
           <span>ふつう比・原価率</span><b class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%・<span class="${cr>0.7?'neg':''}">${Math.round(cr*100)}%</span></b>
           <span>仕入れ（${dayWord(na)}）</span><span>${ordCell(p,s)}</span>
-          <span>きょうの仕入れ</span><b>${s||today[p.id]?(today[p.id]||0):'—'}${s?` <button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressAny()?'':'disabled'}>${pendingExpress(p.id)?'臨時便（頼み済み）':'臨時便'}</button>`:''}</b>
+          <span>きょうの仕入れ</span><b>${s||today[p.id]?(today[p.id]||0):'—'}${s&&!V.cfg.express.off?` <button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressAny()?'':'disabled'}>${pendingExpress(p.id)?'臨時便（頼み済み）':'臨時便'}</button>`:''}</b>
           <span>棚・いま</span><b>${s?`${s.face}列×${Math.round(s.cap/s.face)}・<span data-f="stock">${stock[p.id]||0}</span>個`:'—'}</b>
           <span>きょう</span><b>売れた<span data-f="sold">${o.items[p.id]||0}</span>${V.cfg.hideLost?'':`・売切で逃した<span data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</span>`}・見て買わず<span data-f="looked">${looked[p.id]||0}</span></b>
           <span>評価</span><span>${rep(p.id)}</span></div></div>`;}).join('')}</div>`:`
@@ -430,7 +430,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
       return `<tr class="${s?'':'off'}" data-row="${p.id}"><td class="l"><button type="button" class="ks-pname" data-sh="${p.id}"><b>${esc(p.name)}</b></button><br><span class="mut" style="font-size:11px">${I.G[p.genre].name}</span></td><td class="l">${tag(p)}</td>
       <td><span class="ks-num"><button type="button" data-pr="${p.id}" data-d="-10" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" data-pr="${p.id}" data-d="10" aria-label="10円上げる">＋</button></span></td>
       <td class="${ratio>1.1?'neg':ratio<0.95?'pos':''}">${Math.round(ratio*100)}%</td><td class="${cr>0.7?'neg':''}">${yen(p.cost)}（${Math.round(cr*100)}%）</td>
-      <td>${ordCell(p,s)}</td><td>${s||today[p.id]?(today[p.id]||0):'—'}</td><td>${s?`<button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressAny()?'':'disabled'}>${pendingExpress(p.id)?'臨時便（頼み済み）':'臨時便'}</button>`:''}</td>
+      <td>${ordCell(p,s)}</td><td>${s||today[p.id]?(today[p.id]||0):'—'}</td><td>${s&&!V.cfg.express.off?`<button type="button" class="ks-btn ks-exp" data-ex="${p.id}" ${expressAny()?'':'disabled'}>${pendingExpress(p.id)?'臨時便（頼み済み）':'臨時便'}</button>`:''}</td>
       <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td data-f="stock">${s?(stock[p.id]||0):'—'}</td><td data-f="sold">${o.items[p.id]||0}</td>${V.cfg.hideLost?'':`<td data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td>`}<td data-f="looked">${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
     </tbody></table></div>`}<p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
   $('ksAll').onchange=e=>{V.showAll=e.target.checked;render(true);};
