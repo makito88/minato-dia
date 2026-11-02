@@ -82,7 +82,7 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 @media (max-width:560px){.topv .grid{grid-template-columns:1fr}.topv .ly,.topv .ly.wide,.topv .ly:nth-child(3){grid-column:auto}}`;
 
 function render(){const box=$('topv');
-  box.innerHTML=`<div class="in"><div class="hd"><div><h1>みなと川電鉄 ダイヤ工房</h1>
+  box.innerHTML=`<div class="in"><div class="hd"><div><h1>みなと川ダイアリー</h1>
       <p class="lede">世界の出来事は、どうやって駅の売店まで届くのか。売店でのあなたの小さな判断は、どこまで届くのか。5つのレイヤーを行き来しながら、架空の沿線を動かしてみてください。</p></div>
       <div class="acts"><a class="memo" href="docs/ideas.html" target="_blank" rel="noopener">アイデア帳<small>これから足すこと</small>↗</a><button type="button" class="go" id="topGo">路線図とダイヤへ</button></div></div>
     <div class="grid">${L.map((x,i)=>`<section class="ly" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
