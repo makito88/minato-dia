@@ -172,7 +172,7 @@ const CSS=`
 .ks-hrs{display:flex;align-items:flex-end;gap:2px;height:90px;border-bottom:1px solid var(--line)}.ks-hrs span{flex:1;background:var(--accent);opacity:.85;border-radius:2px 2px 0 0;min-height:1px}.ks-hrs span.now{background:#d9822b;opacity:1}
 .ks-hlab{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);font-family:var(--f-mono);margin-top:3px}
 .ks-news{display:grid;gap:7px}.ks-news div{border-left:3px solid var(--line);padding:2px 0 2px 9px;font-size:12.5px;line-height:1.6}.ks-news b{display:block;font-size:13px}.ks-news small{color:var(--muted);font-size:11px}
-.ks-news .trend{border-left-color:#d9822b}.ks-news .sns{border-left-color:#3a64b8}.ks-news .regular{border-left-color:#2f8a4a}.ks-news .review{border-left-color:#9a6a1a}.ks-news .soldout,.ks-news .miss,.ks-news .waste{border-left-color:#c9573f}
+.ks-news .ks-news-trend{border-left-color:#d9822b}.ks-news .ks-news-sns{border-left-color:#3a64b8}.ks-news .ks-news-regular{border-left-color:#2f8a4a}.ks-news .ks-news-review{border-left-color:#9a6a1a}.ks-news .ks-news-soldout,.ks-news .ks-news-miss,.ks-news .ks-news-waste{border-left-color:#c9573f}
 .ks-g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
 .ks-note{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.65}
 .ks-scroll{overflow-x:auto}
@@ -634,7 +634,7 @@ function shrinkCard(res){const SH=V.cfg.shrink;if(!SH)return '';const S=V.st,I=i
     <div class="ks-sbtns">${Object.entries(SH.guard).map(([k,g])=>`<button type="button" class="ks-chip" data-guard="${k}" aria-pressed="${!!nx[k]}">${esc(g.name)}${g.perDay?`（1日${yen(g.perDay)}）`:''}</button>`).join('')}</div>
     <p class="ks-note">防犯の対策は次の運行日から効きます。${JSON.stringify(cur)!==JSON.stringify(nx)?'<b>あすから変わります。</b>':''}いま：${Object.keys(SH.guard).filter(k=>cur[k]).map(k=>SH.guard[k].name).join('・')||'なし'}</p></div>`;}
 function renderNews(b){const S=V.st,list=S.news.slice().reverse();
-  b.innerHTML=`<div class="ks-card"><h3><span>お知らせ</span><small>ブーム・SNS・常連・評価・売り切れ・廃棄など（運行日の終わりに届きます）</small></h3><div class="ks-news">${list.map(n=>`<div class="${n.kind}"><b>${esc(n.title)}</b><small>運行日${n.day}</small> ${esc(n.text)}</div>`).join('')||'<p class="ks-note">まだありません。</p>'}</div></div>`;}
+  b.innerHTML=`<div class="ks-card"><h3><span>お知らせ</span><small>ブーム・SNS・常連・評価・売り切れ・廃棄など（運行日の終わりに届きます）</small></h3><div class="ks-news">${list.map(n=>`<div class="ks-news-${esc(n.kind)}"><b>${esc(n.title)}</b><small>運行日${n.day}</small> ${esc(n.text)}</div>`).join('')||'<p class="ks-note">まだありません。</p>'}</div></div>`;}
 
 /* ---------- 売店の正面の絵 ---------- */
 const BOX={hook:[136,118,170,190],top:[320,110,380,40],fridge:[136,316,190,190],shelf:[336,160,190,346],tobacco:[540,160,170,44],hot:[724,250,110,80],warmer:[724,334,110,30],umbrella:[690,372,30,134],rack:[860,150,110,356]};
