@@ -1,7 +1,7 @@
 /* =====================================================================
-   トップページ：5つのレイヤー（世界・日本・沿線・店舗・従業員）から入る
+   トップページ：6つのレイヤー（世界・日本・沿線・店舗・従業員・工場）から入る
    ・開いたときに表示する（「次から表示しない」で、開いたときは出さない）。上の帯の「トップ」でいつでも戻れる。
-   ・各レイヤーのボタンは、いまある画面（路線図とダイヤ・沿線だより・駅ナカ リサーチ・売店・店員・街のカルテ）へつなぐだけ。
+   ・各レイヤーのボタンは、いまある画面（路線図とダイヤ・沿線だより・駅ナカ リサーチ・売店・店員・街のカルテ・おにぎり工場の米・パン・サンドイッチのライン）へつなぐだけ。
      まだ作っていない部分は「準備中」と書く。
    ・絵は、このゲームの絵（沿線の水彩マップ・売店）と、ここで描いたイメージ（世界・日本・従業員）。実在の地図や写真は使わない。
    ===================================================================== */
@@ -45,11 +45,14 @@ const L=[
   items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station']]},
  {id:'shop',name:'店舗',sub:'商品・在庫・売上・客の行動',img:'docs/img/top-kiosk.jpg',state:'遊べる',
   items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money']]},
+ {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチの一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',full:1,note:'AIで描いたイメージです（架空の工場）。',
+  items:[['おにぎり（米のライン・機械2本）','factory:rice'],['パン（発酵の時計・オーブン）','factory:bread'],['サンドイッチ（機械のライン・自社の食パン）','factory:sand']]},
  {id:'crew',name:'従業員',sub:'シフト・時給・やる気・暮らし',art:SVG_CREW,state:'遊べる',
   items:[['店員・シフト・時給','kiosk:crew'],['店員の1か月の暮らしとお金の流れ','karte:clerk']]}];
 
 function go(a){const [k,v]=a.split(':');
   if(k==='karte'){openKarte(v);return;}
+  if(k==='factory'){window.open('factory.html'+(v?'#'+v:''),'_blank','noopener');return;}
   close();
   if(k==='tayori')g(()=>$('tayoriBtn').click());
   else if(k==='research')g(()=>minatoResearch.open());
@@ -77,16 +80,17 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 .topv .ft{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:12.5px;color:var(--muted)}
 .topv .ft label{display:flex;gap:6px;align-items:center;cursor:pointer;min-height:36px}
 @media (max-width:900px){.topv .grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topv .ly,.topv .ly.wide{grid-column:span 1}.topv .ly:nth-child(3){grid-column:span 2}}
-@media (max-width:560px){.topv .grid{grid-template-columns:1fr}.topv .ly,.topv .ly.wide,.topv .ly:nth-child(3){grid-column:auto}}`;
+@media (max-width:560px){.topv .grid{grid-template-columns:1fr}.topv .ly,.topv .ly.wide,.topv .ly:nth-child(3){grid-column:auto}}
+.topv .ly.full,.topv .ly.full.wide{grid-column:1/-1}`;
 
 function render(){const box=$('topv');
   box.innerHTML=`<div class="in"><div class="hd"><div><h1>みなと川電鉄 ダイヤ工房</h1>
       <p class="lede">世界の出来事は、どうやって駅の売店まで届くのか。売店でのあなたの小さな判断は、どこまで届くのか。5つのレイヤーを行き来しながら、架空の沿線を動かしてみてください。</p></div>
       <div class="acts"><a class="memo" href="docs/ideas.html" target="_blank" rel="noopener">アイデア帳<small>これから足すこと</small>↗</a><button type="button" class="go" id="topGo">路線図とダイヤへ</button></div></div>
-    <div class="grid">${L.map((x,i)=>`<section class="ly${i>=3?' wide':''}" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
+    <div class="grid">${L.map((x,i)=>`<section class="ly${x.full?' full':i>=3?' wide':''}" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
       <div class="bd"><div class="nm"><b>${x.name}</b><small>${x.sub}</small><span class="st${x.state==='遊べる'?' ok':''}">${x.state==='遊べる'?'遊べる':'読める（一部）'}</span></div>
-      ${x.items.map(([t,a])=>`<button type="button" class="it${a.startsWith('karte')?' ext':''}" data-go="${a}">${t}</button>`).join('')}
-      ${x.soon?`<div class="soon">準備中：${x.soon}</div>`:''}</div></section>`).join('')}</div>
+      ${x.items.map(([t,a])=>`<button type="button" class="it${/^(karte|factory):/.test(a)?' ext':''}" data-go="${a}">${t}</button>`).join('')}
+      ${x.note?`<div class="soon">${x.note}</div>`:''}${x.soon?`<div class="soon">準備中：${x.soon}</div>`:''}</div></section>`).join('')}</div>
     <div class="ft"><label><input type="checkbox" id="topSkip" ${g(()=>localStorage.getItem(KEY)==='1',false)?'checked':''}> 次から、開いたときにこのページを出さない</label>
       <span>上の帯の「トップ」で、いつでもここに戻れます。↗ は別のタブで開きます（街のカルテ・アイデア帳）。</span>
       <span>沿線・会社・人はすべて架空です。歴史や数字の多くは、現実の出来事や統計を元に作っています。</span></div></div>`;

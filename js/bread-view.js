@@ -41,7 +41,7 @@ function buildTabs(){const tabs=$('lineTabs');if(!tabs)return;
     if(active){if(!R)run(false);else drawAll(true);}else if(v==='rice')window.dispatchEvent(new Event('resize'));};
   for(const b of tabs.children)b.onclick=()=>set(b.dataset.v);
   let v='rice';try{v=localStorage.getItem(TAB)||'rice';}catch(e){}
-  if(location.hash==='#bread'||location.hash==='#sand')v=location.hash.slice(1);
+  if(location.hash==='#bread'||location.hash==='#sand'||location.hash==='#rice')v=location.hash.slice(1);
   set(v);}
 
 /* ---------------- 夕方に決める ---------------- */
