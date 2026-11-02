@@ -29,30 +29,45 @@ function draw(){if(!R)return;const cfg=R.cfg,t=Math.floor(cur);$('dclock').textC
  drawStage(t);if(t>=R.T1)result();
 }
 function drawStage(t){
- const cv=$('dstage'),w=cv.clientWidth||800,dpr=devicePixelRatio||1,narrow=w<680,cols=narrow?2:3,rows=Math.ceil(6/cols),bh=150,h=rows*bh;
- if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);cv.style.height=h+'px';}
- const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);const bw=w/cols;
- const groups=[['仕込み','一次発酵'],['成形','ホイロ'],['揚げる','揚げる順番を待つ','油を交換'],['冷ます'],['砂糖をまぶす','チョコをかける','砂糖で仕上げる','仕上げを待つ','仕上げを落ち着かせる'],['包装','包装を待つ']];
- const labels=['① こねる・発酵','② 成形・ホイロ','③ フライヤー','④ 冷却棚','⑤ 砂糖・チョコ','⑥ 包装機'];
- const phase=playing?performance.now()/400:0;
- groups.forEach((g,j)=>{const x=j%cols*bw,y=Math.floor(j/cols)*bh,inner=bw-12;
- c.fillStyle='#f4eee2';c.fillRect(x+4,y+4,inner,bh-10);c.fillStyle='#45372c';c.font='bold 13px sans-serif';c.fillText(labels[j],x+12,y+23);
- const bs=R.batches.filter(b=>g.includes(C.stage(b,t))),b=bs[0],st=b?C.stage(b,t):'待機中';
- c.font='12px sans-serif';c.fillStyle='#655246';c.fillText(st,x+12,y+43);
- const cx=x+bw/2,cy=y+85;
- // 各工程の設備を簡潔に描く。生地と設備の動きは実際の工程時刻に連動。
- c.fillStyle=['#a8b3b4','#bdc7b9','#6a6b68','#bdc5bf','#c7a777','#a6b1b4'][j];c.fillRect(cx-44,cy-20,88,43);
- if(j===0){c.fillStyle='#dfc997';c.beginPath();c.ellipse(cx,cy,31,13,0,0,Math.PI*2);c.fill();c.strokeStyle='#687b80';c.lineWidth=3;c.beginPath();c.moveTo(cx,cy-25);c.lineTo(cx+Math.sin(phase)*20,cy+7);c.stroke();}
- else if(j===1||j===3){c.strokeStyle='#63746d';for(let k=0;k<3;k++){c.strokeRect(cx-36,cy-18+k*14,72,10);}}
- else if(j===2){c.fillStyle='#ddad40';c.fillRect(cx-38,cy-12,76,24);for(let k=0;k<3;k++){c.fillStyle='#f5d96d';c.beginPath();c.arc(cx-25+k*24,cy+Math.sin(phase+k)*3,2,0,7);c.fill();}}
- else if(j===4){c.fillStyle='#66402d';c.fillRect(cx-35,cy-8,70,15);}
- else {c.fillStyle='#e5eeeb';c.fillRect(cx-29,cy-15,58,30);c.strokeStyle='#58737a';c.strokeRect(cx-29,cy-15,58,30);}
- if(b){const p=R.products.find(p=>p.id===b.prod),step=b.steps.find(s=>s.label===st&&t>=s.start&&t<s.end),progress=step?Math.max(0,Math.min(1,(t-step.start)/(step.end-step.start))):0;
- for(let k=0;k<3;k++){const dx=cx-23+k*23+(playing?Math.sin(phase+k)*2:0);c.fillStyle=p.color;c.beginPath();c.arc(dx,cy,8,0,7);c.fill();c.fillStyle=j===2?'#ddad40':'#f4eee2';c.beginPath();c.arc(dx,cy,3,0,7);c.fill();}
- c.fillStyle='#d9cfc0';c.fillRect(x+12,y+113,inner-16,6);c.fillStyle='#ca8050';c.fillRect(x+12,y+113,(inner-16)*progress,6);
- c.fillStyle='#45372c';c.font='11px sans-serif';c.fillText(p.name+' '+b.n+'個'+(bs.length>1?' ほか'+(bs.length-1)+'組':''),x+12,y+137,inner-15);
- }else{c.fillStyle='#887b70';c.font='11px sans-serif';c.fillText(j===5?'包装済みは上の時計に表示':'生地を待っています',x+12,y+137,inner-15);}
- });
+ const cv=$('dstage'),width=1000,height=330,dpr=window.devicePixelRatio||1;
+ if(cv.width!==width*dpr||cv.height!==height*dpr){cv.width=width*dpr;cv.height=height*dpr;}
+ const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,width,height);
+ const rect=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
+ const text=(s,x,y,size=13,color='#51463c')=>{c.fillStyle=color;c.font=`bold ${size}px sans-serif`;c.textAlign='center';c.fillText(s,x,y);};
+ const circ=(x,y,r,color)=>{c.fillStyle=color;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();};
+ const phase=playing?performance.now()/1000:0;
+ rect(0,0,1000,330,'#f6f2ea');rect(0,278,1000,52,'#e8dfd1');
+ for(let x=0;x<1000;x+=110)rect(x,24,70,6,'#e1d5c5');
+ // 工程ごとの場所。表示位置は各生地の計算上の工程と進み具合から決める。
+ const locations={'仕込み':[75,110],'一次発酵':[110,170],'成形を待つ':[170,170],'成形':[170,240],'ホイロ':[240,300],'揚げる順番を待つ':[300,300],'油を交換':[300,300],'揚げる':[300,470],'冷ます':[470,610],'仕上げを待つ':[610,610],'砂糖をまぶす':[610,720],'チョコをかける':[610,720],'砂糖で仕上げる':[610,720],'仕上げを落ち着かせる':[720,740],'包装を待つ':[740,740],'包装':[740,880]};
+ for(const [x,w,label] of [[30,135,'こねる・発酵'],[165,135,'成形・ホイロ'],[300,170,'揚げる'],[470,140,'冷ます'],[610,130,'仕上げ'],[740,140,'包装'],[880,90,'出荷']]){rect(x,54,w-4,31,'#dce7df');text(label,x+w/2,75,13,'#586f61');}
+ // 機械とベルトは添付の工場見学アニメの色や見せ方に合わせる。
+ rect(18,234,960,30,'#718583');rect(25,239,946,13,'#a4b6af');
+ for(let x=35;x<970;x+=34)circ(x+(playing?phase*22%34:0),257,4,'#dce3d9');
+ for(let x=80;x<950;x+=190){rect(x,264,7,42,'#7f8c85');}
+ rect(50,120,75,108,'#b5c8be');rect(61,133,53,47,'#eaf2e9');rect(83,147,6,60,'#829990');
+ if(R.batches.some(b=>C.stage(b,t)==='仕込み')){c.save();c.translate(86,193);c.rotate(phase*3);rect(-22,-3,44,6,'#718a80');rect(-3,-18,6,36,'#718a80');c.restore();}
+ rect(186,119,91,68,'#adc0b6');rect(199,131,66,40,'#e4eee6');rect(223,184,18,31,'#879c92');
+ if(R.batches.some(b=>C.stage(b,t)==='成形'))rect(205,210+Math.sin(phase*5)*5,54,7,'#738c80');
+ rect(305,192,158,43,'#8fa79c');rect(315,198,138,24,'#d7a548');
+ for(let i=0;i<5;i++)circ(330+i*26,207+Math.sin(phase*4+i)*2,2,'#fbe1a0');
+ rect(493,120,94,108,'#aebfb4');for(let y=134;y<222;y+=23)rect(500,y,80,4,'#e4eee5');
+ rect(627,125,94,59,'#b6c7bd');rect(642,137,64,33,'#e7efe6');rect(665,185,18,28,'#8c9c93');
+ rect(759,128,88,96,'#afc0b6');rect(771,142,64,38,'#e7efe6');text('包装',803,166,14,'#71897b');
+ rect(892,164,64,64,'#e5c89f');rect(922,164,3,64,'#bb9775');text('出荷',924,201,14,'#987354');
+ const active=R.batches.filter(b=>t>=b.mix&&t<b.done);
+ for(const batch of active){const st=C.stage(batch,t),range=locations[st],step=batch.steps.find(s=>s.label===st&&t>=s.start&&t<s.end);if(!range||!step)continue;
+ const progress=Math.max(0,Math.min(1,(t-step.start)/(step.end-step.start))),x=range[0]+(range[1]-range[0])*progress,p=R.products.find(p=>p.id===batch.prod);
+ const raw=['仕込み','一次発酵','成形を待つ','成形','ホイロ','揚げる順番を待つ','油を交換'].includes(st);
+ for(let k=0;k<3;k++){let dx=Math.max(36,x-k*15),y=228;
+  if(raw){c.fillStyle='#e8c998';c.beginPath();c.ellipse(dx,y,9,6,0,0,7);c.fill();}
+  else{circ(dx,y,8,'#b9783e');circ(dx,y-2,7,p.id==='choco'&&x>=610?'#70432d':'#d99b59');circ(dx,y-2,2.7,'#a4b6af');}
+  if(st==='包装'){c.strokeStyle='#e8f4ed';c.lineWidth=2;c.strokeRect(dx-10,y-11,20,18);}
+ }
+ text(p.name+' '+batch.n+'個',Math.max(75,Math.min(900,x)),108,11);text(st,Math.max(75,Math.min(900,x)),123,11,'#8b6044');
+ }
+ const done=R.batches.filter(b=>b.good&&b.done<=t&&b.done<=D.deadline).reduce((n,b)=>n+b.n,0);
+ text('包装ずみ '+done+'個',905,298,13);text(active.length?'製造中の生地 '+active.length+'組':'生地の到着を待っています',140,298,13);
 }
 async function init(){if(!$('donutView'))return;try{D=await fetch('data/factory.json',{cache:'no-cache'}).then(r=>r.json());let st={};try{st=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}cfg=C.normalize(D,st.cfg);plan();run();}catch(e){$('dplan').textContent='ドーナッツの設定を読み込めませんでした。ページを再読み込みしてください。';console.error(e);return;}
  $('drun').onclick=()=>{run();playing=true;draw();};$('dnewNight').onclick=()=>{cfg.seed=cfg.seed%9999+1;run();};$('dplay').onclick=()=>{if(cur>=R.T1)cur=R.T0;playing=!playing;draw();};$('dscrub').oninput=e=>{cur=+e.target.value;draw();};$('dspeed').onchange=e=>{speed=+e.target.value;};$('dpeek').onclick=result;

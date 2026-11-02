@@ -267,7 +267,7 @@ table.fills{max-width:460px}
 <div class="row"><button class="primary" id="drun">この条件で夜を回す</button><button id="dnewNight">別の夜にする（注文が変わる）</button></div></section>
 <section class="card"><h2>夜のドーナッツのライン</h2>
 <div class="play"><span class="clock" id="dclock"></span><button id="dplay">▶ 再生</button><select id="dspeed" aria-label="再生速度"><option value="60">×60</option><option value="300" selected>×300</option><option value="900">×900</option></select><input type="range" id="dscrub" aria-label="ドーナッツの時刻" step="1"></div>
-<div class="clocks" id="dclocks"></div><canvas id="dstage" class="stagecv" aria-label="仕込みから包装までのドーナッツの流れ"></canvas></section>
+<div class="clocks" id="dclocks"></div><div style="overflow-x:auto"><canvas id="dstage" class="stagecv" style="width:1000px;max-width:none;height:330px" aria-label="ベルトコンベアを進むドーナッツの製造ライン"></canvas></div><p class="small muted">横に動かしてライン全体を見られます。丸い絵は生地のひと組を表し、動きは製造の計算時刻に合わせています。</p></section>
 <div class="two"><section class="card"><h2>生地ごとの工程と予定</h2><p class="small muted">押すと工程の予定時刻を見られます。計画の比較用に、この夜の予定を先に表示します。</p><div id="dbatches"></div></section><section class="card"><h2>ドーナッツのラインの記録</h2><ul class="evlist" id="devents"></ul></section></div>
 <section class="card"><h2>朝の答え合わせ（ドーナッツ）</h2><div id="dresultWait">夜の終わりまで進むと出ます。<button id="dpeek">先に見る</button></div><div id="dresult" hidden></div></section>
 <p class="note">油の温度・劣化、発酵待ち、冷ます時間、仕上げの速さ、費用はゲームのための仮の数字です。食品衛生や製造の基準ではありません。冷却棚は十分ある扱い。売店の注文・在庫とはまだ連動せず、工場の他のラインと同じ独立した試作です。設定は data/factory.json の donut。</p>
@@ -288,7 +288,7 @@ table.fills{max-width:460px}
 <script src="js/sand-core.js"></script>
 <script src="js/sand-view.js"></script>
 <script src="js/donut-core.js"></script>
-<script src="js/donut-view.js"></script>
+<script src="js/donut-view.js?v=20261102b"></script>
 <script src="js/factory-pl.js"></script>
 </body>
 </html>
