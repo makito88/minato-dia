@@ -1478,5 +1478,122 @@
    "yen": 15000,
    "_equip": "おにぎりを増やすときの設備（リースと保守の1晩の仮の費用）。3,000個増やすと、設備を足して冷却を「強」にすれば、春・秋の20夜すべて間に合った（計算で数えただけ）"
   }
- }
+ },
+ "donut": {
+  "line": "ドーナッツのライン",
+  "note": "3品ともイースト生地。生ドーナツはクリームなしの柔らかい生地で、十分に揚げる。数字と品質の線はゲームの仮定。冷却棚はこの段階では十分ある扱い。",
+  "defaults": {
+    "season": "mid",
+    "seed": 1,
+    "start": 1080,
+    "fryers": 2,
+    "oilT": 175,
+    "oilEvery": 720,
+    "finishers": 3
+  },
+  "ranges": {
+    "seed": [
+      1,
+      9999
+    ],
+    "start": [
+      960,
+      1320
+    ],
+    "fryers": [
+      1,
+      3
+    ],
+    "oilT": [
+      155,
+      195
+    ],
+    "oilEvery": [
+      240,
+      2400
+    ],
+    "finishers": [
+      1,
+      6
+    ]
+  },
+  "forecast": 1440,
+  "orderMin": 0.9,
+  "orderSpread": 0.2,
+  "batch": 120,
+  "mix": 10,
+  "shapeRate": 24,
+  "fermentQ10": 1.5,
+  "fermentRef": 19,
+  "fryCap": 30,
+  "oilChange": 12,
+  "proofGrace": 20,
+  "proofPenalty": 0.8,
+  "tempGrace": 5,
+  "tempPenalty": 2,
+  "oilGood": 960,
+  "oilPenalty": 0.06,
+  "coolMinFactor": 0.7,
+  "coolRef": 19,
+  "coolSeason": 0.05,
+  "packRate": 30,
+  "pass": 55,
+  "expiry": 2760,
+  "end": 1740,
+  "staff": 3,
+  "wage": 1300,
+  "nightFactor": 1.18,
+  "oilCost": 2400,
+  "fryerCost": 6000,
+  "products": [
+    {
+      "id": "sugar",
+      "kiosk": "don_sugar",
+      "name": "シュガードーナツ",
+      "share": 0.4,
+      "ferment": 45,
+      "proof": 30,
+      "fry": 4,
+      "oilT": 175,
+      "cool": 20,
+      "finish": "砂糖をまぶす",
+      "finishRate": 7,
+      "set": 0,
+      "cost": 32,
+      "color": "#e8bf7c"
+    },
+    {
+      "id": "choco",
+      "kiosk": "don_choco",
+      "name": "チョコドーナツ",
+      "share": 0.35,
+      "ferment": 45,
+      "proof": 30,
+      "fry": 4,
+      "oilT": 175,
+      "cool": 35,
+      "finish": "チョコをかける",
+      "finishRate": 5,
+      "set": 15,
+      "cost": 42,
+      "color": "#6b4329"
+    },
+    {
+      "id": "nama",
+      "kiosk": "don_nama",
+      "name": "生ドーナツ",
+      "share": 0.25,
+      "ferment": 55,
+      "proof": 35,
+      "fry": 5,
+      "oilT": 170,
+      "cool": 25,
+      "finish": "砂糖で仕上げる",
+      "finishRate": 4,
+      "set": 0,
+      "cost": 58,
+      "color": "#f3e0b9"
+    }
+  ]
+}
 }

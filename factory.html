@@ -73,7 +73,7 @@ select,input[type=number]{background:var(--sheet);border:1px solid var(--line);b
 #bstage{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px;touch-action:manipulation;cursor:pointer}
 #bgantt{display:block;width:100%;height:auto;cursor:pointer}
 #bbatchCard canvas{width:100%;height:auto;display:block;margin-top:6px}
-#bresult[hidden],#breadView[hidden],#riceView[hidden],#sandView[hidden],#sresult[hidden]{display:none}
+#bresult[hidden],#breadView[hidden],#riceView[hidden],#sandView[hidden],#donutView[hidden],#dresult[hidden],#sresult[hidden]{display:none}
 .stagecv{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px}
 .chartcv{display:block;width:100%;height:auto;margin-top:6px}
 #events{max-height:260px;overflow:auto;margin:0;padding:0;list-style:none}
@@ -111,6 +111,7 @@ table.fills{max-width:460px}
   <button role="tab" data-v="rice" aria-selected="true">🍙 米のライン（おにぎり）</button>
   <button role="tab" data-v="bread" aria-selected="false">🍞 パンのライン</button>
   <button role="tab" data-v="sand" aria-selected="false">🥪 サンドイッチのライン</button>
+  <button role="tab" data-v="donut" aria-selected="false">🍩 ドーナッツのライン</button>
 </div>
 
 <div id="riceView" role="tabpanel">
@@ -259,8 +260,21 @@ table.fills{max-width:460px}
 <p class="note">サンドイッチのラインの「10℃をこえていた時間」の線、トレーの温まり方、レタスに残る水、締めの時間、作業室の温度と手の速さは、現実の性質（冷蔵の具材は10℃以下で扱う、温まると菌が増えやすい、水分はパンに移る）の形だけを借りた仮の数字で、実際の食品衛生の基準ではありません。設定は <code>data/factory.json</code> の <code>sand</code>。角型の食パン（発酵・型の8分目・焼成・芯が32℃まで冷めたら切る・1本から取れる枚数・費用）の数字も仮で、実在の工場やレシピの数字ではありません（<code>sand.loaf</code>）。</p>
 </div>
 
+<div id="donutView" role="tabpanel" hidden>
+<section class="card"><h2>夕方に決める（ドーナッツ）</h2>
+<p id="dproducts"></p><div class="plan" id="dplan"></div>
+<p class="small muted">シュガー・チョコ・生ドーナツの3品。生ドーナツも十分に揚げる、クリームなしの柔らかい生地です。フライヤーは専用で、パンの設備とは取り合いません。</p>
+<div class="row"><button class="primary" id="drun">この条件で夜を回す</button><button id="dnewNight">別の夜にする（注文が変わる）</button></div></section>
+<section class="card"><h2>夜のドーナッツのライン</h2>
+<div class="play"><span class="clock" id="dclock"></span><button id="dplay">▶ 再生</button><select id="dspeed" aria-label="再生速度"><option value="60">×60</option><option value="300" selected>×300</option><option value="900">×900</option></select><input type="range" id="dscrub" aria-label="ドーナッツの時刻" step="1"></div>
+<div class="clocks" id="dclocks"></div><canvas id="dstage" class="stagecv" aria-label="仕込みから包装までのドーナッツの流れ"></canvas></section>
+<div class="two"><section class="card"><h2>生地ごとの工程と予定</h2><p class="small muted">押すと工程の予定時刻を見られます。計画の比較用に、この夜の予定を先に表示します。</p><div id="dbatches"></div></section><section class="card"><h2>ドーナッツのラインの記録</h2><ul class="evlist" id="devents"></ul></section></div>
+<section class="card"><h2>朝の答え合わせ（ドーナッツ）</h2><div id="dresultWait">夜の終わりまで進むと出ます。<button id="dpeek">先に見る</button></div><div id="dresult" hidden></div></section>
+<p class="note">油の温度・劣化、発酵待ち、冷ます時間、仕上げの速さ、費用はゲームのための仮の数字です。食品衛生や製造の基準ではありません。冷却棚は十分ある扱い。売店の注文・在庫とはまだ連動せず、工場の他のラインと同じ独立した試作です。設定は data/factory.json の donut。</p>
+</div>
+
 <section class="card" aria-labelledby="h-pl">
-  <h2 id="h-pl">工場の収支（3つのライン・1晩と1か月）</h2>
+  <h2 id="h-pl">工場の収支（4つのライン・1晩と1か月）</h2>
   <div id="plBox"></div>
 </section>
 
@@ -273,6 +287,8 @@ table.fills{max-width:460px}
 <script src="js/sand-loaf.js"></script>
 <script src="js/sand-core.js"></script>
 <script src="js/sand-view.js"></script>
+<script src="js/donut-core.js"></script>
+<script src="js/donut-view.js"></script>
 <script src="js/factory-pl.js"></script>
 </body>
 </html>
