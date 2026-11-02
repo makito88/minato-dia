@@ -80,7 +80,7 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   $('svClose').onclick=()=>open(false);p.addEventListener('click',e=>{if(e.target===p)open(false);});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!p.hidden)open(false);});
   $('svMake').onclick=make;$('svCopy').onclick=()=>copy($('svCode').value,'コードをコピーしました');$('svLink').onclick=()=>copy(linkOf($('svCode').value),'リンクをコピーしました');
   $('svFile').onclick=()=>{const blob=new Blob([$('svCode').value],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='minato-dia-save-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'')+'.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);msg(1,'ファイルに保存しました','ok');};
-  if(navigator.share){$('svShare').hidden=false;$('svShare').onclick=()=>navigator.share({title:'みなと川電鉄 ダイヤ工房の引き継ぎ',text:'このリンクを開くと続きから遊べます',url:linkOf($('svCode').value)}).catch(()=>{});}
+  if(navigator.share){$('svShare').hidden=false;$('svShare').onclick=()=>navigator.share({title:'みなと川ダイアリーの引き継ぎ',text:'このリンクを開くと続きから遊べます',url:linkOf($('svCode').value)}).catch(()=>{});}
   $('svCheck').onclick=()=>check($('svIn').value);$('svPick').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;f.text().then(t=>{$('svIn').value=t.trim();check(t);});};
   $('svCancel').onclick=()=>{V.pending=null;$('svConfirm').hidden=true;msg(2,'');};$('svApply').onclick=apply;}
 const V={pending:null};

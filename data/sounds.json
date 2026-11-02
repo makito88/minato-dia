@@ -1,5 +1,5 @@
 {
- "about": "みなと川電鉄 ダイヤ工房の環境音の設定。音源を足すときは assets/sounds/ にファイルを置き、files と loops（または occasional）に1件ずつ書き足す。座標は地図の座標（横1000×縦420）、時刻は時（0〜24）。",
+ "about": "みなと川ダイアリーの環境音の設定。音源を足すときは assets/sounds/ にファイルを置き、files と loops（または occasional）に1件ずつ書き足す。座標は地図の座標（横1000×縦420）、時刻は時（0〜24）。",
  "loudnessTarget": -28.0,
  "loudnessNote": "lufs はファイルの実測ラウドネス（モノラルのMP3を ffmpeg -af ebur128 で測定）。再生時に loudnessTarget にそろえる。-28.0 は変更前（ステレオ録音を再生時に左右平均した音量）と同じ大きさになる値。",
  "files": {
