@@ -45,7 +45,7 @@ const L=[
   items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station']]},
  {id:'shop',name:'店舗',sub:'商品・在庫・売上・客の行動',img:'docs/img/top-kiosk.jpg',state:'遊べる',
   items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money']]},
- {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチの一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',full:1,note:'AIで描いたイメージです（架空の工場）。',
+ {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチの一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',note:'AIで描いたイメージです（架空の工場）。',
   items:[['おにぎり（米のライン・機械2本）','factory:rice'],['パン（発酵の時計・オーブン）','factory:bread'],['サンドイッチ（機械のライン・自社の食パン）','factory:sand']]},
  {id:'crew',name:'従業員',sub:'シフト・時給・やる気・暮らし',art:SVG_CREW,state:'遊べる',
   items:[['店員・シフト・時給','kiosk:crew'],['店員の1か月の暮らしとお金の流れ','karte:clerk']]}];
@@ -67,7 +67,6 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 .topv .memo{font-size:14px;font-weight:700;color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:8px 16px;min-height:44px;display:inline-flex;align-items:center;gap:6px}.topv .memo small{font-weight:400;color:var(--muted);font-size:12px}.topv .memo:hover{border-color:var(--accent)}
 .topv .grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
 .topv .ly{grid-column:span 2;border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;display:flex;flex-direction:column}
-.topv .ly.wide{grid-column:span 3}
 .topv .art{aspect-ratio:400/220;background:var(--line);overflow:hidden;position:relative}
 .topv .pin{position:absolute;transform:translate(-50%,-130%);font-size:11.5px;font-weight:700;background:rgb(255 255 255 / .88);color:#3b2f25;border:1px solid #b9a989;border-radius:6px;padding:1px 6px;white-space:nowrap;pointer-events:none}.topv .pin::after{content:'';position:absolute;left:50%;bottom:-7px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:#c23b3b;border:1.5px solid #fff;transform:translateY(100%)}.topv .pin.main{background:#c23b3b;color:#fff;border-color:#c23b3b;font-size:12.5px}
 .topv .cap{position:absolute;left:6px;bottom:4px;font-size:10px;color:#5d5045;background:rgb(255 255 255 / .7);border-radius:4px;padding:0 5px}.topv .art img,.topv .art svg{width:100%;height:100%;display:block;object-fit:cover}
@@ -79,15 +78,14 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 .topv .soon{font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:6px}
 .topv .ft{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:12.5px;color:var(--muted)}
 .topv .ft label{display:flex;gap:6px;align-items:center;cursor:pointer;min-height:36px}
-@media (max-width:900px){.topv .grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topv .ly,.topv .ly.wide{grid-column:span 1}.topv .ly:nth-child(3){grid-column:span 2}}
-@media (max-width:560px){.topv .grid{grid-template-columns:1fr}.topv .ly,.topv .ly.wide,.topv .ly:nth-child(3){grid-column:auto}}
-.topv .ly.full,.topv .ly.full.wide{grid-column:1/-1}`;
+@media (max-width:900px){.topv .grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topv .ly,.topv .ly.wide{grid-column:span 1}}
+@media (max-width:560px){.topv .grid{grid-template-columns:1fr}.topv .ly,.topv .ly.wide,.topv .ly:nth-child(3){grid-column:auto}}`;
 
 function render(){const box=$('topv');
   box.innerHTML=`<div class="in"><div class="hd"><div><h1>みなと川電鉄 ダイヤ工房</h1>
       <p class="lede">世界の出来事は、どうやって駅の売店まで届くのか。売店でのあなたの小さな判断は、どこまで届くのか。5つのレイヤーを行き来しながら、架空の沿線を動かしてみてください。</p></div>
       <div class="acts"><a class="memo" href="docs/ideas.html" target="_blank" rel="noopener">アイデア帳<small>これから足すこと</small>↗</a><button type="button" class="go" id="topGo">路線図とダイヤへ</button></div></div>
-    <div class="grid">${L.map((x,i)=>`<section class="ly${x.full?' full':i>=3?' wide':''}" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
+    <div class="grid">${L.map((x,i)=>`<section class="ly" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
       <div class="bd"><div class="nm"><b>${x.name}</b><small>${x.sub}</small><span class="st${x.state==='遊べる'?' ok':''}">${x.state==='遊べる'?'遊べる':'読める（一部）'}</span></div>
       ${x.items.map(([t,a])=>`<button type="button" class="it${/^(karte|factory):/.test(a)?' ext':''}" data-go="${a}">${t}</button>`).join('')}
       ${x.note?`<div class="soon">${x.note}</div>`:''}${x.soon?`<div class="soon">準備中：${x.soon}</div>`:''}</div></section>`).join('')}</div>
