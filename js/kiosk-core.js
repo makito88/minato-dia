@@ -91,11 +91,13 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const dayOrder=ctx.order||state.order;   // その日の便で届く数は、締め切りまでに出した発注で決まっている（途中で変えても、きょうの便は変わらない）
   const deliveries=cfg.deliveries.map(d=>({...d,t:Math.max(d.t,O0-1)}));
   // 臨時便：頼んだ時刻から lead 分後に、その品だけ届く
-  let expressFee=0;for(const x of (ctx.express||[])){const items=x.items||(x.pid?{[x.pid]:x.q}:{});if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:{items}});expressFee+=cfg.express.fee;}   // 1便に何品でものせられる。料金は便ごと
+  let expressFee=0;for(const x of (cfg.express.off?[]:(ctx.express||[]))){const items=x.items||(x.pid?{[x.pid]:x.q}:{});if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:{items}});expressFee+=cfg.express.fee;}   // 1便に何品でものせられる。料金は便ごと
+  // 当日の追加：日持ちする品だけ、その日の定期便といっしょに届く（料金なし）。定期便が目標まで足したあとに上乗せする
+  for(const x of (ctx.addOn||[])){const items=x.items||{};if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:Math.max(x.at,O0-1),name:x.name||'当日の追加',express:{items},fee:0,addOn:true});}
   deliveries.sort((a,b)=>a.t-b.t);
   const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;const its={};
     if(d.express){let n2=0,c2=0;const names=[];for(const pid in d.express.items){const it=P[pid];if(!it)continue;const q=d.express.items[pid];(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n2+=q;c2+=q*it.cost;names.push(it.short);its[pid]=q;}
-      deliveredCost+=c2;ev.push({t,k:'delivery',n:n2,cost:c2+cfg.express.fee,name:'臨時便（'+names.join('・')+'）',items:its,express:true});return;}
+      deliveredCost+=c2;ev.push({t,k:'delivery',n:n2,cost:c2+(d.fee!=null?d.fee:cfg.express.fee),name:(d.addOn?d.name+'に追加（':'臨時便（')+names.join('・')+'）',items:its,express:!d.addOn,addOn:!!d.addOn});return;}
     for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;
       let q;if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
       else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ

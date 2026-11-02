@@ -37,12 +37,12 @@ const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
   let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
-  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0};}
+  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0};}
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（次の日の計算より先に）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
 function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();const c=ctxNow();if(!c)return V.res;
-  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+(V.editRev||0);
+  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+JSON.stringify(c.addOn||[])+'|'+(V.editRev||0);
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();V.evI=KC.idxAt(V.res,gT());return V.res;}
 function tick(){if(!V.cfg||!V.st)return;ensureRes();}
@@ -56,7 +56,7 @@ function closeToday(res){const S=V.st;
   {const S=V.st,mv=S.moveNext;if(mv&&mv.day<=res.day+1){const R=V.rcfg,x=KC.relocate(V.cfg,S,mv,fareOf),C=V.cfg.move||{};
     S.news.push({day:res.day+1,kind:'move',title:`${stName(mv.st)}駅・${R.places[mv.place].name}に移った`,text:`棚割り・品物・店員・在庫はそのまま、${stName(x.from.st)}駅・${R.places[x.from.place].name}から移りました。値段は駅ナカのコンビニの目安に戻しました。いっしょに来た${x.people.length}人は時給を${C.wageUp}円上げ、交通費を払い、社会保険に入れました（${x.people.map(p=>`${p.name}さん ${yen(p.wage)}・交通費1日${yen(p.commute)}`).join('、')}）。常連さんは前の場所に残り、新しい場所で一からです。`});r.news.push(1);}}
   V.st.today=null;V.st.unread=(V.st.unread||0)+r.news.length;persist();badge();if(V.open)setTimeout(()=>render(true),0);}
-/* 発注：締め切り（20:00）までに変えた数は次の運行日から、過ぎたらその次から。予定は orderQ に「何日目から」で持つ */
+/* 発注：締め切り（19:00）までに変えた数は次の運行日から、過ぎたらその次から。予定は orderQ に「何日目から」で持つ */
 function orderFor(day){const S=V.st,o={...S.order};for(const e of (S.orderQ||[]).slice().sort((a,b)=>a.from-b.from))if(e.from<=day)Object.assign(o,e.order);return o;}
 function nextOrderDay(){return gDay()+(gT()<V.cfg.orderDeadline?1:2);}
 function editOrder(pid,delta){const S=V.st,na=nextOrderDay();S.orderQ=S.orderQ||[];let e=S.orderQ.find(x=>x.from===na);if(!e){e={from:na,order:orderFor(na)};S.orderQ.push(e);}
@@ -80,6 +80,14 @@ function addToExpress(pid,q){const x=openExpress();if(!x||q<=0)return;const it=x
 function orderExpress(pid,q){const S=V.st,day=gDay();if(!expressOpen()||q<=0)return;if(!S.today||S.today.day!==day)S.today={day,edits:[]};(S.today.express||(S.today.express=[])).push({t:gT(),items:{[pid]:q}});
   S.news.push({day,kind:'express',title:`臨時便を頼んだ：${ix().P[pid].name}×${q}`,text:`${fmtT(gT()+V.cfg.express.lead)}ごろ届きます（${yen(V.cfg.express.fee)}＋原価${yen(q*ix().P[pid].cost)}）。到着の${V.cfg.express.addUntil}分前までなら、ほかの品も同じ便にのせられます。`});
   persist();V.expSel=null;V.expConfirm=null;V.shConfirm=null;V.editRev=(V.editRev||0)+1;V.res=null;ensureRes();render(true);}
+/* 当日の追加：日持ちする品だけ、その日の昼前便・午後便に足せる（便が着く before 分前まで・料金なし） */
+function addOnOk(p){const A=V.cfg.addOn;return !!A&&A.genres.includes(p.genre);}
+function addOnNext(){const A=V.cfg.addOn,t=gT();if(!A)return null;return V.cfg.deliveries.filter(d=>!d.all&&d.t-A.before>t).sort((a,b)=>a.t-b.t)[0]||null;}
+function addOnToday(){const S=V.st,day=gDay();return S.today&&S.today.day===day?(S.today.addOn||[]):[];}
+function orderAddOn(pid,q){const S=V.st,day=gDay(),d=addOnNext(),P=ix().P[pid];if(!d||q<=0||!addOnOk(P))return;if(!S.today||S.today.day!==day)S.today={day,edits:[]};
+  const L=S.today.addOn||(S.today.addOn=[]);let x=L.find(z=>z.at===d.t);if(!x){x={at:d.t,name:d.name,items:{}};L.push(x);}x.items[pid]=(x.items[pid]||0)+q;
+  S.news.push({day,kind:'express',title:`${d.name}に足した：${P.name}＋${q}`,text:`${fmtT(d.t)}に、いつもの便といっしょに届きます（料金なし・原価${yen(q*P.cost)}）。`});
+  persist();V.editRev=(V.editRev||0)+1;V.res=null;ensureRes();render(true);}
 /* 臨時便のボタンを押したときの確認の中身（商品カードと商品の表で同じ） */
 function expressConfirm(pid,q,idAdd,idNew,idNo){const ob=openExpress(),P=ix().P[pid];if(!ob)return '';const same=!!expItems(ob)[pid],at=fmtT(expArrive(ob));
   return `<div class="ks-pend" role="alert"><div><b>${same?`この品は、${at}着の臨時便ですでに${expItems(ob)[pid]}個頼んでいます。`:`${at}着の臨時便（${expList(ob)}）がまだ出ていません。`}</b></div>
@@ -249,7 +257,10 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
     <div class="ks-sbox"><h4>仕入れ（${unit}）</h4>
       <div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>${dayWord(o.na)}</span><span class="ks-num"><button type="button" id="shOm" aria-label="減らす">−</button><b class="${o.d?'chg':''}">${o.nx}</b><button type="button" id="shOp" aria-label="増やす">＋</button></span></div>
       <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>
-    ${E.off?'':`    <div class="ks-sbox"><h4>臨時便（いますぐ足す）</h4>
+    ${E.off?`<div class="ks-sbox"><h4>当日の便に足す（日持ちする品）</h4>${addOnOk(p)?`<div class="ks-sbtns"><span class="ks-num"><button type="button" id="shEm" aria-label="減らす">−</button><b>${V.shQ}個</b><button type="button" id="shEp" aria-label="増やす">＋</button></span>
+        <button type="button" class="ks-btn pri" id="shAo" ${addOnNext()&&x.s?'':'disabled'}>${addOnNext()?`${addOnNext().name}（${fmtT(addOnNext().t)}着）に足す`:'きょう足せる便はもうありません'}</button></div>
+      ${addOnToday().filter(z=>z.at>gT()).map(z=>`<p style="color:var(--ink)"><b>${z.name}（${fmtT(z.at)}着）に足す予定：</b>${Object.entries(z.items).map(([k,q])=>`${esc(ix().P[k].short||ix().P[k].name)}＋${q}`).join('・')}</p>`).join('')}
+      <p>便が店に着く${Math.round(V.cfg.addOn.before/60*10)/10}時間前（センターでの積み込み）まで足せます。料金はなく、原価${yen(V.shQ*p.cost)}だけ。${x.s?'':'棚に置いていない品は足せません。'}</p>`:`<p>この品は、夜に作る分か、センターを通らずに届くので、当日には足せません。前の日の${fmtT(V.cfg.orderDeadline)}までに仕入れ数を変えてください。</p>`}</div>`:`    <div class="ks-sbox"><h4>臨時便（いますぐ足す）</h4>
       <div class="ks-sbtns"><span class="ks-num"><button type="button" id="shEm" aria-label="減らす">−</button><b>${V.shQ}個</b><button type="button" id="shEp" aria-label="増やす">＋</button></span>
         ${V.shConfirm===pid?'':`<button type="button" class="ks-btn pri" id="shEgo" ${expressAny()&&x.s?'':'disabled'}>臨時便で頼む</button>`}</div>
       ${todayExpress().filter(e=>expArrive(e)>gT()).map(e=>`<p style="color:var(--ink)"><b>まだ届いていない臨時便：${fmtT(expArrive(e))}着（${expList(e)}）</b>${gT()<=expArrive(e)-E.addUntil?`・${fmtT(expArrive(e)-E.addUntil)}まで品を足せます`:'・積み込みずみ'}</p>`).join('')}
@@ -259,7 +270,8 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
     <div class="ks-sbtns"><button type="button" class="ks-btn" id="shLay">棚割りで並べ方を変える</button><button type="button" class="ks-btn" id="shTab">商品の表で見る</button></div>`;
   const st=life===0?1:2;
   $('shClose').onclick=closeSheet;$('shOm').onclick=()=>{editOrder(pid,-st);renderSheet();};$('shOp').onclick=()=>{editOrder(pid,st);renderSheet();};
-  $('shEm').onclick=()=>{V.shQ=Math.max(1,V.shQ-1);renderSheet();};$('shEp').onclick=()=>{V.shQ+=1;renderSheet();};
+  if($('shEm'))$('shEm').onclick=()=>{V.shQ=Math.max(1,V.shQ-1);renderSheet();};if($('shEp'))$('shEp').onclick=()=>{V.shQ+=1;renderSheet();};
+  if($('shAo'))$('shAo').onclick=()=>{orderAddOn(pid,V.shQ);V.shQ=null;renderSheet();};
   if($('shEgo'))$('shEgo').onclick=()=>{if(openExpress()){V.shConfirm=pid;renderSheet();return;}orderExpress(pid,V.shQ);V.shQ=null;renderSheet();};   // まだ出ていない便があれば、のせるか別にするかを確認
   if($('shAdd'))$('shAdd').onclick=()=>{addToExpress(pid,V.shQ);V.shQ=null;renderSheet();};if($('shNew'))$('shNew').onclick=()=>{orderExpress(pid,V.shQ);V.shQ=null;renderSheet();};if($('shNo'))$('shNo').onclick=()=>{V.shConfirm=null;renderSheet();};
   $('shPm').onclick=()=>{edit(c=>{c.price[pid]=Math.max(10,(c.price[pid]??p.price)-10);});setTimeout(renderSheet,300);};$('shPp').onclick=()=>{edit(c=>{c.price[pid]=(c.price[pid]??p.price)+10;});setTimeout(renderSheet,300);};
@@ -412,7 +424,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
     if(G.returnable)t.push('<i>返品できる</i>');if(G.life===0)t.push('<i>その日限り</i>');if(tr&&p.tags.some(x=>tr.tags.includes(x)))t.push(`<i class="trend">${tr.name}</i>`);if((S.buzz[p.id]||0)>0.05)t.push('<i class="trend">SNSで話題</i>');if(brandOf(p))t.unshift(brandBadge(p));return `<span class="ks-tags">${t.join('')}</span>`;};
   const rep=pid=>{const x=S.rep[pid];if(!x||!x.n)return '<span class="mut">—</span>';const avg=x.sum/x.n,keys=Object.entries(x.keys).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k2,n])=>({sweetHi:'甘すぎ',sweetLo:'甘さ不足',richHi:'濃い',richLo:'うすい',volLo:'量が少ない',volHi:'多すぎ',priceHi:'高い',priceOk:'安い',good:'満足',warm:'温かい',cold:'冷えてる',crush:'つぶれ'})[k2]+n).join('・');return `★${avg.toFixed(1)}（${x.n}）<br><span class="mut" style="font-size:11px">${keys}</span>`;};
   b.innerHTML=`<div class="ks-card"><h3><span>商品・値段・仕入れ</span><small>値段は「世の中のふつうの値段」との比も出します</small></h3>
-    <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。${V.cfg.express.off?'臨時便はいまはありません（ほかの店から融通する機能ができるまで休み）。足りない品は、次の定期便（朝・昼前・午後）を待ちます。':`急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。`}</p>
+    <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。${V.cfg.express.off?`臨時便はいまはありません（ほかの店から融通する機能ができるまで休み）。日持ちする品（飲み物・お菓子・日用品など）は、商品カードから当日の昼前便（${fmtT(V.cfg.deliveries[1].t-V.cfg.addOn.before)}まで）・午後便（${fmtT(V.cfg.deliveries[2].t-V.cfg.addOn.before)}まで）に足せます。`:`急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。`}</p>
     ${expBox()}${pendBox}
     <label style="font-size:12.5px"><input type="checkbox" id="ksAll" ${V.showAll?'checked':''}> 棚に置いていない商品も出す</label>
     ${gBar}${list.length?'':'<p class="ks-note">このジャンルの品は、いま一覧にありません。</p>'}
