@@ -514,10 +514,14 @@ function legends(){
 }
 
 async function init(){
-  try{const r=await fetch('data/factory.json',{cache:'no-cache'});D=await r.json();}
+  let RAW=null;
+  try{const r=await fetch('data/factory.json',{cache:'no-cache'});D=await r.json();RAW=JSON.stringify(D);if(window.FactoryPL)FactoryPL.apply(D);}
   catch(e){document.querySelector('.wrap').insertAdjacentHTML('beforeend','<p class="card">設定（data/factory.json）を読めませんでした。GitHub Pages か、ローカルのサーバー（python3 -m http.server）で開いてください。</p>');return;}
   $('factoryName').textContent=D.name+'（架空）';$('lineName').textContent=D.line;$('place').textContent=(D.location||'')+'。';
   const st=load();cfg=Object.assign({},D.defaults,st.cfg||{});prev=st.prev||null;
+  if(window.FactoryPL)cfg.batches=Math.min(D.ranges.batches[1],Math.max(cfg.batches,FactoryPL.extraUnits(D,FactoryPL.settings(D))?FactoryPL.suggestBatches(D):0));
+  /* 工場の収支で取引先・設備を変えたら、設定を読み直して夜を回し直す（取引先が変わったら釜の数も見込みに合わせる） */
+  window.FactoryRice={reapply(customers){D=JSON.parse(RAW);if(window.FactoryPL)FactoryPL.apply(D);if(customers)cfg.batches=Math.min(D.ranges.batches[1],window.FactoryPL?FactoryPL.suggestBatches(D):cfg.batches);prev=null;buildPlan();run(false);}};
   buildPlan();buildPlay();legends();
   $('run').onclick=()=>{run(false);playing=true;markPlay();};
   $('newNight').onclick=()=>{cfg.seed=(cfg.seed%9999)+1;run(false);};

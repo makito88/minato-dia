@@ -89,7 +89,7 @@ function simulate(D,cfgIn){
     batches.push(b);return b;}
   for(const k of riceSeq(D,cfg.batches,seq))addBatch(false,k);
 
-  let washing=null,washEnd=0;
+  const washers=[];   // 洗っている釜（洗米機の台数 D.wash.lines まで。古い設定は1台）
   const tanks=[];            // 浸しているバッチ（順番どおり）
   const pots=new Array(D.cook.pots).fill(null); // 釜に入っているバッチ
   const cooler=[];           // 冷却中
@@ -303,9 +303,9 @@ function simulate(D,cfgIn){
     if(!potBusyLogged&&tanks.length>=D.soak.tanks&&tanks.every(b=>b.soakMin>=cfg.soak)){potBusyLogged=true;
       log(t,'warn',`タンクが全部ふさがり、どの米も浸し終わっているのに釜が空きません。浸す時間が延びていきます。`);}
     /* 洗米 → タンク */
-    if(washing&&t>=washEnd){const b=washing;washing=null;b.st=ST.SOAK;b.tSoak=t;b.T=S.water;tanks.push(b);}
-    if(!washing&&t>=cfg.start){const next=batches.find(b=>b.st===ST.WAIT);
-      if(next){if(tanks.length<D.soak.tanks){washing=next;next.st=ST.WASH;next.tWash=t;washEnd=t+D.wash.min;}else wait.wash++;}}
+    for(let j=washers.length-1;j>=0;j--){const w=washers[j];if(t>=w.end){washers.splice(j,1);const b=w.b;b.st=ST.SOAK;b.tSoak=t;b.T=S.water;tanks.push(b);}}
+    while(washers.length<(D.wash.lines||1)&&t>=cfg.start){const next=batches.find(b=>b.st===ST.WAIT);if(!next)break;
+      if(tanks.length+washers.length<D.soak.tanks){next.st=ST.WASH;next.tWash=t;washers.push({b:next,end:t+D.wash.min});}else{wait.wash++;break;}}
 
     /* 菌（炊いたあと） */
     for(const b of batches){if(b.g!=null&&b.st!==ST.CANCEL){
