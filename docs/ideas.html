@@ -45,12 +45,27 @@ table{border-collapse:collapse;font-size:13.5px;background:var(--sheet);min-widt
 th,td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
 th{font-weight:700;white-space:nowrap}
 td.r,th.r{text-align:right;white-space:nowrap;font-family:var(--f-num)}
+.sum{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:13.5px;background:var(--paper);padding:8px 0;margin:4px 0 6px;border-bottom:1px solid var(--line)}
+.sum b{font-family:var(--f-num)}
+.sum button,.note button,#bundle button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:999px;padding:6px 12px;min-height:36px;cursor:pointer}
+.sum button{border-color:var(--focus);color:var(--focus);font-weight:700}
+.note{margin:4px 0 14px;border:1px dashed var(--line);border-radius:10px;padding:8px 10px;background:var(--paper);font-size:13.5px;line-height:1.6}
+.note .row,#bundle .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.note .lbl{color:var(--muted);font-size:12.5px;margin-right:2px}
+.note button[aria-pressed="true"]{background:var(--focus);border-color:var(--focus);color:#fff}
+.note button.done[aria-pressed="true"]{background:var(--ok);border-color:var(--ok)}
+.note textarea,#bundle textarea{width:100%;min-height:64px;margin-top:6px;font:inherit;font-size:14px;line-height:1.6;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--sheet);color:var(--ink);box-sizing:border-box}
+.note .meta,#bundle .meta{font-size:12px;color:var(--muted);margin-top:4px}
+#bundle{margin:18px 0 0}#bundle[hidden]{display:none}
+#bundle textarea{min-height:220px}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><a href="../index.html">← みなと川電鉄 ダイヤ工房へ</a><span>中身は <code>docs/ideas.md</code>（ここは読むだけ）</span></div>
+  <div class="top"><a href="../index.html">← みなと川電鉄 ダイヤ工房へ</a><span>中身は <code>docs/ideas.md</code>。印とコメントは、この端末のブラウザにだけ一時保存されます</span></div>
+  <div class="sum" id="sum" aria-live="polite"></div>
   <article class="sheet" id="doc"><p class="muted">読みこんでいます…</p></article>
+  <section class="sheet" id="bundle" hidden></section>
 </div>
 <script>
 (function(){
@@ -88,8 +103,52 @@ function render(md){const out=[];const toc=[];let list=false,para=[],tbl=[];
   const tocHtml=toc.length?`<nav class="toc" aria-label="目次">${toc.map(([id,t])=>`<a href="#${id}">${inline(t.replace(/（.*?）/g,''))}</a>`).join('')}</nav>`:'';
   if(h1>=0)out.splice(h1+1,0,tocHtml);else out.unshift(tocHtml);
   return out.join('\n');}
+const KEY='dia-ideas-notes';
+let notes={};try{notes=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){notes={};}
+const putNotes=()=>{try{localStorage.setItem(KEY,JSON.stringify(notes));}catch(e){}};
+const today=()=>new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'numeric',day:'numeric'});
+const getNote=k=>notes[k]||(notes[k]={mark:'',text:'',sent:''});
+const markWord=m=>m==='done'?'解答済み':m==='todo'?'未着手':'未チェック';
+const titleOf=h=>[...h.childNodes].filter(n=>!(n.nodeType===1&&n.classList.contains('st'))).map(n=>n.textContent).join('').trim();
+const boxes=()=>[...document.querySelectorAll('#doc .note')];
+function paint(box){const n=notes[box.dataset.k]||{mark:'',text:'',sent:''};
+  box.querySelectorAll('button[data-v]').forEach(b=>b.setAttribute('aria-pressed',String(n.mark===b.dataset.v)));
+  const c=!(n.text||'').trim()?'コメントなし':n.sent?'チャットに送信済み（'+n.sent+'）':'未送信（この端末に一時保存）';
+  box.querySelector('.meta').textContent='印：'+markWord(n.mark)+'　／　コメント：'+c;}
+function sumAll(){let todo=0,done=0,none=0,draft=0;
+  boxes().forEach(b=>{const n=notes[b.dataset.k]||{};if(n.mark==='todo')todo++;else if(n.mark==='done')done++;else none++;if((n.text||'').trim()&&!n.sent)draft++;});
+  const sum=document.getElementById('sum');
+  sum.innerHTML='<span>未着手 <b>'+todo+'</b></span><span>解答済み <b>'+done+'</b></span><span>未チェック <b>'+none+'</b></span><span>未送信のコメント <b>'+draft+'</b></span><button type="button" id="mk">チャット用の文章を作る</button>';
+  document.getElementById('mk').onclick=makeBundle;}
+function enhance(){document.querySelectorAll('#doc h3').forEach(h=>{
+  const k=titleOf(h);if(!k)return;
+  const box=document.createElement('div');box.className='note';box.dataset.k=k;
+  box.innerHTML='<div class="row"><span class="lbl">あなたの印</span><button type="button" data-v="todo">未着手</button><button type="button" class="done" data-v="done">解答済み</button></div>'
+    +'<textarea placeholder="コメント（入力すると、この端末に一時保存されます）"></textarea><div class="meta"></div>';
+  box.querySelector('textarea').setAttribute('aria-label','コメント：'+k);
+  const ta=box.querySelector('textarea');ta.value=(notes[k]||{}).text||'';
+  box.querySelectorAll('button[data-v]').forEach(b=>b.onclick=()=>{const n=getNote(k);n.mark=n.mark===b.dataset.v?'':b.dataset.v;putNotes();paint(box);sumAll();});
+  ta.oninput=()=>{const n=getNote(k);n.text=ta.value;n.sent='';putNotes();paint(box);sumAll();};
+  h.after(box);paint(box);});
+  sumAll();}
+function makeBundle(){
+  const items=boxes().map(b=>({k:b.dataset.k,n:notes[b.dataset.k]||{}})).filter(x=>x.n.mark||((x.n.text||'').trim()&&!x.n.sent));
+  const bd=document.getElementById('bundle');bd.hidden=false;
+  if(!items.length){bd.innerHTML='<h2>チャット用の文章</h2><p class="meta">印を付けたか、コメントを書いた項目がありません。</p>';return;}
+  const body=items.map(({k,n})=>'■ '+k+'\n  印：'+(n.mark?markWord(n.mark):'（印なし）')+((n.text||'').trim()&&!n.sent?'\n  コメント：'+n.text.trim():'')).join('\n\n');
+  const txt='【アイデア帳へのコメント（'+today()+'）】\n\n'+body;
+  bd.innerHTML='<h2>チャットに貼る文章</h2><p class="meta">コピーすると、ここに出したコメントは「送信済み」になります。印はそのまま残ります。</p>'
+    +'<textarea id="btxt" readonly></textarea><div class="row"><button type="button" id="bcopy">コピーして送信済みにする</button></div>';
+  const t=document.getElementById('btxt');t.value=txt;
+  document.getElementById('bcopy').onclick=async()=>{let ok=false;
+    try{await navigator.clipboard.writeText(txt);ok=true;}catch(e){t.select();try{ok=document.execCommand('copy');}catch(_){ok=false;}}
+    const btn=document.getElementById('bcopy');
+    if(!ok){btn.textContent='コピーできませんでした。文章を選んで手でコピーしてください';return;}
+    items.forEach(({k,n})=>{if((n.text||'').trim()&&!n.sent)notes[k].sent=today();});
+    putNotes();boxes().forEach(paint);sumAll();btn.textContent='コピーしました（コメントを送信済みにしました）';};
+  bd.scrollIntoView({behavior:'smooth',block:'start'});}
 fetch('ideas.md',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error(r.status);return r.text();})
- .then(md=>{document.getElementById('doc').innerHTML=render(md);if(location.hash){const t=document.querySelector(location.hash);if(t)t.scrollIntoView();}})
+ .then(md=>{document.getElementById('doc').innerHTML=render(md);enhance();if(location.hash){const t=document.querySelector(location.hash);if(t)t.scrollIntoView();}})
  .catch(()=>{document.getElementById('doc').innerHTML='<p class="err">アイデア帳（ideas.md）を読めませんでした。GitHub Pages か、ローカルのサーバー（python3 -m http.server）で開いてください。</p>';});
 })();
 </script>
