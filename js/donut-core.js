@@ -4,6 +4,9 @@
 const hm=t=>`${Math.floor(t/60)%24}:${String(Math.floor(t%60)).padStart(2,'0')}`;
 function rng(seed){let x=seed>>>0;return ()=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x/4294967296;};}
 function normalize(D,input){const B=D.donut,c=Object.assign({},B.defaults,input);for(const k of Object.keys(B.ranges)){const [lo,hi]=B.ranges[k];const v=Number(c[k]);c[k]=Math.floor(Math.min(hi,Math.max(lo,Number.isFinite(v)?v:B.defaults[k])));}if(!D.seasons[c.season])c.season=B.defaults.season;return c;}
+// 発酵と冷ます時間（季節の部屋の温度で変わる）。画面の製法カードも同じ式を使う。
+const fermentMin=(B,p,season)=>Math.ceil(p.ferment*Math.pow(B.fermentQ10,(B.fermentRef-season.room)/10));
+const coolMin=(B,p,season)=>Math.ceil(p.cool*Math.max(B.coolMinFactor,1+(season.room-B.coolRef)*B.coolSeason));
 function simulate(D,input){
  const B=D.donut,cfg=normalize(D,input),season=D.seasons[cfg.season],random=rng(cfg.seed);
  const products=B.products.map(p=>Object.assign({},p,{order:Math.round(B.forecast*p.share*(B.orderMin+random()*B.orderSpread))}));
@@ -21,7 +24,7 @@ function simulate(D,input){
  for(const b of batches){const p=products.find(p=>p.id===b.prod);b.steps=[];b.why=[];b.oilChanges=0;
   const step=(label,start,end)=>{b.steps.push({label,start,end});};
   step('仕込み',b.mix,b.mix+B.mix);
-  let t=b.mix+B.mix;const ferment=Math.ceil(p.ferment*Math.pow(B.fermentQ10,(B.fermentRef-season.room)/10));step('一次発酵',t,t+ferment);t+=ferment;
+  let t=b.mix+B.mix;const ferment=fermentMin(B,p,season);step('一次発酵',t,t+ferment);t+=ferment;
   b.shape=Math.max(t,shapeFree);waits.成形+=b.shape-t;step('成形を待つ',t,b.shape);shapeFree=b.shape+Math.ceil(b.n/B.shapeRate);step('成形',b.shape,shapeFree);
   t=shapeFree;step('ホイロ',t,t+p.proof);const ready=t+p.proof;
   let slot=0;for(let i=1;i<fryFree.length;i++)if(fryFree[i]<fryFree[slot])slot=i;
@@ -34,7 +37,7 @@ function simulate(D,input){
   if(Math.abs(cfg.oilT-p.oilT)>B.tempGrace){b.score-=Math.abs(cfg.oilT-p.oilT)*B.tempPenalty;b.why.push(cfg.oilT<p.oilT?'油の温度が低く、油っぽい':'油の温度が高く、焦げやすい');}
   if(b.oil>B.oilGood){b.score-=Math.min(60,(b.oil-B.oilGood)*B.oilPenalty);b.why.push('使い続けた油で風味が落ちた');}
   // 熱いままチョコをかけたり包装したりしない。夏は冷却時間が延びる。
-  t=fry+fryMin;const cool=Math.ceil(p.cool*Math.max(B.coolMinFactor,1+(season.room-B.coolRef)*B.coolSeason));step('冷ます',t,t+cool);t+=cool;
+  t=fry+fryMin;const cool=coolMin(B,p,season);step('冷ます',t,t+cool);t+=cool;
   const finish=Math.max(t,finishFree);waits.仕上げ+=finish-t;step('仕上げを待つ',t,finish);finishFree=finish+Math.ceil(b.n/(p.finishRate*cfg.finishers));step(p.finish,finish,finishFree);
   t=finishFree;step('仕上げを落ち着かせる',t,t+p.set);t+=p.set;
   const pack=Math.max(t,packFree);waits.包装+=pack-t;step('包装を待つ',t,pack);packFree=pack+Math.ceil(b.n/B.packRate);step('包装',pack,packFree);
@@ -52,5 +55,5 @@ function simulate(D,input){
  return {cfg,season,products,batches,ev,T0:cfg.start,T1:Math.max(B.end,end),summary:{prods,order:total('order'),shipped:total('shipped'),short:total('short'),bad:total('bad'),late:total('late'),surplus:total('surplus'),yen,changes,waits,neck:Object.entries(waits).sort((a,b)=>b[1]-a[1])[0],lastDone:Math.max(...batches.map(b=>b.done))}};
 }
 function stage(b,t){if(t<b.mix)return 'まだ';for(const s of b.steps)if(t>=s.start&&t<s.end)return s.label;return b.good?'包装ずみ':'不合格';}
-root.DonutCore={simulate,normalize,hm,stage};
+root.DonutCore={simulate,normalize,hm,stage,fermentMin,coolMin};
 })(typeof window!=='undefined'?window:globalThis);
