@@ -12,7 +12,8 @@ const KC=KioskCore,RC=ResearchCore,KS=KioskStaff,KEY='dia-kiosk',H=KC.H;
 const STORDER=['C','S','U','M','K','N','P','F','T','O'],PLACES=['home','naka','gate','soto'];
 const $=id=>document.getElementById(id);
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
-const gT=()=>g(()=>T,600),gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
+// 売店の時計はいつも本当の時刻（日本時間・×1）。ダイヤの時計（T）とは切り離す。0:00〜4:30は24:00〜として、26:00で止める
+const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
 const stName=s=>g(()=>ST[s].name,s),fmtT=t=>g(()=>fmt(t),'');
 const yen=n=>(n<0?'−':'')+'¥'+Math.round(Math.abs(n)).toLocaleString('ja-JP');
 const man=n=>(n<0?'−':'')+(Math.abs(n)>=1e4?(Math.abs(n)/1e4).toFixed(1)+'万円':Math.round(Math.abs(n)).toLocaleString('ja-JP')+'円');
@@ -205,8 +206,7 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
     <div class="ks-tabs" role="tablist" id="ksTabs"></div><div id="ksBody"></div></div>`;
   document.body.appendChild(p);const sh=document.createElement('aside');sh.id='ksSheet';sh.className='ks-sheet';sh.hidden=true;sh.setAttribute('aria-label','商品カード');p.appendChild(sh);
   $('ksClose').onclick=()=>setOpen(false);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open){if(V.sheet){closeSheet();return;}setOpen(false);}});
-  $('ksSpd').innerHTML=[1,30,180].map(m=>`<button type="button" class="ks-chip" data-m="${m}">×${m}</button>`).join(' ');
-  $('ksSpd').querySelectorAll('button').forEach(b=>b.onclick=()=>{setMult(Number(b.dataset.m));});
+  $('ksSpd').innerHTML='<span class="ks-chip" title="売店は本当の時刻で進みます">×1・いまの時刻</span>';
   const TABS=[['log','売れ行き'],['items','商品・値段・仕入れ'],['layout','棚割り'],['people','客層・時間帯'],['crew','店員'],['money','収支'],['news','お知らせ']];
   $('ksTabs').innerHTML=TABS.map(([k,n])=>`<button type="button" class="ks-tab" role="tab" data-tab="${k}">${n}</button>`).join('');
   $('ksTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{V.tab=b.dataset.tab;V.logRes=null;if(V.tab==='news'&&V.st){V.st.unread=0;persist();badge();}render(true);});
@@ -703,7 +703,7 @@ function drawPerson(c,p){const s=p.kid?0.85:1;c.save();c.translate(p.x,p.y);c.sc
 function draw(dt,time){const c=V.cx,Tn=gT();if(!c)return;c.clearRect(0,0,1000,600);
   if(!V.st){c.fillStyle='#2a2f33';c.fillRect(0,0,1000,600);c.fillStyle='#fff';c.font='16px sans-serif';c.textAlign='center';c.fillText('売店を出す場所を選んでください',500,300);return;}
   const res=ensureRes();drawKiosk(c,res,Tn);
-  const mult=g(()=>playing,true)?Math.max(0,g(()=>speed,1/60)*60):0,mv=Math.min(6,Math.max(1,mult));
+  const mult=1,mv=Math.min(6,Math.max(1,mult));
   // 出来事から人を出す（速いときは、絵にするのは1秒に3人まで。全部は「売れ行き」に出る）
   if(res){if(V.lastT==null||Tn<V.lastT-0.01||Tn-V.lastT>20){V.evI=KC.idxAt(res,Tn);V.people=[];}
     V.spawnBudget=Math.min(3,(V.spawnBudget||0)+dt*3);
@@ -724,7 +724,7 @@ function onCanvasClick(ev){if(!V.st)return;const r=V.cv.getBoundingClientRect(),
   for(const zk in BOX){const sl=zoneSlots(zk);for(let i=0;i<sl.length;i++){const [sx,sy,sw,sh]=sl[i];if(x>=sx&&x<=sx+sw&&y>=sy&&y<=sy+sh){const pid=(curSet().layout[zk]||[])[i];
       if(pid){openSheet(pid);return;}V.tab='layout';V.slotSel={z:zk,i};render(true);$('ksBody').scrollIntoView({behavior:'smooth',block:'start'});return;}}}}   // 品のある枠は商品カード、空き枠は棚割り
 function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=ts;if(!V.open)return;
-  V.drawAcc=(V.drawAcc||0)+dt;const fps=g(()=>playing,true)?30:8;if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
+  V.drawAcc=(V.drawAcc||0)+dt;const fps=30;if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
   V.heavyT+=dt;if(V.heavyT>1){V.heavyT=0;if(V.st){renderAlert(false);updateSheet();updateItems();V.slowT=(V.slowT||0)+1;if(V.slowT>=5&&(V.tab==='people')){V.slowT=0;renderBody(true);}}}
   V.raf=requestAnimationFrame(loop);}
 

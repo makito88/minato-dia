@@ -3254,7 +3254,7 @@ function needDraw(now){if(playing||RIDE.on){if(PHONE&&now-lastDrawAt<32)return f
   const changed=k!==idleKey||D!==needDraw.d||sel!==needDraw.s;idleKey=k;needDraw.d=D;needDraw.s=sel;
   if(changed||now<wakeUntil||now-idleAt>3000){idleAt=now;return true;}return false;}
 function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
-  if(playing&&D){T+=speed*dt;ENSEN_UI.tick(dt);if(T>END){T=START+30;ENSEN_UI.dayEnd(false);}}   // 運行日は、再生して26:00を過ぎたときだけ進む
+  if(playing&&D){T+=speed*dt;ENSEN_UI.tick(dt);if(T>END){T=START+30;}}   // 26:00を過ぎたら同じ運行日の朝に戻る。運行日は暦の朝4:30でだけ進む（js/away.js が進める）
   if(RIDE.on){rideAcc+=dt;if(!PHONE||rideAcc>=1/30-0.002){RIDE.tick(rideAcc);rideAcc=0;}}
   $('#clock').textContent=fmt(T);if(!$('#minibar').hidden){$('#mclock').textContent=fmt(T);const mb=band(T)+'・'+condLabel();if($('#mband').textContent!==mb)$('#mband').textContent=mb;}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
   if(document.activeElement!==scrub)scrub.value=Math.round(T);
@@ -3287,20 +3287,30 @@ function openScene(sc){let box=document.getElementById('sceneBox');
 function jstParts(ms){return Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(ms)).map(x=>[x.type,x.value]));}
 function liveT(){const p=jstParts(Date.now());let m=Number(p.hour)*60+Number(p.minute);if(m<START)m+=1440;return m>END?START:m;}
 // 曜日・季節・天気。運行日は朝4:30で切りかわる（深夜1時は前の日の運行）。天気は Open-Meteo、祝日は holidays-jp（どちらも無料・登録なし）
+// 天気はその運行日の「1日の天気」（立川市の予報・実績）。日付ごとに最初に取れた値を dia-wxlog に覚え、あとから変えない（引き継ぎコードにも入る）。
+// 祝日は dia-holidays に覚える。どちらも js/away.js が、留守にしていた日の条件に使う
+const WXK='dia-wxlog',HOLK='dia-holidays';
+const wxOf=w=>w<=1?'sun':w<=48?'cld':(w>=71&&w<=77)||w===85||w===86?'snow':'rain';   // WMO の天気コード → 晴れ・くもり・雨・大雪
+function wxLog(){try{return JSON.parse(localStorage.getItem(WXK)||'{}')||{};}catch(e){return {};}}
+function holLog(){try{return JSON.parse(localStorage.getItem(HOLK)||'null');}catch(e){return null;}}
+async function fetchCal(){const out={wx:wxLog(),hol:holLog()};
+  const [wr,hr]=await Promise.allSettled([
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6939&longitude=139.4194&daily=weather_code,temperature_2m_max,temperature_2m_min&past_days=14&forecast_days=1&timezone=Asia%2FTokyo').then(r=>r.ok?r.json():Promise.reject(r.status)),
+    fetch('https://holidays-jp.github.io/api/v1/date.json').then(r=>r.ok?r.json():Promise.reject(r.status))]);
+  if(wr.status==='fulfilled'&&wr.value.daily){const d=wr.value.daily;d.time.forEach((ymd,i)=>{if(!out.wx[ymd]&&d.weather_code[i]!=null)out.wx[ymd]={wx:wxOf(d.weather_code[i]),hi:d.temperature_2m_max[i],lo:d.temperature_2m_min[i]};});
+    const keys=Object.keys(out.wx).sort();for(const k of keys.slice(0,Math.max(0,keys.length-90)))delete out.wx[k];try{localStorage.setItem(WXK,JSON.stringify(out.wx));}catch(e){}}
+  if(hr.status==='fulfilled'&&hr.value){out.hol=hr.value;try{localStorage.setItem(HOLK,JSON.stringify(hr.value));}catch(e){}}
+  return out;}
 async function liveCond(){const note=document.getElementById('liveNote');
   const p=jstParts(Date.now()-START*60000),ymd=`${p.year}-${p.month}-${p.day}`,mo=Number(p.month);
   const c={season:mo>=3&&mo<=5?'spr':mo>=6&&mo<=8?'sum':mo>=9&&mo<=11?'aut':'win',day:p.weekday==='Sat'?'sat':p.weekday==='Sun'?'hol':'wd'};
-  const [wr,hr]=await Promise.allSettled([
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6939&longitude=139.4194&current=weather_code,temperature_2m&timezone=Asia%2FTokyo').then(r=>r.ok?r.json():Promise.reject(r.status)),
-    fetch('https://holidays-jp.github.io/api/v1/date.json').then(r=>r.ok?r.json():Promise.reject(r.status))]);
-  let hol='';if(hr.status==='fulfilled'&&hr.value[ymd]){hol=hr.value[ymd];c.day='hol';}
-  let wtxt='天気は取得できませんでした';
-  if(wr.status==='fulfilled'&&wr.value.current){const w=wr.value.current.weather_code,tc=wr.value.current.temperature_2m;
-    // WMO の天気コード → 晴れ・くもり・雨・大雪
-    c.wx=w<=1?'sun':w<=48?'cld':(w>=71&&w<=77)||w===85||w===86?'snow':'rain';
-    wtxt=`${CONDS.wx.opts[c.wx].n}${c.wx==='snow'?'（雪）':''} ${Math.round(tc)}℃`;}
+  const cal=await fetchCal();
+  let hol='';if(cal.hol&&cal.hol[ymd]){hol=cal.hol[ymd];c.day='hol';}
+  let wtxt='天気は取得できませんでした';const w=cal.wx[ymd];
+  if(w){c.wx=w.wx;wtxt=`${CONDS.wx.opts[c.wx].n}${c.wx==='snow'?'（雪）':''}${w.hi!=null?` 最高${Math.round(w.hi)}℃・最低${Math.round(w.lo)}℃`:''}`;}
+  else{const r=window.minatoAway&&minatoAway.condFor(minatoAway.opIndex(Date.now()));if(r)c.wx=r.wx;}   // 取れないときは、日ごとに決まった天気
   setCond({...COND,...c});saveCond();renderCondUI();rebuildSoon();
-  if(note)note.textContent=`いまの立川市：${wtxt}・${CONDS.day.opts[c.day].n}${hol?'（'+hol+'）':''}（起動時に自動で設定。下のボタンで変えられます）`;}
+  if(note)note.textContent=`きょうの立川市：${wtxt}・${CONDS.day.opts[c.day].n}${hol?'（'+hol+'）':''}（その日の天気を一度だけ取り、ほかの端末とそろえます。下のボタンで変えられますが、変えると売店の売れ方も変わります）`;}
 function start(data){if(data&&typeof data.T==='number')T=data.T;else T=liveT();liveCond().catch(()=>{});renderCondUI();renderLegend();renderEditor();rebuild();renderMode();resize();setPlay(true);requestAnimationFrame(frame);ENSEN_UI.init();}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
