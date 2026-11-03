@@ -68,7 +68,7 @@ function show(o){if(!o.n)return;const box=document.createElement('div');box.clas
     <p class="away-note">留守にしていた日の曜日と季節は実際の暦から、天気はその日ごとに決めています。棚割り・値段・仕入れは、最後の設定のままです。</p>
     <div class="away-btns">${g(()=>minatoKiosk.state,null)?'<button type="button" id="awayKs">売店を見る</button>':''}<button type="button" id="awayOk" class="pri">閉じる</button></div></div>`;
   document.body.appendChild(box);const close=()=>box.remove();$('awayOk').onclick=close;box.addEventListener('click',e=>{if(e.target===box)close();});
-  if($('awayKs'))$('awayKs').onclick=()=>{close();g(()=>minatoKiosk.open());};$('awayOk').focus();}
+  if($('awayKs'))$('awayKs').onclick=()=>{close();g(()=>minatoTop.close());g(()=>minatoKiosk.openTab('news'));};$('awayOk').focus();}
 const CSS=`.away-busy{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--paper);font-size:13px;padding:8px 14px;border-radius:999px;box-shadow:0 4px 14px rgb(0 0 0 / .25)}
 .away{position:fixed;inset:0;z-index:85;background:rgb(0 0 0 / .45);display:flex;align-items:center;justify-content:center;padding:16px}
 .away-in{background:var(--paper);color:var(--ink);border-radius:14px;width:min(560px,100%);max-height:88vh;overflow:auto;padding:16px 18px;display:grid;gap:8px;font-size:13.5px;line-height:1.65}

@@ -136,6 +136,7 @@ const CSS=`
 .ks-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.ks-kpi div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
 .ks-kpi span{display:block;font-size:11px;color:var(--muted)}.ks-kpi b{font-family:var(--f-mono);font-size:17px;font-variant-numeric:tabular-nums}.ks-kpi .neg{color:#c9573f}.ks-kpi .pos{color:#2f8a4a}
 .ks-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);position:sticky;top:calc(-10px - env(safe-area-inset-top,0px));z-index:3;background:var(--paper);padding-top:4px}
+.ks-newn{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:#2f8a4a;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
 .ks-tab{font:inherit;font-size:13px;border:1px solid transparent;border-bottom:none;background:none;color:var(--muted);padding:7px 12px;border-radius:7px 7px 0 0;cursor:pointer}
 .ks-tab[aria-selected="true"]{background:var(--panel);border-color:var(--line);color:var(--ink);font-weight:700;margin-bottom:-1px}
 .ks-t{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}.ks-t th{font-size:11px;color:var(--muted);font-weight:400;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--panel)}
@@ -173,7 +174,7 @@ const CSS=`
 .ks-hrs{display:flex;align-items:flex-end;gap:2px;height:90px;border-bottom:1px solid var(--line)}.ks-hrs span{flex:1;background:var(--accent);opacity:.85;border-radius:2px 2px 0 0;min-height:1px}.ks-hrs span.now{background:#d9822b;opacity:1}
 .ks-hlab{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);font-family:var(--f-mono);margin-top:3px}
 .ks-news{display:grid;gap:7px}.ks-news div{border-left:3px solid var(--line);padding:2px 0 2px 9px;font-size:12.5px;line-height:1.6}.ks-news b{display:block;font-size:13px}.ks-news small{color:var(--muted);font-size:11px}
-.ks-news .trend{border-left-color:#d9822b}.ks-news .sns{border-left-color:#3a64b8}.ks-news .regular{border-left-color:#2f8a4a}.ks-news .review{border-left-color:#9a6a1a}.ks-news .soldout,.ks-news .miss,.ks-news .waste{border-left-color:#c9573f}
+.ks-news .n-trend{border-left-color:#d9822b}.ks-news .n-sns{border-left-color:#3a64b8}.ks-news .n-regular{border-left-color:#2f8a4a}.ks-news .n-review{border-left-color:#9a6a1a}.ks-news .n-soldout,.ks-news .n-miss,.ks-news .n-waste{border-left-color:#c9573f}
 .ks-g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
 .ks-note{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.65}
 .ks-scroll{overflow-x:auto}
@@ -198,8 +199,8 @@ const CSS=`
 `;
 function mount(){const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
   const after=$('rsBtn')||$('tayoriBtn')||document.querySelector('.clockbox');
-  if(after){const b=document.createElement('button');b.id='ksBtn';b.type='button';b.className='tayoribtn';b.innerHTML='売店<span class="dot" hidden></span>';after.after(b);b.onclick=()=>setOpen(true);}
-  const mb=document.querySelector('.minibar-in');if(mb){const b=document.createElement('button');b.id='mks';b.type='button';b.className='mspeed tayorimini';b.innerHTML='売店<span class="dot" hidden></span>';mb.appendChild(b);b.onclick=()=>setOpen(true);}
+  if(after){const b=document.createElement('button');b.id='ksBtn';b.type='button';b.className='tayoribtn';b.innerHTML='売店<span class="dot" hidden></span>';after.after(b);b.onclick=openFromBadge;}
+  const mb=document.querySelector('.minibar-in');if(mb){const b=document.createElement('button');b.id='mks';b.type='button';b.className='mspeed tayorimini';b.innerHTML='売店<span class="dot" hidden></span>';mb.appendChild(b);b.onclick=openFromBadge;}
   const p=document.createElement('section');p.id='ksv';p.className='ksv';p.hidden=true;p.setAttribute('aria-label','売店の運営');
   p.innerHTML=`<div class="ks-in"><div class="ks-hd"><h2 id="ksTitle">売店の運営</h2><small id="ksSub"></small><span class="ks-sp"></span><span id="ksSpd"></span><button type="button" class="ks-btn" id="ksClose">閉じる</button></div>
     <div id="ksTop"></div><div class="ks-stage"><canvas id="ksCanvas" width="1000" height="600" aria-label="売店の正面のようす（棚を押すと、その商品のカードが出ます）"></canvas></div><div id="ksAlert" class="ks-alert" aria-live="polite"></div><div id="ksKpi" class="ks-kpi"></div>
@@ -209,11 +210,16 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   $('ksSpd').innerHTML='<span class="ks-chip" title="売店は本当の時刻で進みます">×1・いまの時刻</span>';
   const TABS=[['log','売れ行き'],['items','商品・値段・仕入れ'],['layout','棚割り'],['people','客層・時間帯'],['crew','店員'],['money','収支'],['news','お知らせ']];
   $('ksTabs').innerHTML=TABS.map(([k,n])=>`<button type="button" class="ks-tab" role="tab" data-tab="${k}">${n}</button>`).join('');
-  $('ksTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{V.tab=b.dataset.tab;V.logRes=null;if(V.tab==='news'&&V.st){V.st.unread=0;persist();badge();}render(true);});
+  $('ksTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{V.tab=b.dataset.tab;V.logRes=null;if(V.tab==='news')readNews();render(true);});
   V.cv=$('ksCanvas');V.cx=V.cv.getContext('2d');V.cv.addEventListener('click',onCanvasClick);}
 function setMult(m){g(()=>{speed=m/60;const ms=$('mspeed');if(ms)ms.textContent='×'+m;});document.querySelectorAll('#ksSpd button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.m)===m)));}
-function badge(){const n=V.st?V.st.unread||0:0;for(const id of ['ksBtn','mks']){const b=$(id);if(!b)continue;const d=b.querySelector('.dot');d.hidden=!n;d.textContent=n>9?'9+':String(n);}}
-function setOpen(o){V.open=o;$('ksv').hidden=!o;if(o){V.prevSpeed=g(()=>speed,null);setMult(1);V.people=[];V.bubbles=[];V.lastT=null;render(true);cancelAnimationFrame(V.raf);V.lastTs=0;V.raf=requestAnimationFrame(loop);}
+function badge(){const n=V.st?V.st.unread||0:0;for(const id of ['ksBtn','mks']){const b=$(id);if(!b)continue;const d=b.querySelector('.dot');d.hidden=!n;d.textContent=n>9?'9+':String(n);b.title=n?`売店：新しいお知らせ${n}件（押すとお知らせを開きます）`:'売店';b.setAttribute('aria-label',b.title);}
+  const t=document.querySelector('#ksTabs [data-tab="news"]');if(t)t.innerHTML=n?`お知らせ <span class="ks-newn">${n>9?'9+':n}</span>`:'お知らせ';}
+/* 新しいお知らせを読んだことにする（どれが新しいかは V.newN で覚えておき、一覧で「新」を付ける） */
+function readNews(){if(!V.st)return;if(V.st.unread){V.newN=V.st.unread;V.st.unread=0;persist();}badge();}
+/* 上の帯の「売店」：新しいお知らせがあれば、そのままお知らせを開く */
+function openFromBadge(){if(V.st&&V.st.unread){V.tab='news';readNews();}setOpen(true);}
+function setOpen(o){V.open=o;$('ksv').hidden=!o;if(!o)V.newN=0;if(o){V.prevSpeed=g(()=>speed,null);setMult(1);V.people=[];V.bubbles=[];V.lastT=null;render(true);cancelAnimationFrame(V.raf);V.lastTs=0;V.raf=requestAnimationFrame(loop);}
   else{cancelAnimationFrame(V.raf);if(V.prevSpeed!=null)g(()=>setSpeed(V.prevSpeed));}}
 
 /* ---------- 開店前：場所を選ぶ ---------- */
@@ -643,7 +649,7 @@ function shrinkCard(res){const SH=V.cfg.shrink;if(!SH)return '';const S=V.st,I=i
     <div class="ks-sbtns">${Object.entries(SH.guard).map(([k,g])=>`<button type="button" class="ks-chip" data-guard="${k}" aria-pressed="${!!nx[k]}">${esc(g.name)}${g.perDay?`（1日${yen(g.perDay)}）`:''}</button>`).join('')}</div>
     <p class="ks-note">防犯の対策は次の運行日から効きます。${JSON.stringify(cur)!==JSON.stringify(nx)?'<b>あすから変わります。</b>':''}いま：${Object.keys(SH.guard).filter(k=>cur[k]).map(k=>SH.guard[k].name).join('・')||'なし'}</p></div>`;}
 function renderNews(b){const S=V.st,list=S.news.slice().reverse();
-  b.innerHTML=`<div class="ks-card"><h3><span>お知らせ</span><small>ブーム・SNS・常連・評価・売り切れ・廃棄など（運行日の終わりに届きます）</small></h3><div class="ks-news">${list.map(n=>`<div class="${n.kind}"><b>${esc(n.title)}</b><small>運行日${n.day}</small> ${esc(n.text)}</div>`).join('')||'<p class="ks-note">まだありません。</p>'}</div></div>`;}
+  b.innerHTML=`<div class="ks-card"><h3><span>お知らせ</span><small>ブーム・SNS・常連・評価・売り切れ・廃棄など（運行日の終わりに届きます）</small></h3><div class="ks-news">${V.newN?`<p class="ks-note" style="margin:0 0 6px">「新」の${V.newN}件が、上の帯の「売店」の数字のお知らせです。</p>`:''}${list.map((n,i)=>`<div class="n-${n.kind}"><b>${i<(V.newN||0)?'<span class="ks-newn">新</span> ':''}${esc(n.title)}</b><small>運行日${n.day}</small> ${esc(n.text)}</div>`).join('')||'<p class="ks-note">まだありません。</p>'}</div></div>`;}
 
 /* ---------- 売店の正面の絵 ---------- */
 const BOX={hook:[136,118,170,190],top:[320,110,380,40],fridge:[136,316,190,190],shelf:[336,160,190,346],tobacco:[540,160,170,44],hot:[724,250,110,80],warmer:[724,334,110,30],umbrella:[690,372,30,134],rack:[860,150,110,356]};
@@ -740,7 +746,7 @@ function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=
 /* ---------- 起動 ---------- */
 mount();setInterval(tick,1000);
 window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()=>setOpen(true),
-  openTab:t=>{if(['log','items','layout','people','crew','money','news'].includes(t))V.tab=t;setOpen(true);if(V.st)render(true);},   // トップから：タブを選んで開く
+  openTab:t=>{if(['log','items','layout','people','crew','money','news'].includes(t))V.tab=t;if(V.tab==='news')readNews();setOpen(true);if(V.st)render(true);},   // トップから：タブを選んで開く
   // リサーチから：その駅・場所を選んだ状態で売店の画面を開く（まだ出していないとき）
   openAt:(st,place)=>{if(!V.st&&PLACES.includes(place))V.form={st,place};setOpen(true);},places:PLACES,sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},
   closeToday(){const r=ensureRes();if(r){closeToday(r);g(()=>{ENS.day=ENS.day;});}return V.st&&V.st.hist.at(-1);},   // 開発用：きょうの分で1日を締める（運行日は進めない）
