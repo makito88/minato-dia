@@ -154,7 +154,7 @@ const CSS=`
 .ks-crew-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.ks-crew-h b{font-size:14.5px}.ks-crew .mut,.ks-crew small.mut{color:var(--muted);font-size:11.5px}
 .ks-mood{height:7px;background:var(--line);border-radius:4px;overflow:hidden}.ks-mood u{display:block;height:100%}.ks-crew-m{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}.ks-crew-m span{color:var(--muted)}
 .ks-tag{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:999px;padding:0 7px;margin:0 3px 2px 0;color:var(--muted)}.ks-tag.pos{color:#2f8a4a;border-color:#2f8a4a55}.ks-tag.neg{color:#c9573f;border-color:#c9573f55}
-.ks-shift td,.ks-shift th{text-align:center}.ks-cell{font:inherit;font-size:12px;min-width:44px;min-height:34px;border:1px dashed var(--line);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}.ks-cell[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);font-weight:700}
+.ks-shift td,.ks-shift th{text-align:center}.ks-hours th,.ks-hours td{padding:3px 2px}.ks-hours td.l{min-width:150px;white-space:normal}.ks-hours td.l small{display:block;line-height:1.35}.ks-cell.ks-h{min-width:26px;min-height:32px;font-size:11px}.ks-cell.bad[aria-pressed="true"]{background:#c9573f;border-color:#c9573f}.ks-cell{font:inherit;font-size:12px;min-width:44px;min-height:34px;border:1px dashed var(--line);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer}.ks-cell[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent);font-weight:700}
 .ks-today tr.now td{background:color-mix(in srgb,var(--accent) 12%,transparent)}.ks-today small{color:var(--muted)}.ks-small{font-size:12px;padding:4px 10px;min-height:30px}
 #ksAdWage{font:inherit;font-size:13px;padding:4px 6px;min-height:34px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
 .ks-flt{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:end;margin:0 0 8px;font-size:11.5px;color:var(--muted)}.ks-flt label{display:grid;gap:2px}.ks-flt label>span{display:flex;gap:3px;align-items:center}.ks-flt select{font:inherit;font-size:13px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 6px;min-height:32px;max-width:11em}.ks-flt-b{display:flex;gap:6px;flex-wrap:wrap}.ks-fd>summary{cursor:pointer;font-size:12.5px;font-weight:700;padding:4px 0;min-height:32px}.ks-fd[open]>summary{margin-bottom:4px}
@@ -538,17 +538,21 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
         ${p.commute||KS.insuredOf(V.cfg,cr,p,true)?`<span>手当</span><span>${p.commute?`<span class="ks-tag">交通費 1日${yen(p.commute)}</span>`:''}${KS.insuredOf(V.cfg,cr,p,true)?'<span class="ks-tag pos" title="次のシフトで週20時間以上・学生でない">社会保険</span>':''}</span>`:''}
         <span>仕事の速さ</span><b>${sp}%<small class="mut">（慣れ ${p.days}日）</small></b>
         <span>得意</span><span>${tr.length?tr.map(x=>`<span class="ks-tag ${x.good?'pos':'neg'}">${x.t}</span>`).join(''):'<span class="mut">ふつう</span>'}</span>
-        <span>週のシフト</span><b class="${wk>p.want*C.morale.over?'neg':wk<p.want*C.morale.under?'neg':''}">${wk}時間<small class="mut">（希望 ${p.want}時間）</small></b>
+        <span>週のシフト</span><b class="${wk>p.want*C.morale.over?'neg':wk<p.want*C.morale.under?'neg':''}">${Math.round(wk*10)/10}時間<small class="mut">（希望 ${p.want}時間）</small></b>
         <span>きょう</span><b>${w?`${+w.h.toFixed(1)}時間・会計${w.served}人`:'休み'}</b>
         <span>入れる時間</span><small>${av}</small></div>
       ${p.leave==null&&p.from<=day?(V.fireAsk===p.id?`<div class="ks-pend"><b>${esc(p.name)}さんに辞めてもらいますか？</b><div>きょうまで働いて、あすから来なくなります。</div><div class="ks-sbtns"><button type="button" class="ks-btn" data-fire="${p.id}">辞めてもらう</button><button type="button" class="ks-btn" data-firecancel>やめる</button></div></div>`:`<div class="ks-sbtns"><button type="button" class="ks-btn ks-small" data-fireask="${p.id}">辞めてもらう…</button></div>`):''}</div>`;};
   // あすからのシフト表
   const rows=people.filter(p=>p.leave==null);
-  const cnt=BL.map(bk=>rows.filter(p=>(sn[ty][p.id]||[]).includes(bk.id)).length);
-  const costDay=rows.reduce((s2,p)=>{let y=0;for(const id of (sn[ty][p.id]||[])){const bk=KS.blk(V.cfg,id);const nt=Math.max(0,bk.to-Math.max(bk.from,C.night.from));y+=((bk.to-bk.from)+nt*(C.night.rate-1))*(p.wageNext??p.wage);}return s2+y;},0);
-  const grid=`<table class="ks-t ks-shift"><thead><tr><th class="l">店員</th>${BL.map((bk,i)=>`<th>${bk.name}<br><small>${bk.from}〜${bk.to}時</small></th>`).join('')}<th>週</th></tr></thead><tbody>
-    ${rows.map(p=>`<tr><td class="l">${esc(p.name)}</td>${BL.map(bk=>{const ok=p.avail[ty].includes(bk.id),on=(sn[ty][p.id]||[]).includes(bk.id);return `<td>${ok?`<button type="button" class="ks-cell" data-cell="${p.id}|${bk.id}" aria-pressed="${on}" aria-label="${esc(p.name)} ${bk.name}">${on?'入る':''}</button>`:'<span class="mut" title="入れない">—</span>'}</td>`;}).join('')}<td class="${KS.weekHours(V.cfg,cr,p.id,true)>p.want*C.morale.over?'neg':''}">${KS.weekHours(V.cfg,cr,p.id,true)}/${p.want}</td></tr>`).join('')}
-    <tr><td class="l"><b>人数</b></td>${cnt.map(n=>`<td class="${n?'':'neg'}"><b>${n}</b>${n?'':'<br><small>閉める</small>'}</td>`).join('')}<td></td></tr></tbody></table>`;
+  // 1時間ずつ（6時〜23時）
+  const HR=[];for(let h=BL[0].from;h<BL[BL.length-1].to;h++)HR.push(h);const HC=C.hourly||{minDay:0,maxGaps:9};
+  const plan=p=>KS.dayPlan(V.cfg,sn[ty][p.id]);
+  const cnt=HR.map(h=>rows.filter(p=>{const q=plan(p);return q.ok&&q.hours.includes(h);}).length);
+  const costDay=rows.reduce((s2,p)=>{const q=plan(p);if(!q.ok||!q.total)return s2;const nt=q.hours.filter(h=>h>=C.night.from).length;return s2+(q.work+nt*(C.night.rate-1))*(p.wageNext??p.wage);},0);
+  const rowNote=q=>!q.total?'':!q.ok?`<b class="neg">組めない（${q.why.join('・')}）→ この日は休み</b>`:[`${q.total}時間`,q.gaps?'<span class="neg">中抜けあり（やる気↓）</span>':'',q.brk?`休憩${q.brk}分`:''].filter(Boolean).join('・');
+  const grid=`<table class="ks-t ks-shift ks-hours"><thead><tr><th class="l">店員</th>${HR.map(h=>`<th>${h}</th>`).join('')}<th>週</th></tr></thead><tbody>
+    ${rows.map(p=>{const q=plan(p);return `<tr><td class="l">${esc(p.name)}<br><small>${rowNote(q)||'休み'}</small></td>${HR.map(h=>{const ok=KS.availH(V.cfg,p,ty,h),on=q.hours.includes(h);return `<td>${ok||on?`<button type="button" class="ks-cell ks-h${q.ok?'':' bad'}" data-cell="${p.id}|${h}" aria-pressed="${on}" aria-label="${esc(p.name)} ${h}時から1時間">${on?'●':''}</button>`:'<span class="mut" title="入れない">—</span>'}</td>`;}).join('')}<td class="${KS.weekHours(V.cfg,cr,p.id,true)>p.want*C.morale.over?'neg':''}">${Math.round(KS.weekHours(V.cfg,cr,p.id,true)*10)/10}/${p.want}</td></tr>`;}).join('')}
+    <tr><td class="l"><b>人数</b></td>${cnt.map(n=>`<td class="${n?'':'neg'}"><b>${n}</b></td>`).join('')}<td></td></tr></tbody></table>${V.shMsg?`<p class="ks-note neg" role="alert">${esc(V.shMsg)}</p>`:''}`;
   // 募集
   const ads=KS.adsOpen(V.cfg,cr,day),adOpts=[];for(let wv=C.minWage;wv<=C.maxWage;wv+=C.step)adOpts.push(wv);if(V.adWage==null)V.adWage=C.market;
   const app=a=>`<div class="ks-crew"><div class="ks-crew-h"><b>${esc(a.name)}さん</b><span class="mut">${C.kinds.find(k=>k.id===a.kind).name}</span><span class="ks-tag">あと${a.until-day}日</span></div>
@@ -557,11 +561,11 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
       <div class="ks-sbtns"><button type="button" class="ks-btn pri" data-hire="${a.id}" ${cr.people.length>=C.max?'disabled':''}>採用する（あすから）</button><button type="button" class="ks-btn" data-pass="${a.id}">見送る</button></div></div>`;
   b.innerHTML=`<div class="ks-g2"><div class="ks-card"><h3><span>きょうのシフト</span><small>${TN[type]}の型・いまは${fmtT(t)}</small></h3><table class="ks-t ks-today"><tbody>${todayRows}</tbody></table>
       <p class="ks-note">だれもいない時間は売店を閉めます（ホットスナックも温めません）。1時間に会計する人が1人あたり${C.morale.busy}人を超えると「忙しすぎる」と感じます。</p></div>
-    <div class="ks-card"><h3><span>あすからのシフト</span><small>押すと「入る」・「—」は入れない時間</small></h3>
+    <div class="ks-card"><h3><span>あすからのシフト</span><small>1時間ずつ押して組む・「—」は入れない時間</small></h3>
       <div class="ks-sbtns" style="margin-bottom:6px">${KS.TYPES.map(tp=>`<button type="button" class="ks-chip" data-ty="${tp}" aria-pressed="${ty===tp}">${TN[tp]}${tp===type?'（きょう）':''}</button>`).join('')}</div>
       <div class="ks-sbtns" style="margin-bottom:6px"><button type="button" class="ks-btn" data-auto="cost">おまかせ：人件費を抑える</button><button type="button" class="ks-btn" data-auto="cover">おまかせ：混む時間は多めに</button></div>
       <div class="ks-scroll">${grid}</div>
-      <p class="ks-note">${TN[ty]}1日の人件費の見込み：<b>${yen(costDay)}</b>（22時からは2割5分増し）。「週」は平日5日・土曜1日・日曜祝日1日の合計／希望の時間。シフトの変更は次の運行日から効きます。「おまかせ」は3つの型をまとめて組みます（人件費を抑える＝各時間帯1人、混む時間は多めに＝1人あたり1時間の会計がおよそ${Math.round(C.morale.busy*0.9)}人までになるよう最大3人。見込みはこれまでのお客さんの数から）。入れる時間と週の希望を見て、足りない時間に入れる人がいなければ空きます。${cr.shiftNext?'<button type="button" class="ks-btn ks-small" id="ksShReset">いまのシフトに戻す</button>':''}</p></div></div>
+      <p class="ks-note">${TN[ty]}1日の人件費の見込み：<b>${yen(costDay)}</b>（22時からは2割5分増し・休憩の分は引く）。「週」は平日5日・土曜1日・日曜祝日1日の合計（休憩を引いた時間）／希望の時間。1日に入るなら合わせて${HC.minDay}時間以上（足りない日は休み）。中抜けは1日${HC.maxGaps}回までで、ある日はやる気が下がります。6時間を超える日は45分、8時間を超える日は60分の休憩（そのあいだは店にいません）。シフトの変更は次の運行日から効きます。「おまかせ」は3つの型をまとめて組みます（人件費を抑える＝各時間帯1人、混む時間は多めに＝1人あたり1時間の会計がおよそ${Math.round(C.morale.busy*0.9)}人までになるよう最大3人。見込みはこれまでのお客さんの数から）。入れる時間と週の希望を見て、足りない時間に入れる人がいなければ空きます。${cr.shiftNext?'<button type="button" class="ks-btn ks-small" id="ksShReset">いまのシフトに戻す</button>':''}</p></div></div>
     <div class="ks-card"><h3><span>店員</span><small>${people.length}人（最大${C.max}人）・相場の時給 ${yen(C.market)}・時給の変更はあすから</small></h3><div class="ks-crews">${people.map(card).join('')}</div></div>
     <div class="ks-card"><h3><span>募集</span><small>1回${yen(C.ad.fee)}・${C.ad.days}日間・時給を高くすると応募が多い</small></h3>
       <div class="ks-sbtns"><label class="ks-note" style="margin:0">時給 <select id="ksAdWage">${adOpts.map(wv=>`<option value="${wv}" ${wv===V.adWage?'selected':''}>${yen(wv)}</option>`).join('')}</select></label><button type="button" class="ks-btn pri" id="ksAd" ${ads.some(a=>a.day===day)?'disabled':''}>募集を出す（${yen(C.ad.fee)}）</button>
@@ -570,7 +574,12 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
   // 操作
   const find=id=>cr.people.find(p=>p.id===id);
   b.querySelectorAll('[data-ty]').forEach(x=>x.onclick=()=>{V.crewType=x.dataset.ty;render(true);});
-  b.querySelectorAll('[data-cell]').forEach(x=>x.onclick=()=>{const [id,bk]=x.dataset.cell.split('|'),S2=shNext(),L=S2[ty][id]||(S2[ty][id]=[]);const i=L.indexOf(bk);if(i>=0)L.splice(i,1);else L.push(bk);crewSave(false);});
+  b.querySelectorAll('[data-cell]').forEach(x=>x.onclick=()=>{const [id,hs]=x.dataset.cell.split('|'),h=+hs,S2=shNext();
+    // その人のその日の区切りを1時間ずつ（h6〜h22）に直してから、押した1時間を足す・外す
+    const set=new Set(KS.hoursOf(V.cfg,S2[ty][id]));if(set.has(h))set.delete(h);else set.add(h);
+    const next=[...set].sort((a,c)=>a-c).map(v=>'h'+v),q=KS.dayPlan(V.cfg,next);
+    if(q.gaps>HC.maxGaps){V.shMsg=`中抜けは1日${HC.maxGaps}回までです（${find(id).name}さん）。`;render(true);return;}
+    V.shMsg='';S2[ty][id]=next;crewSave(false);});
   b.querySelectorAll('[data-auto]').forEach(x=>x.onclick=()=>{const perH={};for(const tp of KS.TYPES){const a=(V.st.custH||{})[tp]||(tp===type||!(V.st.custH||{})[type]?res.hourlyN:V.st.custH[type]);perH[tp]=BL.map(bk=>{let n2=0;for(let h=bk.from;h<bk.to;h++)n2+=a[h]||0;return n2/(bk.to-bk.from);});}
     cr.shiftNext=KS.autoShift(V.cfg,cr,day,x.dataset.auto,perH);V.st.news.push({day,kind:'crew',title:x.dataset.auto==='cost'?'おまかせでシフトを組んだ（人件費を抑える）':'おまかせでシフトを組んだ（混む時間は多めに）',text:'あすから効きます。「いまのシフトに戻す」で取り消せます。'});crewSave(false);});
   if($('ksShReset'))$('ksShReset').onclick=()=>{delete cr.shiftNext;crewSave(false);};

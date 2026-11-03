@@ -13,7 +13,18 @@ function hash(...a){let h=2166136261>>>0;const s=a.join('|');for(let i=0;i<s.len
 function rng(seed){let a=seed>>>0;return ()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 const poisson=(l,r)=>{let n=0,p=Math.exp(-l),s=p;const u=r();while(u>s&&n<50){n++;p*=l/n;s+=p;}return n;};
 const B=cfg=>cfg.crew.blocks;
-const blk=(cfg,id)=>B(cfg).find(b=>b.id===id);
+// 区切り：朝・昼・夕方・夜（m・d・e・n）のほかに、1時間の区切り h6〜h22（6時〜7時 … 22時〜23時）
+const blk=(cfg,id)=>{const m=/^h(\d+)$/.exec(id);if(m){const h=+m[1];return {id,name:h+'時',from:h,to:h+1,hour:true};}return B(cfg).find(b=>b.id===id);};
+/* その日に入る時間（何時台か）の一覧。区切りを1時間ずつに直す */
+function hoursOf(cfg,list){const s=new Set();for(const id of list||[]){const b=blk(cfg,id);if(b)for(let h=b.from;h<b.to;h++)s.add(h);}return [...s].sort((a,c)=>a-c);}
+/* その時間に入れる人か（入れる時間は朝・昼・夕方・夜の区切りで持っている） */
+const availH=(cfg,p,t,h)=>(p.avail[t]||[]).some(id=>{const b=blk(cfg,id);return b&&h>=b.from&&h<b.to;});
+/* 1日の組み方：続いている時間のかたまり・合計・中抜けの回数・休憩・組めるか */
+function dayPlan(cfg,list){const H=cfg.crew.hourly||{minDay:0,maxGaps:9,breaks:[]},hs=hoursOf(cfg,list),spans=[];
+  for(const h of hs){const l=spans[spans.length-1];if(l&&l[1]===h)l[1]=h+1;else spans.push([h,h+1]);}
+  const total=hs.length,gaps=Math.max(0,spans.length-1);let brk=0;for(const [over,min] of H.breaks||[])if(total>over)brk=min;
+  const why=[];if(total&&total<H.minDay)why.push(`${H.minDay}時間に足りない`);if(gaps>H.maxGaps)why.push(`中抜けが${gaps}回`);
+  return {hours:hs,spans,total,gaps,brk,ok:!why.length,why,work:why.length?0:total-brk/60};}
 const TYPES=['wd','sat','hol'];
 
 /* やる気と慣れが仕事に効く倍率 */
@@ -68,13 +79,17 @@ const active=(p,day)=>(p.from==null||p.from<=day)&&(p.leave==null||p.leave>day);
 /* 週のシフト時間 */
 // 社会保険に入るか：週のシフトが minWeek 時間以上で、学生（exclude）でない。2か月を超えて働く見込みは全員ある扱い
 function insuredOf(cfg,crew,p,useNext){const I=cfg.crew.insure;if(!I||!crew)return !!p.insured;return weekHours(cfg,crew,p.id,useNext)>=I.minWeek&&!(I.exclude||[]).includes(p.kind);}
-function weekHours(cfg,crew,id,useNext){const sh=useNext&&crew.shiftNext||crew.shift;let h=0;for(const t of TYPES)for(const b of (sh[t]&&sh[t][id])||[]){const x=blk(cfg,b);if(x)h+=(x.to-x.from)*cfg.crew.weekDays[t];}return h;}
+// 週の所定労働時間：組めない日（3時間に足りない・中抜けが多い）は0、休憩は引く
+function weekHours(cfg,crew,id,useNext){const sh=useNext&&crew.shiftNext||crew.shift;let h=0;for(const t of TYPES)h+=dayPlan(cfg,sh[t]&&sh[t][id]).work*cfg.crew.weekDays[t];return Math.round(h*100)/100;}
 /* きょう働く人：[{p, spans:[[from分,to分]...]}]。crew が無い古い保存は、人数ぶんの「1日中いる人」 */
 function today(cfg,state,type,day){const crew=state.crew;
   if(!crew){const n=Math.max(1,state.staff||1),o=[];for(let i=0;i<n;i++)o.push({p:{id:'x'+i,name:'店員',skill:{reg:1,stock:1,care:1},morale:60,days:30,wage:cfg.wage},spans:[[cfg.open[0]*60,cfg.open[1]*60]]});return o;}
   const sh=crew.shift[type]||{},o=[];
-  for(const p of crew.people){if(!active(p,day))continue;const bs=(sh[p.id]||[]).map(id=>blk(cfg,id)).filter(Boolean).sort((a,b)=>a.from-b.from);if(!bs.length)continue;
-    const spans=[];for(const b of bs){const last=spans[spans.length-1];if(last&&last[1]===b.from*60)last[1]=b.to*60;else spans.push([b.from*60,b.to*60]);}o.push({p,spans});}
+  for(const p of crew.people){if(!active(p,day))continue;const pl=dayPlan(cfg,sh[p.id]);if(!pl.total||!pl.ok)continue;   // 組めない日は休み
+    let spans=pl.spans.map(([a,b])=>[a*60,b*60]),brk=null;
+    // 休憩：いちばん長いかたまりの真ん中あたり（15分きざみ）。そのあいだは店にいない・給料なし
+    if(pl.brk){let k=0;spans.forEach((s,i)=>{if(s[1]-s[0]>spans[k][1]-spans[k][0])k=i;});const [a,b]=spans[k],m=a+Math.round(((b-a)-pl.brk)/2/15)*15;brk=[m,m+pl.brk];spans.splice(k,1,[a,m],[m+pl.brk,b]);}
+    o.push({p,spans,gaps:pl.gaps,brk});}
   return o;}
 const onAt=(w,t)=>w.spans.some(([a,b])=>t>=a&&t<b);
 const nextStart=(w,t)=>{let best=Infinity;for(const [a,b] of w.spans){if(t<b)best=Math.min(best,Math.max(a,t));}return best;};
@@ -91,6 +106,7 @@ function close(cfg,st,res,day,say){const C=cfg.crew,M=C.morale,crew=migrate(cfg,
     const pay=clamp((p.wage-p.expect)/50*M.pay,M.payMin,M.payMax);d+=pay;if(pay<-1)notes.push('時給が希望より低い');
     const wh=weekHours(cfg,crew,p.id);if(wh>p.want*M.over){d-=M.overHit;notes.push('シフトが多すぎる');}else if(wh<p.want*M.under){d-=M.underHit;notes.push('シフトが少ない（もっと稼ぎたい）');}
     if(w&&w.h>0){const load=w.served/w.h;if(load>M.busy){d-=M.busyHit*(load>M.busy*1.4?1.6:1);notes.push('忙しすぎる');}p.days=(p.days||0)+1;p.lastServed=w.served;p.lastH=+w.h.toFixed(1);}else{p.lastServed=0;p.lastH=0;}
+    if(w&&w.gaps>0&&C.hourly){d-=C.hourly.splitHit;notes.push('中抜けがある');}
     if(p.ask&&p.wage<p.ask){d-=M.raiseHit;notes.push('昇給の返事を待っている');}
     d+=(M.home-p.morale)*(M.pull||0.15)+(r()-0.5)*3;p.morale=clamp(Math.round((p.morale+d)*10)/10,0,100);p.notes=notes;
     // 昇給の相談
@@ -118,6 +134,6 @@ function close(cfg,st,res,day,say){const C=cfg.crew,M=C.morale,crew=migrate(cfg,
   if(left)say('crew',`応募していた${left}人が、ほかで決まった`,'');
   return crew;}
 
-root.KioskStaff={create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,active,close,adsOpen,TYPES,blk};
+root.KioskStaff={create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,hoursOf,availH,dayPlan,active,close,adsOpen,TYPES,blk};
 if(typeof module!=='undefined')module.exports=root.KioskStaff;
 })(typeof window!=='undefined'?window:globalThis);
