@@ -66,6 +66,8 @@ function migrate(cfg,state){if(state.crew)return state.crew;state.crew=create(cf
 /* その人がその日に働くか（雇った日の次の日から・辞める日の前の日まで） */
 const active=(p,day)=>(p.from==null||p.from<=day)&&(p.leave==null||p.leave>day);
 /* 週のシフト時間 */
+// 社会保険に入るか：週のシフトが minWeek 時間以上で、学生（exclude）でない。2か月を超えて働く見込みは全員ある扱い
+function insuredOf(cfg,crew,p,useNext){const I=cfg.crew.insure;if(!I||!crew)return !!p.insured;return weekHours(cfg,crew,p.id,useNext)>=I.minWeek&&!(I.exclude||[]).includes(p.kind);}
 function weekHours(cfg,crew,id,useNext){const sh=useNext&&crew.shiftNext||crew.shift;let h=0;for(const t of TYPES)for(const b of (sh[t]&&sh[t][id])||[]){const x=blk(cfg,b);if(x)h+=(x.to-x.from)*cfg.crew.weekDays[t];}return h;}
 /* きょう働く人：[{p, spans:[[from分,to分]...]}]。crew が無い古い保存は、人数ぶんの「1日中いる人」 */
 function today(cfg,state,type,day){const crew=state.crew;
@@ -85,7 +87,7 @@ function adsOpen(cfg,crew,day){return (crew.ads||[]).filter(a=>day-a.day<cfg.cre
 /* 運行日を締める：やる気・慣れ・昇給の相談・辞める人・応募・あすからのシフトと時給 */
 function close(cfg,st,res,day,say){const C=cfg.crew,M=C.morale,crew=migrate(cfg,st),r=rng(hash('crewday',st.seed,day));
   const work={};for(const w of (res.crew||[]))work[w.id]=w;
-  for(const p of crew.people){if(!active(p,day))continue;const w=work[p.id],notes=[];let d=0;
+  for(const p of crew.people){if(!active(p,day))continue;p.insured=insuredOf(cfg,crew,p);const w=work[p.id],notes=[];let d=0;   // 社会保険はその日のシフトで決める（街のカルテの手取りが読む）
     const pay=clamp((p.wage-p.expect)/50*M.pay,M.payMin,M.payMax);d+=pay;if(pay<-1)notes.push('時給が希望より低い');
     const wh=weekHours(cfg,crew,p.id);if(wh>p.want*M.over){d-=M.overHit;notes.push('シフトが多すぎる');}else if(wh<p.want*M.under){d-=M.underHit;notes.push('シフトが少ない（もっと稼ぎたい）');}
     if(w&&w.h>0){const load=w.served/w.h;if(load>M.busy){d-=M.busyHit*(load>M.busy*1.4?1.6:1);notes.push('忙しすぎる');}p.days=(p.days||0)+1;p.lastServed=w.served;p.lastH=+w.h.toFixed(1);}else{p.lastServed=0;p.lastH=0;}
@@ -116,6 +118,6 @@ function close(cfg,st,res,day,say){const C=cfg.crew,M=C.morale,crew=migrate(cfg,
   if(left)say('crew',`応募していた${left}人が、ほかで決まった`,'');
   return crew;}
 
-root.KioskStaff={create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,active,close,adsOpen,TYPES,blk};
+root.KioskStaff={create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,active,close,adsOpen,TYPES,blk};
 if(typeof module!=='undefined')module.exports=root.KioskStaff;
 })(typeof window!=='undefined'?window:globalThis);

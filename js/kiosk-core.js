@@ -241,7 +241,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 収支
   let sales=0,em=0;for(const e of ev)if(e.k==='buy'){sales+=e.yen;if(e.em)em+=e.yen;}
   let cg=0;for(const k in cogs)cg+=cogs[k];
-  const crewRes=W.map((w,k)=>{const x=KS.payOf(cfg,w,O0,O1);return {id:w.p.id,name:w.p.name,h:x.h,yen:x.yen,served:served[k],spans:w.spans,commute:x.h>0?(w.p.commute||0):0,insured:!!w.p.insured};});
+  const crewRes=W.map((w,k)=>{const x=KS.payOf(cfg,w,O0,O1);return {id:w.p.id,name:w.p.name,h:x.h,yen:x.yen,served:served[k],spans:w.spans,commute:x.h>0?(w.p.commute||0):0,insured:KS.insuredOf(cfg,state.crew,w.p)};});
   // 交通費（働いた日だけ）と社会保険のお店の負担（給料＋交通費に対する割合）
   const SO=(cfg.move&&cfg.move.social)||{employer:0};
   const commute=crewRes.reduce((s,x)=>s+x.commute,0),social=crewRes.reduce((s,x)=>s+(x.insured?(x.yen+x.commute)*(SO.employer||0):0),0);
@@ -325,7 +325,7 @@ function relocate(cfg,state,mv,fare){const MV=cfg.move||{},up=MV.wageUp||0,from=
   const crew=state.crew;
   if(crew)for(const p of crew.people){if(p.leave!=null)continue;if(!p.home)p.home=from.st;
     p.wage+=up;if(p.wageNext!=null)p.wageNext+=up;if(p.ask)p.ask+=up;
-    p.commute=p.home===mv.st?0:2*Math.max(0,Math.round(fare(p.home,mv.st)||0));p.insured=true;p.movedDay=mv.day;people.push(p);}
+    p.commute=p.home===mv.st?0:2*Math.max(0,Math.round(fare(p.home,mv.st)||0));p.movedDay=mv.day;people.push(p);}
   (state.moves||(state.moves=[])).push({day:mv.day,from,to:{st:mv.st,place:mv.place},crew:people.map(p=>p.id)});
   delete state.moveNext;
   return {people,from};}
