@@ -18,7 +18,8 @@ const $=id=>document.getElementById(id);
 const opIndex=ms=>Math.floor((ms+JST-START_MS)/DAY);          // 日本時間の朝4:30で区切った「何日目」
 const opDate=i=>new Date(i*DAY+START_MS-JST+12*3600000);       // その運行日の昼ごろ（曜日・月を見るため）
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){return null;}}
-function save(){if(V.busy)return;try{localStorage.setItem(KEY,JSON.stringify({at:Date.now(),day:g(()=>ENS.day,1),cond:g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null)}));}catch(e){}}
+function save(){if(V.busy||window.__diaRestoring)return;   // 引き継ぎを書きこんで読み直す途中は上書きしない（pagehide で「いま見ていた」にされると、留守の日が進まない）
+  try{localStorage.setItem(KEY,JSON.stringify({at:Date.now(),day:g(()=>ENS.day,1),cond:g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null)}));}catch(e){}}
 const V={busy:false};
 
 function hash(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h;}

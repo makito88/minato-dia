@@ -99,7 +99,7 @@ async function make(){try{const keys=collect(),code=await encode({v:1,at:Date.no
   catch(e){msg(1,'作れませんでした：'+e.message,'ng');}}
 async function check(code){try{const o=await decode(code);V.pending={keys:o.keys,at:o.at,from:'引き継ぎコード'};showConfirm();}catch(e){$('svConfirm').hidden=true;msg(2,'読めませんでした：'+e.message,'ng');}}
 function showConfirm(){const p=V.pending;$('svWhat').textContent=`${p.from}（${when(p.at)}に作成）：${summary(p.keys)}。この端末のいまの状態は置きかわります。`;$('svConfirm').hidden=false;msg(2,'');}
-function apply(){const p=V.pending;if(!p)return;if(!restore(p.keys)){msg(2,'書きこめませんでした（ブラウザの保存領域がいっぱいかもしれません）','ng');return;}
+function apply(){const p=V.pending;if(!p)return;window.__diaRestoring=true;if(!restore(p.keys)){window.__diaRestoring=false;msg(2,'書きこめませんでした（ブラウザの保存領域がいっぱいかもしれません）','ng');return;}
   // 書きこんだらすぐ読み直す（ゲームが古い状態で上書きする隙を作らない）
   history.replaceState(null,'',location.pathname+location.search);location.reload();}
 
