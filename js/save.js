@@ -35,6 +35,9 @@ async function decode(code){code=String(code||'').trim().replace(/\s+/g,'');cons
   else txt=new TextDecoder().decode(bytes);
   const o=JSON.parse(txt);if(!o||o.v!==1||!o.keys)throw new Error('中身が読めませんでした');return o;}
 
+// ファイルの名前：minato-dia-save-20261106-0530.txt（日本時間）
+const saveName=()=>{const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).map(x=>[x.type,x.value]));return `minato-dia-save-${p.year}${p.month}${p.day}-${p.hour}${p.minute}.txt`;};
+
 /* 一時保存（このブラウザの中） */
 const slots=()=>{try{const a=JSON.parse(localStorage.getItem(SLOTS)||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}};
 const putSlots=a=>{try{localStorage.setItem(SLOTS,JSON.stringify(a));return true;}catch(e){return false;}};
@@ -79,8 +82,13 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   document.body.appendChild(p);
   $('svClose').onclick=()=>open(false);p.addEventListener('click',e=>{if(e.target===p)open(false);});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!p.hidden)open(false);});
   $('svMake').onclick=make;$('svCopy').onclick=()=>copy($('svCode').value,'コードをコピーしました');$('svLink').onclick=()=>copy(linkOf($('svCode').value),'リンクをコピーしました');
-  $('svFile').onclick=()=>{const blob=new Blob([$('svCode').value],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='minato-dia-save-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'')+'.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);msg(1,'ファイルに保存しました','ok');};
-  if(navigator.share){$('svShare').hidden=false;$('svShare').onclick=()=>navigator.share({title:'みなと川ダイアリーの引き継ぎ',text:'このリンクを開くと続きから遊べます',url:linkOf($('svCode').value)}).catch(()=>{});}
+  $('svFile').onclick=()=>{const blob=new Blob([$('svCode').value],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=saveName();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);msg(1,'ファイルに保存しました','ok');};
+  if(navigator.share){$('svShare').hidden=false;
+    // ファイルを添付して共有する（メールを選ぶと、添付された状態で開く）。ファイルを共有できないブラウザはリンクを共有
+    const fileOf=()=>new File([$('svCode').value],saveName(),{type:'text/plain'});
+    let canFile=false;try{canFile=!!(navigator.canShare&&navigator.canShare({files:[new File(['x'],'x.txt',{type:'text/plain'})]}));}catch(e){}
+    if(canFile)$('svShare').textContent='メールなどで送る（ファイル）';
+    $('svShare').onclick=()=>{const p=canFile?{files:[fileOf()],title:'みなと川ダイアリーの引き継ぎ',text:'添付のファイルを、スマホのゲームの「保存」→「ファイルを選ぶ」で読み込みます。'}:{title:'みなと川ダイアリーの引き継ぎ',text:'このリンクを開くと続きから遊べます',url:linkOf($('svCode').value)};navigator.share(p).catch(()=>{});};}
   $('svCheck').onclick=()=>check($('svIn').value);$('svPick').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;f.text().then(t=>{$('svIn').value=t.trim();check(t);});};
   $('svCancel').onclick=()=>{V.pending=null;$('svConfirm').hidden=true;msg(2,'');};$('svApply').onclick=apply;}
 const V={pending:null};
