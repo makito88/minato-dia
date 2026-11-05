@@ -1,0 +1,46 @@
+{
+  "_note": "路線のお絵かきページ（route-editor.html）の初めの設定。ここにある種類は例。ページの中で名前と見た目を自由に変えたり足したりできる（描いたものはブラウザの dia-routes に保存）。座標はゲームの地図と同じ（横1000×縦420。地図の外にも描ける）。",
+  "world": { "w": 1000, "h": 420, "bg": "assets/images/map_bg.webp" },
+  "rail": {
+    "_note": "背景に描く鉄道（index.html の ST の x,y と同じ。変えるときは両方そろえる）",
+    "stations": {
+      "C": { "name": "中央", "x": 112, "y": 322, "big": true },
+      "S": { "name": "桜町", "x": 232, "y": 330 },
+      "U": { "name": "大学前", "x": 356, "y": 322 },
+      "M": { "name": "緑ヶ丘", "x": 480, "y": 305 },
+      "K": { "name": "川辺", "x": 606, "y": 296 },
+      "N": { "name": "新田", "x": 760, "y": 312 },
+      "P": { "name": "港", "x": 904, "y": 330, "big": true },
+      "F": { "name": "森下", "x": 652, "y": 216 },
+      "T": { "name": "峠", "x": 706, "y": 148 },
+      "O": { "name": "温泉", "x": 822, "y": 80, "big": true }
+    },
+    "lines": [["C", "S", "U", "M", "K", "N", "P"], ["K", "F", "T", "O"]]
+  },
+  "palette": ["#e2553f", "#f08a4b", "#e8b33a", "#8fbf3f", "#3f9b6b", "#1f8a8a", "#3aa0d8", "#2f5aa8", "#6b4fa8", "#b24f9e", "#ef7d92", "#8a5a3c", "#3b3b3b", "#ffffff", "#f6e9c9", "#9aa3a8"],
+  "roadTypes": [
+    { "id": "avenue", "name": "大通り", "mode": "road", "style": { "color": "#fffaf0", "width": 4.2, "casing": 1.4, "casingColor": "#a8968a", "dash": "solid", "alpha": 0.95, "glow": 0, "shadow": true } },
+    { "id": "street", "name": "生活道路", "mode": "road", "style": { "color": "#fffdf7", "width": 2.4, "casing": 0.9, "casingColor": "#b9aa9c", "dash": "solid", "alpha": 0.9, "glow": 0, "shadow": false } },
+    { "id": "lane", "name": "細い道", "mode": "road", "style": { "color": "#fff6e0", "width": 1.4, "casing": 0.6, "casingColor": "#c2b29e", "dash": "solid", "alpha": 0.85, "glow": 0, "shadow": false } },
+    { "id": "sea", "name": "航路（海）", "mode": "sea", "style": { "color": "#ffffff", "width": 1.6, "casing": 0, "casingColor": "#ffffff", "dash": "dash", "alpha": 0.85, "glow": 0.3, "shadow": false } },
+    { "id": "air", "name": "空路", "mode": "air", "style": { "color": "#ffffff", "width": 1.2, "casing": 0, "casingColor": "#ffffff", "dash": "dot", "alpha": 0.8, "glow": 0.5, "shadow": false } }
+  ],
+  "stopTypes": [
+    { "id": "bus", "name": "バス停", "shape": "circle", "fill": "#ffffff", "stroke": "#2c3a35", "size": 5, "font": "maru", "label": "halo" },
+    { "id": "plaza", "name": "駅前のりば", "shape": "pill", "fill": "#ffffff", "stroke": "#2c3a35", "size": 6, "font": "gothic", "label": "tag" },
+    { "id": "center", "name": "センター", "shape": "square", "fill": "#2c3a35", "stroke": "#ffffff", "size": 6.5, "font": "gothic", "label": "tag" },
+    { "id": "kiosk", "name": "売店", "shape": "diamond", "fill": "#e8b33a", "stroke": "#ffffff", "size": 5.5, "font": "maru", "label": "halo" },
+    { "id": "factory", "name": "工場", "shape": "hex", "fill": "#8a5a3c", "stroke": "#ffffff", "size": 6.5, "font": "gothic", "label": "tag" },
+    { "id": "pier", "name": "港の岸壁", "shape": "anchor", "fill": "#2f5aa8", "stroke": "#ffffff", "size": 6.5, "font": "mincho", "label": "halo" },
+    { "id": "airport", "name": "空港", "shape": "star", "fill": "#6b4fa8", "stroke": "#ffffff", "size": 7, "font": "mincho", "label": "halo" }
+  ],
+  "lineTypes": [
+    { "id": "city", "name": "市バス", "mode": "bus", "owner": "public", "style": { "color": "#2f5aa8", "width": 3.4, "casing": 1.4, "casingColor": "#ffffff", "dash": "solid", "alpha": 0.95, "glow": 0, "shadow": true } },
+    { "id": "community", "name": "コミュニティバス", "mode": "bus", "owner": "public", "style": { "color": "#ef7d92", "width": 3, "casing": 1.4, "casingColor": "#ffffff", "dash": "solid", "alpha": 0.95, "glow": 0, "shadow": true } },
+    { "id": "own", "name": "自社の配送", "mode": "truck", "owner": "self", "style": { "color": "#e8b33a", "width": 2.8, "casing": 1.2, "casingColor": "#3b3b3b", "dash": "dash", "alpha": 1, "glow": 0.2, "shadow": true } },
+    { "id": "other", "name": "よその会社の配送", "mode": "truck", "owner": "other", "style": { "color": "#9aa3a8", "width": 2.4, "casing": 1, "casingColor": "#ffffff", "dash": "dashdot", "alpha": 0.9, "glow": 0, "shadow": false } },
+    { "id": "ferry", "name": "フェリー", "mode": "ship", "owner": "public", "direct": false, "style": { "color": "#1f8a8a", "width": 3, "casing": 1.4, "casingColor": "#ffffff", "dash": "dash", "alpha": 0.95, "glow": 0.4, "shadow": false } },
+    { "id": "cargo", "name": "貨物船", "mode": "ship", "owner": "other", "style": { "color": "#8a5a3c", "width": 2.6, "casing": 1, "casingColor": "#f6e9c9", "dash": "dash", "alpha": 0.9, "glow": 0, "shadow": false } },
+    { "id": "sky", "name": "空の便", "mode": "plane", "owner": "public", "direct": true, "style": { "color": "#6b4fa8", "width": 2, "casing": 0, "casingColor": "#ffffff", "dash": "dot", "alpha": 0.9, "glow": 0.8, "shadow": false } }
+  ]
+}

@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>路線のお絵かき帖｜みなと川ダイアリー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Zen+Kaku+Gothic+New:wght@500;700&family=Zen+Old+Mincho:wght@600;700&family=Yomogi&display=swap">
+<style>
+/* 地図の絵が主役。道具は地図の上に浮かぶ小さな和紙のパレット */
+:root{
+  --table:#dfe7e4;--table2:#eef0e6;
+  --glass:rgba(252,249,241,.88);--glass2:rgba(252,249,241,.97);
+  --ink:#24312c;--ink2:#66726b;--rule:rgba(36,49,44,.13);--rule2:rgba(36,49,44,.22);
+  --accent:#e2553f;--accent2:#fbe3dc;--ok:#3f9b6b;
+  --sh:0 1px 0 rgba(255,255,255,.7) inset,0 10px 30px -8px rgba(44,40,30,.32),0 2px 6px rgba(44,40,30,.12);
+  --r:18px;--f:"Zen Maru Gothic","Zen Kaku Gothic New",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--table);color:var(--ink);font:500 14px/1.5 var(--f);-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+#cv.t-select{cursor:default}#cv.t-hand,#cv.panning{cursor:grab}#cv.dragging{cursor:grabbing}
+.glass{background:var(--glass);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);border:1px solid rgba(255,255,255,.75);box-shadow:var(--sh);border-radius:var(--r)}
+
+/* 左上：題と戻る・やり直し */
+#brand{position:fixed;left:14px;top:14px;display:flex;align-items:center;gap:4px;padding:5px 6px 5px 6px;z-index:5}
+#brand a.back{display:grid;place-items:center;width:34px;height:34px;border-radius:12px;color:var(--ink2);text-decoration:none}
+#brand a.back:hover{background:rgba(36,49,44,.06)}
+.seal{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:grid;place-items:center;font:700 15px "Zen Old Mincho",serif;transform:rotate(-4deg);box-shadow:0 2px 0 rgba(0,0,0,.12)}
+.ttl{display:flex;flex-direction:column;line-height:1.15;padding:0 8px 0 6px}
+.ttl b{font:700 15px "Zen Old Mincho",serif;letter-spacing:.06em}
+.ttl small{font-size:10.5px;color:var(--ink2);letter-spacing:.04em}
+.sep{width:1px;height:24px;background:var(--rule);margin:0 2px}
+.ib{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:12px;background:transparent;color:var(--ink)}
+.ib:hover{background:rgba(36,49,44,.07)}.ib:disabled{opacity:.3;cursor:default;background:none}
+.ib svg{width:20px;height:20px}
+
+/* 右上：路線とメニュー */
+#tr{position:fixed;right:14px;top:14px;display:flex;gap:8px;z-index:5}
+#tr .glass{display:flex;align-items:center;padding:4px}
+.pill{display:flex;align-items:center;gap:7px;height:38px;padding:0 14px 0 10px;border:0;border-radius:12px;background:transparent;font-weight:700}
+.pill:hover{background:rgba(36,49,44,.07)}
+.dots{display:flex}.dots i{width:10px;height:10px;border-radius:50%;margin-left:-3px;border:1.5px solid #fff}
+
+/* 道具：左にたて（スマホは下によこ） */
+#tools{position:fixed;left:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:3px;padding:6px;z-index:5}
+.tool{position:relative;display:grid;place-items:center;width:46px;height:46px;border:0;border-radius:14px;background:transparent;color:var(--ink);transition:background .15s,color .15s,transform .15s}
+.tool svg{width:23px;height:23px}
+.tool:hover{background:rgba(36,49,44,.07)}
+.tool.on{background:var(--ink);color:#fdf9ef;box-shadow:0 4px 10px -3px rgba(36,49,44,.5)}
+.tool .tip{position:absolute;left:54px;top:50%;transform:translateY(-50%);white-space:nowrap;background:var(--ink);color:#fdf9ef;font-size:12px;padding:3px 9px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .15s}
+@media (hover:hover){.tool:hover .tip{opacity:1}}
+.tsep{height:1px;background:var(--rule);margin:4px 6px}
+
+/* 下：道具ごとの棚（種類の見本・選んだものの設定） */
+#dock{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:min(860px,calc(100vw - 150px));padding:8px;z-index:5;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px}
+.row::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;display:flex;align-items:center;gap:7px;height:40px;padding:0 12px 0 8px;border:1.5px solid transparent;border-radius:13px;background:rgba(255,255,255,.55);font-size:13px;white-space:nowrap}
+.chip:hover{background:#fff}
+.chip.on{border-color:var(--ink);background:#fff}
+.chip canvas{display:block;width:40px;height:18px}
+.chip.mini{padding:0 10px;height:34px;font-size:12.5px}
+.chip.add{color:var(--ink2);padding:0 11px}
+.chip.danger{color:#b23a2a}
+.lab{font-size:11px;color:var(--ink2);letter-spacing:.06em;flex:0 0 auto;padding:0 2px 0 4px}
+.namein{flex:1 1 160px;min-width:120px;height:40px;border:1.5px solid var(--rule2);border-radius:12px;background:#fff;padding:0 12px;font-size:15px;font-weight:700;outline:none}
+.namein:focus{border-color:var(--ink)}
+.lp{display:grid;grid-template-columns:repeat(3,14px);gap:2px;padding:4px;border-radius:10px;background:rgba(255,255,255,.55);flex:0 0 auto}
+.lp button{width:14px;height:14px;border:0;border-radius:4px;background:rgba(36,49,44,.13);padding:0}
+.lp button.on{background:var(--accent)}.lp button.c{background:transparent;font-size:9px;line-height:14px;color:var(--ink2)}
+.lp button.c.on{background:var(--ink);color:#fff}
+
+/* 右：路線の帳面（たためる） */
+#lines{position:fixed;right:14px;top:66px;width:300px;max-height:calc(100vh - 170px);display:flex;flex-direction:column;z-index:4;overflow:hidden}
+#lines header{display:flex;align-items:center;justify-content:space-between;padding:12px 10px 6px 16px}
+#lines header b{font:700 15px "Zen Old Mincho",serif;letter-spacing:.08em}
+.lscroll{overflow:auto;padding:0 8px 10px}
+.lrow{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 8px;border-radius:12px;cursor:pointer}
+.lrow:hover{background:rgba(255,255,255,.6)}
+.lrow.on{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.lrow canvas{width:44px;height:18px;flex:0 0 auto}
+.lrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;font-size:13.5px}
+.lrow .nm small{display:block;font-weight:500;font-size:11px;color:var(--ink2)}
+.eye{width:32px;height:32px;border:0;border-radius:10px;background:transparent;display:grid;place-items:center;color:var(--ink2)}
+.eye svg{width:18px;height:18px}.eye.off{opacity:.35}
+.ledit{margin:4px 2px 8px;padding:10px;border-radius:14px;background:rgba(255,255,255,.7);display:flex;flex-direction:column;gap:9px}
+.ledit .namein{flex:none;height:38px;font-size:14px}
+.seq{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.sq{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 4px 0 9px;border-radius:14px;background:#fff;border:1px solid var(--rule);font-size:12px}
+.sq.pass{color:var(--ink2);border-style:dashed;background:transparent}
+.sq.via{font-size:11px;color:var(--ink2);background:transparent;padding:0 4px 0 6px}
+.sq i{font-style:normal;width:9px;height:9px;border-radius:50%;border:2px solid currentColor;background:#fff}
+.sq.pass i{background:transparent;border-width:1px}
+.sq button{border:0;background:none;width:20px;height:20px;border-radius:50%;color:var(--ink2);font-size:13px;line-height:1;padding:0}
+.sq button:hover{background:rgba(0,0,0,.07)}
+.arr{color:var(--ink2);font-size:10px}
+.hint{font-size:12px;color:var(--ink2)}
+details.run summary{cursor:pointer;font-size:12px;color:var(--ink2);list-style:none}
+details.run summary::before{content:'▸ ';}details.run[open] summary::before{content:'▾ ';}
+.grid2{display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;margin-top:8px;font-size:12.5px}
+.grid2 input,.grid2 select{height:32px;border:1px solid var(--rule2);border-radius:9px;background:#fff;padding:0 8px;min-width:0}
+.seg{display:flex;background:rgba(36,49,44,.07);border-radius:10px;padding:2px}
+.seg button{flex:1;border:0;background:transparent;border-radius:8px;height:28px;font-size:12px;padding:0 8px;white-space:nowrap}
+.seg button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:700}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap}
+
+/* 見た目の小窓 */
+#style{position:fixed;z-index:20;width:min(340px,calc(100vw - 24px));padding:14px;left:50%;bottom:96px;transform:translateX(-50%);max-height:calc(100vh - 120px);overflow:auto;display:flex;flex-direction:column;gap:12px;background:var(--glass2)}
+#style .prev{height:64px;border-radius:12px;overflow:hidden;background:#e9ecdf}
+#style .prev canvas{width:100%;height:100%;display:block}
+.sw{display:grid;grid-template-columns:repeat(9,1fr);gap:5px}
+.sw button{aspect-ratio:1;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--rule2);padding:0}
+.sw button.on{box-shadow:0 0 0 2px var(--ink)}
+.sw label{aspect-ratio:1;border-radius:50%;box-shadow:0 0 0 1px var(--rule2);background:conic-gradient(#e2553f,#e8b33a,#8fbf3f,#1f8a8a,#2f5aa8,#b24f9e,#e2553f);position:relative;overflow:hidden;cursor:pointer}
+.sw label input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.sl{display:grid;grid-template-columns:62px 1fr;align-items:center;gap:8px;font-size:12px;color:var(--ink2)}
+.sl input[type=range]{width:100%;accent-color:var(--ink)}
+.shapes{display:flex;gap:4px;flex-wrap:wrap}
+.shapes button{width:36px;height:36px;border-radius:10px;border:1.5px solid transparent;background:rgba(255,255,255,.7);display:grid;place-items:center;padding:0}
+.shapes button.on{border-color:var(--ink);background:#fff}
+.shapes canvas{width:26px;height:26px}
+.shapes.txt button{width:auto;padding:0 10px;font-size:13px}
+.sthd{display:flex;gap:8px;align-items:center}
+.sthd .namein{flex:1 1 auto;height:38px;font-size:14px}
+
+/* メニュー */
+#menu{position:fixed;right:14px;top:66px;width:250px;padding:8px;z-index:21;display:flex;flex-direction:column;gap:2px;background:var(--glass2)}
+#menu button.mi{display:flex;align-items:center;gap:10px;height:40px;border:0;background:none;border-radius:11px;padding:0 10px;text-align:left;font-size:13.5px}
+#menu button.mi:hover{background:rgba(36,49,44,.07)}
+#menu button.mi svg{width:18px;height:18px;color:var(--ink2)}
+#menu .msl{padding:6px 10px 4px;font-size:12px;color:var(--ink2)}
+#menu .msl input{width:100%;accent-color:var(--ink)}
+#menu hr{border:0;border-top:1px solid var(--rule);margin:4px 6px}
+#menu .danger{color:#b23a2a}
+
+#toast{position:fixed;left:50%;top:18px;transform:translate(-50%,-80px);background:var(--ink);color:#fdf9ef;padding:9px 16px;border-radius:14px;font-size:13px;z-index:40;transition:transform .25s;pointer-events:none;max-width:calc(100vw - 32px)}
+#toast.show{transform:translate(-50%,0)}
+#zoom{position:fixed;right:14px;bottom:16px;display:flex;flex-direction:column;padding:4px;z-index:4}
+#file{display:none}
+
+/* スマホ */
+@media (max-width:700px){
+  #brand{left:10px;top:max(10px,env(safe-area-inset-top));padding:3px}
+  #brand .ttl small{display:none}#brand .ttl{padding:0 4px}#brand .ttl b{font-size:13.5px}
+  .seal{width:26px;height:26px;font-size:13px}
+  .ib{width:40px;height:40px}
+  #tr{right:10px;top:max(10px,env(safe-area-inset-top))}
+  #tr .pill span.t{display:none}#tr .pill{padding:0 10px}
+  #tools{top:auto;bottom:max(10px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);flex-direction:row;padding:5px}
+  .tool{width:46px;height:46px}.tool .tip{display:none}.tsep{width:1px;height:auto;margin:6px 2px}
+  #dock{left:10px;right:10px;transform:none;max-width:none;bottom:calc(max(10px,env(safe-area-inset-bottom)) + 66px);padding:6px}
+  #lines{left:10px;right:10px;width:auto;top:auto;bottom:calc(max(10px,env(safe-area-inset-bottom)) + 66px);max-height:56vh;z-index:6}
+  #style{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 66px)}
+  #menu{right:10px;top:60px}
+  #zoom{display:none}
+}
+@media (max-width:440px){#brand .ttl,#brand .sep{display:none}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div id="brand" class="glass">
+  <a class="back" href="index.html" title="ゲームへもどる"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a>
+  <div class="seal">描</div>
+  <div class="ttl"><b>路線のお絵かき帖</b><small>みなと川沿線</small></div>
+  <div class="sep"></div>
+  <button class="ib" id="undo" title="元に戻す（Ctrl+Z）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 010 11H11"/></svg></button>
+  <button class="ib" id="redo" title="やり直す（Ctrl+Shift+Z）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 000 11H13"/></svg></button>
+</div>
+
+<div id="tr">
+  <div class="glass"><button class="pill" id="linesBtn"><span class="dots" id="ldots"></span><span class="t">路線</span></button></div>
+  <div class="glass"><button class="ib" id="menuBtn" title="メニュー"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button></div>
+</div>
+
+<div id="tools" class="glass">
+  <button class="tool" data-t="select"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 3.5l13 7.2-5.6 1.6-2.6 5.6z" fill="currentColor" fill-opacity=".12"/></svg><span class="tip">動かす・えらぶ（V）</span></button>
+  <button class="tool" data-t="pen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 18c3-1 4-7 8-7s3 6 7 5 3-7 3-7"/><circle cx="3" cy="18" r="1.4" fill="currentColor"/></svg><span class="tip">道を描く（B）</span></button>
+  <button class="tool" data-t="poly"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 18l6-9 5 6 5-10"/><circle cx="4" cy="18" r="2" fill="#fff"/><circle cx="10" cy="9" r="2" fill="#fff"/><circle cx="15" cy="15" r="2" fill="#fff"/><circle cx="20" cy="5" r="2" fill="#fff"/></svg><span class="tip">点をつなぐ（P）</span></button>
+  <button class="tool" data-t="stop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-6.5-6.2-6.5-11A6.5 6.5 0 0118.5 10c0 4.8-6.5 11-6.5 11z" fill="currentColor" fill-opacity=".12"/><circle cx="12" cy="10" r="2.4"/></svg><span class="tip">停留所・拠点（S）</span></button>
+  <button class="tool" data-t="line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19V12a4 4 0 014-4h6a4 4 0 004-4"/><circle cx="5" cy="19" r="2.2" fill="#fff" stroke-width="1.8"/><circle cx="19" cy="4.5" r="2.2" fill="#fff" stroke-width="1.8"/></svg><span class="tip">路線をつくる（L）</span></button>
+  <div class="tsep"></div>
+  <button class="tool" data-t="hand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V5.5a1.5 1.5 0 013 0V11m0-6.5a1.5 1.5 0 013 0V11m0-5a1.5 1.5 0 013 0V14a7 7 0 01-7 7h-.5a6 6 0 01-5-2.7L3.7 15a1.5 1.5 0 012.5-1.7L8 15.5"/></svg><span class="tip">地図を動かす（H）</span></button>
+</div>
+
+<div id="dock" class="glass"></div>
+
+<section id="lines" class="glass" hidden>
+  <header><b>路線</b><button class="ib" id="linesClose" title="たたむ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <div class="lscroll" id="lineList"></div>
+</section>
+
+<div id="style" class="glass" hidden></div>
+
+<div id="menu" class="glass" hidden>
+  <button class="mi" data-m="png"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.6"/></svg>画像で保存（PNG）</button>
+  <button class="mi" data-m="export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v11m-4-4l4 4 4-4M5 19h14"/></svg>書き出す（JSON）</button>
+  <button class="mi" data-m="import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 15V4m-4 4l4-4 4 4M5 19h14"/></svg>読み込む</button>
+  <hr>
+  <div class="msl">地図の絵の濃さ<input type="range" id="mapAlpha" min="0.15" max="1" step="0.05"></div>
+  <button class="mi" data-m="rail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 18L20 6M7 20.5l-2-3M11 17.5l-2-3M15 14.5l-2-3M19 11.5l-2-3"/></svg><span id="railLbl">線路と駅をかくす</span></button>
+  <button class="mi" data-m="fit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>地図全体を見る</button>
+  <hr>
+  <button class="mi" data-m="example"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg>例を描いてみる</button>
+  <button class="mi danger" data-m="clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg>ぜんぶ消す</button>
+</div>
+
+<div id="zoom" class="glass">
+  <button class="ib" data-z="1.25" title="近づく"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></button>
+  <button class="ib" data-z="0.8" title="離れる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h12"/></svg></button>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="file" accept="application/json,.json">
+
+<script src="js/route-core.js"></script>
+<script src="js/route-editor.js"></script>
+</body>
+</html>

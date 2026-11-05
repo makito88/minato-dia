@@ -54,6 +54,7 @@
 | サンドイッチのライン（工場の中・切り替え） | `js/sand-core.js`（計算）・`js/sand-loaf.js`（角型の食パン）・`js/sand-view.js`（画面）・`data/factory.json` の `sand`（`sand.loaf`） |
 | 保存と引き継ぎ／留守のあいだ | `js/save.js`／`js/away.js` |
 | 街のカルテ | `docs/machi-karte.html`（DATA を埋めこみ）・`docs/town.json`（元データ）・`docs/machi-karte.md`（文章版）・`docs/img/` |
+| 路線のお絵かき帖（2026-11-05） | `route-editor.html`・`js/route-core.js`（計算）・`js/route-editor.js`（画面）・`data/routes.json`（初めの種類・背景の駅） |
 | 沿線おさんぽマップの下絵 | `docs/img/route-map.svg`（位置と駅名は設定どおり。これに AI で色を付けたのが `route-map-painted.jpg`） |
 
 カルテの DATA は `docs/town.json` を変えたら HTML の `const DATA=...;` の1行を作り直して同期する（これまでは Python で置換）。
@@ -236,3 +237,16 @@
 - 直したこと：`js/save.js` の `apply` で `window.__diaRestoring=true` にしてから書きこみ、`away.js` の `save()` はそのあいだ書かない。ヘッドレスで、1日前のコードを読み込むと第1→第2運行日に進むことを確かめた（直す前は第1のまま）。スマホ実機は未確認。
 - すでにずれている2台は、PCで引き継ぎコードを作り、スマホで読み込めばそろう。
 - PCの写真では売店の画面の上に本体の上の帯が見えていたが、ヘッドレス（1280幅）では売店が画面全体をおおっていて、再現できなかった。
+
+
+## 2026-11-05 Claude：路線のお絵かき帖（第1段）
+- **方針（ユーザー、09:34）**：わかりやすさよりも、ビジュアルのセンスと自由度を優先する。地図の絵が主役、道具は浮かぶ小さなパレット（和紙色のガラス）、説明文は最小限。種類（道・停留所・路線）は名前と見た目を自由に作って足せる（`data/routes.json` の種類は例）。
+- **ファイル**：`route-editor.html`（見た目の CSS）・`js/route-core.js`（DOM なし。node でも読める）・`js/route-editor.js`（描く・操作・パネル）・`data/routes.json`（`world`＝背景の絵と大きさ、`rail`＝背景に描く駅と線路。座標は `index.html` の `ST` と同じなので、変えるときは両方そろえる、`palette`、`roadTypes`・`stopTypes`・`lineTypes`）。入口は `js/top.js` の沿線レイヤーの「路線を描く」（`page:` の行き先を足しただけ）。
+- **データの形**（ブラウザの `dia-routes`。引き継ぎコードに入る）：`nodes{id:{x,y}}`・`edges{id:{a,b,type,pts,smooth}}`（曲線は道の制御点 `pts`。smooth なら Catmull-Rom→ベジェ）・`stops{id:{name,type,node,lp,style}}`・`lines{id:{name,type,style,seq:[{s}|{v}],freq:{unit:'h'|'d',n},first,last,round,show,direct}}`・`order`・`types{road,stop,line}`・`view{mapAlpha,rail}`。座標はゲームの地図（1000×420）のまま。
+- **書き出し（JSON）**には、路線ごとに計算した `path`（区間ごとの道の id の並び。`-e3` は逆向き）と `tripsPerDay` が付く。第2段はこれで走らせられる。`direct`（まっすぐ結ぶ）の区間は `edges:null`（弧で描く。空の便など）。
+- **しくみ**：描いた線の両はしは近い点・道につながる（道の途中なら分けて点を作る）→ 枝分かれ。新しい道がほかの道と交わると、両方を分けて交差点の点を作る（`makeCrossings`）。路線は停留所・経由の点のあいだをダイクストラで最短の道。同じ道を通る路線は、道ごとに並べる位置を振ってずらす（`lineLanes`）。
+- **確かめたこと**：ヘッドレス（Playwright）で PC 1280幅・スマホ 390幅。道を描く→枝分かれ→交差点→点をつなぐ→停留所→路線（最短の道）→路線の見た目→元に戻す/やり直す→動かす→再読み込みで残る→JSON 書き出し→消して読み込み→PNG。トップの「路線を描く」から開けること。スマホ実機・指の2本指操作は未確認（ヘッドレスのタッチは1本指のタップだけ試した）。サンドボックスでは Google Fonts が読めず、画面写真の書体は代わりの字。
+- **例**：メニューの「例を描いてみる」（8路線）。自動では保存に入らない（押したときだけ。元に戻す・ぜんぶ消すで消せる）。
+- **気になっていること**：駅前で多くの路線が行ったり来たりすると、道の切れ目で線のずらしが少し段になる。停留所の名前の自動の位置は簡単な決め方。道の種類を消すと、その道は1つ目の種類になる。
+- **次（アイデア帳 17.）**：第2段＝ゲームの地図で時刻どおりに走らせる（見た目だけ）、第3段＝自社の配送を注文・納品とつなぐ。
+
