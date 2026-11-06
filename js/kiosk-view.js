@@ -739,7 +739,7 @@ function onCanvasClick(ev){if(!V.st)return;const r=V.cv.getBoundingClientRect(),
   for(const zk in BOX){const sl=zoneSlots(zk);for(let i=0;i<sl.length;i++){const [sx,sy,sw,sh]=sl[i];if(x>=sx&&x<=sx+sw&&y>=sy&&y<=sy+sh){const pid=(curSet().layout[zk]||[])[i];
       if(pid){openSheet(pid);return;}V.tab='layout';V.slotSel={z:zk,i};render(true);$('ksBody').scrollIntoView({behavior:'smooth',block:'start'});return;}}}}   // 品のある枠は商品カード、空き枠は棚割り
 function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=ts;if(!V.open)return;
-  V.drawAcc=(V.drawAcc||0)+dt;const fps=30;if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
+  V.drawAcc=(V.drawAcc||0)+dt;const fps=V.fps||(V.fps=(()=>{try{return localStorage.getItem('minato-quality')==='full'?30:20;}catch(e){return 20;}})());   // 人の動きの絵は1秒20回（?quality=full で30回）。売店の計算は本当の時刻で別に進むif(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
   V.heavyT+=dt;if(V.heavyT>1){V.heavyT=0;if(V.st){renderAlert(false);updateSheet();updateItems();V.slowT=(V.slowT||0)+1;if(V.slowT>=5&&(V.tab==='people')){V.slowT=0;renderBody(true);}}}
   V.raf=requestAnimationFrame(loop);}
 

@@ -20,6 +20,6 @@ setInterval(()=>{put();const now=performance.now(),sec=(now-last)/1000;last=now;
   const tr=(S.T0!=null&&pl&&sp)?((Tnow-S.T0)/sec/sp):null;S.T0=Tnow;
   let bat='';if(S.bat){const lv=S.bat.level*100;const h=(Date.now()-S.batT0)/3600000;const used=(S.bat0-S.bat.level)*100;bat=`\n電池 ${lv.toFixed(0)}%${S.bat.charging?'（充電中）':''}${h>0.05&&!S.bat.charging?` 減り ${(used/h).toFixed(1)}%/時`:''}`;}
   box.textContent=`毎コマ ${(S.raf/sec).toFixed(0)}/秒  地図 ${((S.map||0)/sec).toFixed(1)}/秒\n1コマ 平均${S.fn?(S.ft/S.fn).toFixed(1):'-'}ms 最大${S.fmax.toFixed(0)}ms`+
-    (S.hasLong?`\n長い仕事 ${(S.long/sec/10).toFixed(0)}%`:'')+(tr!=null?`\n時間の進み ${tr.toFixed(2)}倍`:'')+bat+(document.hidden?'\n（裏）':'');
+    (S.hasLong?`\n長い仕事 ${(S.long/sec/10).toFixed(0)}%`:'')+(tr!=null?`\n時間の進み ${tr.toFixed(2)}倍`:'')+bat+(()=>{try{return `\n画質 ${QFULL?'いつも最高（?quality=full）':'自動（?quality=auto）'} 細かさ${CDPR}倍`;}catch(e){return '';}})()+(document.hidden?'\n（裏）':'');
   S.raf=0;S.map=0;S.ft=0;S.fn=0;S.fmax=0;S.long=0;},1000);
 })();
