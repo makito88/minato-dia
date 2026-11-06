@@ -8,7 +8,7 @@
 (function(){
 'use strict';
 if(typeof KioskCore==='undefined'||typeof ResearchCore==='undefined')return;
-const KC=KioskCore,RC=ResearchCore,KS=KioskStaff,KEY='dia-kiosk',H=KC.H;
+const KC=KioskCore,RC=ResearchCore,KS=KioskStaff,KEY='dia-kiosk',H=KC.H,CC=window.CenterCore||null,OKEY='dia-orders';
 const STORDER=['C','S','U','M','K','N','P','F','T','O'],PLACES=['home','naka','gate','soto'];
 const $=id=>document.getElementById(id);
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
@@ -30,6 +30,8 @@ addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=
 Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();})])
   .then(([c,rc])=>{V.cfg=c;V.rcfg=rc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
+// センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
+if(CC)fetch('data/center.json').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);}).catch(()=>{});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
 const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム本体の運賃表）
@@ -42,12 +44,12 @@ function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.si
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（次の日の計算より先に）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
-function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();const c=ctxNow();if(!c)return V.res;
+function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();dailyOrder();const c=ctxNow();if(!c)return V.res;
   const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+JSON.stringify(c.addOn||[])+'|'+(V.editRev||0);
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();V.evI=KC.idxAt(V.res,gT());return V.res;}
 function tick(){if(!V.cfg||!V.st)return;ensureRes();}
-function closeToday(res){const S=V.st;
+function closeToday(res){const S=V.st;salesToCenter(res);
   // その日の最後の設定を、次の日からの設定にする。新しく並べた品は「並べた日」を覚える（マニアが来る）
   const last=S.today&&S.today.day===res.day&&S.today.edits.length?S.today.edits.at(-1):null;
   const before=new Set(Object.keys(KC.shelfInfo(V.cfg,S.layout)));
@@ -56,11 +58,34 @@ function closeToday(res){const S=V.st;
   {const S=V.st,nd=res.day+1;S.order=orderFor(nd);S.orderQ=(S.orderQ||[]).filter(e=>e.from>nd);}
   {const S=V.st,mv=S.moveNext;if(mv&&mv.day<=res.day+1){const R=V.rcfg,x=KC.relocate(V.cfg,S,mv,fareOf),C=V.cfg.move||{};
     S.news.push({day:res.day+1,kind:'move',title:`${stName(mv.st)}駅・${R.places[mv.place].name}に移った`,text:`棚割り・品物・店員・在庫はそのまま、${stName(x.from.st)}駅・${R.places[x.from.place].name}から移りました。値段は駅ナカのコンビニの目安に戻しました。いっしょに来た${x.people.length}人は時給を${C.wageUp}円上げ、交通費を払います。社会保険は、週のシフトが20時間以上で学生でない人だけです（${x.people.map(p=>`${p.name}さん ${yen(p.wage)}・交通費1日${yen(p.commute)}`).join('、')}）。常連さんは前の場所に残り、新しい場所で一からです。`});r.news.push(1);}}
+  if(isAuto()&&V.ccfg.newsDaily){const lg=loadOrders(),d=lg.days.find(x=>x.day===res.day),rc=d&&d.recs[CC.storeKey(S)];if(rc){V.st.news.push({day:res.day+1,kind:'center',title:`センターのおまかせ（第${res.day}運行日）：廃棄${yen(rc.waste)}・売り切れ${rc.soldout}品`,text:`ねらい「${aimName()}」。この記録（売れた数・売り切れで逃した数・廃棄・残り）をもとに、センターが次の運行日の数を決めます。`});r.news.push(1);}}
   V.st.today=null;V.st.unread=(V.st.unread||0)+r.news.length;persist();badge();if(V.open)setTimeout(()=>render(true),0);}
 /* 発注：締め切り（19:00）までに変えた数は次の運行日から、過ぎたらその次から。予定は orderQ に「何日目から」で持つ */
 function orderFor(day){const S=V.st,o={...S.order};for(const e of (S.orderQ||[]).slice().sort((a,b)=>a.from-b.from))if(e.from<=day)Object.assign(o,e.order);return o;}
 function nextOrderDay(){return gDay()+(gT()<V.cfg.orderDeadline?1:2);}
-function editOrder(pid,delta){const S=V.st,na=nextOrderDay();S.orderQ=S.orderQ||[];let e=S.orderQ.find(x=>x.from===na);if(!e){e={from:na,order:orderFor(na)};S.orderQ.push(e);}
+/* ---------- 川辺の配送センター（計算は js/center-core.js、設定は data/center.json） ----------
+   売店は締めのたびに売上の記録をセンターへ送り（dia-orders）、センターは運行日の初めにその日の発注を記録する。
+   おまかせの店は、その日の仕入れ数（工場の品・センター在庫の品）をセンターが決める。新聞・雑誌・たばこは店の数のまま */
+function center(){const S=V.st;if(!S.center)S.center={mode:'self',aim:(V.ccfg&&V.ccfg.defaultAim)||'mid',ordDay:gDay()};return S.center;}
+function isAuto(){return !!(CC&&V.ccfg&&V.st&&V.st.center&&V.st.center.mode==='auto');}
+function managed(pid){return isAuto()&&CC.routeOf(V.ccfg,ix().P[pid].genre)!=='direct';}
+function aimName(a){const A=V.ccfg&&V.ccfg.aims||{};return (A[a||center().aim]||{}).name||'';}
+// dia-orders は読むたびに解かず、文字が変わったときだけ解く（引き継ぎで書きかわっても読み直せるように、文字で比べる）
+function loadOrders(){let raw=null;try{raw=localStorage.getItem(OKEY);}catch(e){}if(V.ordRaw===raw&&V.ordLog)return V.ordLog;let o=null;try{o=JSON.parse(raw||'null');}catch(e){}V.ordRaw=raw;V.ordLog=o&&o.v===1&&Array.isArray(o.days)?o:CC.emptyLog();return V.ordLog;}
+function saveOrders(o){try{const raw=JSON.stringify(o);localStorage.setItem(OKEY,raw);V.ordRaw=raw;V.ordLog=o;}catch(e){}}
+function salesToCenter(res){if(!CC||!V.ccfg)return;try{const lg=loadOrders();CC.putRecord(lg,CC.salesRecord(V.cfg,V.st,res),V.ccfg.keepDays);saveOrders(lg);}catch(e){console.warn('売上の記録を残せませんでした',e);}}
+function planFor(cond){loadOrders();const S=V.st,k=[gDay(),center().aim,JSON.stringify(cond),JSON.stringify(S.layout),V.ordRaw&&V.ordRaw.length,JSON.stringify(orderFor(gDay()))].join('|');if(V.pvK===k&&V.pv)return V.pv;V.pvK=k;return V.pv=CC.plan(V.cfg,V.ccfg,S,CC.recsOf(loadOrders(),CC.storeKey(S)),cond,{aim:center().aim,shelf:KC.shelfInfo(V.cfg,S.layout),cur:orderFor(gDay())});}
+// 運行日の初め（前の日を締めたあと）に1回：おまかせならセンターの数をその日の仕入れ数に。どちらの店も、その日の発注を dia-orders に残す
+function dailyOrder(){if(!CC||!V.ccfg||!V.st)return;const S=V.st,day=gDay(),C=center();if(C.ordDay===day||S.closed!==day-1)return;
+  try{const c=gCond(),cond={day:c.day,wx:c.wx,season:c.season};let items=orderFor(day),o={mode:'self'};
+    if(C.mode==='auto'){const p=planFor(cond);S.order=orderFor(day);Object.assign(S.order,p.items);
+      for(const e of (S.orderQ||[]))for(const pid in e.order)if(managed(pid))delete e.order[pid];   // おまかせの品は、店で入れた予定を使わない
+      items=orderFor(day);o={mode:'auto',aim:C.aim};}
+    const lg=loadOrders();CC.putOrder(V.cfg,V.ccfg,lg,day,CC.storeKey(S),{...o,items},V.ccfg.keepDays);saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
+  C.ordDay=day;persist();}
+// 画面の見込み：あすの条件（曜日は暦、天気は日ごとに決まった値。わからなければきょうの条件）
+function nextCond(){const c=g(()=>minatoAway.condFor(minatoAway.opIndex(Date.now())+1),null)||gCond();return {day:c.day,wx:c.wx,season:c.season};}
+function editOrder(pid,delta){if(managed(pid))return;const S=V.st,na=nextOrderDay();S.orderQ=S.orderQ||[];let e=S.orderQ.find(x=>x.from===na);if(!e){e={from:na,order:orderFor(na)};S.orderQ.push(e);}
   e.order[pid]=Math.max(0,(e.order[pid]||0)+delta);persist();render(true);}
 const dayWord=d=>{const k=d-gDay();return k===1?'あすの便から':k===2?'あさっての便から':`${k}日後の便から`;};
 /* 臨時便：頼んでから1時間後に、その品だけ届く（1回3,000円・1日2回・6:00〜20:00） */
@@ -128,7 +153,8 @@ const CSS=`
 .ks-in{max-width:1200px;margin:0 auto;display:grid;gap:10px}
 .ks-hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.ks-hd h2{margin:0;font-size:19px}.ks-hd small{font-size:12px;color:var(--muted)}.ks-sp{flex:1}
 .ks-btn,.ks-chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:5px 10px;cursor:pointer}
-.ks-chip{border-radius:999px;background:var(--paper)}.ks-chip[aria-pressed="true"],.ks-btn.pri{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700}
+.ks-chip{border-radius:999px;background:var(--paper)}
+.ks-center{border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:8px 0;display:grid;gap:4px}.ks-center-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}.ks-center .ks-chip{font-size:12.5px;padding:4px 10px}.ks-auto{display:inline-block;font-size:11px;padding:1px 6px;border-radius:5px;background:var(--paper);border:1px solid var(--line);color:var(--ink)}.ks-chip[aria-pressed="true"],.ks-btn.pri{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700}
 .ks-btn:focus-visible,.ks-chip:focus-visible,.ks-tab:focus-visible,.ks-slot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ks-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
 .ks-card h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}.ks-card h3 small{font-size:11.5px;color:var(--muted);font-weight:400}
@@ -233,7 +259,7 @@ function renderSetup(){const f=V.form,R=V.rcfg,studies=g(()=>JSON.parse(localSto
     <button type="button" class="ks-btn pri" id="ksOpen">${stName(f.st)}駅・${R.places[f.place].name}に売店を出す</button></div>`;
   $('ksTop').querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{f.st=b.dataset.st;render(true);});
   $('ksTop').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{f.place=b.dataset.pl;render(true);});
-  $('ksOpen').onclick=()=>{const day=gDay();V.st=KC.create(V.cfg,{seed:(Date.now()%100000)+1,st:f.st,place:f.place,day});KS.migrate(V.cfg,V.st);V.st.openedT=gT();V.st.openedDay=day;V.st.unread=0;
+  $('ksOpen').onclick=()=>{const day=gDay();V.st=KC.create(V.cfg,{seed:(Date.now()%100000)+1,st:f.st,place:f.place,day});if(CC)V.st.center={mode:'auto',aim:'mid',ordDay:day};   // 新しい店は最初からセンターにおまかせKS.migrate(V.cfg,V.st);V.st.openedT=gT();V.st.openedDay=day;V.st.unread=0;
     V.st.news.push({day,kind:'open',title:`${stName(f.st)}駅・${R.places[f.place].name}に売店を開いた`,text:'はじめは、よくある売店の並べ方と値段です。売れ行きを見ながら変えていきましょう。'});persist();V.res=null;render(true);};}
 
 /* ---------- 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） ---------- */
@@ -261,8 +287,9 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
       <span>きっかけ</span><b id="shMot">${motText(pid,res)}</b>
       <span>一緒に</span><b id="shWith">${withText(pid,res)}</b></div>
     <div class="ks-sbox"><h4>仕入れ（${unit}）</h4>
+      ${managed(pid)?`<div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>次の運行日</span><b><span class="ks-auto">おまかせ</span> 見込み${planFor(nextCond()).items[pid]??'—'}</b></div><p>センターにおまかせしています。毎晩の売上の記録から、センターが次の運行日の数を決めます（ねらい「${esc(aimName())}」）。店で数を変えるときは「商品」タブで「自分で決める」に戻してください。</p></div>`:`
       <div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>${dayWord(o.na)}</span><span class="ks-num"><button type="button" id="shOm" aria-label="減らす">−</button><b class="${o.d?'chg':''}">${o.nx}</b><button type="button" id="shOp" aria-label="増やす">＋</button></span></div>
-      <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>
+      <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>`}
     ${E.off?`<div class="ks-sbox"><h4>当日の便に足す（日持ちする品）</h4>${addOnOk(p)?`<div class="ks-sbtns"><span class="ks-num"><button type="button" id="shEm" aria-label="減らす">−</button><b>${V.shQ}個</b><button type="button" id="shEp" aria-label="増やす">＋</button></span>
         <button type="button" class="ks-btn pri" id="shAo" ${addOnNext()&&x.s?'':'disabled'}>${addOnNext()?`${addOnNext().name}（${fmtT(addOnNext().t)}着）に足す`:'きょう足せる便はもうありません'}</button></div>
       ${addOnToday().filter(z=>z.at>gT()).map(z=>`<p style="color:var(--ink)"><b>${z.name}（${fmtT(z.at)}着）に足す予定：</b>${Object.entries(z.items).map(([k,q])=>`${esc(ix().P[k].short||ix().P[k].name)}＋${q}`).join('・')}</p>`).join('')}
@@ -275,7 +302,7 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
     <div class="ks-sbox"><h4>値段</h4><div class="ks-sbtns"><span class="ks-num"><button type="button" id="shPm" aria-label="10円下げる">−</button><b>${yen(pr)}</b><button type="button" id="shPp" aria-label="10円上げる">＋</button></span><small class="ks-note" style="margin:0">ふつうの値段の${Math.round(pr/p.price*100)}%・すぐに効きます</small></div></div>
     <div class="ks-sbtns"><button type="button" class="ks-btn" id="shLay">棚割りで並べ方を変える</button><button type="button" class="ks-btn" id="shTab">商品の表で見る</button></div>`;
   const st=life===0?1:2;
-  $('shClose').onclick=closeSheet;$('shOm').onclick=()=>{editOrder(pid,-st);renderSheet();};$('shOp').onclick=()=>{editOrder(pid,st);renderSheet();};
+  $('shClose').onclick=closeSheet;if($('shOm')){$('shOm').onclick=()=>{editOrder(pid,-st);renderSheet();};$('shOp').onclick=()=>{editOrder(pid,st);renderSheet();};}
   if($('shEm'))$('shEm').onclick=()=>{V.shQ=Math.max(1,V.shQ-1);renderSheet();};if($('shEp'))$('shEp').onclick=()=>{V.shQ+=1;renderSheet();};
   if($('shAo'))$('shAo').onclick=()=>{orderAddOn(pid,V.shQ);V.shQ=null;renderSheet();};
   if($('shEgo'))$('shEgo').onclick=()=>{if(openExpress()){V.shConfirm=pid;renderSheet();return;}orderExpress(pid,V.shQ);V.shQ=null;renderSheet();};   // まだ出ていない便があれば、のせるか別にするかを確認
@@ -408,9 +435,21 @@ function flushLog(force){const box=$('ksLog'),res=V.logRes;if(!box||!res)return;
   const sm=$('ksLogSum');if(sm){const h=lfSummary(res,k);if(sm.innerHTML!==h)sm.innerHTML=h;}
   while(box.children.length>400){box.lastElementChild.remove();V.logFrom++;}if($('ksMore'))$('ksMore').hidden=V.logFrom<=0;}
 
+/* センターの発注：自分で決める／センターにおまかせ、ねらい3つ、きのうの結果とあすの見込み */
+function centerBox(pv){if(!CC||!V.ccfg||!V.st)return '';const C=center(),A=V.ccfg.aims||{},auto=C.mode==='auto',I=ix();
+  const lg=loadOrders(),key=CC.storeKey(V.st),last=CC.recsOf(lg,key).at(-1),od=lg.days.find(d=>d.day===gDay()),mine=od&&od.orders[key];
+  const nd=nextCond(),nN=pv?Object.values(pv.why).filter(w=>w.n>0).length:0,sh=KC.shelfInfo(V.cfg,V.st.layout),nAll=Object.keys(sh).filter(pid=>managed(pid)).length;
+  return `<div class="ks-center"><div class="ks-center-h"><b>店の発注</b><span class="ks-sbtns" role="group" aria-label="発注のしかた"><button type="button" class="ks-chip" data-cmode="self" aria-pressed="${!auto}">自分で決める</button><button type="button" class="ks-chip" data-cmode="auto" aria-pressed="${auto}">センターにおまかせ</button></span></div>
+    ${auto?`<div class="ks-center-h"><span class="mut">ねらい</span><span class="ks-sbtns" role="group" aria-label="ねらい">${Object.keys(A).map(k=>`<button type="button" class="ks-chip" data-caim="${k}" aria-pressed="${C.aim===k}" title="${esc(A[k].note||'')}">${esc(A[k].name)}</button>`).join('')}</span></div>
+    <p class="ks-note" style="margin:4px 0 0">川辺のセンターが、毎晩送られる売上の記録（売れた数・売り切れで逃した数・廃棄・残り）から、${esc(V.ccfg.dayTypes[nd.day]||'')}の最近の売れ方に天気・季節を足して、品ごとの数を決めます。おにぎり・サンド・パン・ドーナツは工場へ、飲み物・お菓子・日用品・ホットスナックはセンター在庫から。新聞・雑誌・たばこはセンターを通らないので、店で決めた数のままです。${nN<nAll?`記録がまだ少ない品（${nAll-nN}品）は、いまの数と混ぜています。`:''}</p>
+    ${last?`<p class="ks-note" style="margin:4px 0 0">第${last.day}運行日の結果：<b>廃棄${yen(last.waste)}・売り切れ${last.soldout}品</b></p>`:''}`
+    :`<p class="ks-note" style="margin:4px 0 0">いまは店で仕入れ数を決めています。おまかせにすると、次の運行日の便から、センターが記録をもとに数を決めます（売上の記録は、どちらでも毎晩センターへ送っています）。</p>`}
+    ${mine?`<p class="ks-note" style="margin:4px 0 0">きょうの便の発注番号 ${esc(mine.no)}（${mine.mode==='auto'?'センターが決めた数':'店で決めた数'}・工場へ${Object.values(mine.factory).reduce((a,b)=>a+b,0)}個）</p>`:''}</div>`;}
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
 function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT()),na=nextOrderDay(),nextO=orderFor(na),today=orderFor(gDay());
-  const ordCell=(p,s)=>{const v=nextO[p.id]||0,cur=today[p.id]||0;if(!s&&!v)return '<span class="mut">棚になし</span>';return `<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b class="${v!==cur?'chg':''}">${v}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span><span class="ks-diff${v!==cur?'':' off'}">${v!==cur?`きょう${cur}から${v>cur?'＋':'−'}${Math.abs(v-cur)}`:'変更なし'}</span>`;};
+  const pv=isAuto()?planFor(nextCond()):null;
+  const ordCell=(p,s)=>{const v=nextO[p.id]||0,cur=today[p.id]||0;if(!s&&!v)return '<span class="mut">棚になし</span>';
+    if(managed(p.id)){const w=pv&&pv.items[p.id];return `<span class="ks-auto" title="センターにおまかせ">おまかせ</span><span class="ks-diff">${w!=null?`見込み${w}（きょう${cur}）`:`きょう${cur}`}</span>`;}return `<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b class="${v!==cur?'chg':''}">${v}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span><span class="ks-diff${v!==cur?'':' off'}">${v!==cur?`きょう${cur}から${v>cur?'＋':'−'}${Math.abs(v-cur)}`:'変更なし'}</span>`;};
   // 発注の予定：まだ効いていない変更を、何日目からかと増減でまとめる（取り消しもできる）
   const pend=[];for(const e of (S.orderQ||[]).slice().sort((a,b)=>a.from-b.from)){const before=orderFor(e.from-1);for(const pid in e.order){if((e.order[pid]||0)!==(before[pid]||0))pend.push({from:e.from,pid,a:before[pid]||0,b:e.order[pid]||0});}}
   const pendBox=pend.length?`<div class="ks-pend"><div><b>発注の予定（まだ届いていない変更）</b></div>${pend.map(x=>`<div>第${x.from}運行日（${dayWord(x.from).replace('の便から','')}）から：${esc(I.P[x.pid].name)} ${x.a} → <b>${x.b}</b>（${x.b>x.a?'＋':'−'}${Math.abs(x.b-x.a)}）<button type="button" data-undo="${x.from}|${x.pid}">取り消す</button></div>`).join('')}</div>`:'';
@@ -431,7 +470,7 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
   const rep=pid=>{const x=S.rep[pid];if(!x||!x.n)return '<span class="mut">—</span>';const avg=x.sum/x.n,keys=Object.entries(x.keys).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k2,n])=>({sweetHi:'甘すぎ',sweetLo:'甘さ不足',richHi:'濃い',richLo:'うすい',volLo:'量が少ない',volHi:'多すぎ',priceHi:'高い',priceOk:'安い',good:'満足',warm:'温かい',cold:'冷えてる',crush:'つぶれ'})[k2]+n).join('・');return `★${avg.toFixed(1)}（${x.n}）<br><span class="mut" style="font-size:11px">${keys}</span>`;};
   b.innerHTML=`<div class="ks-card"><h3><span>商品・値段・仕入れ</span><small>値段は「世の中のふつうの値段」との比も出します</small></h3>
     <p class="ks-note" style="margin-top:0">仕入れの締め切りは${fmtT(V.cfg.orderDeadline)}。いま変えた仕入れ数は<b>${dayWord(na)}</b>届きます（きょうの便は変わりません）。その日のうちに売る物は1日の数（朝5割・昼前と午後に2割5分ずつ）、日持ちする物は「裏も合わせた在庫の目標」です。${V.cfg.express.off?`臨時便はいまはありません（ほかの店から融通する機能ができるまで休み）。日持ちする品（飲み物・お菓子・日用品など）は、商品カードから当日の昼前便（${fmtT(V.cfg.deliveries[1].t-V.cfg.addOn.before)}まで）・午後便（${fmtT(V.cfg.deliveries[2].t-V.cfg.addOn.before)}まで）に足せます。`:`急ぐときは<b>臨時便</b>（${yen(V.cfg.express.fee)}＋原価・${V.cfg.express.lead}分後に届く・1日${V.cfg.express.max}回まで・${fmtT(V.cfg.express.from)}〜${fmtT(V.cfg.express.to)}）。きょうの残り：${expressLeft()}回。`}</p>
-    ${expBox()}${pendBox}
+    ${centerBox(pv)}${expBox()}${pendBox}
     <label style="font-size:12.5px"><input type="checkbox" id="ksAll" ${V.showAll?'checked':''}> 棚に置いていない商品も出す</label>
     ${gBar}${list.length?'':'<p class="ks-note">このジャンルの品は、いま一覧にありません。</p>'}
     ${narrow()?`<div class="ks-cards">${list.map(p=>{const pr=set.price[p.id]??p.price,ratio=pr/p.price,cr=p.cost/pr,s=si[p.id];
@@ -452,6 +491,8 @@ function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.c
       <td>${s?`${s.face}×${Math.round(s.cap/s.face)}`:'—'}</td><td data-f="stock">${s?(stock[p.id]||0):'—'}</td><td data-f="sold">${o.items[p.id]||0}</td>${V.cfg.hideLost?'':`<td data-f="lost" class="${lostSO[p.id]?'neg':''}">${lostSO[p.id]||0}</td>`}<td data-f="looked">${looked[p.id]||0}</td><td class="l">${rep(p.id)}</td></tr>`;}).join('')}
     </tbody></table></div>`}<p class="ks-note">原価率が7割を超える品（たばこ・新聞・雑誌など）は、売れても残るお金が少ない品です。値段を上げすぎると、値段に敏感な客層（学生・買い物の人）から買わなくなります。棚に新しく置いた品は、次の便から並びます。</p></div>`;
   $('ksAll').onchange=e=>{V.showAll=e.target.checked;render(true);};
+  b.querySelectorAll('[data-cmode]').forEach(x=>x.onclick=()=>{const C=center();if(C.mode===x.dataset.cmode)return;C.mode=x.dataset.cmode;C.ordDay=gDay();persist();render(true);});   // きょうの便はもう決まっているので、変えるのは次の運行日から
+  b.querySelectorAll('[data-caim]').forEach(x=>x.onclick=()=>{center().aim=x.dataset.caim;persist();render(true);});
   b.querySelectorAll('[data-ig]').forEach(x=>x.onclick=()=>{V.itemG=x.dataset.ig;render(true);});
   b.querySelectorAll('[data-sh]').forEach(x=>x.onclick=()=>openSheet(x.dataset.sh));
   b.querySelectorAll('[data-undo]').forEach(x=>x.onclick=()=>{const [f,pid]=x.dataset.undo.split('|'),e=(S.orderQ||[]).find(q=>q.from===Number(f));if(e){e.order[pid]=orderFor(e.from-1)[pid]||0;persist();render(true);}});
