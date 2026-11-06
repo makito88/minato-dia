@@ -1,5 +1,10 @@
 import json,sys
-exec(open('cal2.py').read().split('with sync_playwright')[0])
+import os,sys,json
+from playwright.sync_api import sync_playwright
+# 負荷と時間の進みを測る：python3 tools/perfcmp.py 出力.json [引き継ぎコードをほどいたJSON（keys を持つ）]
+# 先に別の窓で python3 -m http.server 8765 を動かしておく。スマホ相当（390幅・DPR3・タッチ）で、トップ・地図（×1/×30/×180・一時停止）・売店を6秒ずつ測る
+keys=json.load(open(sys.argv[2]))['keys'] if len(sys.argv)>2 else {}
+SEED="(()=>{const keys=%s;if(!sessionStorage.getItem('seeded')){localStorage.clear();for(const k in keys)localStorage.setItem(k,keys[k]);sessionStorage.setItem('seeded','1');}})();"%json.dumps(keys)
 HOOK="""(()=>{window.__c={raf:0};const r=window.requestAnimationFrame.bind(window);window.requestAnimationFrame=f=>r(t=>{__c.raf++;f(t);});})();"""
 WRAP="""(()=>{for(const [n,k] of [['drawMap','map'],['drawDia','dia']]){const o=eval(n);__c[k]=0;const w=function(){__c[k]++;return o.apply(this,arguments)};eval(n+'=w');}
  const t=ENSEN_UI.tick;__c.ens=0;ENSEN_UI.tick=function(){__c.ens++;return t.apply(this,arguments)};})()"""
@@ -12,7 +17,7 @@ def run(pg,cdp,sec,key):
   r=dict(task=(b['TaskDuration']-a['TaskDuration'])/sec*100,js=(b['ScriptDuration']-a['ScriptDuration'])/sec*100,layout=(b['LayoutCount']-a['LayoutCount'])/sec,raf=c['raf']/sec,map=c['map']/sec,dia=c['dia']/sec,ens=c['ens']/sec,time_ok=round(rate,3))
   out[key]=r;print(f"{key:22s} 仕事{r['task']:5.1f}% JS{r['js']:4.1f}% 配置計算{r['layout']:5.1f}/秒 rAF{r['raf']:6.1f}/秒 地図{r['map']:4.1f}/秒 ダイヤ図{r['dia']:4.1f}/秒 沿線暦tick{r['ens']:5.1f}/秒 時間の進み(速さ比){r['time_ok']}",flush=True)
 with sync_playwright() as p:
-  b=p.chromium.launch(executable_path='/usr/bin/google-chrome',args=['--no-sandbox'])
+  b=p.chromium.launch(executable_path=os.environ.get('CHROME','/usr/bin/google-chrome'),args=['--no-sandbox'])
   ctx=b.new_context(viewport={'width':390,'height':844},device_scale_factor=3,is_mobile=True,has_touch=True);ctx.add_init_script(SEED);ctx.add_init_script(HOOK)
   pg=ctx.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)));cdp=ctx.new_cdp_session(pg);cdp.send('Performance.enable')
   pg.goto('http://localhost:8765/index.html');pg.wait_for_timeout(8000)
