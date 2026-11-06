@@ -3239,6 +3239,7 @@ const ENSEN_UI=(()=>{
 
 /* ---------- loop ---------- */
 let lastTs=0,acc=0,rideAcc=0;
+let PERF=null;   // 負荷メーター（index.html?perf=1 のときだけ js/perf-meter.js が入れる）
 /* 一時停止中は、何かが変わったときだけ地図とダイヤグラムを描き直す（電池の節約）。
    変わったとみなすのは：時刻・ダイヤの計算結果・選んでいる物・場面の数が変わったとき、画面を触った・押した・キーを押した・大きさが変わったとき（そこから0.6秒）。
    念のため、それ以外でも3秒に1回は描き直す */
@@ -3253,15 +3254,20 @@ function needDraw(now){if(playing||RIDE.on){if(PHONE&&now-lastDrawAt<32)return f
   const k=T+'|'+(D&&D.trips?D.trips.length:0)+'|'+(typeof SCENES!=='undefined'?SCENES.length:0);
   const changed=k!==idleKey||D!==needDraw.d||sel!==needDraw.s;idleKey=k;needDraw.d=D;needDraw.s=sel;
   if(changed||now<wakeUntil||now-idleAt>3000){idleAt=now;return true;}return false;}
-function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
+/* 画面に書くのは、中身が変わったときだけ（同じ文字を書いても、ブラウザは配置を計算し直すため。2026-11-06 測定：何もしていなくても配置の計算が1秒60回あった） */
+const setTxt=(e,v)=>{if(e&&e.__v!==v){e.__v=v;e.textContent=v;}};
+/* ゲームの時間を進めることと、絵を描くことは分ける。描くのが遅い端末でも、時間は設定どおりに進む（前は1コマ0.1秒で切り捨てていたので、描くのが重いと時間が半分ほどしか進まなかった）。
+   2秒より長くあいたとき（画面が裏にいた・スリープ）は、今までどおり0.1秒だけ進める（運行日と売店は本当の暦で進むので、ここでは追いかけない） */
+function frameDt(ts){if(!lastTs)return 0;const raw=(ts-lastTs)/1000;return raw<=2?Math.max(0,raw):0.1;}
+function frame(ts){const dt=frameDt(ts);lastTs=ts;PERF&&PERF.f0();
   if(playing&&D){T+=speed*dt;ENSEN_UI.tick(dt);if(T>END){T=START+30;}}   // 26:00を過ぎたら同じ運行日の朝に戻る。運行日は暦の朝4:30でだけ進む（js/away.js が進める）
   if(RIDE.on){rideAcc+=dt;if(!PHONE||rideAcc>=1/30-0.002){RIDE.tick(rideAcc);rideAcc=0;}}
-  $('#clock').textContent=fmt(T);if(!$('#minibar').hidden){$('#mclock').textContent=fmt(T);const mb=band(T)+'・'+condLabel();if($('#mband').textContent!==mb)$('#mband').textContent=mb;}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
-  if(document.activeElement!==scrub)scrub.value=Math.round(T);
-  const covered=!!document.querySelector('.rsv:not([hidden]),.ksv:not([hidden]),.topv:not([hidden])');   // リサーチ・売店の画面が全体をおおっているあいだは、見えない地図とダイヤグラムを描かない（電池の節約）
+  const covered=!!document.querySelector('.rsv:not([hidden]),.ksv:not([hidden]),.topv:not([hidden])');   // リサーチ・売店・トップの画面が全体をおおっているあいだは、見えない地図・ダイヤグラム・時計を描かない（時間と沿線暦は上で進めている）
+  if(!covered){const ft=fmt(T);setTxt($('#clock'),ft);if(!$('#minibar').hidden){setTxt($('#mclock'),ft);setTxt($('#mband'),band(T)+'・'+condLabel());}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
+    const sv=String(Math.round(T));if(document.activeElement!==scrub&&scrub.value!==sv)scrub.value=sv;}
   const draw=!covered&&needDraw(ts);
-  if(draw)drawMap();if(SND.S.on)SND.tick(ts);acc+=dt;if(draw&&(acc>0.15||!playing&&acc>0.3)){acc=0;drawDia();refreshPanels(false);}
-  requestAnimationFrame(frame);}
+  if(draw){drawMap();PERF&&PERF.n('map');}if(SND.S.on)SND.tick(ts);acc+=dt;if(draw&&(acc>0.15||!playing&&acc>0.3)){acc=0;drawDia();refreshPanels(false);}
+  PERF&&PERF.f1();requestAnimationFrame(frame);}
 /* ---------- 場面（コレクション）：data/scenes.json の場面を地図のピンにし、押すと小窓で開く ---------- */
 let SCENES=[],SCPIN=[];
 fetch('data/scenes.json').then(r=>r.ok?r.json():null).then(d=>{if(d&&Array.isArray(d.scenes))SCENES=d.scenes;}).catch(()=>{});
@@ -3326,6 +3332,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/save.js?v=20261106a"></script>
 <!-- 留守のあいだ：開いたとき・戻ったときに、閉じていたあいだの運行日をまとめて進める -->
 <script src="js/away.js?v=20261104b"></script>
+<script src="js/perf-meter.js?v=20261106a"></script>
 <!-- トップページ（5つのレイヤー）：js/top.js -->
 <script src="js/top.js?v=20261106a"></script>
 
