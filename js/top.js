@@ -42,7 +42,7 @@ const L=[
   pins:[{x:59.5,y:44,t:'みなと川沿線',main:1}],   // 沿線は全長30km余り。国の地図では1点になるので、印は1つだけ
   items:[['沿線の歩み 1885〜2026（日本の地方鉄道に似せた歴史）','karte:history'],['国・県と町のお金の流れ（交付税など）','karte:money']],soon:'国内の物流と産業の地図'},
  {id:'line',name:'沿線',sub:'人口・土地利用・駅・商業施設',img:'docs/img/route-map-painted.jpg',state:'遊べる',
-  items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station'],['路線を描く（バス・配送・船・空のお絵かき帖）','page:route-editor.html']]},
+  items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station'],['路線を描く（バス・配送・船・空のお絵かき帖）','page:route-editor.html'],['沿線くらしアンケート（駅ごとの暮らしのうつりかわり）','page:survey.html']]},
  {id:'shop',name:'店舗',sub:'商品・在庫・売上・客の行動',img:'docs/img/top-kiosk.jpg',state:'遊べる',
   items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money']]},
  {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチ・ドーナッツの一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',note:'AIで描いたイメージです（架空の工場）。',
