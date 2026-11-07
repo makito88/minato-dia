@@ -135,6 +135,7 @@ table.fills{max-width:460px}
     <div class="seg" id="speeds" role="group" aria-label="速さ"></div>
     <input type="range" id="scrub" min="0" max="660" step="1" value="0" aria-label="時刻">
   </div>
+  <div class="small muted" id="liveNote" style="margin:4px 0 6px"></div>
   <div class="clocks" id="clocks"></div>
   <canvas id="stage" width="1040" height="480" aria-label="工場のラインの絵。釜を押すと、その釜の一晩が出ます"></canvas>
   <div class="legend" id="tempLegend"></div>
@@ -184,6 +185,7 @@ table.fills{max-width:460px}
     <div class="seg" id="bspeeds" role="group" aria-label="速さ"></div>
     <input type="range" id="bscrub" min="0" max="660" step="1" value="0" aria-label="時刻">
   </div>
+  <div class="small muted" id="bliveNote" style="margin:4px 0 6px"></div>
   <div class="clocks" id="bclocks"></div>
   <canvas id="bstage" width="1040" height="520" aria-label="パンのラインの絵。生地を押すと、その生地の一晩が出ます"></canvas>
   <div class="legend" id="bLegend"></div>
@@ -234,6 +236,7 @@ table.fills{max-width:460px}
     <div class="seg" id="sspeeds" role="group" aria-label="速さ"></div>
     <input type="range" id="sscrub" min="0" max="660" step="1" value="0" aria-label="時刻">
   </div>
+  <div class="small muted" id="sliveNote" style="margin:4px 0 6px"></div>
   <div class="clocks" id="sclocks"></div>
   <canvas id="sstage" class="stagecv" width="1040" height="520" aria-label="サンドイッチのラインの絵"></canvas>
 </section>
@@ -269,7 +272,8 @@ table.fills{max-width:460px}
 <section class="card"><h2>ドーナッツの作り方</h2><p class="small muted">3品の生地と配合、120個のひと組が各工程にかかる時間です。季節と仕上げの人数を変えると、時間も変わります。</p><div id="drecipes"></div>
 <h3 style="margin-top:14px">どこが機械で、どこが人か</h3><div id="dstations"></div></section>
 <section class="card"><h2>夜のドーナッツのライン</h2>
-<div class="play"><span class="clock" id="dclock"></span><button id="dplay">▶ 再生</button><select id="dspeed" aria-label="再生速度"><option value="60">×60</option><option value="300" selected>×300</option><option value="900">×900</option></select><input type="range" id="dscrub" aria-label="ドーナッツの時刻" step="1"></div>
+<div class="play"><span class="clock" id="dclock"></span><button id="dplay">▶ 再生</button><select id="dspeed" aria-label="再生速度"><option value="live" selected>いま（×1）</option><option value="60">×60</option><option value="300">×300</option><option value="900">×900</option></select><input type="range" id="dscrub" aria-label="ドーナッツの時刻" step="1"></div>
+<div class="small muted" id="dliveNote" style="margin:4px 0 6px"></div>
 <div class="clocks" id="dclocks"></div><div style="overflow-x:auto"><canvas id="dstage" class="stagecv" style="width:1000px;max-width:none;height:330px" aria-label="ベルトコンベアを進むドーナッツの製造ライン"></canvas></div><p class="small muted">横に動かしてライン全体を見られます。丸い絵は生地のひと組を表し、動きは製造の計算時刻に合わせています。</p></section>
 <div class="two"><section class="card"><h2>生地ごとの工程と予定</h2><p class="small muted">押すと工程の予定時刻を見られます。計画の比較用に、この夜の予定を先に表示します。</p><div id="dbatches"></div></section><section class="card"><h2>ドーナッツのラインの記録</h2><ul class="evlist" id="devents"></ul></section></div>
 <section class="card"><h2>朝の答え合わせ（ドーナッツ）</h2><div id="dresultWait">夜の終わりまで進むと出ます。<button id="dpeek">先に見る</button></div><div id="dresult" hidden></div></section>
@@ -283,16 +287,17 @@ table.fills{max-width:460px}
 
 <p class="note">名前・会社・数字はすべて架空のゲームの目安です。吸水・冷え方・菌の増え方と、成形・包装の機械のライン2本（機械の速さ・フィルムの枚数・具の掃除・詰まり・はじく割合・消費期限・機械の費用）は、現実の性質（水温で吸水が変わる、ニュートンの冷却、菌は10〜50℃台で増えやすい）の形だけを借りた仮の数字で、実際の食品衛生の基準や、実在の工場の数字ではありません。設定は <code>data/factory.json</code>。</p>
 </div>
+<script src="js/factory-live.js?v=20261107b"></script>
 <script src="js/factory-night.js?v=20261107a"></script>
 <script src="js/factory-core.js?v=20261107a"></script>
-<script src="js/factory-view.js?v=20261107a"></script>
+<script src="js/factory-view.js?v=20261107b"></script>
 <script src="js/bread-core.js?v=20261107a"></script>
-<script src="js/bread-view.js?v=20261107a"></script>
+<script src="js/bread-view.js?v=20261107b"></script>
 <script src="js/sand-loaf.js"></script>
 <script src="js/sand-core.js?v=20261107a"></script>
-<script src="js/sand-view.js?v=20261107a"></script>
+<script src="js/sand-view.js?v=20261107b"></script>
 <script src="js/donut-core.js?v=20261107a"></script>
-<script src="js/donut-view.js?v=20261107a"></script>
+<script src="js/donut-view.js?v=20261107b"></script>
 <script src="js/factory-pl.js"></script>
 </body>
 </html>

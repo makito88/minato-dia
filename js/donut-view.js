@@ -2,10 +2,12 @@
 (function(){
 'use strict';
 const C=window.DonutCore,$=id=>document.getElementById(id),KEY='dia-factory-donut';
-let D,R,cfg,cur,playing=false,active=false,last=0,minute=-1,speed=300;
+let D,R,cfg,cur,playing=true,active=false,last=0,minute=-1,speed='live',lastDraw=0;
+const FL=window.FactoryLive;   // 速さ：いま（本当の時刻・×1）・×60・×300・×900
+function liveNote(){const e=$('dliveNote');if(e&&R)e.textContent=FL.note(R.T0,R.T1,speed==='live',playing);}
 const yen=n=>Math.round(n).toLocaleString()+'円';
 function save(){try{localStorage.setItem(KEY,JSON.stringify({cfg}));}catch(e){}}
-function run(){R=C.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));cfg=Object.assign({},R.cfg);delete cfg.center;delete cfg.centerNo;{const e=$('dnightInfo');if(e)e.textContent=`夜の番号 ${cfg.seed}`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'donut','個'):'');}cur=R.T0;minute=-1;playing=false;save();$('dresult').hidden=true;$('dresultWait').hidden=false;$('dscrub').min=R.T0;$('dscrub').max=R.T1;recipes();stations();draw();}
+function run(){R=C.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));cfg=Object.assign({},R.cfg);delete cfg.center;delete cfg.centerNo;{const e=$('dnightInfo');if(e)e.textContent=`夜の番号 ${cfg.seed}`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'donut','個'):'');}cur=speed==='live'?FL.liveAt(R.T0,R.T1):R.T0;minute=-1;playing=speed==='live';save();$('dresult').hidden=true;$('dresultWait').hidden=false;$('dscrub').min=R.T0;$('dscrub').max=R.T1;recipes();stations();draw();}
 function plan(){const B=D.donut;
  const select=(id,label,opts)=>`<div><label for="d${id}">${label}</label><select id="d${id}">${opts.map(([v,t])=>`<option value="${v}" ${String(cfg[id])===String(v)?'selected':''}>${t}</option>`).join('')}</select></div>`;
  const times=[];for(let t=B.ranges.start[0];t<=B.ranges.start[1];t+=15)times.push([t,C.hm(t)]);
@@ -41,7 +43,7 @@ function result(){const s=R.summary,cfg=R.cfg;$('dresultWait').hidden=true;$('dr
  <p>人件費 ${yen(s.yen.labor)} ／ 材料・袋 ${yen(s.yen.material)} ／ 油 ${yen(s.yen.oil)} ／ 機械 ${yen(s.yen.machine)}<br>合計 <b>${yen(s.yen.total)}</b>・出荷1個あたり ${s.yen.perUnit?yen(s.yen.perUnit):'—'}</p>
  <p class="small muted">消費期限は出荷日の22:00（その夜の製造で固定）。余りと不合格も費用に含む。人件費は、仕込み・成形・揚げ 各1人と仕上げ${cfg.finishers}人が、仕込みの始めから最後の包装または締め切りまでいる計算（休憩の交代を含む概算）。包装・出荷の人と帰る時刻はまだ決めていません。売店への納品はまだ連動していません。</p>`;
 }
-function draw(){if(!R)return;const cfg=R.cfg,t=Math.floor(cur);$('dclock').textContent=C.hm(t);$('dscrub').value=t;$('dplay').textContent=playing?'❚❚ 止める':'▶ 再生';if(minute===t)return;minute=t;
+function draw(){if(!R)return;const cfg=R.cfg,t=Math.floor(cur);$('dclock').textContent=C.hm(t);$('dscrub').value=t;$('dplay').textContent=playing?'❚❚ 止める':'▶ 再生';if(minute===t)return;minute=t;liveNote();
  const made=R.batches.filter(b=>b.good&&b.done<=t&&b.done<=D.deadline).reduce((n,b)=>n+b.n,0);
  $('dclocks').innerHTML=`<div class="clk"><b>油の時計</b><span class="v">${cfg.oilT}℃・${cfg.fryers}台</span><div class="small">${cfg.oilEvery}個ごとに交換／台</div></div><div class="clk"><b>人の時計</b><span class="v">${D.donut.staff+cfg.finishers}人</span><div class="small">仕込み・成形・揚げ 各1人＋仕上げ${cfg.finishers}人</div></div><div class="clk"><b>包装の時計</b><span class="v">${made}個 包装ずみ</span><div class="small">${C.hm(D.deadline)}まで・${t<D.orderConfirm?'注文は20:00確定':`注文 ${R.summary.order}個`}</div></div>`;
  $('devents').innerHTML=R.ev.filter(e=>e.t<=t).slice(-16).reverse().map(e=>`<li><span class="num">${C.hm(e.t)}</span><span>${e.msg}</span></li>`).join('')||'<li>これから仕込みます。</li>';
@@ -56,7 +58,7 @@ function drawStage(t){
  const rect=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
  const text=(s,x,y,size=13,color='#51463c')=>{c.fillStyle=color;c.font=`bold ${size}px sans-serif`;c.textAlign='center';c.fillText(s,x,y);};
  const circ=(x,y,r,color)=>{c.fillStyle=color;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();};
- const phase=playing?performance.now()/1000:0;
+ const phase=playing?FL.sec():0;   // 機械の動きは本当の秒で（×1 でも動きがわかるように）
  rect(0,0,1000,330,'#f6f2ea');rect(0,278,1000,52,'#e8dfd1');
  for(let x=0;x<1000;x+=110)rect(x,24,70,6,'#e1d5c5');
  // 工程ごとの場所。表示位置は各生地の計算上の工程と進み具合から決める。
@@ -95,9 +97,10 @@ function drawStage(t){
  text('包装ずみ '+done+'個',905,298,13);text(active.length?'製造中の生地 '+active.length+'組':'生地の到着を待っています',140,298,13);
 }
 async function init(){if(!$('donutView'))return;try{D=await fetch('data/factory.json',{cache:'no-cache'}).then(r=>r.json());let st={};try{st=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}cfg=C.normalize(D,st.cfg);plan();run();}catch(e){$('dplan').textContent='ドーナッツの設定を読み込めませんでした。ページを再読み込みしてください。';console.error(e);return;}
- $('drun').onclick=()=>{run();playing=true;draw();};$('dnewNight').onclick=()=>{cfg.seed=cfg.seed%9999+1;run();};$('dplay').onclick=()=>{if(cur>=R.T1)cur=R.T0;playing=!playing;draw();};$('dscrub').oninput=e=>{cur=+e.target.value;draw();};$('dspeed').onchange=e=>{speed=+e.target.value;};$('dpeek').onclick=result;
+ $('drun').onclick=()=>{run();playing=true;draw();};$('dnewNight').onclick=()=>{cfg.seed=cfg.seed%9999+1;run();};$('dplay').onclick=()=>{if(cur>=R.T1&&speed!=='live')cur=R.T0;playing=!playing;minute=-1;draw();};$('dscrub').oninput=e=>{cur=+e.target.value;if(speed==='live'&&playing)playing=false;minute=-1;draw();};$('dspeed').onchange=e=>{const v=e.target.value;speed=v==='live'?'live':+v;playing=true;if(cur>=R.T1&&speed!=='live')cur=R.T0;minute=-1;draw();};$('dpeek').onclick=result;
  const set=v=>{active=v==='donut';if(active){$('lineName').textContent=D.donut.line;minute=-1;draw();}};window.addEventListener('factory-tab',e=>set(e.detail));set(!$('donutView').hidden?'donut':'');window.addEventListener('resize',()=>{if(active)drawStage(cur);});
- function tick(now){if(active&&playing&&!document.hidden){cur=Math.min(R.T1,cur+Math.min(0.25,(now-last)/1000)*speed/60);if(cur>=R.T1)playing=false;draw();if(playing)drawStage(cur);}last=now;requestAnimationFrame(tick);}requestAnimationFrame(tick);
+ function tick(now){if(active&&playing&&!document.hidden){if(speed==='live')cur=FL.liveAt(R.T0,R.T1);else{cur=Math.min(R.T1,cur+Math.min(0.25,(now-last)/1000)*speed/60);if(cur>=R.T1)playing=false;}
+   if(speed!=='live'||now-lastDraw>=50){lastDraw=now;draw();if(playing)drawStage(cur);}}last=now;requestAnimationFrame(tick);}requestAnimationFrame(tick);
 }
 init();
 })();

@@ -12,8 +12,11 @@
 const SC=window.SandCore,LC=SC.LC,hm=SC.hm,SL=window.SandLoaf;
 const $=id=>document.getElementById(id);
 const KEY='dia-factory-sand';
-let D=null,A=null,cfg=null,R=null,prev=null,cur=0,playing=false,speed=300,lastFrame=0,resultShown=false,active=false,lastSide=-1,evCount=-1;
-const SPEEDS=[[1,'×1'],[60,'×60'],[300,'×300'],[900,'×900']];
+let D=null,A=null,cfg=null,R=null,prev=null,cur=0,playing=true,speed='live',lastFrame=0,resultShown=false,active=false,lastSide=-1,evCount=-1;
+const SPEEDS=FactoryLive.SPEEDS,FL=FactoryLive,WS=FL.sec;   // 速さ：いま（本当の時刻・×1）・×60・×300・×900
+let lastDraw=0;
+/* 速さのボタンの下のひとこと */
+function liveNote(){const e=$('sliveNote');if(e&&R)e.textContent=FL.note(R.T0,R.T0+R.N-1,speed==='live',playing);}
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null')||{};}catch(e){return {};}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify({cfg,prev}));}catch(e){}}
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()||'#888';}
@@ -105,17 +108,18 @@ function run(keepTime){if(R)prev={cfg:R.cfg,summary:R.summary};R=SC.simulate(D,(
   $('snightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'sand','パック'):'');
   $('sresult').hidden=true;$('sresultWait').hidden=false;save();drawAll(true);}
 function buildPlay(){$('sspeeds').innerHTML=SPEEDS.map(([v,l])=>`<button data-v="${v}">${l}</button>`).join('');
-  for(const b of $('sspeeds').children)b.onclick=()=>{speed=+b.dataset.v;markSpeed();};markSpeed();
-  $('splayBtn').onclick=()=>{playing=!playing;if(playing&&cur>=R.N-1)cur=0;markPlay();lastFrame=performance.now();};
-  $('sscrub').oninput=e=>{cur=+e.target.value;drawAll(true);};$('speek').onclick=()=>showResult();}
-function markSpeed(){for(const b of $('sspeeds').children){const on=+b.dataset.v===speed;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}}
-function markPlay(){$('splayBtn').textContent=playing?'❚❚ 止める':'▶ 再生';$('splayBtn').setAttribute('aria-label',playing?'止める':'再生');}
-function tick(now){if(active&&playing&&R){const dt=Math.min(0.25,(now-lastFrame)/1000);cur+=dt*speed/60;if(cur>=R.N-1){cur=R.N-1;playing=false;markPlay();}drawAll(false);}
+  for(const b of $('sspeeds').children)b.onclick=()=>{const v=b.dataset.v;speed=v==='live'?'live':+v;playing=true;if(cur>=R.N-1&&speed!=='live')cur=0;lastFrame=performance.now();markSpeed();markPlay();};markSpeed();
+  $('splayBtn').onclick=()=>{playing=!playing;if(playing&&cur>=R.N-1&&speed!=='live')cur=0;markPlay();lastFrame=performance.now();};
+  $('sscrub').oninput=e=>{cur=+e.target.value;if(speed==='live'&&playing){playing=false;markPlay();}drawAll(true);};$('speek').onclick=()=>showResult();}
+function markSpeed(){liveNote();for(const b of $('sspeeds').children){const on=String(b.dataset.v)===String(speed);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}}
+function markPlay(){liveNote();$('splayBtn').textContent=playing?'❚❚ 止める':'▶ 再生';$('splayBtn').setAttribute('aria-label',playing?'止める':'再生');}
+function tick(now){if(active&&playing&&R){const dt=Math.min(0.25,(now-lastFrame)/1000);if(speed==='live')cur=FL.liveAt(R.T0,R.T0+R.N-1)-R.T0;else cur+=dt*speed/60;if(cur>=R.N-1&&speed!=='live'){cur=R.N-1;playing=false;markPlay();}
+    if(speed!=='live'||now-lastDraw>=50){lastDraw=now;drawAll(false);}}   // いまの速さでは絵は1秒20回（軽く）
   lastFrame=now;requestAnimationFrame(tick);}
 function drawAll(force){if(!R||!active)return;const i=Math.floor(cur);
   if(force){const ln=$('lineName');if(ln&&ln.textContent!==A.line)ln.textContent=A.line;}
   $('sscrub').value=i;$('sclock').textContent=hm(R.T0+i);drawStage();
-  if(force||i!==lastSide){lastSide=i;drawClocks(i);drawEvents(i);drawTray();drawGantt();if(i>=R.N-1&&!resultShown)showResult();}}
+  if(force||i!==lastSide){lastSide=i;liveNote();drawClocks(i);drawEvents(i);drawTray();drawGantt();if(i>=R.N-1&&!resultShown)showResult();}}
 
 /* ---------------- 4つの時計 ---------------- */
 const QC_TEXT={0:'手が空いている',1:'初品確認・表示の照合',2:'冷却・洗浄・配合の確認',3:'保留の評価'};
@@ -165,7 +169,7 @@ function drawLoaf(c,[x,y,w,h],i,t,narrow){const z=R.agg.loaf[i],L=A.loaf;if(!z)r
   const head=([bx,by,bw],s)=>txt(c,s,bx+bw/2,by+12,{align:'center',size:10.5,bold:true});
   // こねる・発酵・型詰め
   {const [bx,by,bw,bh]=cols[0];head(cols[0],'こねる・発酵・型詰め');c.fillStyle=css('--steel');rr(c,bx+bw/2-22,by+20,44,32,6);c.fill();
-    if(z.mix){c.fillStyle='#efe2c4';c.beginPath();c.arc(bx+bw/2,by+36,10+Math.sin(t*3)*2,0,7);c.fill();}
+    if(z.mix){c.fillStyle='#efe2c4';c.beginPath();c.arc(bx+bw/2,by+36,10+Math.sin(WS()*4)*2,0,7);c.fill();}
     txt(c,`発酵 ${z.ferm}本分・型詰め ${z.shape}本分`,bx+bw/2,by+70,{align:'center',size:9.5,color:css('--muted')});}
   // ホイロ
   {const [bx,by,bw,bh]=cols[1];head(cols[1],`ホイロ（${L.proof.T}℃・${L.proof.racks}回分）`);const n=Math.ceil((z.proof+z.oq)/L.batch);
@@ -175,10 +179,11 @@ function drawLoaf(c,[x,y,w,h],i,t,narrow){const z=R.agg.loaf[i],L=A.loaf;if(!z)r
     if(z.oq)txt(c,`焼く番を待つ ${z.oq}本`,bx+bw/2,by+bh-8,{align:'center',size:9.5,color:css('--warn')});}
   // オーブン
   {const [bx,by,bw,bh]=cols[2];head(cols[2],`オーブン（${z.oven.length}台・ふたをして${L.oven.bake}分）`);const ow=(bw-16)/z.oven.length-6;
-    z.oven.forEach((f,k)=>{const ox=bx+8+k*(ow+6);c.fillStyle='#4a3a2e';rr(c,ox,by+24,ow,48,5);c.fill();c.fillStyle=f>=0?'#e08a3a':'#6d5d50';c.globalAlpha=f>=0?0.85:0.5;rr(c,ox+4,by+28,ow-8,30,3);c.fill();c.globalAlpha=1;
+    z.oven.forEach((f,k)=>{const ox=bx+8+k*(ow+6);c.fillStyle='#4a3a2e';rr(c,ox,by+24,ow,48,5);c.fill();if(f>=0&&f<1)FactoryLive.puffs(c,ox,by+22,ow,3,'rgba(224,120,43,.75)');c.fillStyle=f>=0?'#e08a3a':'#6d5d50';c.globalAlpha=f>=0?0.7+0.15*Math.sin(WS()*3+k):0.5;rr(c,ox+4,by+28,ow-8,30,3);c.fill();c.globalAlpha=1;
       txt(c,f<0?'空き':f>=1?'出せない':`あと${Math.ceil((1-f)*(L.oven.bake+L.oven.load))}分`,ox+ow/2,by+86,{align:'center',size:9.5,color:f>=1?css('--bad'):css('--muted')});});}
   // 冷ます棚
   {const [bx,by,bw,bh]=cols[3];head(cols[3],`冷ます（${R.summary.loaf.coolLabel}）`);const n=z.cool+z.cooled,cap=L.cool.racks;
+    if(z.cool)FactoryLive.puffs(c,bx+8,by+22,Math.min(bw-16,(bw-16)/24*Math.min(24,z.cool+z.cooled)),3);   // 冷ましているパンの湯気
     const cell=(bw-16)/24;for(let k=0;k<cap;k++){const cx=bx+8+(k%24)*cell,cy=by+24+Math.floor(k/24)*14;
       c.fillStyle=k<z.cooled?'#d9b98a':k<n?tempColor(isNaN(z.hot)?30:z.hot):css('--line');c.fillRect(cx,cy,cell-1.5,11);}
     txt(c,`${n}／${cap}本${n?`・芯 ${Math.round(z.hot)}${z.cool&&z.cold<z.hot?'〜'+Math.round(z.cold):''}℃`:''}`,bx+bw/2,by+92,{align:'center',size:10,bold:true});
@@ -204,14 +209,14 @@ function drawEgg(c,[x,y,w,h],i,t){const PE=A.prep.egg;const gw=(w-28)/4;
   const col=(k,title)=>{const bx=x+8+k*(gw+4);txt(c,title,bx+gw/2,y+56,{align:'center',size:10.5,bold:true});return bx;};
   // スチーマー
   {const bx=col(0,'スチーマー'),by=y+66;c.fillStyle=css('--steel');rr(c,bx,by,gw,70,6);c.fill();c.fillStyle='#d7dde2';rr(c,bx+4,by+4,gw-8,46,4);c.fill();
-    if(steam){for(let k=0;k<6;k++){c.fillStyle='#fbf6ea';c.beginPath();c.ellipse(bx+10+(k%3)*(gw-20)/2,by+16+Math.floor(k/3)*20,5,7,0,0,7);c.fill();}
+    if(steam){FactoryLive.puffs(c,bx,by-2,gw,3);for(let k=0;k<6;k++){c.fillStyle='#fbf6ea';c.beginPath();c.ellipse(bx+10+(k%3)*(gw-20)/2,by+16+Math.floor(k/3)*20+Math.sin(WS()*5+k)*1.5,5,7,0,0,7);c.fill();}
             const el=t-steam.tBoil;txt(c,el<PE.steam?`あと${Math.ceil(PE.steam-el)}分`:'冷水の空き待ち',bx+gw/2,by+92,{align:'center',size:9.5,color:el<PE.steam?css('--muted'):css('--bad')});}}
   // 冷水のシャワー
   {const bx=col(1,'冷水'),by=y+66;const ts=R.agg.bathT[i];for(let k=0;k<PE.bath;k++)slot(c,bx,by+k*40,gw,34,ts[k]!=null?ts[k]:null,'卵');}
   // 殻むき機
   {const bx=col(2,'殻むき機'),by=y+66;c.fillStyle=css('--steel');rr(c,bx,by,gw,50,6);c.fill();const pl=lotAt('egg',t,(l,t)=>l.tPeel!=null&&l.tPeel<=t&&(l.tCheck==null||t<l.tCheck));
     for(let k=0;k<4;k++){c.fillStyle=pl?'#2e7d4f':'#7d8792';c.fillRect(bx+6,by+8+k*10,gw-12,4);}
-    if(pl){for(let k=0;k<3;k++){const u=((t*0.8+k/3)%1);c.fillStyle='#fbf6ea';c.beginPath();c.ellipse(bx+6+u*(gw-12),by+24,5,6,0,0,7);c.fill();}txt(c,`あと${Math.max(0,Math.ceil(PE.peel-(t-pl.tPeel)))}分`,bx+gw/2,by+66,{align:'center',size:9.5,color:css('--muted')});}}
+    if(pl){for(let k=0;k<3;k++){const u=((WS()*0.4+k/3)%1);c.fillStyle='#fbf6ea';c.beginPath();c.ellipse(bx+6+u*(gw-12),by+24,5,6,0,0,7);c.fill();}txt(c,`あと${Math.max(0,Math.ceil(PE.peel-(t-pl.tPeel)))}分`,bx+gw/2,by+66,{align:'center',size:9.5,color:css('--muted')});}}
   // 人が確かめる → 和える
   {const bx=col(3,'確かめる'),by=y+66;person(c,bx+gw/2,by+6,'#5d7896');const ck=lotAt('egg',t,(l,t)=>l.tCheck!=null&&l.tCheck<=t&&(l.tReady==null||t<l.tReady));
     if(ck){const f=(t-ck.tCheck)/(PE.check+PE.mixMin);bar(c,bx,by+34,gw,7,f,'#f4dc86');txt(c,f*(PE.check+PE.mixMin)<PE.check?'殻・割れを手で':'マヨネーズと混ぜる',bx+gw/2,by+56,{align:'center',size:9.5});}}
@@ -221,7 +226,7 @@ function drawLettuce(c,[x,y,w,h],i,t){const PLt=A.prep.lettuce;const l=lotAt('le
   const sortMin=Math.ceil(PLt.lot/(R.cfg.sorters*PLt.sortRate));const el=l?t-l.tWash:0;const ph=!l?-1:el<sortMin?0:el<sortMin+PLt.wash?1:2;
   for(let k=0;k<R.cfg.sorters;k++)person(c,x+w/2-(R.cfg.sorters-1)*9+k*18,y+38,'#5d7896');
   const cx=x+w/2,cy=y+112,r=40;c.fillStyle=css('--steel');c.beginPath();c.arc(cx,cy,r,0,7);c.fill();c.fillStyle=css('--sheet');c.beginPath();c.arc(cx,cy,r-6,0,7);c.fill();
-  if(l){c.fillStyle='#9cc56a';for(let k=0;k<7;k++){const a=(ph===2?t*6:0)+k*0.9;c.beginPath();c.ellipse(cx+Math.cos(a)*18,cy+Math.sin(a)*18,9,6,a,0,7);c.fill();}
+  if(l){c.fillStyle='#9cc56a';for(let k=0;k<7;k++){const a=(ph===2?WS()*3:0)+k*0.9;c.beginPath();c.ellipse(cx+Math.cos(a)*18,cy+Math.sin(a)*18,9,6,a,0,7);c.fill();}
     if(ph===1){c.fillStyle=css('--water');c.globalAlpha=0.5;c.beginPath();c.arc(cx,cy,r-8,0,7);c.fill();c.globalAlpha=1;}
     txt(c,ph===0?`葉を選ぶ あと${Math.ceil(sortMin-el)}分`:ph===1?`洗い槽・殺菌 あと${Math.ceil(sortMin+PLt.wash-el)}分`:`脱水機 あと${Math.max(0,Math.ceil(sortMin+PLt.wash+R.cfg.spin-el))}分`,cx,y+172,{align:'center',size:10.5});}
   else txt(c,'—',cx,cy+4,{align:'center',size:11,color:css('--muted')});
@@ -229,7 +234,7 @@ function drawLettuce(c,[x,y,w,h],i,t){const PLt=A.prep.lettuce;const l=lotAt('le
 function drawKatsu(c,[x,y,w,h],i,t){const PK=A.prep.katsu;const gw=(w-24)/2;
   const f=lotAt('katsu',t,(l,t)=>l.tFry<=t&&(l.tChill==null||t<l.tChill));
   {const bx=x+8,by=y+36;txt(c,'フライヤー',bx+gw/2,by+22,{align:'center',size:11,bold:true});c.fillStyle='#6b5a3a';rr(c,bx,by+30,gw,70,6);c.fill();c.fillStyle='#d9a441';c.globalAlpha=f?0.8:0.3;rr(c,bx+6,by+36,gw-12,50,4);c.fill();c.globalAlpha=1;
-    if(f){for(let k=0;k<3;k++){c.fillStyle='#b37a3a';rr(c,bx+12+k*(gw-24)/3,by+50,(gw-24)/3-6,20,4);c.fill();}const el=t-f.tFry;
+    if(f){FactoryLive.bubbles(c,bx+6,by+36,gw-12,50,10);for(let k=0;k<3;k++){c.fillStyle='#b37a3a';rr(c,bx+12+k*(gw-24)/3,by+50,(gw-24)/3-6,20,4);c.fill();}const el=t-f.tFry;
       txt(c,el<PK.fry?`揚げる あと${Math.ceil(PK.fry-el)}分`:'冷却機の空き待ち',bx+gw/2,by+118,{align:'center',size:10,color:el<PK.fry?css('--muted'):css('--bad')});}}
   {const bx=x+16+gw,by=y+36;txt(c,'急速冷却機',bx+gw/2,by+22,{align:'center',size:11,bold:true});const ts=R.agg.chillT[i];
     for(let k=0;k<PK.chill;k++)slot(c,bx,by+30+k*44,gw,38,ts[k]!=null?ts[k]:null,'カツ');}
@@ -237,6 +242,7 @@ function drawKatsu(c,[x,y,w,h],i,t){const PK=A.prep.katsu;const gw=(w-24)/2;
 function drawFruit(c,[x,y,w,h],i,t){const PF=A.prep.fruit;const l=R.lots.find(z=>(z.ing==='fruit'||z.ing==='tuna')&&z.tF<=t&&(z.tQC==null||t<z.tQC));
   person(c,x+w/2,y+48,'#5d7896');c.fillStyle=css('--sheet');c.strokeStyle=css('--line');rr(c,x+16,y+70,w-32,44,6);c.fill();c.stroke();
   if(l&&l.ing==='fruit'){const cols=['#e0475b','#8cbf3f','#f2a33a','#fbf6ea'];for(let k=0;k<8;k++){c.fillStyle=cols[k%4];c.beginPath();c.arc(x+30+k*((w-60)/7),y+92,6,0,7);c.fill();}
+    {const a=WS()*6;c.strokeStyle=css('--muted');c.lineWidth=2;c.beginPath();c.moveTo(x+w/2+10,y+60);c.lineTo(x+w/2+10+Math.cos(a)*8,y+76+Math.sin(a)*3);c.stroke();c.lineWidth=1;}   // 泡立て
     bar(c,x+16,y+124,w-32,7,(t-l.tF)/PF.min,'#f5c9d0');txt(c,'クリームを泡立て、果物を切る',x+w/2,y+148,{align:'center',size:10});}
   else if(l){for(let k=0;k<5;k++){c.fillStyle='#b9c2ca';rr(c,x+26+k*((w-62)/4),y+80,18,24,3);c.fill();c.fillStyle='#d9c7a0';c.fillRect(x+28+k*((w-62)/4),y+86,14,10);}
     bar(c,x+16,y+124,w-32,7,(t-l.tF)/A.prep.tuna.min,'#d9c7a0');txt(c,'ツナの油を切って、マヨネーズと混ぜる',x+w/2,y+148,{align:'center',size:10});}
@@ -260,7 +266,7 @@ function drawLine(c,box,i,t){const [x,y,w,h]=box;const code=R.agg.line[i];const 
       if(mach){c.fillStyle=css('--steel');rr(c,sx-17,by-52,34,42,5);c.fill();c.fillStyle=p.color;c.fillRect(sx-4,by-14,8,10);if(R.agg.jam[i]===2&&/盛り付け機/.test(name)){c.strokeStyle=css('--bad');c.lineWidth=2.5;rr(c,sx-19,by-54,38,46,6);c.stroke();c.lineWidth=1;}}
       else{const m=per[hk++]||0;for(let q=0;q<Math.min(4,m);q++)person(c,sx-(Math.min(4,m)-1)*6+q*12,by-34,'#5d7896');if(m>4)txt(c,`×${m}`,sx+22,by-24,{size:9.5,color:css('--muted')});}
       txt(c,name.replace(/（.*?）/g,'').replace('・ソース',''),sx,by-62,{align:'center',size:10,bold:true});txt(c,mach?'機械':'人',sx,by+22,{align:'center',size:9.5,color:css('--muted')});});}
-  if(code>=0&&code<5){const sp=0.12+0.3*R.agg.rate[i]/30;for(let k=0;k<9;k++){const u=((t*sp+k/9)%1);const sx=x+16+u*(w-48);c.fillStyle='#f3e8cf';c.fillRect(sx,by-6,20,6);c.fillStyle=p.color;c.fillRect(sx+3,by-9,14,3);}}
+  if(code>=0&&code<5){const sp=0.12+0.3*R.agg.rate[i]/30;for(let k=0;k<9;k++){const u=((WS()*sp*1.2+k/9)%1);const sx=x+16+u*(w-48);c.fillStyle='#f3e8cf';c.fillRect(sx,by-6,20,6);c.fillStyle=p.color;c.fillRect(sx+3,by-9,14,3);}}
   txt(c,codeText(code,i)+(code>=0&&code<5?`・1分${R.agg.rate[i].toFixed(0)}組`:''),x+w-10,y+19,{align:'right',size:11,bold:true,color:code===LC.WAIT||code===LC.BREAD||code===LC.JAM?css('--bad'):code===LC.CHANGE||code===LC.CLEAR||code===LC.QC?css('--warn'):css('--ink')});
   // トレー（温度の色と温度計）
   const tx=x+14,ty=y+152,tw=150,th=54;
