@@ -10,9 +10,9 @@
 
 KEY …15・load() …20・save() …21・hash() …25・ymdOf() …27・condFor() …30・catchUp() …38・■ 画面 …60・overlay() …61・show() …62・CSS …73・■ 起動 …82・公開 minatoAway …94
 
-## js/bread-core.js（209行）
+## js/bread-core.js（213行）
 
-BS_LABEL …19・rng() …21・gauss() …22・hm() …23・fermRate() …27・waterFor() …31・orders() …33・split() …37・flow() …40・simulate() …43・add() …59・rankOf() …168・judge() …169・公開 BreadCore …207
+BS_LABEL …19・rng() …21・gauss() …22・hm() …23・fermRate() …27・waterFor() …31・centerPart() …33・orders() …35・split() …39・flow() …42・simulate() …45・add() …62・rankOf() …172・judge() …173・公開 BreadCore …211
 
 ## js/bread-view.js（351行）
 
@@ -22,17 +22,21 @@ KEY …13・SPEEDS …15・ST_COLOR …16・load() …18・save() …19・css() 
 
 storeKey() …20・orderNo() …21・genreOf() …22・genreCfg() …23・routeOf() …24・salesRecord() …28・condW() …37・segShare() …42・plan() …53・emptyLog() …82・dayOf() …83・putRecord() …84・putOrder() …86・trim() …92・recsOf() …93・公開 CenterCore …95
 
-## js/donut-core.js（60行）
+## js/donut-core.js（64行）
 
-rng() …5・normalize() …6・simulate() …10・stage() …57・公開 DonutCore …58
+rng() …5・normalize() …6・simulate() …10・stage() …61・公開 DonutCore …62
 
 ## js/donut-view.js（104行）
 
 save() …7・run() …8・plan() …9・COLS …18・colOf() …19・crewText() …21・recipes() …22・stations() …31・result() …37・draw() …44・drawStage() …52・init() …97・tick() …100
 
-## js/factory-core.js（371行）
+## js/factory-core.js（375行）
 
-ST_LABEL …22・LN_LABEL …25・ROLES …27・rng() …29・gauss() …30・tau() …34・soakNeed() …36・mu() …38・lineCap() …42・washMin() …44・fillOrder() …46・fillOrders() …51・riceKind() …54・riceSeq() …56・actualOrder() …65・hm() …68・simulate() …70・addBatch() …83・fixDrift() …139・findLabel() …142・judge() …321・公開 FactoryCore …369
+ST_LABEL …22・LN_LABEL …25・ROLES …27・rng() …29・gauss() …30・tau() …34・soakNeed() …36・mu() …38・lineCap() …42・washMin() …44・fillOrder() …46・centerPart() …51・fillOrders() …53・riceKind() …56・riceSeq() …58・actualOrder() …67・hm() …70・simulate() …72・addBatch() …86・fixDrift() …142・findLabel() …145・judge() …325・公開 FactoryCore …373
+
+## js/factory-night.js（71行）
+
+LINES …13・kioskMap() …19・seasonOf() …21・seedOf() …23・latest() …25・splitItems() …27・cfgsFrom() …29・runNight() …32・centerShip() …42・share() …44・truckOf() …48・slip() …52・readLog() …63・withCenter() …64・centerNote() …65・公開 FactoryNight …68
 
 ## js/factory-pl.js（99行）
 
@@ -50,9 +54,9 @@ hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() 
 
 hash() …12・rng() …13・hoursOf() …19・dayPlan() …23・TYPES …28・traits() …36・moodWord() …38・person() …41・create() …50・assign() …59・autoShift() …72・migrate() …75・insuredOf() …81・weekHours() …83・today() …85・payOf() …97・adsOpen() …100・close() …103・公開 KioskStaff …137
 
-## js/kiosk-view.js（796行）
+## js/kiosk-view.js（823行）
 
-STORDER …12・DAYN …22・■ 読み込み・保存 …29・persist() …35・■ その日の計算 …39・ctxNow() …40・checkDay() …44・ensureRes() …47・tick() …51・closeToday() …52・orderFor() …64・nextOrderDay() …65・■ 川辺の配送センター（計算は js/center-core.js、設定は data/center.json） …66・center() …69・isAuto() …70・managed() …71・aimName() …72・loadOrders() …74・saveOrders() …75・salesToCenter() …76・planFor() …77・dailyOrder() …79・nextCond() …87・editOrder() …88・expressLeft() …92・expressOpen() …93・todayExpress() …97・openExpress() …99・pendingExpress() …100・addToExpress() …103・orderExpress() …106・addOnOk() …110・addOnNext() …111・addOnToday() …112・orderAddOn() …113・expressConfirm() …118・onDuty() …123・curSet() …124・edit() …125・■ 商品ごとの「いま」 …129・counts() …131・nextDelivery() …134・pinfo() …135・motText() …139・withText() …141・ST_LABEL …143・orderDiff() …146・orderText() …147・■ 骨組み …149・CSS …150・mount() …226・setMult() …241・badge() …242・readNews() …245・openFromBadge() …247・setOpen() …248・■ 開店前：場所を選ぶ …251・renderSetup() …252・■ 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） …265・renderAlert() …266・openSheet() …277・closeSheet() …278・renderSheet() …279・updateSheet() …314・■ 画面全体 …318・render() …319・renderKpi() …328・renderBody() …333・evText() …345・LF0 …358・KIND …361・lfMatch() …364・lfBar() …372・lfSummary() …391・lfCsv() …403・PAGE …412・renderLog() …413・flushLog() …431・centerBox() …439・renderItems() …449・updateItems() …510・renderLayout() …515・basketStats() …529・renderPeople() …538・crewSave() …567・renderCrew() …568・renderMoney() …649・moveCard() …663・shrinkCard() …683・renderNews() …692・■ 売店の正面の絵 …695・BOX …696・zoneSlots() …697・rr() …698・drawItem() …699・drawKiosk() …709・personColor() …738・spawnFromEvent() …739・bubble() …744・stepPeople() …745・drawPerson() …754・draw() …759・onCanvasClick() …779・loop() …782・■ 起動 …787・公開 minatoKiosk …789
+STORDER …12・DAYN …22・■ 読み込み・保存 …29・persist() …35・■ その日の計算 …39・ctxNow() …40・checkDay() …44・ensureRes() …47・tick() …51・closeToday() …52・orderFor() …64・nextOrderDay() …65・■ 川辺の配送センター（計算は js/center-core.js、設定は data/center.json） …66・center() …69・isAuto() …70・managed() …71・aimName() …72・loadOrders() …74・saveOrders() …75・salesToCenter() …76・planFor() …77・dailyOrder() …79・FSCRIPTS …89・loadFactory() …90・slipTodo() …93・queueSlips() …94・makeSlip() …99・nextCond() …110・editOrder() …111・expressLeft() …115・expressOpen() …116・todayExpress() …120・openExpress() …122・pendingExpress() …123・addToExpress() …126・orderExpress() …129・addOnOk() …133・addOnNext() …134・addOnToday() …135・orderAddOn() …136・expressConfirm() …141・onDuty() …146・curSet() …147・edit() …148・■ 商品ごとの「いま」 …152・counts() …154・nextDelivery() …157・pinfo() …158・motText() …162・withText() …164・ST_LABEL …166・orderDiff() …169・orderText() …170・■ 骨組み …172・CSS …173・mount() …249・setMult() …264・badge() …265・readNews() …268・openFromBadge() …270・setOpen() …271・■ 開店前：場所を選ぶ …274・renderSetup() …275・■ 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） …288・renderAlert() …289・openSheet() …300・closeSheet() …301・renderSheet() …302・updateSheet() …337・■ 画面全体 …341・render() …342・renderKpi() …351・renderBody() …356・evText() …368・LF0 …381・KIND …384・lfMatch() …387・lfBar() …395・lfSummary() …414・lfCsv() …426・PAGE …435・renderLog() …436・flushLog() …454・centerBox() …462・slipLine() …473・renderItems() …476・updateItems() …537・renderLayout() …542・basketStats() …556・renderPeople() …565・crewSave() …594・renderCrew() …595・renderMoney() …676・moveCard() …690・shrinkCard() …710・renderNews() …719・■ 売店の正面の絵 …722・BOX …723・zoneSlots() …724・rr() …725・drawItem() …726・drawKiosk() …736・personColor() …765・spawnFromEvent() …766・bubble() …771・stepPeople() …772・drawPerson() …781・draw() …786・onCanvasClick() …806・loop() …809・■ 起動 …814・公開 minatoKiosk …816
 
 ## js/research-core.js（166行）
 
@@ -70,9 +74,9 @@ uid() …17・emptyDoc() …19・normalize() …22・■ 形（制御点の並�
 
 KEY …9・FONTS …10・FONTN …11・SHAPES …12・DASHN …13・DEF …15・MAP …19・■ 保存・元に戻す …22・save() …23・commit() …24・revert() …25・undo() …26・redo() …27・fixSel() …28・■ 見る位置 …34・fit() …36・zoomAt() …38・resize() …39・■ 線の描き方 …41・dashOf() …42・strokeStyled() …45・shapePath() …57・drawMarker() …65・LPV …73・autoLP() …74・labelBox() …78・drawLabel() …79・■ 路線の形（同じ道は並べてずらす） …87・offsetPoly() …88・linesGeom() …90・■ 背景：机・地図の絵・線路と駅 …104・drawTable() …105・drawSheet() …109・drawRail() …113・■ 全体を描く（画面とPNGで共通） …122・drawScene() …123・frame() …157・■ 当たり判定 …159・hitStop() …161・hitHandle() …164・■ 指・マウス …166・pos() …168・endPointer() …196・dbl() …211・hoverCursor() …219・tapPen() …221・tapPoly() …222・endPoly() …226・tapStop() …227・newLine() …230・tapLine() …232・■ キー …238・delSel() …251・■ 見本の小さな絵 …253・swatch() …254・■ 画面の部品 …261・chip() …264・setTool() …265・focusName() …267・ui() …269・dots() …272・typeRow() …274・dock() …279・■ 路線の帳面 …305・showLines() …306・lineList() …309・lineEditor() …316・■ 見た目の小窓 …348・closePops() …349・openStyle() …350・renderStyle() …351・■ メニュー …392・download() …402・exportJSON() …404・bounds() …407・savePNG() …408・■ 例（メニューの「例を描いてみる」。元に戻すで消せる） …413・example() …414・■ はじめ …445・init() …446・公開 __routeEditor …454
 
-## js/sand-core.js（283行）
+## js/sand-core.js（287行）
 
-ING …22・rng() …23・gauss() …24・hm() …25・YEN_SEASON …27・■ 規格：原材料からアレルゲンを集める …29・kindOf() …31・kindAllergen() …32・productKinds() …33・productParts() …34・productAllergen() …35・spec() …38・washLeft() …41・washMin() …42・expiryAt() …44・orders() …46・safeMin() …49・waterLeft() …50・beltRate() …52・ownBread() …55・sandFor() …56・simulate() …58・■ くじ（条件を変えても、同じ時刻に同じくじ） …76・■ 品質確認の人：仕事の列（初品確認 → 冷却・配合・洗浄 → 保留の評価） …82・■ 具材の在庫と仕込み …86・■ 組み立て …100・■ 品質確認の人 …141・■ 仕込み …145・■ 組み立て …167・■ 締め → カット（1組を2切れ）。保留の分は評価を待つ …212・■ 三角パックに詰める（人）：いちばん前から待っている切れの品から …217・■ 記録 …235・■ 朝の答え合わせ …246・公開 SandCore …281
+ING …22・rng() …23・gauss() …24・hm() …25・YEN_SEASON …27・■ 規格：原材料からアレルゲンを集める …29・kindOf() …31・kindAllergen() …32・productKinds() …33・productParts() …34・productAllergen() …35・spec() …38・washLeft() …41・washMin() …42・expiryAt() …44・centerPart() …47・orders() …48・safeMin() …51・waterLeft() …52・beltRate() …54・ownBread() …57・sandFor() …58・simulate() …60・■ くじ（条件を変えても、同じ時刻に同じくじ） …79・■ 品質確認の人：仕事の列（初品確認 → 冷却・配合・洗浄 → 保留の評価） …85・■ 具材の在庫と仕込み …89・■ 組み立て …103・■ 品質確認の人 …145・■ 仕込み …149・■ 組み立て …171・■ 締め → カット（1組を2切れ）。保留の分は評価を待つ …216・■ 三角パックに詰める（人）：いちばん前から待っている切れの品から …221・■ 記録 …239・■ 朝の答え合わせ …250・公開 SandCore …285
 
 ## js/sand-loaf.js（124行）
 
