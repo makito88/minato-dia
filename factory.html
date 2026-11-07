@@ -265,7 +265,7 @@ table.fills{max-width:460px}
 <section class="card"><h2>夕方に決める（ドーナッツ）</h2>
 <p id="dproducts"></p><div class="plan" id="dplan"></div>
 <p class="small muted">シュガー・チョコ・生ドーナツの3品。生ドーナツも十分に揚げる、クリームなしの柔らかい生地です。フライヤーは専用で、パンの設備とは取り合いません。</p>
-<div class="row"><button class="primary" id="drun">この条件で夜を回す</button><button id="dnewNight">別の夜にする（注文が変わる）</button></div></section>
+<div class="row"><button class="primary" id="drun">この条件で夜を回す</button><button id="dnewNight">別の夜にする（注文が変わる）</button><span class="small muted" id="dnightInfo"></span></div></section>
 <section class="card"><h2>ドーナッツの作り方</h2><p class="small muted">3品の生地と配合、120個のひと組が各工程にかかる時間です。季節と仕上げの人数を変えると、時間も変わります。</p><div id="drecipes"></div>
 <h3 style="margin-top:14px">どこが機械で、どこが人か</h3><div id="dstations"></div></section>
 <section class="card"><h2>夜のドーナッツのライン</h2>
@@ -283,15 +283,16 @@ table.fills{max-width:460px}
 
 <p class="note">名前・会社・数字はすべて架空のゲームの目安です。吸水・冷え方・菌の増え方と、成形・包装の機械のライン2本（機械の速さ・フィルムの枚数・具の掃除・詰まり・はじく割合・消費期限・機械の費用）は、現実の性質（水温で吸水が変わる、ニュートンの冷却、菌は10〜50℃台で増えやすい）の形だけを借りた仮の数字で、実際の食品衛生の基準や、実在の工場の数字ではありません。設定は <code>data/factory.json</code>。</p>
 </div>
-<script src="js/factory-core.js"></script>
-<script src="js/factory-view.js"></script>
-<script src="js/bread-core.js"></script>
-<script src="js/bread-view.js"></script>
+<script src="js/factory-night.js?v=20261107a"></script>
+<script src="js/factory-core.js?v=20261107a"></script>
+<script src="js/factory-view.js?v=20261107a"></script>
+<script src="js/bread-core.js?v=20261107a"></script>
+<script src="js/bread-view.js?v=20261107a"></script>
 <script src="js/sand-loaf.js"></script>
-<script src="js/sand-core.js"></script>
-<script src="js/sand-view.js"></script>
-<script src="js/donut-core.js?v=20261103a"></script>
-<script src="js/donut-view.js?v=20261103a"></script>
+<script src="js/sand-core.js?v=20261107a"></script>
+<script src="js/sand-view.js?v=20261107a"></script>
+<script src="js/donut-core.js?v=20261107a"></script>
+<script src="js/donut-view.js?v=20261107a"></script>
 <script src="js/factory-pl.js"></script>
 </body>
 </html>

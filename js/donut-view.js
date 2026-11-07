@@ -5,7 +5,7 @@ const C=window.DonutCore,$=id=>document.getElementById(id),KEY='dia-factory-donu
 let D,R,cfg,cur,playing=false,active=false,last=0,minute=-1,speed=300;
 const yen=n=>Math.round(n).toLocaleString()+'円';
 function save(){try{localStorage.setItem(KEY,JSON.stringify({cfg}));}catch(e){}}
-function run(){R=C.simulate(D,cfg);cfg=Object.assign({},R.cfg);cur=R.T0;minute=-1;playing=false;save();$('dresult').hidden=true;$('dresultWait').hidden=false;$('dscrub').min=R.T0;$('dscrub').max=R.T1;recipes();stations();draw();}
+function run(){R=C.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));cfg=Object.assign({},R.cfg);delete cfg.center;delete cfg.centerNo;{const e=$('dnightInfo');if(e)e.textContent=`夜の番号 ${cfg.seed}`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'donut','個'):'');}cur=R.T0;minute=-1;playing=false;save();$('dresult').hidden=true;$('dresultWait').hidden=false;$('dscrub').min=R.T0;$('dscrub').max=R.T1;recipes();stations();draw();}
 function plan(){const B=D.donut;
  const select=(id,label,opts)=>`<div><label for="d${id}">${label}</label><select id="d${id}">${opts.map(([v,t])=>`<option value="${v}" ${String(cfg[id])===String(v)?'selected':''}>${t}</option>`).join('')}</select></div>`;
  const times=[];for(let t=B.ranges.start[0];t<=B.ranges.start[1];t+=15)times.push([t,C.hm(t)]);

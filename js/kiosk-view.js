@@ -31,7 +31,7 @@ Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.j
   .then(([c,rc])=>{V.cfg=c;V.rcfg=rc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
-if(CC)fetch('data/center.json').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);}).catch(()=>{});
+if(CC)fetch('data/center.json').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},1500);}).catch(()=>{});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
 const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム本体の運賃表）
@@ -81,8 +81,31 @@ function dailyOrder(){if(!CC||!V.ccfg||!V.st)return;const S=V.st,day=gDay(),C=ce
     if(C.mode==='auto'){const p=planFor(cond);S.order=orderFor(day);Object.assign(S.order,p.items);
       for(const e of (S.orderQ||[]))for(const pid in e.order)if(managed(pid))delete e.order[pid];   // おまかせの品は、店で入れた予定を使わない
       items=orderFor(day);o={mode:'auto',aim:C.aim};}
-    const lg=loadOrders();CC.putOrder(V.cfg,V.ccfg,lg,day,CC.storeKey(S),{...o,items},V.ccfg.keepDays);saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
-  C.ordDay=day;persist();}
+    const lg=loadOrders();CC.putOrder(V.cfg,V.ccfg,lg,day,CC.storeKey(S),{...o,items},V.ccfg.keepDays);{const dd=lg.days.find(x=>x.day===day);if(dd)dd.cond=cond;}saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
+  C.ordDay=day;persist();queueSlips();}
+/* 納品書（発注と配送 第2回）：運行日が変わったら、その夜の工場の結果から納品書を作って dia-orders に残す（計算は js/factory-night.js）。
+   工場の計算と data/factory.json は、要るときにはじめて読む（売店を開くだけなら読まない）。工場の画面を開いていなくても作る。
+   売店の計算は変えない：不足はお知らせに出すだけ */
+const FSCRIPTS=['js/factory-core.js','js/bread-core.js','js/sand-loaf.js','js/sand-core.js','js/donut-core.js','js/factory-pl.js','js/factory-night.js'];
+function loadFactory(){if(V.fac)return V.fac;const add=src=>new Promise((ok,ng)=>{if(document.querySelector(`script[data-fac="${src}"]`))return ok();const e=document.createElement('script');e.src=src+'?v=20261107a';e.dataset.fac=src;e.onload=ok;e.onerror=()=>ng(new Error(src));document.head.appendChild(e);});
+  V.fac=FSCRIPTS.reduce((p,src)=>p.then(()=>add(src)),Promise.resolve()).then(()=>fetch('data/factory.json').then(r=>{if(!r.ok)throw new Error('factory.json: HTTP '+r.status);return r.json();}))
+    .catch(e=>{V.fac=null;throw e;});return V.fac;}
+function slipTodo(){const lg=loadOrders(),day=gDay(),back=(V.ccfg.slip&&V.ccfg.slip.maxBack)||7;return lg.days.filter(d=>d.factory&&Object.keys(d.factory.items||{}).length&&!d.slip&&d.day<=day&&d.day>day-back).map(d=>d.day);}
+function queueSlips(){if(!CC||!V.ccfg||!V.ccfg.slip||V.slipBusy||!slipTodo().length)return;V.slipBusy=true;
+  loadFactory().then(D0=>new Promise(done=>{const FN=window.FactoryNight;const step=()=>{const days=slipTodo();if(!days.length)return done();
+      try{makeSlip(FN,D0,days[0]);}catch(e){console.warn('納品書を作れませんでした',e);const lg=loadOrders(),d=lg.days.find(x=>x.day===days[0]);if(d){d.slip={no:'N'+String(d.day).padStart(4,'0'),err:1};saveOrders(lg);}}
+      setTimeout(step,0);};step();}))   // 1夜ずつ（留守のあとでも画面を止めない）
+    .catch(e=>console.warn('工場の計算を読めませんでした',e)).finally(()=>{V.slipBusy=false;});}
+function makeSlip(FN,D0,day){const lg=loadOrders(),d=lg.days.find(x=>x.day===day);if(!d||d.slip)return;
+  const D=JSON.parse(JSON.stringify(D0)),get=k=>{try{return localStorage.getItem(k);}catch(e){return null;}},cfgs=FN.cfgsFrom(get);
+  if(window.FactoryPL){FactoryPL.apply(D,FactoryPL.settings(D));cfgs.rice.batches=Math.max(cfgs.rice.batches||D.defaults.batches,FactoryPL.suggestBatches(D));}   // 取引先と設備（工場の収支で選んだもの）
+  const night=FN.runNight(D,cfgs,{day,no:d.factory.no,items:d.factory.items,season:d.cond&&d.cond.season});
+  d.slip=FN.slip(D,V.ccfg,d,night);saveOrders(lg);
+  const S=V.st,mine=S&&d.slip.stores[CC.storeKey(S)];
+  if(mine&&mine.short.q>0&&V.ccfg.slip.news){const I=ix(),sh=Object.entries(mine.items).filter(([,a])=>a[1]<a[0]);
+    S.news.push({day:gDay(),kind:'center',title:`納品書：${mine.short.n}品で${mine.short.q}個足りない（第${day}運行日・${mine.no}）`,
+      text:`工場が注文に間に合わなかった分です（${sh.map(([pid,a])=>`${I.P[pid]?I.P[pid].name:pid} ${a[0]}→${a[1]}`).join('、')}）。いまは表示だけで、棚にはいつもどおり届いています（売店の計算は変えていません）。工場の出荷 ${fmtT(d.slip.at)}・トラック${mine.truck||'—'}・${(d.slip.bin&&d.slip.bin.name)||'朝の便'}。`});
+    S.unread=(S.unread||0)+1;persist();badge();if(V.open)setTimeout(()=>render(true),0);}}
 // 画面の見込み：あすの条件（曜日は暦、天気は日ごとに決まった値。わからなければきょうの条件）
 function nextCond(){const c=g(()=>minatoAway.condFor(minatoAway.opIndex(Date.now())+1),null)||gCond();return {day:c.day,wx:c.wx,season:c.season};}
 function editOrder(pid,delta){if(managed(pid))return;const S=V.st,na=nextOrderDay();S.orderQ=S.orderQ||[];let e=S.orderQ.find(x=>x.from===na);if(!e){e={from:na,order:orderFor(na)};S.orderQ.push(e);}
@@ -444,7 +467,11 @@ function centerBox(pv){if(!CC||!V.ccfg||!V.st)return '';const C=center(),A=V.ccf
     <p class="ks-note" style="margin:4px 0 0">川辺のセンターが、毎晩送られる売上の記録（売れた数・売り切れで逃した数・廃棄・残り）から、${esc(V.ccfg.dayTypes[nd.day]||'')}の最近の売れ方に天気・季節を足して、品ごとの数を決めます。おにぎり・サンド・パン・ドーナツは工場へ、飲み物・お菓子・日用品・ホットスナックはセンター在庫から。新聞・雑誌・たばこはセンターを通らないので、店で決めた数のままです。${nN<nAll?`記録がまだ少ない品（${nAll-nN}品）は、いまの数と混ぜています。`:''}</p>
     ${last?`<p class="ks-note" style="margin:4px 0 0">第${last.day}運行日の結果：<b>廃棄${yen(last.waste)}・売り切れ${last.soldout}品</b></p>`:''}`
     :`<p class="ks-note" style="margin:4px 0 0">いまは店で仕入れ数を決めています。おまかせにすると、次の運行日の便から、センターが記録をもとに数を決めます（売上の記録は、どちらでも毎晩センターへ送っています）。</p>`}
-    ${mine?`<p class="ks-note" style="margin:4px 0 0">きょうの便の発注番号 ${esc(mine.no)}（${mine.mode==='auto'?'センターが決めた数':'店で決めた数'}・工場へ${Object.values(mine.factory).reduce((a,b)=>a+b,0)}個）</p>`:''}</div>`;}
+    ${mine?`<p class="ks-note" style="margin:4px 0 0">きょうの便の発注番号 ${esc(mine.no)}（${mine.mode==='auto'?'センターが決めた数':'店で決めた数'}・工場へ${Object.values(mine.factory).reduce((a,b)=>a+b,0)}個）</p>`:''}
+    ${slipLine(od,key)}</div>`;}
+/* きょうの納品書のひとこと（店の発注の欄） */
+function slipLine(od,key){const sl=od&&od.slip,m=sl&&sl.stores&&sl.stores[key];if(!m)return '';const n=Object.values(m.items).reduce((a,x)=>a+x[0],0),g=Object.values(m.items).reduce((a,x)=>a+x[1],0);
+  return `<p class="ks-note" style="margin:4px 0 0">納品書 ${esc(sl.no)}：工場の品 ${g}/${n}個${m.short.q>0?`・<b>${m.short.n}品で${m.short.q}個足りない</b>（表示だけ。棚にはいつもどおり届きます）`:'・そろった'}。工場の出荷 ${fmtT(sl.at)}・トラック${esc(m.truck||'—')}・${esc((sl.bin&&sl.bin.name)||'朝の便')}</p>`;}
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
 function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT()),na=nextOrderDay(),nextO=orderFor(na),today=orderFor(gDay());
   const pv=isAuto()?planFor(nextCond()):null;

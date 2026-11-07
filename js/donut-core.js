@@ -10,6 +10,9 @@ const coolMin=(B,p,season)=>Math.ceil(p.cool*Math.max(B.coolMinFactor,1+(season.
 function simulate(D,input){
  const B=D.donut,cfg=normalize(D,input),season=D.seasons[cfg.season],random=rng(cfg.seed);
  const products=B.products.map(p=>Object.assign({},p,{order:Math.round(B.forecast*p.share*(B.orderMin+random()*B.orderSpread))}));
+ // センターの発注（cfg.center：売店の商品IDごと。js/factory-night.js が dia-orders から渡す）を、ほかの店・取引先の分に足す
+ const cen={};if(cfg.center)for(const p of products)if(cfg.center[p.kiosk]>0){cen[p.id]=Math.round(cfg.center[p.kiosk]);p.order+=cen[p.id];}
+ const cTot=Object.values(cen).reduce((a,b)=>a+b,0);
  const batches=[],ev=[],waits={成形:0,揚げる順番:0,仕上げ:0,包装:0};
  // 注文前は見込みで仕込む。まだこねていない分は20時に注文へ合わせる。
  let mixFree=cfg.start;
@@ -45,7 +48,8 @@ function simulate(D,input){
   ev.push({t:b.mix,msg:`${p.name} ${b.n}個を仕込む${b.late?'（注文確定後）':'（見込み）'}`});
   ev.push({t:b.done,msg:`${p.name} ${b.n}個：${b.good?'包装完了':'品質不合格'}${b.done>D.deadline?'・締め切り後':''}`});
  }
- ev.push({t:D.orderConfirm,msg:`注文確定：${products.reduce((n,p)=>n+p.order,0)}個。こねる前の分を調整し、足りない分を追加`});ev.sort((a,b)=>a.t-b.t);
+ ev.push({t:D.orderConfirm,msg:`注文確定：${products.reduce((n,p)=>n+p.order,0)}個。こねる前の分を調整し、足りない分を追加`});
+ if(cTot)ev.push({t:D.orderConfirm,msg:`注文確定：センターから${cTot}個（${cfg.centerNo||'発注'}・${products.filter(p=>cen[p.id]).map(p=>p.name+cen[p.id]).join('・')}）。ほかの店・取引先の分に足して作ります`});ev.sort((a,b)=>a.t-b.t);
  const prods=products.map(p=>{const bs=batches.filter(b=>b.prod===p.id),available=bs.filter(b=>b.good&&b.done<=D.deadline).reduce((n,b)=>n+b.n,0),shipped=Math.min(p.order,available);return {id:p.id,kiosk:p.kiosk,name:p.name,order:p.order,shipped,short:p.order-shipped,bad:bs.filter(b=>!b.good).reduce((n,b)=>n+b.n,0),late:bs.filter(b=>b.good&&b.done>D.deadline).reduce((n,b)=>n+b.n,0),surplus:Math.max(0,available-p.order)};});
  const total=k=>prods.reduce((n,p)=>n+p[k],0),end=Math.max(D.deadline,...batches.map(b=>b.done));
  const labor=Math.round((end-cfg.start)/60*(B.staff+cfg.finishers)*B.wage*B.nightFactor);

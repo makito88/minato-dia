@@ -76,10 +76,10 @@ function clampInt(v,[a,b]){v=Math.round(+v);if(!isFinite(v))v=a;return Math.max(
 /* ---------------- 回す ---------------- */
 function run(keepTime){
   if(R){prev={cfg:R.cfg,summary:R.summary};}
-  R=F.simulate(D,cfg);resultShown=false;
+  R=F.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));resultShown=false;
   $('scrub').max=R.N-1;if(!keepTime)cur=0;cur=Math.min(cur,R.N-1);resetBelt();
   if(selected!=null&&!R.batches[selected])selected=null;
-  $('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`;
+  $('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'rice','個'):'');
   $('result').hidden=true;$('resultWait').hidden=false;
   save();drawAll(true);
 }
@@ -528,7 +528,7 @@ async function init(){
   $('stage').addEventListener('click',onStageClick);
   window.addEventListener('resize',()=>drawAll(true));
   const mq=window.matchMedia('(prefers-color-scheme: dark)');if(mq.addEventListener)mq.addEventListener('change',()=>{legends();drawAll(true);});
-  R=F.simulate(D,cfg);resetBelt();$('scrub').max=R.N-1;$('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`;
+  R=F.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));resetBelt();$('scrub').max=R.N-1;$('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'rice','個'):'');
   drawAll(true);requestAnimationFrame(t=>{lastFrame=t;tick(t);});
 }
 init();

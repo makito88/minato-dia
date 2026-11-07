@@ -100,9 +100,9 @@ function buildPlan(){const g=A.ranges;
   sync();}
 
 /* ---------------- 回す・再生 ---------------- */
-function run(keepTime){if(R)prev={cfg:R.cfg,summary:R.summary};R=SC.simulate(D,cfg);resultShown=false;evCount=-1;
+function run(keepTime){if(R)prev={cfg:R.cfg,summary:R.summary};R=SC.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));resultShown=false;evCount=-1;
   $('sscrub').max=R.N-1;if(!keepTime)cur=0;cur=Math.min(cur,R.N-1);
-  $('snightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`;
+  $('snightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'sand','パック'):'');
   $('sresult').hidden=true;$('sresultWait').hidden=false;save();drawAll(true);}
 function buildPlay(){$('sspeeds').innerHTML=SPEEDS.map(([v,l])=>`<button data-v="${v}">${l}</button>`).join('');
   for(const b of $('sspeeds').children)b.onclick=()=>{speed=+b.dataset.v;markSpeed();};markSpeed();

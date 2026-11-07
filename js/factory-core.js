@@ -47,6 +47,8 @@ function fillOrder(D,rule){const F=D.packLine.fillings.slice();
   if(rule==='big')F.sort((a,b)=>b.share-a.share);               // 注文の多い順
   else if(rule==='nitta')F.sort((a,b)=>(b.brand?1:0)-(a.brand?1:0)); // 雫の具を先にまとめて（あとは薄い順）
   return F.map(f=>f.id);}                                         // light：薄い味から濃い味へ
+/* センターの発注（売店の商品IDごと。js/factory-night.js が dia-orders から渡す）をこのラインの品に。ないときは空 */
+function centerPart(list,c){const o={};if(c)for(const p of list)if(p.kiosk&&c[p.kiosk]>0)o[p.id]=Math.round(c[p.kiosk]);return o;}
 /* 具ごとの本当の注文（20:00に分かる）。合計は actualOrder のまわりでばらつく */
 function fillOrders(D,seed,season){const total=actualOrder(D,seed,season);const r=rng((seed*15485863+({winter:1,mid:2,summer:3}[season]||0)*31)>>>0);
   const out={};for(const f of D.packLine.fillings)out[f.id]=Math.max(0,Math.round(total*f.share*(1+D.packLine.orderSd*gauss(r))/10)*10);return out;}
@@ -75,7 +77,8 @@ function simulate(D,cfgIn){
   const PL=D.packLine;const FILL={};PL.fillings.forEach(f=>FILL[f.id]=f);
   // 消費期限は、その夜の製造に決まった期限（包装が遅れても延びない）。古い設定は包装から labelHours 時間
   const XR=PL.expiry,EXP=XR?XR.day*1440+XR.at:null;
-  const fo=fillOrders(D,cfg.seed,cfg.season);const order=Object.values(fo).reduce((a,b)=>a+b,0);
+  // 注文＝ほかの店・取引先の分（決まった乱数）＋センターの発注（cfg.center。あれば）。20:00より前は今どおり見込みで仕込む
+  const fo=fillOrders(D,cfg.seed,cfg.season),cen=centerPart(PL.fillings,cfg.center);for(const id in cen)fo[id]=(fo[id]||0)+cen[id];const order=Object.values(fo).reduce((a,b)=>a+b,0);
   const seq=fillOrder(D,cfg.order);
   const ev=[];const log=(t,k,msg,b)=>ev.push({t,k,msg,b:b==null?null:b});
 
@@ -157,6 +160,7 @@ function simulate(D,cfgIn){
       const need=Math.ceil(order/D.batchUnits);
       const live=batches.filter(b=>b.st!==ST.CANCEL);
       log(t,'order',`注文が確定：${order.toLocaleString()}個。見込みより${order>=D.forecast?'+':''}${(order-D.forecast).toLocaleString()}個（${seq.map(id=>FILL[id].name+fo[id]).join('・')}）。`);
+      const cTot=Object.values(cen).reduce((a,b)=>a+b,0);if(cTot)log(t,'order',`注文確定：センターから${cTot.toLocaleString()}個（${cfg.centerNo||'発注'}・${seq.filter(id=>cen[id]).map(id=>FILL[id].name+cen[id]).join('・')}）。ほかの店・取引先の分に足して作ります。`);
       const msg=[];
       for(const k of ['r','n']){let u=0;for(const id of seq)if(riceKind(D,id)===k)u+=fo[id];if(!u&&!batches.some(b=>b.kind===k))continue;
         const need=Math.ceil(u*(1+PL.spare)/D.batchUnits);const mine=batches.filter(b=>b.kind===k&&b.st!==ST.CANCEL);

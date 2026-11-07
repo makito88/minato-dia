@@ -91,10 +91,10 @@ function buildPlan(){
 /* ---------------- 回す・再生 ---------------- */
 function run(keepTime){
   if(R)prev={cfg:R.cfg,summary:R.summary};
-  R=BC.simulate(D,cfg);resultShown=false;evCount=-1;
+  R=BC.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));resultShown=false;evCount=-1;
   $('bscrub').max=R.N-1;if(!keepTime)cur=0;cur=Math.min(cur,R.N-1);
   if(selected!=null&&!R.batches[selected])selected=null;
-  $('bnightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`;
+  $('bnightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'bread','個'):'');
   $('bresult').hidden=true;$('bresultWait').hidden=false;save();drawAll(true);
 }
 function buildPlay(){
