@@ -106,7 +106,7 @@ function makeSlip(FN,D0,day){const lg=loadOrders(),d=lg.days.find(x=>x.day===day
   const S=V.st,mine=S&&d.slip.stores[CC.storeKey(S)];
   if(mine&&mine.short.q>0&&V.ccfg.slip.news){const I=ix(),sh=Object.entries(mine.items).filter(([,a])=>a[1]<a[0]);
     S.news.push({day:gDay(),kind:'center',title:`納品書：${mine.short.n}品で${mine.short.q}個足りない（第${day}運行日・${mine.no}）`,
-      text:`工場が注文に間に合わなかった分です（${sh.map(([pid,a])=>`${I.P[pid]?I.P[pid].name:pid} ${a[0]}→${a[1]}`).join('、')}）。売店を先に満たしたうえで足りなかった分で、その分は届きません（便の順に、最後の便から少なくなります）。工場の出荷 ${fmtT(d.slip.at)}・トラック${mine.truck||'—'}。`});
+      text:`工場が注文に間に合わなかった分です（${sh.map(([pid,a])=>`${I.P[pid]?I.P[pid].name:pid} ${a[0]}→${a[1]}`).join('、')}）。売店を先に満たしたうえで足りなかった分で、その分は届きません（朝の便から順に届け、出荷数に届いたところで止まります）。工場の出荷 ${fmtT(d.slip.at)}・トラック${mine.truck||'—'}。`});
     S.unread=(S.unread||0)+1;persist();badge();if(V.open)setTimeout(()=>render(true),0);}
   V.editRev=(V.editRev||0)+1;}   // その日の計算をやり直す（届く数が決まった）
 // 画面の見込み：あすの条件（曜日は暦、天気は日ごとに決まった値。わからなければきょうの条件）
@@ -176,7 +176,7 @@ function orderText(pid){const o=orderDiff(pid);return o.d?`${o.cur} → <b>${o.n
 const CSS=`
 .ksv{position:fixed;inset:0;z-index:67;background:var(--paper);color:var(--ink);overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 10px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(14px,env(safe-area-inset-left,0px))}
 .ksv[hidden]{display:none!important}
-.ks-in{max-width:1200px;margin:0 auto;display:grid;gap:10px}
+.ks-in{max-width:1200px;margin:0 auto;display:grid;gap:10px;grid-template-columns:minmax(0,1fr)}.ks-in>*{min-width:0}
 .ks-hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.ks-hd h2{margin:0;font-size:19px}.ks-hd small{font-size:12px;color:var(--muted)}.ks-sp{flex:1}
 .ks-btn,.ks-chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:5px 10px;cursor:pointer}
 .ks-chip{border-radius:999px;background:var(--paper)}
@@ -481,10 +481,10 @@ function slipLine(od,key){const sl=od&&od.slip,m=sl&&sl.stores&&sl.stores[key];l
 function flowLine(key,m){const F=CC.flowOf&&CC.flowOf(V.ccfg,key);if(!F)return '';const tr=F.truck,res=V.res,now=gT(),I=ix();
   const head=`<p class="ks-note" style="margin:4px 0 0">納品の流れ：${esc(F.factory.label)} ${fmtT(F.factory.packEnd)} 包装の締め切り → ${fmtT(F.factory.depart)} 出発 → ${fmtT(F.center.arrive)} ${esc(F.center.label)}（${esc(F.center.sort)}）→ ${tr?esc(tr.name):'トラック'}</p>`;
   const runs=F.runs.map(r=>{let f=0,c=0,d=0,cut=0;if(res)for(const e of res.ev){if(e.k!=='delivery'||e.express||e.addOn||Math.abs(e.t-r.t)>60)continue;for(const pid in e.items||{}){const q=e.items[pid],rt=CC.routeOf(V.ccfg,I.P[pid]&&I.P[pid].genre);if(rt==='factory')f+=q;else if(rt==='direct')d+=q;else c+=q;}for(const pid in e.cut||{})cut+=e.cut[pid];}
-    const done=now>=r.t;return `<tr><td>${esc(r.bin)}</td><td class="num">${fmtT(r.depart)}→${fmtT(r.arrive)}→${fmtT(r.t)}</td><td class="num">${f}</td><td class="num">${c}</td><td class="num">${d}</td><td>${cut?`<b>${cut}個届かない</b>`:''}${done?'届いた':'これから'}</td></tr>`;}).join('');
+    const done=now>=r.t;return `<tr><td class="l" style="white-space:nowrap">${esc(r.bin)}</td><td class="num">${fmtT(r.depart)}→${fmtT(r.arrive)}→${fmtT(r.t)}</td><td class="num">${f}</td><td class="num">${c}</td><td class="num">${d}</td><td class="l">${cut?`<b>${cut}個届かない</b>・`:''}${done?'届いた':'これから'}</td></tr>`;}).join('');
   const lg=loadOrders(),y=lg.days.find(x=>x.day===gDay()-1),ya=y&&y.arr&&y.arr[key];
   const yl=ya?(()=>{const cut=ya.cut?Object.values(ya.cut).reduce((a,b)=>a+b,0):0,left=Object.values(ya.left||{}).reduce((a,b)=>a+b,0);return `<p class="ks-note" style="margin:4px 0 0">第${ya.day}運行日の到着（${esc(ya.no||'')}）：${ya.runs.map(r=>`${esc(r.bin)} 工場${Object.values(r.f).reduce((a,b)=>a+b,0)}・センター${r.c}`).join('／')}${cut?`・工場の不足で届かなかった ${cut}個`:''}${left?`・センターに残った工場の品 ${left}個（取引先へ）`:''}</p>`;})():'';
-  return head+`<div style="overflow-x:auto;margin-top:4px"><table class="ks-t"><thead><tr><th>きょうの便</th><th>出発→着→棚</th><th>工場の品</th><th>センター在庫</th><th>直送</th><th></th></tr></thead><tbody>${runs}</tbody></table></div>`+yl;}
+  return head+`<div style="overflow-x:auto;margin-top:4px"><table class="ks-t" style="width:auto"><thead><tr><th class="l" style="white-space:nowrap">きょうの便</th><th>出発→着→棚</th><th>工場の品</th><th>センター在庫</th><th>直送</th><th></th></tr></thead><tbody>${runs}</tbody></table></div>`+yl;}
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
 function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT()),na=nextOrderDay(),nextO=orderFor(na),today=orderFor(gDay());
   const pv=isAuto()?planFor(nextCond()):null;
