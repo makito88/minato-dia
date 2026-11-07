@@ -10,7 +10,9 @@
    ・行き先：factory＝工場で作る品（全店の合計を20:00に工場へ）、center＝センター在庫の品（店ごとの便に割り振る）、
      direct＝新聞・雑誌・たばこ（センターを通らない。おまかせでも店の数のまま）。
    ・運行日ごとの記録（売上の記録とセンターの発注）は、画面がブラウザの dia-orders に残す（ここは計算だけ。DOM も localStorage も使わない）。
-   ・第1段は売店の計算（js/kiosk-core.js）を変えない。工場で足りなくても売店にはいつもどおり届く扱い。
+   ・第3回（2026-11-07）から：工場の納品書（js/factory-night.js）で足りない品は、その出荷数までしか売店に届かない（supplyFor → kiosk-core の ctx.supply）。
+     流れ（工場→センター→店ごとに分けてセンター在庫の品と合わせる→トラック→売店の便）の時刻は data/center.json の flow と slip.trucks。
+     運行日の締めで、どの便で何が届いたか・届かなかった分・センターに残った分（取引先へ）を「到着」として残す（arrival）。
    ===================================================================== */
 (function(root){
 'use strict';
@@ -92,6 +94,25 @@ function putOrder(kcfg,ccfg,log,forDay,key,o,keep){const d=dayOf(log,forDay),f={
 function trim(log,keep){keep=keep||30;if(log.days.length>keep+1)log.days=log.days.slice(-(keep+1));}
 function recsOf(log,key){return (log&&log.days||[]).map(d=>d.recs&&d.recs[key]).filter(Boolean);}
 
-root.CenterCore={storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf};
+/* 売店に回せる工場の品の上限＝納品書の出荷数（工場の品すべて。届く数が工場の出荷数をこえないように） */
+function supplyFor(slip,key){const m=slip&&!slip.err&&slip.stores&&slip.stores[key];if(!m)return null;const o={};
+  for(const pid in m.items)o[pid]=m.items[pid][1];return Object.keys(o).length?o:null;}
+/* トラックと、店に着く時刻（センターを出てからの分） */
+function truckFor(ccfg,key){const st=String(key).split('-')[0],T=(ccfg.slip&&ccfg.slip.trucks)||[];const t=T.find(x=>(x.st||[]).includes(st));return t?{id:t.id,name:t.name,min:(t.min&&t.min[st])||0}:null;}
+/* 流れの時刻（画面用）：工場の包装の締め切り → 工場を出る → センターに着く → 分けて合わせる → 便ごとにトラックが出る → 店に着く → 便の時刻に棚へ */
+function flowOf(ccfg,key){const F=ccfg.flow;if(!F)return null;const tr=truckFor(ccfg,key);
+  return {factory:F.factory,center:F.center,truck:tr,runs:(F.runs||[]).map(r=>({bin:r.bin,t:r.t,depart:r.depart,arrive:r.depart+(tr?tr.min:0),factory:r.factory}))};}
+/* 到着の記録：その運行日の結果（kiosk-core の simulate）から、便ごとに工場の品（品ごと）・センター在庫の品・直送の品（数だけ）、
+   工場の不足で届かなかった数（cut）、納品書の出荷数のうち届かずにセンターに残った数（left：取引先へ回す分） */
+function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!slip.err&&slip.stores&&slip.stores[key],fItems=m?m.items:{},runs=[],got={};
+  const binOf=t=>{const R=(ccfg.flow&&ccfg.flow.runs)||[];let best=null;for(const r of R)if(Math.abs(r.t-t)<=60&&(!best||Math.abs(r.t-t)<Math.abs(best.t-t)))best=r;return best;};
+  for(const e of res.ev||[]){if(e.k!=='delivery'||e.express||e.addOn)continue;const f={},n={c:0,d:0};
+    for(const pid in e.items||{}){const q=e.items[pid],r=routeOf(ccfg,genreOf(kcfg,pid));if(r==='factory'){f[pid]=q;got[pid]=(got[pid]||0)+q;}else n[r==='direct'?'d':'c']+=q;}
+    const b=binOf(e.t);runs.push({t:e.t,bin:b?b.bin:e.name,f,c:n.c,d:n.d,cut:e.cut||null});}
+  const left={};for(const pid in fItems){const l=fItems[pid][1]-(got[pid]||0);if(l>0)left[pid]=l;}
+  const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
+function putArrival(log,a,keep){const d=dayOf(log,a.day);(d.arr||(d.arr={}))[a.store]=a;trim(log,keep);return log;}
+
+root.CenterCore={storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
 if(typeof module!=='undefined')module.exports=root.CenterCore;
 })(typeof window!=='undefined'?window:globalThis);

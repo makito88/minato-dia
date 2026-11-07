@@ -5,8 +5,8 @@
      工場の注文＝ほかの店・取引先の分（今までの決まった乱数）＋センターの発注。発注がない夜は今までどおり。
    ・品の対応は、工場の設定（data/factory.json）の kiosk の欄＝売店の商品ID。売店にあって工場にない品は、センター在庫の品として扱う。
    ・運行日が変わるとき（売店の画面が締めたあと）に、その夜の結果から納品書を作る（slip）。
-     不足はセンターの分を出荷の割合で割り（ほかの店・取引先と同じ扱い）、店ごとにも同じ割合で割る。
-   ・売店の計算は変えない（不足は表示だけ）。
+     不足は、ほかの店・取引先の分から先に減らす（売店を最優先・2026-11-07 第3回）。売店の分も足りないときは、店ごとに注文の割合で割る。
+   ・売店には、納品書の出荷数までしか届かない（js/kiosk-core.js の ctx.supply。第3回から）。
    ===================================================================== */
 (function(root){
 'use strict';
@@ -38,8 +38,9 @@ function runNight(D,cfgs,o){const sp=splitItems(D,o.items),m=kioskMap(D),seed=se
     for(const pid in mine){const r=byId[m[pid].id];if(!r)continue;rows[pid]={line:L.id,order:r.order,shipped:r.shipped,c:mine[pid]};}}
   return {seed,season,lines,rows,stock:sp.stock};}
 
-/* センターの分の出荷：工場の不足は、注文の割合で割る（ほかの店・取引先と同じ扱い） */
-function centerShip(r){if(r.shipped>=r.order)return r.c;return Math.max(0,Math.min(r.c,Math.floor(r.c*r.shipped/Math.max(1,r.order))));}
+/* センターの分（自社の売店）の出荷：売店を最優先（docs/factory-discussion.md の方針）。工場が足りないときは、ほかの店・取引先の分から減らす。
+   売店の分が足りなくなるのは、出荷の合計がセンターの発注より少ないときだけ */
+function centerShip(r){return Math.max(0,Math.min(r.c,r.shipped));}
 /* 店ごとに割る（端数は大きい順） */
 function share(total,parts){const keys=Object.keys(parts),sum=keys.reduce((a,k)=>a+parts[k],0),out={};if(!sum)return out;let left=total;
   const fr=keys.map(k=>{const x=total*parts[k]/sum;out[k]=Math.floor(x);left-=out[k];return [k,x-out[k]];}).sort((a,b)=>b[1]-a[1]);
