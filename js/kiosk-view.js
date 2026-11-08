@@ -33,7 +33,7 @@ Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.j
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
 // 工場の設定（納品書を作るのに使う。読めなくても売店はいつもどおり）
 if(window.FactoryNight)fetch('data/factory.json').then(r=>r.ok?r.json():null).then(d=>{V.fD=d;setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
-if(CC)fetch('data/center.json').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
+if(CC)fetch('data/center.json?v=20261108a').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
 const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム本体の運賃表）
@@ -228,6 +228,15 @@ const CSS=`
 .ks-news{display:grid;gap:7px}.ks-news div{border-left:3px solid var(--line);padding:2px 0 2px 9px;font-size:12.5px;line-height:1.6}.ks-news b{display:block;font-size:13px}.ks-news small{color:var(--muted);font-size:11px}
 .ks-news .n-trend{border-left-color:#d9822b}.ks-news .n-sns{border-left-color:#3a64b8}.ks-news .n-regular{border-left-color:#2f8a4a}.ks-news .n-review{border-left-color:#9a6a1a}.ks-news .n-soldout,.ks-news .n-miss,.ks-news .n-waste{border-left-color:#c9573f}
 .ks-g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.trk-st{display:grid;gap:0;margin:6px 0 0;padding:0;list-style:none}.trk-st li{display:grid;grid-template-columns:64px 18px minmax(0,1fr);gap:0 8px;align-items:start;font-size:13px;line-height:1.5;padding:3px 0}
+.trk-st li .tm{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;text-align:right;padding-top:1px}.trk-st li .mk{width:12px;height:12px;border-radius:50%;border:2px solid var(--line);margin-top:4px;background:var(--panel)}
+.trk-st li.done .mk{background:var(--accent);border-color:var(--accent)}.trk-st li.now .mk{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}.trk-st li.now b{color:var(--accent)}
+.trk-st li small{display:block;color:var(--muted);font-size:11.5px}.trk-st li.sep{grid-template-columns:1fr;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);margin-top:4px;padding-top:6px}
+.trk-now{display:grid;gap:4px;border:1px solid var(--accent);border-radius:9px;padding:9px 11px;background:color-mix(in srgb,var(--accent) 7%,var(--panel))}.trk-now b.big{font-size:17px}
+.trk-bar{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 0}.trk-bar span{font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--paper)}.trk-bar span.done{background:color-mix(in srgb,var(--accent) 18%,var(--paper));color:var(--ink)}.trk-bar span.now{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.trk-nos{display:flex;flex-wrap:wrap;gap:6px}.trk-nos .ks-chip{font-size:12px}.trk-nos .ks-chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.trk-grid{display:grid;gap:10px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}@media (max-width:760px){.trk-grid{grid-template-columns:minmax(0,1fr)}}
+.trk-cust{display:grid;gap:6px;margin-top:6px}.trk-cust div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;border-bottom:1px solid var(--line);padding:5px 0;font-size:13px}.trk-cust div small{color:var(--muted);font-size:11.5px}
 .ks-note{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.65}
 .ks-scroll{overflow-x:auto}
 .ks-alert{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.ks-alert>span{color:var(--muted);margin-right:4px}
@@ -260,7 +269,7 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   document.body.appendChild(p);const sh=document.createElement('aside');sh.id='ksSheet';sh.className='ks-sheet';sh.hidden=true;sh.setAttribute('aria-label','商品カード');p.appendChild(sh);
   $('ksClose').onclick=()=>setOpen(false);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open){if(V.sheet){closeSheet();return;}setOpen(false);}});
   $('ksSpd').innerHTML='<span class="ks-chip" title="売店は本当の時刻で進みます">×1・いまの時刻</span>';
-  const TABS=[['log','売れ行き'],['items','商品・値段・仕入れ'],['layout','棚割り'],['people','客層・時間帯'],['crew','店員'],['money','収支'],['news','お知らせ']];
+  const TABS=[['log','売れ行き'],['items','商品・値段・仕入れ'],['layout','棚割り'],['people','客層・時間帯'],['crew','店員'],['money','収支'],['track','荷物の行方'],['news','お知らせ']];
   $('ksTabs').innerHTML=TABS.map(([k,n])=>`<button type="button" class="ks-tab" role="tab" data-tab="${k}">${n}</button>`).join('');
   $('ksTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{V.tab=b.dataset.tab;V.logRes=null;if(V.tab==='news')readNews();render(true);});
   V.cv=$('ksCanvas');V.cx=V.cv.getContext('2d');V.cv.addEventListener('click',onCanvasClick);}
@@ -359,7 +368,7 @@ function renderKpi(){const res=ensureRes();if(!res)return;const o=KC.soFar(V.cfg
 function renderBody(full){const b=$('ksBody'),res=ensureRes();if(!res)return;
   if(V.tab==='log')return renderLog(b,res,full);
   if(!full)return;
-  if(V.tab==='items')renderItems(b,res);else if(V.tab==='layout')renderLayout(b);else if(V.tab==='people')renderPeople(b,res);else if(V.tab==='crew')renderCrew(b,res);else if(V.tab==='money')renderMoney(b,res);else renderNews(b);}
+  if(V.tab==='items')renderItems(b,res);else if(V.tab==='layout')renderLayout(b);else if(V.tab==='people')renderPeople(b,res);else if(V.tab==='crew')renderCrew(b,res);else if(V.tab==='money')renderMoney(b,res);else if(V.tab==='track')renderTrack(b,res);else renderNews(b);}
 
 /* ブランドの印（data/kiosk.json の brands）。売れ行きでは \u0001印\u0002 で包み、表示のときに色を付ける */
 const brandOf=p=>p&&p.brand&&V.cfg.brands?V.cfg.brands[p.brand]:null;
@@ -485,6 +494,77 @@ function flowLine(key,m){const F=CC.flowOf&&CC.flowOf(V.ccfg,key);if(!F)return '
   const lg=loadOrders(),y=lg.days.find(x=>x.day===gDay()-1),ya=y&&y.arr&&y.arr[key];
   const yl=ya?(()=>{const cut=ya.cut?Object.values(ya.cut).reduce((a,b)=>a+b,0):0,left=Object.values(ya.left||{}).reduce((a,b)=>a+b,0);return `<p class="ks-note" style="margin:4px 0 0">第${ya.day}運行日の到着（${esc(ya.no||'')}）：${ya.runs.map(r=>`${esc(r.bin)} 工場${Object.values(r.f).reduce((a,b)=>a+b,0)}・センター${r.c}`).join('／')}${cut?`・工場の不足で届かなかった ${cut}個`:''}${left?`・センターに残った工場の品 ${left}個（取引先へ）`:''}</p>`;})():'';
   return head+`<div style="overflow-x:auto;margin-top:4px"><table class="ks-t" style="width:auto"><thead><tr><th class="l" style="white-space:nowrap">きょうの便</th><th>出発→着→棚</th><th>工場の品</th><th>センター在庫</th><th>直送</th><th></th></tr></thead><tbody>${runs}</tbody></table></div>`+yl;}
+/* ---------- 荷物の行方（アイデア帳 6.・2026-11-08）：注文番号ごとに、売上の記録 → 注文 → 製造 → 納品書 → 到着を時刻の順に。計算は js/track-core.js、時刻は data/center.json の flow・track ---------- */
+const TK=()=>window.TrackCore||null;
+// 本当の時刻（運行日の0:00からの分。朝4:30より前は前の運行日の続き＝1440をこえる）。gT は売店の計算のために26:00で止めているので、ここでは止めない
+function trkNow(){let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return m;}
+function trkSplit(items){const I=ix(),o={factory:{},center:{},direct:{}};for(const pid in items||{}){const q=items[pid];if(!q||!I.P[pid])continue;o[CC.routeOf(V.ccfg,I.P[pid].genre)][pid]=q;}return o;}
+// あすの見込み（まだ dia-orders にない注文）。おまかせの店はセンターの見込み、自分で決める店は予定の数
+function trkEst(day){const items=isAuto()?planFor(nextCond()).items:orderFor(day);return {no:CC.orderNo(day,CC.storeKey(V.st)),...trkSplit(items)};}
+// 便ごとの数（flow.runs と同じ並び）：きょうは売店の計算の結果、前の日は到着の記録、あすは見込み（朝の便に全部）
+function trkRuns(day,o,res){const F=V.ccfg.flow,I=ix(),key=CC.storeKey(V.st),R=F.runs||[];
+  if(day===gDay()&&res)return R.map(r=>{const x={f:{},c:0,d:0,cut:null,items:{}};for(const e of res.ev){if(e.k!=='delivery'||e.express||e.addOn||Math.abs(e.t-r.t)>60)continue;
+      for(const pid in e.items||{}){const q=e.items[pid],rt=CC.routeOf(V.ccfg,I.P[pid]&&I.P[pid].genre);x.items[pid]=(x.items[pid]||0)+q;if(rt==='factory')x.f[pid]=(x.f[pid]||0)+q;else if(rt==='direct')x.d+=q;else x.c+=q;}
+      if(e.cut){x.cut=x.cut||{};for(const pid in e.cut)x.cut[pid]=(x.cut[pid]||0)+e.cut[pid];}}return x;});
+  const lg=loadOrders(),dd=lg.days.find(x=>x.day===day),a=dd&&dd.arr&&dd.arr[key];
+  if(a)return R.map(r=>{const x=a.runs.find(v=>v.bin===r.bin)||{};return {f:x.f||{},c:x.c||0,d:x.d||0,cut:x.cut||null};});
+  return R.map((r,i)=>i?{f:{},c:0,d:0}:{f:{...o.factory},c:Object.values(o.center).reduce((s,v)=>s+v,0),d:Object.values(o.direct).reduce((s,v)=>s+v,0)});}
+function trkList(){const lg=loadOrders(),key=CC.storeKey(V.st),day=gDay(),out=lg.days.filter(d=>d.orders&&d.orders[key]&&d.day<=day).slice(-6).map(d=>({day:d.day,no:d.orders[key].no}));
+  if(trkNow()>=V.ccfg.times.centerSum&&!out.some(x=>x.day===day+1))out.push({day:day+1,no:CC.orderNo(day+1,key),est:1});return out;}
+function renderTrack(b,res){const T=TK();if(!T||!CC||!V.ccfg||!V.ccfg.track){b.innerHTML='<div class="ks-card"><p class="ks-note">荷物の行方の設定を読めませんでした。</p></div>';return;}
+  const I=ix(),key=CC.storeKey(V.st),day=gDay(),lg=loadOrders(),list=trkList(),K=V.ccfg.track;
+  if(V.trkDay==null||!list.some(x=>x.day===V.trkDay))V.trkDay=(list.find(x=>x.est)||list.find(x=>x.day===day)||list.at(-1)||{day}).day;
+  const sel=V.trkDay,dd=lg.days.find(x=>x.day===sel),est=!(dd&&dd.orders&&dd.orders[key]);
+  const order=est?trkEst(sel):dd.orders[key],slip=dd&&dd.slip&&!dd.slip.err?{no:dd.slip.no,at:dd.slip.at,store:dd.slip.stores&&dd.slip.stores[key]}:null;
+  const runs=trkRuns(sel,order,res),tl=T.timeline(V.ccfg,{day:sel,key,order,est,fix:dd&&dd.factory,slip,runs,genreOf:pid=>I.P[pid]&&I.P[pid].genre});
+  const now=(day-sel)*1440+trkNow(),w=T.where(tl,now),F=T.fmt;
+  // 店員から見る：いまどこ
+  const BAR=[['注文受付',['売上の記録を送った','注文受付']],['製造中',['製造中']],['積み込み',['包装・検品','積み込み']],['配送中（工場→センター）',['配送中（工場→センター）']],['センター到着',['センターで仕分け','センターの部屋で待つ']],['配送中（センター→売店）',['配送中（センター→売店）']],['もうすぐ到着',['もうすぐ到着']],['売店に到着',['売店に到着・品出し','全部の便が届いた']]];
+  const bi=w.done?BAR.length:BAR.findIndex(x=>x[1].includes(w.label));
+  const bar=`<div class="trk-bar" aria-label="進み具合">${BAR.map((x,i)=>`<span class="${i<bi||w.done?'done':i===bi?'now':''}">${esc(x[0])}</span>`).join('')}</div>`;
+  const runNm=w.run>=0?tl.runs[w.run].bin:'';
+  const nowBox=`<div class="trk-now"><span class="ks-note" style="margin:0">${esc(tl.no||'')}（第${sel}運行日の便）${est?'・<b>見込み</b>':''}${tl.truck?`・${esc(tl.truck.name)}`:''}</span>
+    <b class="big">${w.done?'全部の便が届きました':`いま：${esc(w.label)}${runNm&&w.place!=='工場'?`（${esc(runNm)}の分）`:''}`}</b>
+    ${!w.done&&w.eta!=null?`<span>この店に着く見込み <b>${F(w.eta)}</b>・棚に並ぶ <b>${F(w.shelf)}</b>${w.nextBin?`（${esc(w.nextBin)}）`:''}</span>`:''}
+    ${w.shelved&&w.shelved.length?`<span class="ks-note" style="margin:0">棚に並んだ便：${w.shelved.map(esc).join('・')}</span>`:''}${bar}</div>`;
+  // 時刻の順の一覧
+  const st=(t,t2)=>now>=(t2??t)?'done':now>=t?'now':'';
+  const stepsHTML=tl.steps.map((s,i)=>{const nx=tl.steps[i+1],end=nx?nx.t:tl.sortEnd;return `<li class="${st(s.t,end)}"><span class="tm">${F(s.t)}</span><span class="mk"></span><span><b>${esc(s.label)}</b>（${esc(s.place)}）<small>${esc(s.note||s.text)}</small></span></li>`;}).join('');
+  const runHTML=tl.runs.map((r,i)=>{if(i&&!r.n)return `<li class="sep">${esc(r.bin)}：${est?'どの品をこの便にのせるかは、運行日の初め（朝4:30）に決まります（見込みでは朝の便にまとめています）':'工場の品・センター在庫の品はのらない'}</li>`;
+    const f=Object.values(r.f).reduce((a,b)=>a+b,0),cut=r.cut?Object.values(r.cut).reduce((a,b)=>a+b,0):0;
+    return `<li class="sep">${esc(r.bin)}：工場の品${f}・センター在庫${r.c}・直送${r.d}${cut?`・<b>工場の不足で${cut}個届かない</b>`:''}</li>`+
+      (i&&r.hold?`<li class="${st(tl.sortEnd,r.depart)}"><span class="tm">${F(tl.sortEnd)}</span><span class="mk"></span><span><b>センターの部屋で待つ</b>（センター）<small>${esc(r.hold)}</small></span></li>`:'')+
+      `<li class="${st(r.depart,r.soon)}"><span class="tm">${F(r.depart)}</span><span class="mk"></span><span><b>配送中（センター→売店）</b>（${esc(tl.truck?tl.truck.name:'トラック')}）</span></li>`+
+      `<li class="${st(r.soon,r.arrive)}"><span class="tm">${F(r.soon)}</span><span class="mk"></span><span><b>もうすぐ到着</b></span></li>`+
+      `<li class="${st(r.arrive,r.shelf)}"><span class="tm">${F(r.arrive)}</span><span class="mk"></span><span><b>売店に到着</b>（受け取り・確認・品出し）</span></li>`+
+      `<li class="${st(r.shelf)}"><span class="tm">${F(r.shelf)}</span><span class="mk"></span><span><b>棚に並ぶ</b></span></li>`;}).join('');
+  // 同じ便にのる品（同梱）：温度帯ごと
+  const ri=Math.max(0,w.run>=0?w.run:0),rr=runs[ri]||{},temps=K.temps||{},band={};
+  const items=rr.items||Object.assign({},rr.f);for(const pid in items){const p=I.P[pid];if(!p||!items[pid])continue;const t=temps[p.genre]||'常温';(band[t]||(band[t]=[])).push(`${p.name} ${items[pid]}`);}
+  const bandHTML=Object.keys(band).length?Object.entries(band).map(([t,a])=>`<p class="ks-note" style="margin:3px 0 0"><b>${esc(t)}</b>：${a.slice(0,8).map(esc).join('・')}${a.length>8?` ほか${a.length-8}品`:''}</p>`).join(''):`<p class="ks-note" style="margin:3px 0 0">センター在庫の品 ${rr.c||0}個・直送 ${rr.d||0}個（品ごとの内わけは、その日のうちだけ見られます）</p>`;
+  const E=V.cfg.express||{},ex=K.express||{};
+  // お客さんから見る：あすの朝、この品は何時ごろ並ぶか
+  const set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),tq=sel>day?order:trkEst(day+1),tqAll={...tq.factory,...tq.center,...tq.direct},tNow=trkNow();
+  const pids=Object.keys(si).filter(pid=>I.P[pid]).sort((a,b)=>{const ra=CC.routeOf(V.ccfg,I.P[a].genre)==='factory'?0:1,rb=CC.routeOf(V.ccfg,I.P[b].genre)==='factory'?0:1;return ra-rb;});
+  const mw=tNow>=1440?'けさ':'あすの朝',ne=list.find(x=>x.est);let nl='';
+  if(ne){const o2=ne.day===sel?order:trkEst(ne.day),w2=ne.day===sel?w:T.where(T.timeline(V.ccfg,{day:ne.day,key,order:o2,est:true,runs:trkRuns(ne.day,o2,null),genreOf:pid=>I.P[pid]&&I.P[pid].genre}),(day-ne.day)*1440+tNow);nl=`<p class="ks-note" style="margin:0 0 4px">${mw}の工場の品（おにぎり・パン・サンド・ドーナツ）は、いま<b>「${esc(w2.label)}」</b>です。</p>`;}
+  const todayBy={};if(res)for(const e of res.ev){if(e.k!=='delivery')continue;for(const pid in e.items||{})(todayBy[pid]||(todayBy[pid]=[])).push({t:e.t,q:e.items[pid],bin:e.name});}
+  const cust=pids.slice(0,V.trkAll?999:12).map(pid=>{const p=I.P[pid],ts=T.shelfTimes({genre:p.genre,now:tNow,today:todayBy[pid],tomorrowQ:tqAll[pid]??null,deliveries:V.cfg.deliveries}),nx=ts[0],tm=ts.find(x=>x.day===1);
+    const fac=CC.routeOf(V.ccfg,p.genre)==='factory';
+    return `<div><span><b>${esc(p.name)}</b>${fac?` <small>港の工場</small>`:''}</span><span>${nx&&nx.day===0?`きょう ${F(nx.t)}ごろ（${esc(nx.bin)}）・`:''}${tm?`${mw} <b>${F(tm.t)}ごろ</b>${tm.q!=null?`<small>（発注${tm.q}個）</small>`:''}`:''}</span></div>`;}).join('');
+  b.innerHTML=`<div class="ks-card"><h3><span>荷物の行方</span><small>注文番号ごとに、注文から棚に並ぶまで。時刻はすべて仮（data/center.json）</small></h3>
+    <div class="trk-nos" role="group" aria-label="注文番号">${list.map(x=>`<button type="button" class="ks-chip" data-trk="${x.day}" aria-pressed="${x.day===sel}">${esc(x.no)}${x.est?'（見込み）':x.day===day?'（きょう）':''}</button>`).join('')}</div>
+    <div style="margin-top:8px">${nowBox}</div></div>
+    <div class="trk-grid"><div class="ks-card"><h3><span>店員から見る：時刻の順</span><small>●＝いま</small></h3><ol class="trk-st">${stepsHTML}${runHTML}</ol>
+      <p class="ks-note">工場の時刻は「決まったこと」の時刻表（2:30 包装の締め切り・3:05 工場を出る・3:20 センター）から。センターから店までは${esc(tl.truck?tl.truck.name:'トラック')}で${tl.truck?tl.truck.min:'—'}分（仮）。棚に並ぶのは売店の便の時刻です。</p></div>
+    <div style="display:grid;gap:10px;min-width:0"><div class="ks-card"><h3><span>同じ便にのる品</span><small>${esc((runs[ri]&&V.ccfg.flow.runs[ri]||{}).bin||'')}・温度帯ごと</small></h3>${bandHTML}
+      <p class="ks-note">${esc(K.tempsNote||'')}</p>
+      <p class="ks-note"><b>${esc(ex.label||'お急ぎ便')}</b>：${E.off?esc(ex.text||''):`頼んでから${E.lead||60}分で届きます（売れ行きのタブの臨時便）`}</p></div>
+    <div class="ks-card"><h3><span>お客さんから見る：この品は何時ごろ並ぶ？</span><small>開店${V.cfg.open[0]}:00</small></h3>${nl}<div class="trk-cust">${cust||'<p class="ks-note">棚に品がありません。</p>'}</div>
+      ${pids.length>12?`<button type="button" class="ks-btn" id="trkAll" style="margin-top:6px">${V.trkAll?'たたむ':`ほかの${pids.length-12}品も見る`}</button>`:''}
+      <p class="ks-note">あすの数は${isAuto()?'センターの見込み':'店で決めた数'}で、運行日の初め（朝4:30）に決まります。工場の品は足りないと減ることがあります（納品書）。</p></div></div></div>`;
+  b.querySelectorAll('[data-trk]').forEach(x=>x.onclick=()=>{V.trkDay=+x.dataset.trk;renderBody(true);});
+  const ta=b.querySelector('#trkAll');if(ta)ta.onclick=()=>{V.trkAll=!V.trkAll;renderBody(true);};}
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
 function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT()),na=nextOrderDay(),nextO=orderFor(na),today=orderFor(gDay());
   const pv=isAuto()?planFor(nextCond()):null;
@@ -821,13 +901,13 @@ function onCanvasClick(ev){if(!V.st)return;const r=V.cv.getBoundingClientRect(),
       if(pid){openSheet(pid);return;}V.tab='layout';V.slotSel={z:zk,i};render(true);$('ksBody').scrollIntoView({behavior:'smooth',block:'start'});return;}}}}   // 品のある枠は商品カード、空き枠は棚割り
 function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=ts;if(!V.open)return;
   V.drawAcc=(V.drawAcc||0)+dt;const fps=V.fps||(V.fps=(()=>{try{return localStorage.getItem('minato-quality')==='full'?30:20;}catch(e){return 20;}})());/* 人の動きの絵は1秒20回（?quality=full で30回）。売店の計算は本当の時刻で別に進む */if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
-  V.heavyT+=dt;if(V.heavyT>1){V.heavyT=0;if(V.st){renderAlert(false);updateSheet();updateItems();V.slowT=(V.slowT||0)+1;if(V.slowT>=5&&(V.tab==='people')){V.slowT=0;renderBody(true);}}}
+  V.heavyT+=dt;if(V.heavyT>1){V.heavyT=0;if(V.st){renderAlert(false);updateSheet();updateItems();V.slowT=(V.slowT||0)+1;if(V.slowT>=5&&(V.tab==='people')){V.slowT=0;renderBody(true);}if(V.tab==='track'&&V.slowT%30===0&&!V.trkHold)renderBody(true);}}
   V.raf=requestAnimationFrame(loop);}
 
 /* ---------- 起動 ---------- */
 mount();setInterval(tick,1000);
 window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()=>setOpen(true),
-  openTab:t=>{if(['log','items','layout','people','crew','money','news'].includes(t))V.tab=t;if(V.tab==='news')readNews();setOpen(true);if(V.st)render(true);},   // トップから：タブを選んで開く
+  openTab:t=>{if(['log','items','layout','people','crew','money','track','news'].includes(t))V.tab=t;if(V.tab==='news')readNews();setOpen(true);if(V.st)render(true);},   // トップから：タブを選んで開く
   // リサーチから：その駅・場所を選んだ状態で売店の画面を開く（まだ出していないとき）
   openAt:(st,place)=>{if(!V.st&&PLACES.includes(place))V.form={st,place};setOpen(true);},places:PLACES,sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},
   closeToday(){const r=ensureRes();if(r){closeToday(r);g(()=>{ENS.day=ENS.day;});}return V.st&&V.st.hist.at(-1);},   // 開発用：きょうの分で1日を締める（運行日は進めない）
