@@ -34,21 +34,22 @@ const SVG_CREW=`<svg viewBox="0 0 400 220" role="img" aria-label="従業員の�
   <g transform="translate(345 120)"><circle r="16" fill="#f0c9a0"/><path d="M-16 -4 a16 16 0 0 1 32 0z" fill="#24345a"/><rect x="-18" y="14" width="36" height="44" rx="6" fill="#24345a"/><rect x="-6" y="16" width="12" height="40" fill="#fff"/></g>
   <text x="300" y="200" font-size="12" fill="#3b2f25">時給 ¥1,250〜</text></svg>`;
 
+// 項目の3つ目が 'lab' のものは「見るだけ・試作」。カードには出さず、下の「研究室」の引き出しにまとめる（2026-11-09）
 const L=[
  {id:'world',name:'世界',sub:'国際貿易・資源・金融・人口移動',img:'docs/img/map-world.jpg',art:SVG_WORLD,state:'一部',
   pins:[{x:44,y:31,t:COUNTRY,main:1},{x:8.4,y:19.5,t:'姉妹港'},{x:71.6,y:31,t:'北米西岸'},{x:32.5,y:48.5,t:'東南アジア'}],
-  items:[['港の荷主をのぞく（海外とのお金の流れ）','karte:port'],['姉妹港ヴェステルハーフェンの歩み','karte:history']],soon:'資源の値段や為替が、売店まで届く道すじ（因果カード）'},
+  items:[['港の荷主をのぞく（海外とのお金の流れ）','karte:port','lab'],['姉妹港ヴェステルハーフェンの歩み','karte:history','lab']],soon:'資源の値段や為替が、売店まで届く道すじ（因果カード）'},
  {id:'japan',name:COUNTRY,sub:'日本にあたる架空の島国（名前は仮）・産業・港湾・鉄道・物流',img:'docs/img/map-country.jpg',art:SVG_JAPAN,state:'一部',
   pins:[{x:59.5,y:44,t:'みなと川沿線',main:1}],   // 沿線は全長30km余り。国の地図では1点になるので、印は1つだけ
-  items:[['沿線の歩み 1885〜2026（日本の地方鉄道に似せた歴史）','karte:history'],['国・県と町のお金の流れ（交付税など）','karte:money']],soon:'国内の物流と産業の地図'},
+  items:[['沿線の歩み 1885〜2026（日本の地方鉄道に似せた歴史）','karte:history','lab'],['国・県と町のお金の流れ（交付税など）','karte:money','lab']],soon:'国内の物流と産業の地図'},
  {id:'line',name:'沿線',sub:'人口・土地利用・駅・商業施設',img:'docs/img/route-map-painted.jpg',state:'遊べる',
-  items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station'],['路線を描く（バス・配送・船・空のお絵かき帖）','page:route-editor.html'],['沿線くらしアンケート（駅ごとの暮らしのうつりかわり）','page:survey.html']]},
+  items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station','lab'],['路線を描く（バス・配送・船・空のお絵かき帖）','page:route-editor.html','lab'],['沿線くらしアンケート（駅ごとの暮らしのうつりかわり）','page:survey.html','lab']]},
  {id:'shop',name:'店舗',sub:'商品・在庫・売上・客の行動',img:'docs/img/top-kiosk.jpg',state:'遊べる',
-  items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money'],['荷物の行方（注文した品はいまどこ・何時に並ぶ）','kiosk:track']]},
+  items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money'],['荷物の行方（注文した品はいまどこ・何時に並ぶ）','kiosk:track','lab']]},
  {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチ・ドーナッツの一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',note:'AIで描いたイメージです（架空の工場）。',
   items:[['おにぎり（米のライン・機械2本）','factory:rice'],['パン（発酵の時計・オーブン）','factory:bread'],['サンドイッチ（機械のライン・自社の食パン）','factory:sand'],['ドーナッツ（油の時計・仕上げ）','factory:donut']]},
  {id:'crew',name:'従業員',sub:'シフト・時給・やる気・暮らし',art:SVG_CREW,state:'遊べる',
-  items:[['店員・シフト・時給','kiosk:crew'],['店員の1か月の暮らしとお金の流れ','karte:clerk']]}];
+  items:[['店員・シフト・時給','kiosk:crew'],['店員の1か月の暮らしとお金の流れ','karte:clerk','lab']]}];
 
 /* ---- きょうの沿線（2026-11-09）：島を並べて、それぞれの「きのうまでに確定した数字」を1枚に ----
    重い計算はしない。保存（dia-kiosk・dia-orders・dia-wxlog）と、橋の一覧（data/links.json）を読むだけ。
@@ -155,11 +156,16 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 .topv .blist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px}
 .topv .blist li{border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:grid;gap:2px;background:var(--paper)}.topv .blist li.bs-none,.topv .blist li.bs-retired{border-style:dashed;opacity:.75}
 .topv .blist .bst{font-size:10.5px;font-weight:700}.topv .blist b{font-size:13px}.topv .blist .bv{font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:3px 8px}.topv .blist small{font-size:11px;color:var(--muted);line-height:1.5}
+.topv .labgo{font:inherit;font-size:12.5px;text-align:left;border:1px dashed var(--line);background:none;color:var(--muted);border-radius:8px;padding:7px 10px;cursor:pointer;min-height:38px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.topv .labgo small{font-size:11px}.topv .labgo:hover{border-color:var(--accent);color:var(--ink)}
+.topv .lab{border:1px dashed var(--line);border-radius:12px;padding:8px 12px;background:var(--panel)}.topv .lab summary{cursor:pointer;font-weight:700;font-size:15px;min-height:40px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.topv .lab summary small{font-weight:400;color:var(--muted);font-size:12px}
+.topv .labg{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;padding:6px 0 4px}.topv .labc{display:grid;gap:6px;align-content:start;border-radius:8px;padding:4px}.topv .labc b{font-size:13px;color:var(--muted)}
+.topv .labc.hl{animation:labhl 1.4s ease-out}@keyframes labhl{from{background:color-mix(in srgb,var(--accent) 22%,transparent)}to{background:transparent}}
 @media (max-width:900px){.topv .isles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.topv .isles{grid-template-columns:1fr}.topv .nums b{font-size:16px}}
 @media (max-width:900px){.topv .grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topv .ly,.topv .ly.wide{grid-column:span 1}}
 @media (max-width:560px){.topv .grid{grid-template-columns:1fr}.topv .ly,.topv .ly.wide,.topv .ly:nth-child(3){grid-column:auto}}`;
 
+const itBtn=(t,a)=>`<button type="button" class="it${/^(karte|factory):/.test(a)?' ext':''}" data-go="${a}">${t}</button>`;
 function render(){const box=$('topv');
   box.innerHTML=`<div class="in"><div class="hd"><div><h1>みなと川ダイアリー</h1>
       <p class="lede">世界の出来事は、どうやって駅の売店まで届くのか。売店でのあなたの小さな判断は、どこまで届くのか。5つのレイヤーを行き来しながら、架空の沿線を動かしてみてください。</p></div>
@@ -167,12 +173,15 @@ function render(){const box=$('topv');
     <section class="today" id="topToday" aria-label="きょうの沿線"></section>
     <div class="grid">${L.map((x,i)=>`<section class="ly" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
       <div class="bd"><div class="nm"><b>${x.name}</b><small>${x.sub}</small><span class="st${x.state==='遊べる'?' ok':''}">${x.state==='遊べる'?'遊べる':'読める（一部）'}</span></div>
-      ${x.items.map(([t,a])=>`<button type="button" class="it${/^(karte|factory):/.test(a)?' ext':''}" data-go="${a}">${t}</button>`).join('')}
+      ${x.items.filter(i=>!i[2]).map(([t,a])=>itBtn(t,a)).join('')}${x.items.some(i=>i[2])?`<button type="button" class="labgo" data-lab="${x.id}">研究室で見る（${x.items.filter(i=>i[2]).length}）<small>見るだけ・試作</small></button>`:''}
       ${x.note?`<div class="soon">${x.note}</div>`:''}${x.soon?`<div class="soon">準備中：${x.soon}</div>`:''}</div></section>`).join('')}</div>
+    <details class="lab" id="topLab"><summary>研究室<small>見るだけ・試作の画面。遊ぶ画面とは分けて、ここにまとめています（どれも消していません）</small></summary>
+      <div class="labg">${L.filter(x=>x.items.some(i=>i[2])).map(x=>`<div class="labc" id="lab-${x.id}"><b>${x.name}</b>${x.items.filter(i=>i[2]).map(([t,a])=>itBtn(t,a)).join('')}</div>`).join('')}</div></details>
     <div class="ft"><label><input type="checkbox" id="topSkip" ${g(()=>localStorage.getItem(KEY)==='1',false)?'checked':''}> 次から、開いたときにこのページを出さない</label>
       <span>上の帯の「トップ」で、いつでもここに戻れます。↗ は別のタブで開きます（街のカルテ・アイデア帳）。</span>
       <span>沿線・会社・人はすべて架空です。歴史や数字の多くは、現実の出来事や統計を元に作っています。</span></div></div>`;
   box.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
+  box.querySelectorAll('[data-lab]').forEach(b=>b.onclick=()=>{const d=$('topLab');d.open=true;const c=$('lab-'+b.dataset.lab);if(c){c.scrollIntoView({behavior:'smooth',block:'center'});c.classList.remove('hl');void c.offsetWidth;c.classList.add('hl');}});
   $('topGo').onclick=()=>go('play');
   paintToday();loadToday();
   $('topSkip').onchange=e=>{try{e.target.checked?localStorage.setItem(KEY,'1'):localStorage.removeItem(KEY);}catch(_){}};}
