@@ -139,11 +139,14 @@ function supplyFor(slip,key,kcfg,ccfg,shelf){const m=slip&&!slip.err&&slip.store
 /* かご車（2026-11-09）：センターが、工場から届いた品（納品書の出荷数）を、便ごとに店へ分ける。
    その日のうちに売る品（おにぎり・サンド・ドーナッツ）は、その品のジャンルが載っている便に、朝5・昼前2.5・午後2.5 の重みで分ける（端数は合計が出荷数とちょうど同じになるように）。
    日持ちする品（パン）は、載っている最初の便（朝の便）にまとめる。店は、この数をそのまま受け取る（店の計算は便ごとの数を決めない）。
-   センター在庫の品（飲み物・お菓子など）は、いままでどおり、便が着いたときの店の在庫を見て足す（センターの在庫に限りはまだない）。
+   センター在庫の品（飲み物・お菓子など）は、店の便ごとの注文（runOrder）をセンターが倉庫の在庫で割り振った数（allocate）を co で受け取る（2026-11-09 から。それより前の日は、便が着いたときの店の在庫を見て足す（センターの在庫に限りはまだない）。
    返すもの：{runs:{便の名前:{品:数}}, pids:{品:1}, cut:{品:工場が足りなくて届かない数}}。納品書がなければ null */
-function cart(kcfg,ccfg,slip,key,shelf){const sup=supplyFor(slip,key,kcfg,ccfg,shelf),ord=supplyOrdFor(slip,key,kcfg,ccfg,shelf);if(!sup)return null;
-  const runs={},pids={},cut={},DL=kcfg.deliveries||[];for(const d of DL)runs[d.name]={};
-  const m=slip.stores[key],LT=slip.late;
+function cart(kcfg,ccfg,slip,key,shelf,co){const sup=slip&&!slip.err?supplyFor(slip,key,kcfg,ccfg,shelf):null,ord=sup?supplyOrdFor(slip,key,kcfg,ccfg,shelf):null;if(!sup&&!co)return null;
+  const runs={},pids={},cut={},ccut={},DL=kcfg.deliveries||[];for(const d of DL)runs[d.name]={};
+  // センターの品（2026-11-09）：店の便ごとの注文を、センターが倉庫の在庫で割り振った数（allocate）。前の夜に決まる
+  if(co){for(const b in co.runs)for(const pid in co.runs[b]){pids[pid]=1;if(runs[b]&&co.runs[b][pid]>0)runs[b][pid]=co.runs[b][pid];}for(const pid in co.cut||{})if(co.cut[pid]>0)ccut[pid]=co.cut[pid];}
+  if(!sup)return {runs,pids,cut,ccut};
+  const m=slip.stores[key]||{items:{}},LT=slip.late;
   // 追いかけ便（工場が遅れたとき）：あとからできた分を、のせる便（LT.bin）に足す
   if(LT&&LT.mode==='chase'&&LT.bin&&runs[LT.bin])for(const pid in m.items){const c2=m.items[pid][2]||0;if(c2>0&&sup[pid]!=null)runs[LT.bin][pid]=(runs[LT.bin][pid]||0)+c2;}
   for(const pid in sup){const gid=genreOf(kcfg,pid);if(!gid)continue;pids[pid]=1;const ch=(m.items[pid]&&m.items[pid][2])||0,q=sup[pid]||0,o=ord&&ord[pid]!=null?ord[pid]:q;if(o>q+ch)cut[pid]=o-q-ch;if(!q)continue;
@@ -152,7 +155,28 @@ function cart(kcfg,ccfg,slip,key,shelf){const sup=supplyFor(slip,key,kcfg,ccfg,s
     const w=on.map(d=>d.all?2:1),W=w.reduce((x,y)=>x+y,0),raw=w.map(x=>q*x/W),fl=raw.map(Math.floor);let left=q-fl.reduce((x,y)=>x+y,0);
     const ord2=raw.map((x,i)=>[x-fl[i],i]).sort((x,y)=>y[0]-x[0]||x[1]-y[1]);for(const [,i] of ord2){if(left<=0)break;fl[i]++;left--;}
     on.forEach((d,i)=>{if(fl[i])runs[d.name][pid]=fl[i];});}
-  return {runs,pids,cut};}
+  return {runs,pids,cut,ccut};}
+/* 店の便ごとの注文（センターの品・2026-11-09）：店（のおまかせ）が、前の夜（19:30）に確定した数だけで、次の運行日の便ごとの数を決める。
+   ・朝の便：在庫の目標（仕入れ数）−次の朝に残る見込み（前の日の 19:00 の在庫−19:00 より後に売れる見込み）。19:00 の記録がない日は、締めのあとの在庫（state.lots）
+   ・昼前・午後の便：前の便からその便までに売れる見込み（1日の見込み×その時間帯の割合）を足す
+   ・1日の見込みは plan と同じ数（why.mu）。返すもの：{bin:{pid:数}}（センターの品だけ） */
+function runOrder(kcfg,ccfg,state,recs,forDay,next,items,why){const key=storeKey(state),prev=(recs||[]).find(r=>r.store===key&&r.day===forDay-1&&r.pre),ty=(next&&next.day)||'wd',DL=kcfg.deliveries||[],out={};for(const d of DL)out[d.name]={};
+  for(const pid in items){const gid=genreOf(kcfg,pid);if(!gid||routeOf(ccfg,gid)!=='center')continue;const target=items[pid]||0,mu=(why&&why[pid]&&why[pid].mu)||0;
+    let carry;if(prev){const x=prev.pre.items[pid]||[],sh=shareBefore(kcfg,state,gid,(prev.cond&&prev.cond.day)||ty,prev.pre.at);carry=Math.max(0,(x[2]||0)-((x[0]||0)+(x[1]||0)*(ccfg.lostW??0.7))/Math.max(0.05,sh)*(1-sh));}
+    else carry=(state.lots&&state.lots[pid]||[]).reduce((t,l)=>t+(l.q||0),0);
+    const on=DL.filter(d=>d.all||(d.genres||[]).includes(gid)).sort((a,b)=>a.t-b.t);if(!on.length)continue;
+    const q0=Math.max(0,Math.round(target-carry));if(q0>0)out[on[0].name][pid]=q0;
+    for(let i=1;i<on.length;i++){const a=shareBefore(kcfg,state,gid,ty,on[i-1].t),b=shareBefore(kcfg,state,gid,ty,on[i].t),q=Math.ceil(mu*(b-a)-0.2);if(q>0)out[on[i].name][pid]=q;}}
+  return out;}
+/* センターの割り振り：全店の便ごとの注文（orders＝[{key, runs}]）を、倉庫のその日の始めの在庫（stock）で割り振る。
+   便の早い順に出し、足りない品は店の注文の割合で分ける（端数は大きい順）。返すもの：{店:{runs:{bin:{pid:数}}, cut:{pid:出せない数}}} */
+function allocate(kcfg,orders,stock){const DL=(kcfg.deliveries||[]).slice().sort((a,b)=>a.t-b.t),left={...stock},out={};for(const o of orders)out[o.key]={runs:{},cut:{}};
+  for(const d of DL){const pids=new Set();for(const o of orders)for(const pid in (o.runs[d.name]||{}))pids.add(pid);
+    for(const pid of pids){const want=orders.map(o=>(o.runs[d.name]||{})[pid]||0),tot=want.reduce((a,b)=>a+b,0),have=Math.max(0,left[pid]!=null?left[pid]:tot);
+      let give=want.slice();if(have<tot){const raw=want.map(w=>w*have/tot);give=raw.map(Math.floor);let r=have-give.reduce((a,b)=>a+b,0);raw.map((x,i)=>[x-give[i],i]).sort((a,b)=>b[0]-a[0]).forEach(([,i])=>{if(r>0){give[i]++;r--;}});}
+      orders.forEach((o,i)=>{const R2=out[o.key];if(give[i]>0)(R2.runs[d.name]||(R2.runs[d.name]={}))[pid]=give[i];if(want[i]>give[i])R2.cut[pid]=(R2.cut[pid]||0)+want[i]-give[i];});
+      if(left[pid]!=null)left[pid]=Math.max(0,left[pid]-give.reduce((a,b)=>a+b,0));}}
+  return out;}
 /* 工場に頼んだ数（納品書の注文の数）。頼まなかった工場の品は0 */
 function supplyOrdFor(slip,key,kcfg,ccfg,shelf){const s=supplyFor(slip,key,kcfg,ccfg,shelf);if(!s)return null;const m=slip.stores[key],o={};for(const pid in s)o[pid]=m.items[pid]?m.items[pid][0]:0;return o;}
 /* トラックと、店に着く時刻（センターを出てからの分） */
@@ -235,6 +259,6 @@ function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!sl
   const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
 function putArrival(log,a,keep){const d=dayOf(log,a.day);(d.arr||(d.arr={}))[a.store]=a;trim(log,keep);return log;}
 
-root.CenterCore={csNew,centerPids,csDemand,nextOrderDay,wsQty,csOpen,centerOut,csClose,csOutlook,truckRuns,cart,supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
+root.CenterCore={csNew,centerPids,csDemand,nextOrderDay,wsQty,csOpen,centerOut,csClose,csOutlook,truckRuns,runOrder,allocate,cart,supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
 if(typeof module!=='undefined')module.exports=root.CenterCore;
 })(typeof window!=='undefined'?window:globalThis);

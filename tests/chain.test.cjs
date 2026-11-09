@@ -20,13 +20,15 @@ function run(days,opts){opts=opts||{};const cond=opts.wx?{day:'wd',wx:opts.wx,se
       assert.deepEqual(CC.plan(K,C,st,r2,cond,{forDay:day,aim:'mid',shelf,cur:st.order}).items,p.items,'19:00 より後の数は注文に使わない day '+day);}
     const order={...st.order,...p.items};st.order=order;
     const fq=CC.factoryQty(K,C,st,recs,day,order);CC.putOrder(K,C,log,day,key,{mode:'auto',items:order,fq},30);const d=log.days.find(x=>x.day===day);d.cond=cond;
+    const crun=opts.oldCenter?null:CC.runOrder(K,C,st,recs,day,cond,order,p.why);   // 店の便ごとの注文（センターの品）。前の夜に確定した数だけで決める
     const night=FN.runNight(D,{rice:opts.shortFrom&&day>=opts.shortFrom?(opts.rice||{batches:20,start:1140}):{},bread:{},sand:{},donut:{}},{day,no:d.factory.no,items:d.factory.items,season:'aut'});
     d.slip=FN.slip(D,C,d,night);const m=d.slip.stores[key];
     for(const pid in d.factory.items)assert.equal(m.items[pid][0],d.orders[key].factory[pid],'店の注文＝工場への注文 '+pid);
     const sh2=KC.shelfInfo(K,st.layout);
-    const tp=CC.truckRuns(C,key,day,cond,d.slip.late&&d.slip.late.mode==='wait'?d.slip.late.wait:0),ct=opts.noCart?null:CC.cart(K,C,d.slip,key,sh2);
-    if(ct)for(const pid in m.items){const t=Object.values(ct.runs).reduce((x,r)=>x+(r[pid]||0),0);assert.equal(t,m.items[pid][1]+(m.items[pid][2]||0),'かご車の合計＝出荷数（追いかけ便を含む） '+pid);}
     CC.csOpen(K,CF,cs,day,{stores:[{key,order,shelf:sh2}],recs:CC.recsOf(log,key)});const open={...cs.stock},cst={};for(const pid of CC.centerPids(K,CF,sh2))cst[pid]=cs.stock[pid]||0;
+    const tp=CC.truckRuns(C,key,day,cond,d.slip.late&&d.slip.late.mode==='wait'?d.slip.late.wait:0),co=crun?CC.allocate(K,[{key,runs:crun}],cs.stock)[key]:null,ct=opts.noCart?null:CC.cart(K,C,d.slip,key,sh2,co);
+    if(co)for(const e0 of [0])for(const b in co.runs)for(const pid in co.runs[b])assert.ok(co.runs[b][pid]<=(crun[b][pid]||0),'割り振り ≦ 注文');
+    if(ct)for(const pid in m.items){const t=Object.values(ct.runs).reduce((x,r)=>x+(r[pid]||0),0);assert.equal(t,m.items[pid][1]+(m.items[pid][2]||0),'かご車の合計＝出荷数（追いかけ便を含む） '+pid);}
     const res=KC.simulate(K,st,ctxOf(st,day,order,{cstock:cst,supply:CC.supplyFor(d.slip,key,K,C,sh2),supplyOrd:CC.supplyOrdFor(d.slip,key,K,C,sh2),cart:ct,truck:Object.fromEntries(tp.map(r=>[r.bin,r.arrive]))},cond));
     for(const e of res.ev)if(e.k==='delivery'&&!e.express&&!e.addOn){const r=tp.find(x=>x.bin===e.name);assert.equal(e.t,Math.max(K.open[0]*60-1,r.shelf),'棚に並ぶ時刻＝便の時刻と着いた時刻の遅いほう '+e.name);if(r.arrive>r.t)assert.equal(e.late,Math.round(r.arrive-r.t));}
     if(ct)for(const e of res.ev)if(e.k==='delivery'&&!e.express&&!e.addOn)for(const pid in ct.pids)assert.equal(e.items[pid]||0,(ct.runs[e.name]||{})[pid]||0,'便ごとに、かご車のとおり届く '+e.name+' '+pid);
@@ -38,7 +40,7 @@ function run(days,opts){opts=opts||{};const cond=opts.wx?{day:'wd',wx:opts.wx,se
     const rec=CC.salesRecord(K,st,res);assert.ok(rec.pre&&rec.pre.at===CC.cutOf(K),'19:00 の記録');CC.putRecord(log,rec,30);
     {const o2=CC.centerOut(K,CF,res);for(const pid in o2)assert.ok(o2[pid]<=open[pid],'センターから出した数 ≦ 朝の在庫 '+pid);CC.csClose(K,CF,cs,res);
       for(const pid in open)assert.equal(cs.stock[pid],Math.max(0,open[pid]-(o2[pid]||0)),'在庫＝朝の在庫−出した数 '+pid);}
-    out.push({day,ccut:Object.values(res.ccut||{}).reduce((x,y)=>x+y,0),cs:JSON.parse(JSON.stringify(cs)),byG,late:d.slip.late,chase:Object.values(m.items).reduce((t,x)=>t+(x[2]||0),0),short:m.short.q,cut:Object.values(res.cut||{}).reduce((x,y)=>x+y,0)});st=KC.closeDay(K,st,res,{}).state;}
+    out.push({day,sales:res.pl.sales,profit:res.pl.profit,lostC:Object.entries(res.lostSO||{}).filter(([pid])=>CC.routeOf(C,gen(pid))==='center').reduce((t,[,v])=>t+v,0),ccut:Object.values(res.ccut||{}).reduce((x,y)=>x+y,0),cs:JSON.parse(JSON.stringify(cs)),byG,late:d.slip.late,chase:Object.values(m.items).reduce((t,x)=>t+(x[2]||0),0),short:m.short.q,cut:Object.values(res.cut||{}).reduce((x,y)=>x+y,0)});st=KC.closeDay(K,st,res,{}).state;}
   return out;}
 
 const R14=run(14);
@@ -63,6 +65,10 @@ for(const x of R14)console.log('  第'+x.day+'運行日',Object.entries(x.byG).m
   console.log('  センターの倉庫（14日）：おまかせで問屋へ',R14.at(-1).cs.po.length,'回発注・届かなかった数',ok,'／問屋に頼まないと',ng);
   assert.ok(pos.length>=3,'週2回の発注');assert.ok(ok<=ng/5,'おまかせで切れにくい');assert.ok(ng>0,'頼まないと切れる');
   for(const p of pos)assert.equal(p.arr,p.day+1,'次の運行日に着く');}
+// 店の便ごとの注文（センターの品を前の夜に決める）と、前のやり方（便が着いた時刻の店の在庫を見て足す）をくらべる
+{const A=R14.slice(7),B=run(14,{oldCenter:true}).slice(7),av=(X,f)=>Math.round(X.reduce((t,x)=>t+f(x),0)/X.length);
+  console.log(`  センターの品（8〜14日目の平均）：前の夜に決める 売上${av(A,x=>x.sales)}・売り切れで逃した${av(A,x=>x.lostC)}／前のやり方 売上${av(B,x=>x.sales)}・売り切れで逃した${av(B,x=>x.lostC)}`);
+  assert.ok(av(A,x=>x.sales)>av(B,x=>x.sales)*0.95,'前の夜に決めても、売上が大きく落ちない');}
 // 大雪の森下：トラックが遅れて、昼前の便が便の時刻より遅く並ぶ
 {const S=run(3,{st:'F',wx:'snow'});console.log('  大雪の森下：昼前の便',CC.truckRuns(C,'F-home',2,{wx:'snow'})[1]);}
 module.exports={run};

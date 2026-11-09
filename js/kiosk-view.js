@@ -55,7 +55,10 @@ function supplyOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders().d
 function slipWait(day){const d=loadOrders().days.find(x=>x.day===day),L=d&&d.slip&&d.slip.late;return L&&L.mode==='wait'?L.wait:0;}   // 工場を待った分（分）
 function truckOf(day,c){if(!CC||!CC.truckRuns||!V.ccfg||!V.st)return null;const o={};for(const r of CC.truckRuns(V.ccfg,CC.storeKey(V.st),day,c,slipWait(day)))o[r.bin]=r.arrive;return o;}
 /* かご車：センターが便ごとに分けた工場の品（納品書がない日は null＝今までどおり） */
-function cartOf(day){if(!CC||!CC.cart||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip&&!d.slip.err?CC.cart(V.cfg,V.ccfg,d.slip,CC.storeKey(V.st),KC.shelfInfo(V.cfg,V.st.layout)):null;}
+function cartOf(day){if(!CC||!CC.cart||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day),key=CC.storeKey(V.st),o=d&&d.orders&&d.orders[key];
+  // センターの品：店の便ごとの注文（crun）を、倉庫のその日の始めの在庫で割り振る（センターの倉庫が開いた日だけ。ないときは今までどおり店の在庫を見て足す）
+  let co=null;if(o&&o.crun&&CC.allocate){const cs=loadCS();const st=cs&&cs.open&&cs.open.day===day?cs.open.stock:null;if(st)co=CC.allocate(V.cfg,[{key,runs:o.crun}],st)[key];}
+  return CC.cart(V.cfg,V.ccfg,d&&d.slip&&!d.slip.err?d.slip:null,key,KC.shelfInfo(V.cfg,V.st.layout),co);}
 /* 工場に頼んだ数（納品書の注文の数）。工場が足りなかったかどうかは、これと出荷数でくらべる */
 function supplyOrdOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip?CC.supplyOrdFor(d.slip,CC.storeKey(V.st),V.cfg,V.ccfg,KC.shelfInfo(V.cfg,V.st.layout)):null;}
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
@@ -120,7 +123,12 @@ function dailyOrder(){if(!CC||!V.ccfg||!V.st)return;const S=V.st,day=gDay(),C=ce
     if(C.mode==='auto'){const p=planFor(cond);S.order=orderFor(day);Object.assign(S.order,p.items);
       for(const e of (S.orderQ||[]))for(const pid in e.order)if(managed(pid))delete e.order[pid];   // おまかせの品は、店で入れた予定を使わない
       items=orderFor(day);o={mode:'auto',aim:C.aim};}
-    const lg=loadOrders(),fq=CC.factoryQty(V.cfg,V.ccfg,S,CC.recsOf(lg,CC.storeKey(S)),day,items);CC.putOrder(V.cfg,V.ccfg,lg,day,CC.storeKey(S),{...o,items,fq},V.ccfg.keepDays);{const dd=lg.days.find(x=>x.day===day);if(dd)dd.cond=cond;}saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
+    const lg=loadOrders(),key=CC.storeKey(S),recs=CC.recsOf(lg,key),fq=CC.factoryQty(V.cfg,V.ccfg,S,recs,day,items);CC.putOrder(V.cfg,V.ccfg,lg,day,key,{...o,items,fq},V.ccfg.keepDays);
+    {const dd=lg.days.find(x=>x.day===day);if(dd){dd.cond=cond;
+      // 店の便ごとの注文（センターの品・2026-11-09）：前の夜に確定した数だけで決めて、注文の記録に残す（その日のうちに棚を変えても、きょうの便は変わらない）
+      if(CC.runOrder&&dd.orders[key]){const pv=planFor(cond);dd.orders[key].crun=CC.runOrder(V.cfg,V.ccfg,S,recs,day,cond,items,pv&&pv.why);}
+      for(const x of lg.days)if(x.day<day-3)for(const k in x.orders||{})delete x.orders[k].crun;}}   // 古い日の便ごとの注文は消す（保存を大きくしない）
+    saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
   C.ordDay=day;persist();slipNow(day);}
 /* 納品書（発注と配送 第2回・第3回）：運行日が変わったら、その夜の工場の結果から納品書を作って dia-orders に残す（計算は js/factory-night.js）。
    第3回から、売店にはその出荷数までしか届かない（ctxNow の supply）。そのため納品書は、その日の売店の計算より先に「同じ流れの中で」作る
