@@ -54,9 +54,9 @@ KEY …11・load() …12・save() …13・defaults() …14・settings() …15・
 
 KEY …12・SPEEDS …14・liveNote() …17・ST_COLOR …18・load() …20・save() …21・css() …22・tempColor() …23・rgb() …25・■ 夕方に決める …28・buildPlan() …29・clampInt() …77・■ 回す …79・run() …80・■ 再生 …90・buildPlay() …91・markSpeed() …99・markPlay() …100・tick() …101・BELT_MAX …113・madeAt() …115・resetBelt() …116・drawAll() …117・■ 4つの時計 …125・drawClocks() …126・■ 工程の絵 …140・layout() …141・TITLES …149・drawStage() …150・arrowHead() …175・boxFrame() …176・rr() …178・hit() …179・selRing() …180・txt() …181・germDot() …182・drawWash() …184・drawTanks() …194・drawPots() …212・drawCooler() …233・drawHold() …249・FILL_COLOR …262・STATIONS …263・ST_OF …264・nittaTag() …265・ROLE_COLOR …267・ROLE_HOME …268・person() …269・bubble() …273・inBreak() …276・visitsAt() …277・expiryText() …278・linePath() …280・drawForm() …285・drawLinePeople() …357・drawShip() …370・■ 釜ごとの帯 …389・drawGantt() …390・■ 釜を一つ追いかける …414・drawBatch() …415・■ 工場の記録 …460・drawEvents() …462・■ 朝の答え合わせ …467・showResult() …468・changes() …509・■ クリック …513・onStageClick() …514・legends() …519・init() …524・公開 FactoryRice …532
 
-## js/haiso-core.js（48行）
+## js/haiso-core.js（62行）
 
-dayPlan() …15・公開 HaisoCore …46
+dayPlan() …15・公開 HaisoCore …60
 
 ## js/haiso-view.js（78行）
 
@@ -74,13 +74,13 @@ hash() …12・rng() …13・hoursOf() …19・dayPlan() …23・TYPES …28・t
 
 STORDER …12・DAYN …22・■ 読み込み・保存 …29・persist() …39・■ その日の計算 …43・ctxNow() …44・linkNow() …50・supplyOf() …53・slipWait() …55・truckOf() …56・cartOf() …58・supplyOrdOf() …60・checkDay() …61・ensureRes() …64・tick() …68・closeToday() …69・orderFor() …81・nextOrderDay() …82・■ 川辺の配送センター（計算は js/center-core.js、設定は data/center.json） …83・center() …86・isAuto() …87・managed() …88・aimName() …89・loadOrders() …91・CSKEY …93・loadMoney() …96・moneyOf() …97・moneyClose() …103・loadCS() …104・saveCS() …105・csCtx() …106・csOpenToday() …108・cstockOf() …111・saveOrders() …112・arrivalToCenter() …114・salesToCenter() …115・planFor() …116・dailyOrder() …118・factoryReady() …128・slipTodo() …129・slipNow() …131・queueSlips() …132・makeSlip() …134・nextCond() …149・editOrder() …150・expressLeft() …154・expressOpen() …155・todayExpress() …159・openExpress() …161・pendingExpress() …162・addToExpress() …165・orderExpress() …168・addOnOk() …172・addOnNext() …173・addOnToday() …174・orderAddOn() …175・expressConfirm() …180・onDuty() …185・curSet() …186・edit() …187・■ 商品ごとの「いま」 …191・counts() …193・nextDelivery() …196・pinfo() …197・motText() …201・withText() …203・ST_LABEL …205・orderDiff() …208・orderText() …209・■ 骨組み …211・CSS …212・mount() …298・setMult() …313・badge() …314・readNews() …317・openFromBadge() …319・setOpen() …320・■ 開店前：場所を選ぶ …323・renderSetup() …324・■ 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） …337・renderAlert() …338・openSheet() …349・closeSheet() …350・renderSheet() …351・updateSheet() …386・■ 画面全体 …390・render() …391・lifeLine() …401・renderKpi() …405・renderBody() …410・evText() …422・LF0 …435・KIND …438・lfMatch() …441・lfBar() …449・lfSummary() …468・lfCsv() …480・PAGE …489・renderLog() …490・flushLog() …508・centerBox() …516・slipLine() …527・flowLine() …532・■ 荷物の行方（アイデア帳 6.・2026-11-08）：注文番号ごとに、売上の記録 → 注文 → 製造 → 納品書 → 到着を時刻の順に。計算は js/track-core.js、時刻は data/center.json の flow・track …539・trkNow() …542・trkSplit() …543・trkEst() …545・trkRuns() …547・trkRuns0() …548・trkList() …555・renderTrack() …557・renderItems() …612・updateItems() …673・renderLayout() …678・basketStats() …692・renderPeople() …701・crewSave() …730・renderCrew() …731・renderMoney() …812・moveCard() …826・shrinkCard() …846・renderNews() …855・■ 売店の正面の絵 …858・BOX …859・zoneSlots() …860・rr() …861・drawItem() …862・drawKiosk() …872・personColor() …901・spawnFromEvent() …902・bubble() …907・stepPeople() …908・drawPerson() …917・draw() …922・onCanvasClick() …942・loop() …945・■ 起動 …950・公開 minatoKiosk …952
 
-## js/money-core.js（55行）
+## js/money-core.js（65行）
 
-dayLedger() …14・project() …41・sumDays() …48・公開 MoneyCore …53
+centerCost() …12・dayLedger() …18・project() …48・sumDays() …58・公開 MoneyCore …63
 
-## js/money-view.js（102行）
+## js/money-view.js（106行）
 
-CSS …17・flowSvg() …42・projHtml() …62・render() …71・bind() …92・open() …93・close() …94・yesterday() …96・公開 minatoMoney …100
+CSS …17・flowSvg() …42・projHtml() …62・render() …75・bind() …96・open() …97・close() …98・yesterday() …100・公開 minatoMoney …104
 
 ## js/research-core.js（166行）
 

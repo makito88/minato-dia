@@ -62,11 +62,15 @@ function flowSvg(inv){const pos={ext:[70,120],kiosk:[265,120],center:[460,120],f
 function projHtml(L){if(!L||L.n||!window.MoneyCore||!window.HaisoCore)return '';const inp=g(()=>minatoKiosk.haisoInput(L.day),null),C=g(()=>minatoKiosk.ccfg,null),H=g(()=>minatoHaiso.cfg,null),M=g(()=>minatoKiosk.mcfg,null);if(!inp||!C||!H||!M)return '';
   const me=inp.stores[0],T=(C.slip&&C.slip.trucks)||[],mine=T.find(t=>(t.st||[]).includes(me.key.split('-')[0])),order=[mine,...T.filter(t=>t!==mine)].filter(Boolean),keys=[];
   for(const t of order)for(const st of t.st)for(const pl of ['home','gate','naka','soto']){const k=st+'-'+pl;if(k!==me.key)keys.push(k);}
-  const hzFor=n=>HaisoCore.dayPlan(H,C,CenterCore,{day:inp.day,cond:inp.cond,slip:null,stores:[me,...keys.slice(0,n-1).map(key=>({key,runs:me.runs}))]});
-  const P=g(()=>MoneyCore.project(M,L,hzFor,[1,2,4,6,8,10,12]),null);if(!P)return '';const f=H.fare;
-  const be=fn=>{const x=P.find(r=>fn(r)>=0);return x?`${x.n}店から`:'12店でもまだ赤字'};
-  return `<section class="card"><h3>店を増やしたら（試算）</h3><p class="note" style="margin-bottom:6px">この日の店と同じ荷物・同じ収支の店が、このトラックの道から順にふえたら。配送会社の収入＝店に寄った回数×${yen(f.perStop)}＋かご車×${yen(f.perCart)}（センターから）＋工場→センターのかご車×${yen(f.fcPerCart)}（工場から）。センターの決まった費用（1日${yen(M.centerFixedDay)}）は店の数で分ける。</p>
-    <div style="overflow-x:auto"><table class="pj"><thead><tr><td>店の数</td><td>運ぶ量（かご車/日）</td><td>配送会社の収入</td><td>配送会社</td><td>センター</td><td>売店（1店）</td><td>グループ</td></tr></thead><tbody>${P.map(r=>`<tr><td>${r.n}店</td><td>${r.carts}台</td><td>${yen(r.haiso.fare)}</td><td class="${r.haiso.profit<0?'neg':'pos'}">${sy(r.haiso.profit)}${r.haiso.other?`<small>（他社${r.haiso.other}便）</small>`:''}</td><td class="${r.center<0?'neg':'pos'}">${sy(r.center)}</td><td class="${r.kiosk1<0?'neg':'pos'}">${sy(r.kiosk1)}</td><td class="${r.group<0?'neg':'pos'}">${sy(r.group)}</td></tr>`).join('')}</tbody></table></div>
+  const E=M.ext||{},sts=[...new Set(T.flatMap(t=>t.st))],m=V.ext||0;
+  const extStops=k=>Array.from({length:k},(_,i)=>({key:sts[i%sts.length]+'-x'+i,ext:true,runs:[{bin:E.bin||'昼前の便',f:0,c:(E.carts||0.6)*(H.perCart.center||150)}]}));
+  const hzFor=(n,mm)=>HaisoCore.dayPlan(H,C,CenterCore,{day:inp.day,cond:inp.cond,slip:null,stores:[me,...keys.slice(0,n-1).map(key=>({key,runs:me.runs})),...extStops(mm||0)]});
+  const P=g(()=>MoneyCore.project(M,L,hzFor,[1,2,4,6,8,10,12,16],m),null);if(!P)return '';const f=H.fare;
+  const extBtns=`<div class="seg" style="margin:4px 0 8px">${[0,10,20,40].map(k=>`<button type="button" data-ext="${k}" aria-pressed="${m===k}">外の配達先 ${k}</button>`).join('')}</div>`;
+  const be=fn=>{const x=P.find(r=>fn(r)>=0);return x?`${x.n}店から`:'16店でもまだ赤字'};
+  return `<section class="card"><h3>店を増やしたら（試算）</h3><p class="note" style="margin-bottom:6px">この日の店と同じ荷物・同じ収支の店が、このトラックの道から順にふえたら。人件費も入れた計算：配送会社の運転手はトラックごとのシフト（深夜の割増・社会保険）、センターは運営の人（センター長・事務・検品）と建物（決まった費用）＋仕分けの人（扱う個数で時間が決まる）。配送会社の収入＝店に寄った回数×${yen(f.perStop)}＋かご車×${yen(f.perCart)}＋工場→センターのかご車×${yen(f.fcPerCart)}。</p>
+    <p class="note">「外の配達先」は、ほかの会社のコンビニ・自販機・カフェ・スーパー・会社・病院・学校など。1つあたり1日1便・かご車${E.carts}台、センターに配達の料金（1便${yen(E.fee.perRun)}＋かご車${yen(E.fee.perCart)}）を払う（品物の代金は入れない・仮）。</p>${extBtns}
+    <div style="overflow-x:auto"><table class="pj"><thead><tr><td>店の数</td><td>運ぶ量（かご車/日）</td><td>配送会社の収入</td><td>配送会社</td><td>センター</td><td>売店（1店）</td><td>グループ</td></tr></thead><tbody>${P.map(r=>`<tr><td>${r.n}店${m?`＋外${m}`:''}</td><td>${r.carts}台</td><td>${yen(r.haiso.fare)}</td><td class="${r.haiso.profit<0?'neg':'pos'}">${sy(r.haiso.profit)}<small>運転手${r.haiso.drivers}シフト${r.haiso.other?`・他社${r.haiso.other}便`:''}</small></td><td class="${r.center<0?'neg':'pos'}">${sy(r.center)}<small>仕分け${r.centerCost.sortH}時間</small></td><td class="${r.kiosk1<0?'neg':'pos'}">${sy(r.kiosk1)}</td><td class="${r.group<0?'neg':'pos'}">${sy(r.group)}</td></tr>`).join('')}</tbody></table></div>
     <p class="note" style="margin-top:6px">黒字になるのは：配送会社 ${be(r=>r.haiso.profit)}・センター ${be(r=>r.center)}・グループ ${be(r=>r.group)}・売店 ${P[0].kiosk1>=0?'この店は黒字':'この店は赤字（店ごとの売れ方しだい）'}（この日の数で計算した目安。駅や場所で売れ方はちがう）。</p></section>`;}
 function render(){const box=$('mfv');if(!box||!V.open)return;
   const today=g(()=>minatoKiosk.day,null),days=g(()=>minatoKiosk.moneyDays(),[])||[];
@@ -89,7 +93,7 @@ function render(){const box=$('mfv');if(!box||!V.open)return;
     <section class="card"><details><summary>請求書の一覧（${L.inv.length}枚）</summary><table>${rows}</table></details>
       <p class="note" style="margin-top:6px">店が1つなので、センター・配送会社の決まった費用に対して運ぶ量が少なく、赤字になりやすい（店が増えると変わる）。工場は、この店の分だけ（ほかの取引先の分は入れていない）。売店の「収支」タブは売れた品の原価で数えるので、ここ（その日に届いた品の代金）とは少しちがう。</p></section></div>`;
   bind(box);}
-function bind(box){$('mfClose').onclick=close;box.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{V.mode=b.dataset.m;render();});}
+function bind(box){$('mfClose').onclick=close;box.querySelectorAll('[data-ext]').forEach(b=>b.onclick=()=>{V.ext=Number(b.dataset.ext);render();});box.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{V.mode=b.dataset.m;render();});}
 function open(){const b=$('mfv');b.hidden=false;V.open=true;b.scrollTop=0;render();clearInterval(V.timer);V.timer=setInterval(()=>{if(V.mode==='t')render();},10000);}
 function close(){const b=$('mfv');if(b)b.hidden=true;V.open=false;clearInterval(V.timer);}
 /* トップの1行用 */

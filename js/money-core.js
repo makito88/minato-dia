@@ -8,6 +8,10 @@
 (function(root){
 'use strict';
 const R=Math.round;
+/* センターの人と建物（A）：pieces＝その日にセンターで扱う個数。返すもの：{ops:運営の人, facility:建物, sort:[{label,h,yen}], sortH, total} */
+function centerCost(M,pieces){const O=M.centerOps;if(!O)return null;const soc=1+(O.social||0);
+  const ops=R(O.staff.reduce((t,x)=>t+x.n*x.h*x.wage,0)*soc),S=O.sort,sort=S.shifts.map(sh=>{const h=Math.max(sh.minH||0,pieces*(sh.share||0)/(S.perHour||450));return {label:sh.label,h:+h.toFixed(1),yen:R(h*S.wage*(1+(sh.night?(O.nightPremium||0):0))*soc)};});
+  return {ops,facility:O.facility||0,sort,sortH:+sort.reduce((t,x)=>t+x.h,0).toFixed(1),total:ops+(O.facility||0)+sort.reduce((t,x)=>t+x.yen,0)};}
 /* o＝{day, sales, pl:売店の収支, delivered:{品:数}（その日に店に届いた品。臨時便は入れない）, route:pid→'factory'|'center'|'direct', cost:pid→仕入れ値,
        haiso:{runs}（HaisoCore.dayPlan の結果。なければ配送は0）, take, live:きょうの見込みなら true}
    返すもの：{v:1, day, live, inv:[{from,to,what,yen}], co:{会社:{in,out,net}}, ext:{in,out}} */
@@ -23,7 +27,9 @@ function dayLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if(y
   add('center','factory','工場の品の代金',bF*(1-take));
   add('center','ext','問屋の品の代金（店へ出した分）',bC*(M.wsRate??0.75));
   // A：センター全体の決まった費用を、店の数で分ける（o.nStores。いまは1店）。B：売店→センターのセンターフィー（品が届いた便ごと）
-  add('center','ext','倉庫と仕分け（センター全体の決まった費用'+((o.nStores||1)>1?'・'+(o.nStores)+'店で分けた分':'')+'）',M.centerFixedDay!=null?M.centerFixedDay/(o.nStores||1):(M.centerFixed||0));
+  {let pcs=0;for(const pid in o.delivered||{}){const r=o.route(pid);if(r==='factory'||r==='center')pcs+=o.delivered[pid]||0;}const CCo=centerCost(M,pcs);
+    if(CCo){add('center','ext','センターの運営の人（センター長・事務・検品）',CCo.ops);add('center','ext','倉庫の家賃・電気・機械',CCo.facility);for(const x of CCo.sort)add('center','ext',`仕分けの人（${x.label}・${x.h}時間）`,x.yen);}
+    else add('center','ext','倉庫と仕分け（センター全体の決まった費用）',M.centerFixedDay||M.centerFixed||0);}
   add('kiosk','center','センターフィー（配送料・'+(o.runs||0)+'便）',((M.centerFee&&M.centerFee.perRun)||0)*(o.runs||0));
   add('factory','ext','材料・人件費・電気など',bF*(1-take)*(M.factoryCost??0.7));
   const runs=(o.haiso&&o.haiso.runs)||[];let fC=0,fF=0,xC=0,xF=0,hc=0;
@@ -36,19 +42,23 @@ function dayLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if(y
   for(const x of inv){if(co[x.to])co[x.to].in+=x.yen;else ext.out+=x.yen;if(co[x.from])co[x.from].out+=x.yen;else ext.in+=x.yen;}
   for(const k in co)co[k].net=co[k].in-co[k].out;
   return {v:1,day:o.day,live:!!o.live,inv,co,ext};}
-/* 店を増やしたら（試算）：1店の1日（L1＝nStores 1 で作ったもの）を n 店ぶんにし、配送会社は hzFor(n)（n 店を並べた便の計算）を使う。
-   センターの決まった費用は n 店で分けるので、1店あたりの負担が下がる。返すもの：[{n, carts, haiso:{fare,cost,profit,other}, center, kiosk1, group}] */
-function project(M,L1,hzFor,ns){const fx=M.centerFixedDay||0,c1=L1.co.center,k1=L1.co.kiosk;
-  const cFare1=L1.inv.filter(x=>x.from==='center'&&(x.to==='haiso'||x.what==='他社の応援便')).reduce((t,x)=>t+x.yen,0),cFix1=L1.inv.filter(x=>x.from==='center'&&x.what.startsWith('倉庫と仕分け')).reduce((t,x)=>t+x.yen,0);
-  const cBase=c1.net+cFare1+cFix1;   // 1店あたり：運賃と決まった費用を引く前のセンターのもうけ
-  const f1=L1.co.factory.net+L1.inv.filter(x=>x.from==='factory'&&x.to!=='ext').reduce((t,x)=>t+x.yen,0);
-  return (ns||[1,2,4,6,8,10,12,16]).map(n=>{const hz=hzFor(n),S=hz.sum,cf=hz.runs.filter(r=>r.payer==='center').reduce((t,r)=>t+(r.fare||0)+(r.fee||0),0),ff=hz.runs.filter(r=>r.payer==='factory').reduce((t,r)=>t+(r.fare||0)+(r.fee||0),0);
-    const center=R(cBase*n-cf-fx),factory=R(f1*n-ff);return {n,carts:S.carts,stops:hz.runs.filter(r=>r.leg==='cs').reduce((t,r)=>t+r.stops.length,0),haiso:{fare:S.fare,cost:S.cost,profit:S.profit,other:S.other},center,factory,kiosk1:R(k1.net),group:R(k1.net*n+center+factory+S.profit)};});}
+/* 店を増やしたら（試算・2026-11-09 にやり直し）：1店の1日（L1）を n 店ぶんにし、外の配達先を m 足す。
+   配送会社は hzFor(n,m)（並べた便の計算。運転手はシフトで払う）。センターは「運営の人＋建物（決まった費用）＋仕分けの人（扱う個数で増える）」。
+   外の配達先はセンターに配達の料金を払う（品物の代金は入れない）。返すもの：[{n, m, carts, pieces, haiso, center, centerCost, factory, kiosk1, group}] */
+function project(M,L1,hzFor,ns,m){m=m||0;const k1=L1.co.kiosk,E=M.ext||{fee:{}};
+  const sumI=f=>L1.inv.filter(f).reduce((t,x)=>t+x.yen,0);
+  const cIn1=sumI(x=>x.from==='kiosk'&&x.to==='center'),cGoods1=sumI(x=>x.from==='center'&&(x.to==='factory'||x.what.startsWith('問屋')));
+  const f1=L1.co.factory.net+sumI(x=>x.from==='factory'&&x.to!=='ext');
+  return (ns||[1,2,4,6,8,10,12,16]).map(n=>{const hz=hzFor(n,m),S=hz.sum,cf=hz.runs.filter(r=>r.payer==='center').reduce((t,r)=>t+(r.fare||0)+(r.fee||0),0),ff=hz.runs.filter(r=>r.payer==='factory').reduce((t,r)=>t+(r.fare||0)+(r.fee||0),0);
+    const pieces=hz.runs.filter(r=>r.leg==='cs').reduce((t,r)=>t+r.stops.reduce((u,x)=>u+(x.pcs||0),0),0),cc=centerCost(M,pieces)||{total:M.centerFixedDay||0,sortH:0};
+    const extIn=m*((E.runs||1)*((E.fee.perRun||0)+(E.fee.perCart||0)*(E.carts||0)));
+    const center=R((cIn1-cGoods1)*n+extIn-cf-cc.total),factory=R(f1*n-ff);
+    return {n,m,carts:S.carts,pieces,haiso:{fare:S.fare,cost:S.cost,labor:S.labor,drivers:S.drivers,profit:S.profit,other:S.other},center,centerCost:{total:cc.total,sortH:cc.sortH},extIn:R(extIn),factory,kiosk1:R(k1.net),group:R(k1.net*n+center+factory+S.profit)};});}
 /* いくつかの日を足す（7日の合計など） */
 function sumDays(list){const co={},inv={};let n=0;for(const L of list){if(!L)continue;n++;for(const k in L.co){const c=co[k]||(co[k]={in:0,out:0,net:0});c.in+=L.co[k].in;c.out+=L.co[k].out;c.net+=L.co[k].net;}
   for(const x of L.inv){const key=x.from+'|'+x.to+'|'+x.what;(inv[key]||(inv[key]={from:x.from,to:x.to,what:x.what,yen:0})).yen+=x.yen;}}
   return {n,co,inv:Object.values(inv)};}
-const api={dayLedger,sumDays,project};
+const api={dayLedger,sumDays,project,centerCost};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.MoneyCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -92,7 +92,7 @@ function loadOrders(){let raw=null;try{raw=localStorage.getItem(OKEY);}catch(e){
 /* センターの倉庫（dia-center・2026-11-09）：計算は CenterCore.csOpen／csClose。読み書きはここだけ */
 const CSKEY='dia-center',MKEY='dia-money';
 /* お金の流れ（dia-money・2026-11-09）：1日ごとのまとめ（会社どうしの請求書と、会社ごとの出入り）。計算は MoneyCore.dayLedger */
-fetch('data/money.json?v=20261109m').then(r=>r.ok?r.json():null).then(m=>{V.mcfg=m;}).catch(()=>{});
+fetch('data/money.json?v=20261109n').then(r=>r.ok?r.json():null).then(m=>{V.mcfg=m;}).catch(()=>{});
 function loadMoney(){let o=null;try{o=JSON.parse(localStorage.getItem(MKEY)||'null');}catch(e){}return o&&o.v===1&&Array.isArray(o.days)?o:{v:1,days:[]};}
 function moneyOf(res,live){if(!window.MoneyCore||!V.mcfg||!res||!V.ccfg)return null;const I=ix(),dl={};
   for(const e of res.ev){if(e.k!=='delivery'||(e.express&&!e.addOn))continue;for(const pid in e.items||{})dl[pid]=(dl[pid]||0)+e.items[pid];}

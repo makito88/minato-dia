@@ -24,5 +24,11 @@ assert.equal(L.inv.find(x=>x.what.startsWith('センターフィー')).yen,M.cen
 const keys=['M-home','K-home','C-home','C-gate','S-home','U-home'],hzFor=n=>HC.dayPlan(H,C,CC,{day:5,cond,slip:null,stores:keys.slice(0,n).map(key=>({key,runs:Object.values(runs)}))});
 const PJ=MC.project(M,L,hzFor,[1,2,4,6]);assert.ok(PJ[3].center>PJ[0].center,'店が増えるとセンターは良くなる');assert.ok(PJ[3].haiso.profit>PJ[0].haiso.profit,'配送会社も');
 console.log('  試算：',PJ.map(r=>`${r.n}店 配送${r.haiso.profit}・センター${r.center}`).join('／'));
+// 人件費：センターは運営の人・建物・仕分けの人（扱う個数で時間が増える）、配送会社は運転手のシフト
+const c1=MC.centerCost(M,400),c2=MC.centerCost(M,6000);assert.ok(c2.sortH>c1.sortH&&c2.total>c1.total,'個数が増えると仕分けの時間が増える');assert.equal(c1.ops,c2.ops,'運営の人は個数によらない');
+assert.ok(hz.sum.labor>0&&hz.sum.drivers>=3,'運転手のシフト');
+// 外の配達先を足すと、センターと配送会社の収入が増える
+const hzX=(n,m)=>HC.dayPlan(H,C,CC,{day:5,cond,slip:null,stores:[...keys.slice(0,n).map(key=>({key,runs:Object.values(runs)})),...Array.from({length:m||0},(_,i)=>({key:['K','C','S','U','M','F'][i%6]+'-x'+i,ext:true,runs:[{bin:M.ext.bin,f:0,c:M.ext.carts*H.perCart.center}]}))]});
+const X0=MC.project(M,L,hzX,[1],0)[0],X20=MC.project(M,L,hzX,[1],20)[0];assert.ok(X20.haiso.fare>X0.haiso.fare&&X20.extIn>0,'外の配達先');
 const S=MC.sumDays([L,L]);assert.equal(S.co.kiosk.net,L.co.kiosk.net*2);
 console.log('money.test ok',Object.entries(L.co).map(([k,c])=>`${k} ${c.net}`).join('・'),'グループ',net);
