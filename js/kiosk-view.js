@@ -66,7 +66,7 @@ function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();dailyOrder();csOpen
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();V.evI=KC.idxAt(V.res,gT());return V.res;}
 function tick(){if(!V.cfg||!V.st)return;ensureRes();}
-function closeToday(res){const S=V.st;salesToCenter(res);arrivalToCenter(res);if(CC&&CC.csClose&&V.ccfg&&V.ccfg.ws){const cs=loadCS();if(cs&&cs.open&&cs.open.day===res.day&&CC.csClose(V.cfg,V.ccfg,cs,res))saveCS();}
+function closeToday(res){const S=V.st;salesToCenter(res);arrivalToCenter(res);try{moneyClose(res);}catch(e){console.warn('お金の記録を残せませんでした',e);}if(CC&&CC.csClose&&V.ccfg&&V.ccfg.ws){const cs=loadCS();if(cs&&cs.open&&cs.open.day===res.day&&CC.csClose(V.cfg,V.ccfg,cs,res))saveCS();}
   // その日の最後の設定を、次の日からの設定にする。新しく並べた品は「並べた日」を覚える（マニアが来る）
   const last=S.today&&S.today.day===res.day&&S.today.edits.length?S.today.edits.at(-1):null;
   const before=new Set(Object.keys(KC.shelfInfo(V.cfg,S.layout)));
@@ -90,7 +90,16 @@ function aimName(a){const A=V.ccfg&&V.ccfg.aims||{};return (A[a||center().aim]||
 // dia-orders は読むたびに解かず、文字が変わったときだけ解く（引き継ぎで書きかわっても読み直せるように、文字で比べる）
 function loadOrders(){let raw=null;try{raw=localStorage.getItem(OKEY);}catch(e){}if(V.ordRaw===raw&&V.ordLog)return V.ordLog;let o=null;try{o=JSON.parse(raw||'null');}catch(e){}V.ordRaw=raw;V.ordLog=o&&o.v===1&&Array.isArray(o.days)?o:CC.emptyLog();return V.ordLog;}
 /* センターの倉庫（dia-center・2026-11-09）：計算は CenterCore.csOpen／csClose。読み書きはここだけ */
-const CSKEY='dia-center';
+const CSKEY='dia-center',MKEY='dia-money';
+/* お金の流れ（dia-money・2026-11-09）：1日ごとのまとめ（会社どうしの請求書と、会社ごとの出入り）。計算は MoneyCore.dayLedger */
+fetch('data/money.json?v=20261109i').then(r=>r.ok?r.json():null).then(m=>{V.mcfg=m;}).catch(()=>{});
+function loadMoney(){let o=null;try{o=JSON.parse(localStorage.getItem(MKEY)||'null');}catch(e){}return o&&o.v===1&&Array.isArray(o.days)?o:{v:1,days:[]};}
+function moneyOf(res,live){if(!window.MoneyCore||!V.mcfg||!res||!V.ccfg)return null;const I=ix(),dl={};
+  for(const e of res.ev){if(e.k!=='delivery'||(e.express&&!e.addOn))continue;for(const pid in e.items||{})dl[pid]=(dl[pid]||0)+e.items[pid];}
+  const H=g(()=>minatoHaiso.cfg,null),hi=g(()=>window.minatoKiosk.haisoInput(res.day),null),hz=H&&hi&&window.HaisoCore?g(()=>HaisoCore.dayPlan(H,V.ccfg,CC,hi),null):null;
+  const take=g(()=>window.FactoryPL&&V.fD?FactoryPL.settings(V.fD).take:null,null);
+  return MoneyCore.dayLedger(V.mcfg,{day:res.day,sales:res.pl.sales,pl:res.pl,delivered:dl,route:pid=>CC.routeOf(V.ccfg,I.P[pid]&&I.P[pid].genre),cost:pid=>I.P[pid]?I.P[pid].cost:0,haiso:hz,take,live});}
+function moneyClose(res){const L=moneyOf(res,false);if(!L)return;const m=loadMoney();m.days=m.days.filter(x=>x.day!==res.day);m.days.push(L);m.days.sort((a,b)=>a.day-b.day);const k=(V.mcfg&&V.mcfg.keepDays)||35;if(m.days.length>k)m.days=m.days.slice(-k);try{localStorage.setItem(MKEY,JSON.stringify(m));}catch(e){}}
 function loadCS(){if(V.csObj)return V.csObj;let o=null;try{o=JSON.parse(localStorage.getItem(CSKEY)||'null');}catch(e){}V.csObj=o&&o.v===1?o:(CC&&CC.csNew?CC.csNew():null);return V.csObj;}
 function saveCS(){try{if(V.csObj)localStorage.setItem(CSKEY,JSON.stringify(V.csObj));}catch(e){}}
 function csCtx(day){const S=V.st;return {stores:[{key:CC.storeKey(S),order:orderFor(day),shelf:KC.shelfInfo(V.cfg,S.layout)}],recs:CC.recsOf(loadOrders(),CC.storeKey(S))};}
@@ -951,6 +960,9 @@ window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()
     const on=z(),off=z();for(let i=0;i<n;i++){const ci={...c,day:c.day+i*7};acc(on,KC.simulate(V.cfg,V.st,ci));acc(off,KC.simulate(V.cfg,V.st,{...ci,fx:undefined}));}
     return {link:linkNow(V.st.st,gCond()),n,on,off};},
   get ccfg(){return V.ccfg;},
+  // お金の流れの画面（js/money-view.js）：その日のまとめ。きょうは売店の計算からの見込み、前の日は dia-money
+  moneyDay(day){day=day??gDay();if(day===gDay()){const r=ensureRes();return r&&r.day===day?moneyOf(r,true):null;}return loadMoney().days.find(x=>x.day===day)||null;},
+  moneyDays(){return loadMoney().days;},
   // 配送会社の画面（js/haiso-view.js）に渡す数：その日の納品書と、便ごとの工場の品・センターの品の個数（きょうは売店の計算、前の日は到着の記録）
   haisoInput(day){if(!V.st||!V.ccfg||!CC)return null;day=day??gDay();const key=CC.storeKey(V.st),lg=loadOrders(),d=lg.days.find(x=>x.day===day),I=ix(),rt=pid=>CC.routeOf(V.ccfg,I.P[pid]&&I.P[pid].genre);
     let runs=null;if(day===gDay()){ensureRes();const res=V.res;if(res&&res.day===day){const by={};for(const e of res.ev){if(e.k!=='delivery'||e.express||e.addOn)continue;const x=by[e.name]||(by[e.name]={bin:e.name,f:0,c:0});for(const pid in e.items||{}){const r=rt(pid);if(r==='factory')x.f+=e.items[pid];else if(r==='center')x.c+=e.items[pid];}}runs=Object.values(by);}}

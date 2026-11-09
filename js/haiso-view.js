@@ -11,7 +11,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const yen=n=>(n<0?'−':'')+'¥'+Math.abs(Math.round(n)).toLocaleString();
 const hm=t=>{t=Math.round(t);const h=Math.floor(((t%1440)+1440)%1440/60),m=((t%60)+60)%60;return h+':'+String(m).padStart(2,'0');};
 const V={open:false,back:0,H:null,CO:null,timer:0};
-Promise.all(['data/haiso.json?v=20261109g','data/companies.json?v=20261109g'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(([h,c])=>{V.H=h;V.CO=c;if(V.open)render();});
+Promise.all(['data/haiso.json?v=20261109j','data/companies.json?v=20261109g'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(([h,c])=>{V.H=h;V.CO=c;if(V.open)render();});
 const coName=id=>g(()=>V.CO.companies.find(x=>x.id===id).name,id);
 
 const CSS=`.hzv{position:fixed;inset:0;z-index:85;background:var(--paper);color:var(--ink);overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 14px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(14px,env(safe-area-inset-left,0px))}
@@ -63,7 +63,7 @@ function render(){const box=$('hzv');if(!box||!V.open)return;
       <div class="gantt">${lanesH}<div></div><div class="axis">${ticks}</div></div>
       <div class="lg"><span><i style="background:#2f6f9a"></i>自社便（${esc(coName('haiso'))}）</span><span><i style="background:#c77d2a"></i>他社便（${esc(coName('other'))}）</span></div></section>
     <section class="card"><h3>便ごとの内訳<small>かご車は、工場の品${V.H.perCart.factory}個・センターの品${V.H.perCart.center}個で1台（仮）。トラック1台に${V.H.trucks.cs.cap}台まで</small></h3><div style="overflow-x:auto"><table><thead><tr><th>便</th><th>出発</th><th>着</th><th>かご車</th><th>距離</th><th>運転</th><th>費用</th><th>運賃・料金</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <p class="note" style="margin-top:8px">費用＝燃料（${V.H.cost.fuelPerKm}円/km）＋運転手（時給${V.H.cost.wageH.toLocaleString()}円・積みおろしと帰り道を含む）＋トラックの持ち費（1台1日${V.H.cost.truckDay.toLocaleString()}円・${S.trucks}台で${yen(S.truckDay)}）。運賃＝店に寄るごと${yen(V.H.fare.perStop)}＋かご車1台${yen(V.H.fare.perCart)}（センターが払う）、工場→センターは1便${yen(V.H.fare.fc)}（工場が払う）。他社便の料金は、頼んだ会社（工場・センター）が他社へ直接払う。お金を会社どうしでやりとりする記録（請求書）は、これから作る。</p></section>`);
+      <p class="note" style="margin-top:8px">費用＝燃料（${V.H.cost.fuelPerKm}円/km）＋運転手（時給${V.H.cost.wageH.toLocaleString()}円・積みおろしと帰り道を含む）＋トラックの持ち費（1台1日${V.H.cost.truckDay.toLocaleString()}円・${S.trucks}台で${yen(S.truckDay)}）。運賃＝店に寄るごと${yen(V.H.fare.perStop)}＋かご車1台${yen(V.H.fare.perCart)}（センターが払う）、工場→センターはかご車1台${yen(V.H.fare.fcPerCart)}（工場が払う。トラックの費用もこの店の荷物の分だけ）。他社便の料金は、頼んだ会社（工場・センター）が他社へ直接払う。お金を会社どうしでやりとりする記録（請求書）は、これから作る。</p></section>`);
   $('hzClose').onclick=close;bindDays(box);}
 function bindDays(box){box.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>{V.back=Number(b.dataset.back);render();});}
 function open(){const b=$('hzv');b.hidden=false;V.open=true;V.back=0;b.scrollTop=0;render();clearInterval(V.timer);V.timer=setInterval(render,10000);}
@@ -73,5 +73,5 @@ function summary(day){const inp=g(()=>minatoKiosk.haisoInput(day),null),C=g(()=>
 {const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
  const v=document.createElement('div');v.id='hzv';v.className='hzv';v.hidden=true;v.setAttribute('role','dialog');v.setAttribute('aria-label','配送会社');document.body.appendChild(v);
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open)close();});}
-window.minatoHaiso={open,close,summary,coName};
+window.minatoHaiso={open,close,summary,coName,get cfg(){return V.H;}};
 })();

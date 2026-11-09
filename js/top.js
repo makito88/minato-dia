@@ -45,7 +45,7 @@ const L=[
  {id:'line',name:'沿線',sub:'人口・土地利用・駅・商業施設',img:'docs/img/route-map-painted.jpg',state:'遊べる',
   items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station','lab'],['路線を描く（バス・配送・船・空のお絵かき帖）','page:route-editor.html','lab'],['沿線くらしアンケート（駅ごとの暮らしのうつりかわり）','page:survey.html','lab']]},
  {id:'shop',name:'店舗',sub:'商品・在庫・売上・客の行動',img:'docs/img/top-kiosk.jpg',state:'遊べる',
-  items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money'],['センターの倉庫（在庫・問屋への発注・足りなくなるおそれ）','center'],['配送会社（トラックの1日・自社便と他社便）','haiso'],['荷物の行方（注文した品はいまどこ・何時に並ぶ）','kiosk:track','lab']]},
+  items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money'],['センターの倉庫（在庫・問屋への発注・足りなくなるおそれ）','center'],['配送会社（トラックの1日・自社便と他社便）','haiso'],['お金の流れ（4つの会社の入り・出・もうけ）','money'],['荷物の行方（注文した品はいまどこ・何時に並ぶ）','kiosk:track','lab']]},
  {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチ・ドーナッツの一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',note:'AIで描いたイメージです（架空の工場）。',
   items:[['おにぎり（米のライン・機械2本）','factory:rice'],['パン（発酵の時計・オーブン）','factory:bread'],['サンドイッチ（機械のライン・自社の食パン）','factory:sand'],['ドーナッツ（油の時計・仕上げ）','factory:donut']]},
  {id:'crew',name:'従業員',sub:'シフト・時給・やる気・暮らし',art:SVG_CREW,state:'遊べる',
@@ -105,6 +105,8 @@ function todayHtml(){const day=g(()=>ENS.day,null),c=g(()=>COND,{}),d=opNoon(),y
   const bridges=!LK?'<p class="tx">橋の一覧を読めませんでした。</p>':`<p class="bsum">${['done','temp','none','retired'].map(k=>`<span class="bs bs-${k}">${esc(st[k])} ${cnt[k]||0}</span>`).join('')}<span class="lg">数字の出どころ：${mark('real')}現実 ${mark('assume')}仮定 ${mark('game')}ゲーム内</span></p>
     <ul class="blist">${LK.links.map(b=>`<li class="bs-${b.state}"><span class="bst">${esc(st[b.state])}</span><b>${esc(isl(b.from))} → ${esc(isl(b.to))}</b><span class="bv">${b.values.map(v=>`${esc(v.name)}${mark(v.src)}`).join(' ')}</span><small>${esc(b.desc)}</small></li>`).join('')}</ul>`;
   return `<div class="tdhd"><h2>きょうの沿線</h2><p class="date">${day!=null?`第${day}運行日・`:''}${jfmt(d,{month:'long',day:'numeric',weekday:'short'})}・${DK}<span class="wx">${WX[1]} ${WX[0]}${mark(wxReal?'real':'assume')}</span></p></div>
+   ${(()=>{const Y=g(()=>minatoMoney.yesterday(),null);if(!Y)return '';const K4={kiosk:'売店',center:'センター',factory:'工場',haiso:'配送'};
+     return `<button type="button" class="money1" data-go="money"><span>第${Y.day}運行日のグループのもうけ</span><b class="${Y.net<0?'neg':'pos'}">${Y.net>0?'+':''}${yen(Y.net)}</b><small>${Object.keys(K4).map(k=>`${K4[k]} ${(Y.co[k].net>0?'+':'')}${yen(Y.co[k].net)}`).join('・')}</small><em>お金の流れ ›</em></button>`;})()}
    <p class="cohd">会社の窓<small>${esc(g(()=>T.co.group,'みなと川グループ'))}の4つの会社は、それぞれ別の会社。押すと、その会社の画面が開きます</small></p>
    <div class="isles co4">
     <button type="button" class="isle" data-go="kiosk:money"><span class="ih">売店<small>${esc(coN('kiosk'))}・きのうの収支</small>${mark('game')}</span>${kiosk}</button>
@@ -129,6 +131,7 @@ function go(a){const [k,v]=a.split(':');
   else if(k==='research')g(()=>minatoResearch.open());
   else if(k==='center')g(()=>minatoCenter.open());
   else if(k==='haiso')g(()=>minatoHaiso.open());
+  else if(k==='money')g(()=>minatoMoney.open());
   else if(k==='kiosk')g(()=>minatoKiosk.openTab?minatoKiosk.openTab(v):minatoKiosk.open());}
 
 const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color:var(--ink);overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 18px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 28px) max(16px,env(safe-area-inset-left,0px))}
@@ -156,6 +159,7 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 .topv .tdhd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}.topv .tdhd h2{margin:0;font-size:19px;letter-spacing:.12em}
 .topv .date{margin:0;font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.topv .wx{color:var(--ink);font-weight:700}
 .topv .isles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.topv .isles:not(.co4){grid-template-columns:repeat(2,minmax(0,1fr))}
+.topv .money1{font:inherit;color:inherit;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:8px 12px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;cursor:pointer}.topv .money1:hover{border-color:var(--accent)}.topv .money1 span{font-size:12.5px;color:var(--muted)}.topv .money1 b{font-size:18px;font-variant-numeric:tabular-nums}.topv .money1 b.neg{color:#b5452f}.topv .money1 b.pos{color:#2f7a4a}.topv .money1 small{font-size:11.5px;color:var(--muted)}.topv .money1 em{font-style:normal;margin-left:auto;font-size:12.5px;font-weight:700}
 .topv .cohd{margin:0;font-weight:700;font-size:14px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.topv .cohd small{font-weight:400;font-size:11.5px;color:var(--muted)}
 .topv .isle{font:inherit;color:inherit;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:10px 11px;display:flex;flex-direction:column;gap:6px;min-width:0;cursor:pointer}
 .topv button.isle:hover{border-color:var(--accent)}.topv .soonisle{border-style:dashed;cursor:default;opacity:.8}

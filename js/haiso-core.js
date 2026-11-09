@@ -19,7 +19,9 @@ function dayPlan(H,C,CC,o){const runs=[],F=C.flow||{},LT=o.slip&&o.slip.late,wai
   if(F.factory&&F.center){const fc=T.fc||{},n=fc.n||1,fTot=o.stores.reduce((t,s)=>t+s.runs.reduce((u,r)=>u+(r.f||0),0),0),carts=fTot/per.factory;
     const dep=F.factory.depart-1440+wait,min=(fc.min||15)*2+(H.handleMin||15);
     for(let i=0;i<n;i++)runs.push({leg:'fc',id:'F'+(i+1),company:H.own,label:`${fc.label||'定温トラック'} ${i+1}号`,depart:dep,arrive:dep+(fc.min||15),stops:[{key:'center',name:'川辺の配送センター',arrive:dep+(fc.min||15)}],
-      carts:+(carts/n).toFixed(1),cap:fc.cap||16,km:(fc.km||10)*2,min,cost:ownCost((fc.km||10)*2,min),fare:fare.fc||0,payer:'factory',late:wait});}
+      // 工場→センターのトラックは、ほかの取引先の荷物も積む。この店の分（かご車の割合）だけを数える
+      ...(()=>{const c1=carts/n,sh=Math.max(0.05,Math.min(1,c1/(fc.cap||16)));return {carts:+c1.toFixed(1),share:+sh.toFixed(3),cost:Math.round(ownCost((fc.km||10)*2,min)*sh),fare:Math.round(c1*(fare.fcPerCart||0))};})(),
+      cap:fc.cap||16,km:(fc.km||10)*2,min,payer:'factory',late:wait});}
   // 2) 追いかけ便（他社）
   if(LT&&LT.mode==='chase'){const dep=LT.end+20-1440,arr=LT.at-1440;runs.push({leg:'chase',id:'X1',company:H.other,label:'追いかけ便（工場→センター）',depart:dep,arrive:arr,stops:[{key:'center',name:'川辺の配送センター',arrive:arr}],carts:null,km:0,min:0,cost:0,fee:LT.fee||of.chase||0,payer:'factory',note:`${LT.bin}にのせる`});}
   // 3) センター→店（2トントラック・自社。積みきれない分は他社の応援便）
@@ -33,7 +35,7 @@ function dayPlan(H,C,CC,o){const runs=[],F=C.flow||{},LT=o.slip&&o.slip.late,wai
         carts:+own.toFixed(1),cap,km,min,cost:ownCost(km,min),fare:Math.round((fare.perStop||0)*legs.length+(fare.perCart||0)*own),payer:'center',late:Math.max(0,...legs.map(l=>l.late||0))});
       if(over>0)runs.push({leg:'cs-extra',id:id+(ri+1)+'+',truck:id,bin:r.bin,company:H.other,label:`応援便（${tr.name}・${r.bin}）`,depart:dep,arrive:Math.max(...legs.map(l=>l.arrive)),stops:legs.map(l=>({key:l.key,arrive:l.arrive})),carts:+over.toFixed(1),cap,km:0,min:0,cost:0,fee:of.extra||0,payer:'center',note:'積みきれない分'});});}
   // 自社のトラックの1日の持ち費（その日に走ったトラックの台数ぶん）
-  const ownTrucks=new Set(runs.filter(r=>r.company===H.own).map(r=>r.leg==='fc'?r.id:r.truck)),truckDay=ownTrucks.size*(cost.truckDay||0);
+  const ownTrucks=new Set(runs.filter(r=>r.company===H.own).map(r=>r.leg==='fc'?r.id:r.truck)),truckDay=Math.round([...ownTrucks].reduce((t,id)=>{const r=runs.find(x=>x.id===id&&x.leg==='fc');return t+(cost.truckDay||0)*(r?r.share:1);},0));   // 工場→センターのトラックは、この店の分だけ
   const own=runs.filter(r=>r.company===H.own),oth=runs.filter(r=>r.company!==H.own);
   const sum={own:own.length,other:oth.length,trucks:ownTrucks.size,carts:+own.reduce((t,r)=>t+(r.carts||0),0).toFixed(1),km:+own.reduce((t,r)=>t+r.km,0).toFixed(1),hours:+(own.reduce((t,r)=>t+r.min,0)/60).toFixed(1),
     cost:own.reduce((t,r)=>t+r.cost,0)+truckDay,truckDay,fare:own.reduce((t,r)=>t+(r.fare||0),0),fee:oth.reduce((t,r)=>t+(r.fee||0),0),late:Math.max(0,...own.map(r=>r.late||0))};
