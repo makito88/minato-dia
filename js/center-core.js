@@ -154,6 +154,14 @@ function cart(kcfg,ccfg,slip,key,shelf){const sup=supplyFor(slip,key,kcfg,ccfg,s
 function supplyOrdFor(slip,key,kcfg,ccfg,shelf){const s=supplyFor(slip,key,kcfg,ccfg,shelf);if(!s)return null;const m=slip.stores[key],o={};for(const pid in s)o[pid]=m.items[pid]?m.items[pid][0]:0;return o;}
 /* トラックと、店に着く時刻（センターを出てからの分） */
 function truckFor(ccfg,key){const st=String(key).split('-')[0],T=(ccfg.slip&&ccfg.slip.trucks)||[];const t=T.find(x=>(x.st||[]).includes(st));return t?{id:t.id,name:t.name,min:(t.min&&t.min[st])||0}:null;}
+/* トラックの便（2026-11-09）：センターを出る時刻（flow.runs の depart）＋店までの分＋遅れ＝店に着く時刻。
+   遅れは slip.delay（トラック・便・運行日ごとに決まった乱数＋雨・大雪）。棚に並ぶのは、便の時刻と着いた時刻の遅いほう。
+   時刻はその運行日の0:00からの分（朝の便は前の夜 28:00＝4:00 に出るので、1440 を引く）。
+   返すもの：[{bin, t:便の時刻, depart, arrive, late:遅れ, shelf:棚に並ぶ時刻}] */
+function hashS(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;}
+function truckRuns(ccfg,key,day,cond){const F=ccfg.flow;if(!F)return [];const tr=truckFor(ccfg,key),TD=(ccfg.slip&&ccfg.slip.delay)||{};
+  return (F.runs||[]).map(r=>{const u=(hashS(['truck',day,tr?tr.id:'-',r.bin].join('|'))%1000)/1000,late=Math.round((TD.max||0)*u*u)+(((TD.wx||{})[cond&&cond.wx])||0);
+    const dep=r.depart>=1440?r.depart-1440:r.depart,arr=dep+(tr?tr.min:0)+late;return {bin:r.bin,t:r.t,depart:dep,arrive:arr,late,shelf:Math.max(r.t,arr)};});}
 /* 流れの時刻（画面用）：工場の包装の締め切り → 工場を出る → センターに着く → 分けて合わせる → 便ごとにトラックが出る → 店に着く → 便の時刻に棚へ */
 function flowOf(ccfg,key){const F=ccfg.flow;if(!F)return null;const tr=truckFor(ccfg,key);
   return {factory:F.factory,center:F.center,truck:tr,runs:(F.runs||[]).map(r=>({bin:r.bin,t:r.t,depart:r.depart,arrive:r.depart+(tr?tr.min:0),factory:r.factory}))};}
@@ -168,6 +176,6 @@ function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!sl
   const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
 function putArrival(log,a,keep){const d=dayOf(log,a.day);(d.arr||(d.arr={}))[a.store]=a;trim(log,keep);return log;}
 
-root.CenterCore={cart,supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
+root.CenterCore={truckRuns,cart,supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
 if(typeof module!=='undefined')module.exports=root.CenterCore;
 })(typeof window!=='undefined'?window:globalThis);

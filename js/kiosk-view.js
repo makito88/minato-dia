@@ -35,7 +35,7 @@ Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.j
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
 // 工場の設定（納品書を作るのに使う。読めなくても売店はいつもどおり）
 if(window.FactoryNight)fetch('data/factory.json').then(r=>r.ok?r.json():null).then(d=>{V.fD=d;setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
-if(CC)fetch('data/center.json?v=20261108a').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
+if(CC)fetch('data/center.json?v=20261109a').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
 const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム本体の運賃表）
@@ -44,13 +44,15 @@ const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
   let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
-  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),supplyOrd:supplyOrdOf(day),cart:cartOf(day),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:(linkNow(S.st,c)||{}).fx};}
+  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),supplyOrd:supplyOrdOf(day),cart:cartOf(day),truck:truckOf(day,c),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:(linkNow(S.st,c)||{}).fx};}
 /* 橋：アンケート → 売店。その運行日の日付（朝4:30区切り）で、いちばん新しい調査の年を読む。効き目は保存しない（毎回作り直す・同じ条件なら同じ） */
 const opNoon=()=>{const DAY=864e5,J=9*36e5,S0=270*6e4;return new Date(Math.floor((Date.now()+J-S0)/DAY)*DAY+S0-J+12*36e5);};
 function linkNow(st,c){if(!window.SurveyToKiosk||!window.SurveyCore||!V.links||!V.survey)return null;
   return g(()=>SurveyToKiosk.read(V.links,V.survey,SurveyCore,{st,year:SurveyToKiosk.yearFor(V.survey,SurveyCore,opNoon()),isWeekday:(c||gCond()).day==='wd'}),null);}
 /* その日に工場の品が届く上限（納品書の出荷数）。納品書がない日は null（上限なし） */
 function supplyOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip?CC.supplyFor(d.slip,CC.storeKey(V.st),V.cfg,V.ccfg,KC.shelfInfo(V.cfg,V.st.layout)):null;}
+/* トラック：便ごとに店に着く時刻（遅れたら、着いた時刻に棚へ） */
+function truckOf(day,c){if(!CC||!CC.truckRuns||!V.ccfg||!V.st)return null;const o={};for(const r of CC.truckRuns(V.ccfg,CC.storeKey(V.st),day,c))o[r.bin]=r.arrive;return o;}
 /* かご車：センターが便ごとに分けた工場の品（納品書がない日は null＝今までどおり） */
 function cartOf(day){if(!CC||!CC.cart||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip&&!d.slip.err?CC.cart(V.cfg,V.ccfg,d.slip,CC.storeKey(V.st),KC.shelfInfo(V.cfg,V.st.layout)):null;}
 /* 工場に頼んだ数（納品書の注文の数）。工場が足りなかったかどうかは、これと出荷数でくらべる */
@@ -503,10 +505,10 @@ function slipLine(od,key){const sl=od&&od.slip,m=sl&&sl.stores&&sl.stores[key];l
     out+=`<p class="ks-note" style="margin:4px 0 0">納品書 ${esc(sl.no)}：工場の品 ${g}/${n}個${m.short.q>0?`・<b>${m.short.n}品で${m.short.q}個足りない</b>（その分は届きません）`:'・そろった'}</p>`;}
   out+=flowLine(key,m);return out;}
 /* 納品の流れ（第3回）：工場 → センター（店ごとに分けて、センター在庫の品と合わせる）→ トラック → 便。きょうの便ごとの数（工場の品・センター在庫・直送）と、きのうの到着 */
-function flowLine(key,m){const F=CC.flowOf&&CC.flowOf(V.ccfg,key);if(!F)return '';const tr=F.truck,res=V.res,now=gT(),I=ix();
+function flowLine(key,m){const F=CC.flowOf&&CC.flowOf(V.ccfg,key);if(!F)return '';{const tp=CC.truckRuns?CC.truckRuns(V.ccfg,key,gDay(),gCond()):[];F.runs.forEach((r,i)=>{const x=tp[i];if(x){r.arrive=x.arrive;r.late=x.late;}});}const tr=F.truck,res=V.res,now=gT(),I=ix();
   const head=`<p class="ks-note" style="margin:4px 0 0">納品の流れ：${esc(F.factory.label)} ${fmtT(F.factory.packEnd)} 包装の締め切り → ${fmtT(F.factory.depart)} 出発 → ${fmtT(F.center.arrive)} ${esc(F.center.label)}（${esc(F.center.sort)}）→ ${tr?esc(tr.name):'トラック'}</p>`;
   const runs=F.runs.map(r=>{let f=0,c=0,d=0,cut=0;if(res)for(const e of res.ev){if(e.k!=='delivery'||e.express||e.addOn||Math.abs(e.t-r.t)>60)continue;for(const pid in e.items||{}){const q=e.items[pid],rt=CC.routeOf(V.ccfg,I.P[pid]&&I.P[pid].genre);if(rt==='factory')f+=q;else if(rt==='direct')d+=q;else c+=q;}for(const pid in e.cut||{})cut+=e.cut[pid];}
-    const done=now>=r.t;return `<tr><td class="l" style="white-space:nowrap">${esc(r.bin)}</td><td class="num">${fmtT(r.depart)}→${fmtT(r.arrive)}→${fmtT(r.t)}</td><td class="num">${f}</td><td class="num">${c}</td><td class="num">${d}</td><td class="l">${cut?`<b>${cut}個届かない</b>・`:''}${done?'届いた':'これから'}</td></tr>`;}).join('');
+    const done=now>=r.t;return `<tr><td class="l" style="white-space:nowrap">${esc(r.bin)}</td><td class="num">${fmtT(r.depart)}→${fmtT(r.arrive)}${r.late?`<small>（${r.late}分おくれ）</small>`:''}→${fmtT(Math.max(r.t,r.arrive))}</td><td class="num">${f}</td><td class="num">${c}</td><td class="num">${d}</td><td class="l">${cut?`<b>${cut}個届かない</b>・`:''}${done?'届いた':'これから'}</td></tr>`;}).join('');
   const lg=loadOrders(),y=lg.days.find(x=>x.day===gDay()-1),ya=y&&y.arr&&y.arr[key];
   const yl=ya?(()=>{const cut=ya.cut?Object.values(ya.cut).reduce((a,b)=>a+b,0):0,left=Object.values(ya.left||{}).reduce((a,b)=>a+b,0);return `<p class="ks-note" style="margin:4px 0 0">第${ya.day}運行日の到着（${esc(ya.no||'')}）：${ya.runs.map(r=>`${esc(r.bin)} 工場${Object.values(r.f).reduce((a,b)=>a+b,0)}・センター${r.c}`).join('／')}${cut?`・工場の不足で届かなかった ${cut}個`:''}${left?`・センターに残った工場の品 ${left}個（取引先へ）`:''}</p>`;})():'';
   return head+`<div style="overflow-x:auto;margin-top:4px"><table class="ks-t" style="width:auto"><thead><tr><th class="l" style="white-space:nowrap">きょうの便</th><th>出発→着→棚</th><th>工場の品</th><th>センター在庫</th><th>直送</th><th></th></tr></thead><tbody>${runs}</tbody></table></div>`+yl;}
@@ -518,7 +520,8 @@ function trkSplit(items){const I=ix(),o={factory:{},center:{},direct:{}};for(con
 // あすの見込み（まだ dia-orders にない注文）。おまかせの店はセンターの見込み、自分で決める店は予定の数
 function trkEst(day){const items=isAuto()?planFor(nextCond(),gDay()+1).items:orderFor(day);return {no:CC.orderNo(day,CC.storeKey(V.st)),...trkSplit(items)};}
 // 便ごとの数（flow.runs と同じ並び）：きょうは売店の計算の結果、前の日は到着の記録、あすは見込み（朝の便に全部）
-function trkRuns(day,o,res){const F=V.ccfg.flow,I=ix(),key=CC.storeKey(V.st),R=F.runs||[];
+function trkRuns(day,o,res){const r0=trkRuns0(day,o,res),lg=loadOrders(),dd=lg.days.find(x=>x.day===day),c=day===gDay()?gCond():(dd&&dd.cond)||null,tp=CC.truckRuns?CC.truckRuns(V.ccfg,CC.storeKey(V.st),day,c):[];return r0.map((x,i)=>({...x,late:(tp[i]&&tp[i].late)||0}));}
+function trkRuns0(day,o,res){const F=V.ccfg.flow,I=ix(),key=CC.storeKey(V.st),R=F.runs||[];
   if(day===gDay()&&res)return R.map(r=>{const x={f:{},c:0,d:0,cut:null,items:{}};for(const e of res.ev){if(e.k!=='delivery'||e.express||e.addOn||Math.abs(e.t-r.t)>60)continue;
       for(const pid in e.items||{}){const q=e.items[pid],rt=CC.routeOf(V.ccfg,I.P[pid]&&I.P[pid].genre);x.items[pid]=(x.items[pid]||0)+q;if(rt==='factory')x.f[pid]=(x.f[pid]||0)+q;else if(rt==='direct')x.d+=q;else x.c+=q;}
       if(e.cut){x.cut=x.cut||{};for(const pid in e.cut)x.cut[pid]=(x.cut[pid]||0)+e.cut[pid];}}return x;});

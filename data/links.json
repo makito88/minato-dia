@@ -154,6 +154,33 @@
       "desc": "工場が作れた数だけが、センターで便ごとに分けられて、店に届く。作れなかった分は「届かなかった」として記録される。"
     },
     {
+      "id": "center-to-kiosk-truck",
+      "name": "センター → 売店（トラックの着く時刻）",
+      "from": "center",
+      "to": "kiosk",
+      "state": "temp",
+      "strength": 1,
+      "values": [
+        {
+          "name": "arrive",
+          "unit": "分（その運行日の0:00から。便ごと）",
+          "src": "game"
+        },
+        {
+          "name": "delay",
+          "unit": "分（遅れ。0〜15＋雨6・大雪20）",
+          "src": "assume"
+        }
+      ],
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "運行日の始め。センターを出る時刻（data/center.json の flow.runs）＋店までの分（slip.trucks）＋遅れ（slip.delay）。便の時刻より遅いと、着いた時刻に棚へ"
+      },
+      "desc": "トラックが遅れると、店の品出しが遅れる。遅れの大きさは仮。",
+      "since": "2026-11-09"
+    },
+    {
       "id": "survey-to-kiosk",
       "name": "アンケート → 売店（この駅のくらし）",
       "from": "survey",
@@ -300,6 +327,27 @@
         "note": "毎年の調査の前（予定）"
       },
       "desc": "まだ島がない。住宅の島ができたら、駅のまわりの年代の割合がゲームの中で変わる。"
+    },
+    {
+      "id": "factory-to-center-late",
+      "name": "工場 → センター（包装の終わる時刻）",
+      "from": "factory",
+      "to": "center",
+      "state": "none",
+      "strength": 0,
+      "values": [
+        {
+          "name": "packEnd",
+          "unit": "分（工場の包装が終わった時刻）",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "after",
+        "at": 1590,
+        "note": "工場の夜が終わったあと（予定）。遅れたら、工場→センターと朝の便が遅れる"
+      },
+      "desc": "まだつないでいない。いまは工場がいつ終わっても、トラックは決まった時刻に出る。"
     }
   ]
 }

@@ -91,7 +91,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   for(const pid in SI)shelf[pid]=0;
   // 納品
   const dayOrder=ctx.order||state.order;   // その日の便で届く数は、締め切りまでに出した発注で決まっている（途中で変えても、きょうの便は変わらない）
-  const deliveries=cfg.deliveries.map(d=>({...d,t:Math.max(d.t,O0-1)}));
+  // トラック（2026-11-09）：ctx.truck＝{便の名前: 店に着く時刻}。便の時刻より遅く着いたら、着いた時刻に並べる（late＝遅れた分）
+  const deliveries=cfg.deliveries.map(d=>{const a=ctx.truck&&ctx.truck[d.name],t=Math.max(d.t,a||0,O0-1);return a>d.t?{...d,t,late:Math.round(a-d.t)}:{...d,t};});
   // 臨時便：頼んだ時刻から lead 分後に、その品だけ届く
   let expressFee=0;for(const x of (cfg.express.off?[]:(ctx.express||[]))){const items=x.items||(x.pid?{[x.pid]:x.q}:{});if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:{items}});expressFee+=cfg.express.fee;}   // 1便に何品でものせられる。料金は便ごと
   // 当日の追加：日持ちする品だけ、その日の定期便といっしょに届く（料金なし）。定期便が目標まで足したあとに上乗せする
@@ -112,7 +113,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
       if(supLeft&&supLeft[pid]!=null){const lf=Math.max(0,supLeft[pid]);if(q>lf){const c=q-lf;if(lf+c>0&&ctx.supply[pid]<((ctx.supplyOrd&&ctx.supplyOrd[pid]!=null)?ctx.supplyOrd[pid]:(dayOrder[pid]||0))){cutBy[pid]=(cutBy[pid]||0)+c;(d._cut||(d._cut={}))[pid]=c;}q=lf;}supLeft[pid]=lf-q;}
       if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}
-    deliveredCost+=cost;const e={t,k:'delivery',n,cost,name:d.name,items:its};if(d._cut){e.cut=d._cut;delete d._cut;}ev.push(e);};   // items：この便で届いた品と数（画面の「次の便」に使う）
+    deliveredCost+=cost;const e={t,k:'delivery',n,cost,name:d.name,items:its};if(d.late)e.late=d.late;if(d._cut){e.cut=d._cut;delete d._cut;}ev.push(e);};   // items：この便で届いた品と数（画面の「次の便」に使う）
   // ホットスナック：冷凍で裏に置き、ケースが少なくなったら調理する（保温時間を過ぎたら捨てる）
   //   温める数は「この先 ahead 分に売れそうな数」。売れそうな数は、それまでの日の時間帯ごとの売れ方（state.hotF）から。まだ分からない時間帯は prior×時間帯の重み
   const HC=ix.G.hot.cook||{},HOLD=ix.G.hot.hold;
