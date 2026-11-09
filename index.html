@@ -136,6 +136,8 @@ canvas{display:block;touch-action:manipulation}
 .minibar{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--led-bg);padding:calc(env(safe-area-inset-top,0px) + 6px) 16px 6px;box-shadow:0 2px 10px rgb(0 0 0 / .25)}
 .minibar-in{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:10px}
 .mclock{font-size:26px}
+.minibar-in>button,.minibar-in .mspeed{white-space:nowrap;flex:0 0 auto}
+@media (max-width:560px){.mclock{font-size:19px;letter-spacing:.02em}.minibar-in{gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.minibar-in::-webkit-scrollbar{display:none}.minibar-in .mspeed{padding:5px 7px;font-size:12px}}
 .mband{font-family:var(--f-led);color:var(--led-g);font-size:12px;line-height:1.25;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .minibar .play{min-width:0;padding:6px 12px}
 .sndbox{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;flex-basis:100%}
@@ -1270,6 +1272,7 @@ function summarize(trips,sets,sim,events){
 </script>
 <script>
 const $=s=>document.querySelector(s);
+const fmtS=t=>{const s=Math.floor(t*60+1e-6),h=Math.floor(s/3600)%24,m=Math.floor(s/60)%60,x=s%60;return [h,m,x].map(v=>String(v).padStart(2,'0')).join(':');};   // 秒まで（上の帯の時計とダイヤグラムの赤い線）
 const fmt=t=>{t=Math.floor(t+1e-6);const h=Math.floor(t/60)%24,m=((t%60)+60)%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');};
 const fmtN=n=>Math.round(n).toLocaleString('ja-JP');
 const yen=n=>(n<0?'−':'')+'¥'+Math.round(Math.abs(n)).toLocaleString('ja-JP');
@@ -1594,7 +1597,7 @@ function drawDia(){
   D.trips.forEach(tr=>{if(T<tr.dep[0]||T>tr.arr.at(-1))return;const pt=(pts,yf)=>{if(!pts.length)return;if(T<pts[0][0]||T>pts.at(-1)[0])return;for(let i=0;i<pts.length-1;i++){if(T>=pts[i][0]&&T<=pts[i+1][0]){const u=pts[i+1][0]>pts[i][0]?(T-pts[i][0])/(pts[i+1][0]-pts[i][0]):0;const k=pts[i][1]+(pts[i+1][1]-pts[i][1])*u;c.fillStyle=TH[tr.type];c.beginPath();c.arc(xn,yf(k),3.6,0,Math.PI*2);c.fill();c.strokeStyle=TH.panel;c.lineWidth=1.2;c.stroke();return;}}};
     pt(tr.mpts,G.ym);pt(tr.bpts,G.yb);});
   c.restore();
-  c.fillStyle=TH.E;c.font='700 11px "JetBrains Mono",monospace';c.textAlign='center';if(xn>=DL&&xn<=DW-12){c.fillText(fmt(T),Math.min(DW-30,Math.max(DL+20,xn)),G.btop-8);}
+  c.fillStyle=TH.E;c.font='700 11px "JetBrains Mono",monospace';c.textAlign='center';if(xn>=DL&&xn<=DW-12){c.fillText(fmtS(T),Math.min(DW-34,Math.max(DL+28,xn)),G.btop-8);}
 }
 /* 乗車率でスジの太さを変える（2026-11-08）。数は乗客の計算の結果 tr.loadAfter（駅を出たときの人数）÷ tr.cap（定員）。
    描くだけで、計算は変えない。同じ色・同じ太さ・同じ濃さの区間を1本の道すじにまとめて描く（区間ごとに描くと重いので）。 */
@@ -3315,7 +3318,7 @@ function frame(ts){const dt=frameDt(ts);lastTs=ts;PERF&&PERF.f0();
   if(playing&&D){if(LIVE&&!RIDE.on)T=liveTf();else T+=speed*dt;ENSEN_UI.tick(dt);if(T>END){T=START+30;}}   // 26:00を過ぎたら同じ運行日の朝に戻る。運行日は暦の朝4:30でだけ進む（js/away.js が進める）
   if(RIDE.on){rideAcc+=dt;if(!PHONE||rideAcc>=1/30-0.002){RIDE.tick(rideAcc);rideAcc=0;}}
   const covered=!!document.querySelector('.rsv:not([hidden]),.ksv:not([hidden]),.topv:not([hidden])');   // リサーチ・売店・トップの画面が全体をおおっているあいだは、見えない地図・ダイヤグラム・時計を描かない（時間と沿線暦は上で進めている）
-  if(!covered){const ft=fmt(T);setTxt($('#clock'),ft);if(!$('#minibar').hidden){setTxt($('#mclock'),ft);setTxt($('#mband'),band(T)+'・'+condLabel());}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
+  if(!covered){const ft=fmtS(T);setTxt($('#clock'),ft);if(!$('#minibar').hidden){setTxt($('#mclock'),ft);setTxt($('#mband'),band(T)+'・'+condLabel());}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
     const sv=String(Math.round(T));if(document.activeElement!==scrub&&scrub.value!==sv)scrub.value=sv;}
   const draw=!covered&&needDraw(ts);
   if(draw){drawMap();PERF&&PERF.n('map');}if(SND.S.on)SND.tick(ts);acc+=dt;if(draw&&(acc>0.15||!playing&&acc>0.3)){acc=0;drawDia();refreshPanels(false);}
