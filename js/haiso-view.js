@@ -11,7 +11,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const yen=n=>(n<0?'−':'')+'¥'+Math.abs(Math.round(n)).toLocaleString();
 const hm=t=>{t=Math.round(t);const h=Math.floor(((t%1440)+1440)%1440/60),m=((t%60)+60)%60;return h+':'+String(m).padStart(2,'0');};
 const V={open:false,back:0,H:null,CO:null,timer:0};
-Promise.all(['data/haiso.json?v=20261109j','data/companies.json?v=20261109g'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(([h,c])=>{V.H=h;V.CO=c;if(V.open)render();});
+Promise.all(['data/haiso.json?v=20261109m','data/companies.json?v=20261109g'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null))).then(([h,c])=>{V.H=h;V.CO=c;if(V.open)render();});
 const coName=id=>g(()=>V.CO.companies.find(x=>x.id===id).name,id);
 
 const CSS=`.hzv{position:fixed;inset:0;z-index:85;background:var(--paper);color:var(--ink);overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 14px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(14px,env(safe-area-inset-left,0px))}

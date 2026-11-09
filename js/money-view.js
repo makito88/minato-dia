@@ -33,6 +33,7 @@ const CSS=`.mfv{position:fixed;inset:0;z-index:85;background:var(--paper);color:
 .mfv .card h3{margin:0 0 6px;font-size:14px}.mfv svg{width:100%;height:auto;display:block}.mfv .svgw{overflow-x:auto}@media (max-width:560px){.mfv .svgw svg{min-width:640px}}
 .mfv details summary{cursor:pointer;font-size:13px;font-weight:700;min-height:32px;display:flex;align-items:center}
 .mfv table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}.mfv td{padding:4px 6px;border-bottom:1px solid var(--line)}.mfv td:last-child{text-align:right}
+.mfv .pj td{text-align:right;white-space:nowrap}.mfv .pj td:first-child{text-align:left}.mfv .pj thead td{color:var(--muted);font-size:11.5px}.mfv .pj small{color:var(--muted);font-size:10.5px;margin-left:3px}.mfv td.neg{color:#c0392b}.mfv td.pos{color:#2f7a4a}
 .mfv .note{font-size:11.5px;color:var(--muted);line-height:1.65;margin:0}
 .mfv .empty{padding:30px 10px;text-align:center;color:var(--muted)}
 @media (max-width:760px){.mfv .cos{grid-template-columns:repeat(2,minmax(0,1fr))}}`;
@@ -57,6 +58,16 @@ function flowSvg(inv){const pos={ext:[70,120],kiosk:[265,120],center:[460,120],f
   for(const k in tot){const [a,b]=k.split('>');s+=arrow(a,b,tot[k],lab[k]||'');}
   for(const k of CO)s+=away(k);s+=box('ext','お客さん','駅で買う人');for(const k of CO)s+=box(k,KIND[k],coName(k));
   return s+'</svg>';}
+/* 店を増やしたら（試算）：この日の店の荷物と収支が、同じ形の店にそのまま増えたとしたら。店はこの店のトラックの道から順に並べる */
+function projHtml(L){if(!L||L.n||!window.MoneyCore||!window.HaisoCore)return '';const inp=g(()=>minatoKiosk.haisoInput(L.day),null),C=g(()=>minatoKiosk.ccfg,null),H=g(()=>minatoHaiso.cfg,null),M=g(()=>minatoKiosk.mcfg,null);if(!inp||!C||!H||!M)return '';
+  const me=inp.stores[0],T=(C.slip&&C.slip.trucks)||[],mine=T.find(t=>(t.st||[]).includes(me.key.split('-')[0])),order=[mine,...T.filter(t=>t!==mine)].filter(Boolean),keys=[];
+  for(const t of order)for(const st of t.st)for(const pl of ['home','gate','naka','soto']){const k=st+'-'+pl;if(k!==me.key)keys.push(k);}
+  const hzFor=n=>HaisoCore.dayPlan(H,C,CenterCore,{day:inp.day,cond:inp.cond,slip:null,stores:[me,...keys.slice(0,n-1).map(key=>({key,runs:me.runs}))]});
+  const P=g(()=>MoneyCore.project(M,L,hzFor,[1,2,4,6,8,10,12]),null);if(!P)return '';const f=H.fare;
+  const be=fn=>{const x=P.find(r=>fn(r)>=0);return x?`${x.n}店から`:'12店でもまだ赤字'};
+  return `<section class="card"><h3>店を増やしたら（試算）</h3><p class="note" style="margin-bottom:6px">この日の店と同じ荷物・同じ収支の店が、このトラックの道から順にふえたら。配送会社の収入＝店に寄った回数×${yen(f.perStop)}＋かご車×${yen(f.perCart)}（センターから）＋工場→センターのかご車×${yen(f.fcPerCart)}（工場から）。センターの決まった費用（1日${yen(M.centerFixedDay)}）は店の数で分ける。</p>
+    <div style="overflow-x:auto"><table class="pj"><thead><tr><td>店の数</td><td>運ぶ量（かご車/日）</td><td>配送会社の収入</td><td>配送会社</td><td>センター</td><td>売店（1店）</td><td>グループ</td></tr></thead><tbody>${P.map(r=>`<tr><td>${r.n}店</td><td>${r.carts}台</td><td>${yen(r.haiso.fare)}</td><td class="${r.haiso.profit<0?'neg':'pos'}">${sy(r.haiso.profit)}${r.haiso.other?`<small>（他社${r.haiso.other}便）</small>`:''}</td><td class="${r.center<0?'neg':'pos'}">${sy(r.center)}</td><td class="${r.kiosk1<0?'neg':'pos'}">${sy(r.kiosk1)}</td><td class="${r.group<0?'neg':'pos'}">${sy(r.group)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="note" style="margin-top:6px">黒字になるのは：配送会社 ${be(r=>r.haiso.profit)}・センター ${be(r=>r.center)}・グループ ${be(r=>r.group)}・売店 ${P[0].kiosk1>=0?'この店は黒字':'この店は赤字（店ごとの売れ方しだい）'}（この日の数で計算した目安。駅や場所で売れ方はちがう）。</p></section>`;}
 function render(){const box=$('mfv');if(!box||!V.open)return;
   const today=g(()=>minatoKiosk.day,null),days=g(()=>minatoKiosk.moneyDays(),[])||[];
   let L=null,label='';if(V.mode==='t'){L=g(()=>minatoKiosk.moneyDay(today),null);label='きょう（いまの時点の見込み・1日分）';}
@@ -74,6 +85,7 @@ function render(){const box=$('mfv');if(!box||!V.open)return;
     <div class="big"><span>グループのもうけ</span><b class="${net<0?'neg':'pos'}">${sy(net)}</b><span>＝ お客さんから ${yen(sales)} − 外へ ${yen(outE)}</span></div>
     <div class="cos">${cards}</div>
     <section class="card"><h3>お金の流れの図</h3><div class="svgw">${flowSvg(L.inv)}</div><p class="note">緑の矢印は会社どうしの支払い（太いほど大きい）、赤い矢印はグループの外へ出るお金（問屋・店員や運転手の給料・燃料・家賃など）。</p></section>
+    ${projHtml(L)}
     <section class="card"><details><summary>請求書の一覧（${L.inv.length}枚）</summary><table>${rows}</table></details>
       <p class="note" style="margin-top:6px">店が1つなので、センター・配送会社の決まった費用に対して運ぶ量が少なく、赤字になりやすい（店が増えると変わる）。工場は、この店の分だけ（ほかの取引先の分は入れていない）。売店の「収支」タブは売れた品の原価で数えるので、ここ（その日に届いた品の代金）とは少しちがう。</p></section></div>`;
   bind(box);}
