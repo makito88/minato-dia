@@ -10,6 +10,7 @@
 
 ## はじめて読む人・続きを作る人へ
 - **はじめに**：[docs/START.md](docs/START.md)（毎回これだけ読む・守ること）／**めざす方向**：[docs/VISION.md](docs/VISION.md)（島と橋・数字の出どころ・橋の約束）
+- **いまの計画**：[docs/PLAN.md](docs/PLAN.md)（柱は3本・進めるのは1本ずつ）
 - **いまの現在地**：[docs/HANDOFF.md](docs/HANDOFF.md)（宿題・つながりの表・予定の回の記録）。古い日ごとの記録は [docs/archive/HANDOFF-2026-10-11.md](docs/archive/HANDOFF-2026-10-11.md)
 - **コードの目次**：[docs/CODEMAP.md](docs/CODEMAP.md)／**アイデア帳**：[docs/ideas.md](docs/ideas.md)
 - **島どうしのつながり（橋）**：[data/links.json](data/links.json)。トップの「きょうの沿線」→「島をつなぐ橋」でも見られます。
