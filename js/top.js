@@ -50,9 +50,66 @@ const L=[
  {id:'crew',name:'従業員',sub:'シフト・時給・やる気・暮らし',art:SVG_CREW,state:'遊べる',
   items:[['店員・シフト・時給','kiosk:crew'],['店員の1か月の暮らしとお金の流れ','karte:clerk']]}];
 
+/* ---- きょうの沿線（2026-11-09）：島を並べて、それぞれの「きのうまでに確定した数字」を1枚に ----
+   重い計算はしない。保存（dia-kiosk・dia-orders・dia-wxlog）と、橋の一覧（data/links.json）を読むだけ。
+   アンケートの目立つ変化だけは、開いたあと手の空いたときに1回計算して覚えておく（同じ年なら作り直さない） */
+const T={links:null,survey:null,sv:null,svKey:null,loading:false};
+const J=k=>g(()=>JSON.parse(localStorage.getItem(k)||'null'),null);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const yen=n=>(n<0?'−':'')+'¥'+Math.abs(Math.round(n)).toLocaleString();
+const opNoon=()=>{const DAY=864e5,JS=9*36e5,S0=270*6e4;return new Date(Math.floor((Date.now()+JS-S0)/DAY)*DAY+S0-JS+12*36e5);};
+const jfmt=(d,o)=>new Intl.DateTimeFormat('ja-JP',Object.assign({timeZone:'Asia/Tokyo'},o)).format(d);
+const SRC={real:['現','現実から取り入れた数字'],assume:['仮','仮に決めた数字'],game:['内','ゲームの中で生まれた結果']};
+const mark=k=>SRC[k]?`<i class="sm sm-${k}" title="${SRC[k][1]}">${SRC[k][0]}</i>`:'';
+const stN=id=>g(()=>ST[id].name,id);
+function loadToday(){if(T.loading||T.links)return;T.loading=true;
+  const j=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
+  Promise.all([j('data/links.json?v=20261109a'),window.SurveyCore?j('data/survey.json'):null]).then(([l,s])=>{T.links=l;T.survey=s;T.loading=false;
+    const later=window.requestIdleCallback||(f=>setTimeout(f,200));later(()=>{svChange();paintToday();});paintToday();});}
+// アンケートのいちばん新しい年と前の年で、いちばん大きく動いた駅・質問
+function svChange(){const D=T.survey,SC=window.SurveyCore;if(!D||!SC)return null;const ys=SC.years(D,opNoon());if(ys.length<2)return null;const y=ys[ys.length-1];
+  if(T.svKey===y)return T.sv;let best=null;
+  for(const q of D.questions){if(q.kind!=='rate')continue;for(const id in D.areas){const a=SC.wave(D,q,id,y).pct[0],b=SC.wave(D,q,id,y-1).pct[0],d=a-b;if(!best||Math.abs(d)>Math.abs(best.d))best={q:q.title,qid:q.id,id,a,b,d,y};}}
+  T.sv=best;T.svKey=y;return best;}
+function todayHtml(){const day=g(()=>ENS.day,null),c=g(()=>COND,{}),d=opNoon(),ymd=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tokyo'}).format(d);
+  const WX={sun:['晴れ','☀'],cld:['くもり','☁'],rain:['雨','☂'],snow:['大雪','❄']}[c.wx]||['—',''],DK={wd:'平日',sat:'土曜',hol:'日曜・祝日'}[c.day]||'';
+  const wxReal=!!g(()=>J('dia-wxlog')[ymd],null);
+  // 売店：きのう締めた日
+  const K=g(()=>minatoKiosk.state,null),h=K&&K.hist&&K.hist.length?K.hist[K.hist.length-1]:null;
+  const so=h&&K.news?K.news.filter(n=>n.day===h.day&&n.kind==='soldout'):[];
+  const kiosk=!K?`<p class="tx">まだ売店を出していません。</p>`:!h?`<p class="tx">${esc(stN(K.st))}駅の売店。まだ締めた日がありません。</p>`:
+    `<div class="nums"><span><small>売上</small><b>${yen(h.sales)}</b></span><span><small>もうけ</small><b class="${h.profit<0?'neg':'pos'}">${yen(h.profit)}</b></span><span><small>廃棄</small><b>${yen(h.waste)}</b></span><span><small>お客さん</small><b>${h.cust.toLocaleString()}人</b></span></div>
+     <p class="tx">第${h.day}運行日・${esc(stN(K.st))}駅。売り切れ：${so.length?esc(so[0].title):'目立つ売り切れはなし'}</p>`;
+  // 工場と配送（dia-orders）
+  const O=J('dia-orders'),days=O&&Array.isArray(O.days)?O.days:[],sd=days.filter(x=>x.slip&&!x.slip.err).slice(-1)[0],ad=days.filter(x=>x.arr).slice(-1)[0];
+  let fac='<p class="tx">まだ工場に注文が届いていません（売店をセンターにおまかせにすると始まります）。</p>';
+  if(sd){let o=0,s2=0;for(const k in sd.slip.items){o+=sd.slip.items[k][0];s2+=sd.slip.items[k][1];}let got=0;
+    if(ad)for(const k in ad.arr)for(const r of ad.arr[k].runs||[])for(const pid in r.f||{})got+=r.f[pid];
+    fac=`<div class="nums"><span><small>出荷</small><b>${s2.toLocaleString()}個</b></span><span><small>注文</small><b>${o.toLocaleString()}個</b></span>${ad?`<span><small>売店に届いた</small><b>${got.toLocaleString()}個</b></span>`:''}</div>
+      <p class="tx">納品書 ${esc(sd.slip.no)}（第${sd.day}運行日）${sd.slip.short&&sd.slip.short.n?`・足りなかった品 ${sd.slip.short.n}品（${sd.slip.short.q}個）`:'・注文どおり出荷'}</p>`;}
+  // アンケート
+  const sv=T.svKey!=null?T.sv:null;
+  const surv=!T.survey?`<p class="tx">${T.loading?'読み込み中…':'アンケートを読めませんでした。'}</p>`:!sv?`<p class="tx">${T.svKey==null?'集計中…':'比べられる年がまだありません。'}</p>`:
+    `<div class="nums"><span><small>${esc(sv.q)}・${esc(stN(sv.id))}</small><b>${sv.b.toFixed(0)}% → ${sv.a.toFixed(0)}%</b></span></div><p class="tx">${sv.y}年10月の調査で、前の年からいちばん動いた数字（${sv.d>0?'+':''}${sv.d.toFixed(1)}ポイント）。</p>`;
+  // 橋の一覧
+  const LK=T.links,st=LK?LK.states:{},cnt={};if(LK)for(const b of LK.links)cnt[b.state]=(cnt[b.state]||0)+1;
+  const isl=k=>String(k).split(',').map(x=>LK.islands[x]||x).join('・');
+  const bridges=!LK?'<p class="tx">橋の一覧を読めませんでした。</p>':`<p class="bsum">${['done','temp','none','retired'].map(k=>`<span class="bs bs-${k}">${esc(st[k])} ${cnt[k]||0}</span>`).join('')}<span class="lg">数字の出どころ：${mark('real')}現実 ${mark('assume')}仮定 ${mark('game')}ゲーム内</span></p>
+    <ul class="blist">${LK.links.map(b=>`<li class="bs-${b.state}"><span class="bst">${esc(st[b.state])}</span><b>${esc(isl(b.from))} → ${esc(isl(b.to))}</b><span class="bv">${b.values.map(v=>`${esc(v.name)}${mark(v.src)}`).join(' ')}</span><small>${esc(b.desc)}</small></li>`).join('')}</ul>`;
+  return `<div class="tdhd"><h2>きょうの沿線</h2><p class="date">${day!=null?`第${day}運行日・`:''}${jfmt(d,{month:'long',day:'numeric',weekday:'short'})}・${DK}<span class="wx">${WX[1]} ${WX[0]}${mark(wxReal?'real':'assume')}</span></p></div>
+   <div class="isles">
+    <button type="button" class="isle" data-go="kiosk:money"><span class="ih">売店<small>きのうの収支</small>${mark('game')}</span>${kiosk}</button>
+    <button type="button" class="isle" data-go="factory:rice"><span class="ih">工場と配送<small>出荷・届いた納品</small>${mark('game')}</span>${fac}</button>
+    <button type="button" class="isle" data-go="page:survey.html${sv?'#'+sv.qid:''}"><span class="ih">アンケート<small>目立つ変化</small>${mark('game')}</span>${surv}</button>
+    <div class="isle soonisle"><span class="ih">季節のできごと<small>準備中</small></span><p class="tx">祭り・行事・帰省など。季節の回（第4回）のあとにここに並びます。</p></div>
+   </div>
+   <details class="bridges"><summary>島をつなぐ橋（${LK?LK.links.length:0}本）<small>どの数字が、どこからどこへ渡っているか</small></summary>${bridges}</details>`;}
+function paintToday(){const b=$('topToday');if(!b||$('topv').hidden)return;const op=b.querySelector('details')&&b.querySelector('details').open;b.innerHTML=todayHtml();if(op)b.querySelector('details').open=true;
+  b.querySelectorAll('[data-go]').forEach(x=>x.onclick=()=>go(x.dataset.go));}
+
 function go(a){const [k,v]=a.split(':');
   if(k==='karte'){openKarte(v);return;}
-  if(k==='page'){location.href=v;return;}
+  if(k==='page'){location.href=a.slice(5);return;}
   if(k==='factory'){window.open('factory.html'+(v?'#'+v:''),'_blank','noopener');return;}
   close();
   if(k==='tayori')g(()=>$('tayoriBtn').click());
@@ -79,6 +136,27 @@ const CSS=`.topv{position:fixed;inset:0;z-index:80;background:var(--paper);color
 .topv .soon{font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:6px}
 .topv .ft{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:12.5px;color:var(--muted)}
 .topv .ft label{display:flex;gap:6px;align-items:center;cursor:pointer;min-height:36px}
+.topv .today{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:14px 14px 10px;display:grid;gap:12px;position:relative;overflow:hidden}
+.topv .today::before{content:'';position:absolute;left:0;right:0;top:0;height:4px;background:repeating-linear-gradient(90deg,var(--accent) 0 28px,transparent 28px 36px);opacity:.55}
+.topv .tdhd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}.topv .tdhd h2{margin:0;font-size:19px;letter-spacing:.12em}
+.topv .date{margin:0;font-size:13.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.topv .wx{color:var(--ink);font-weight:700}
+.topv .isles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.topv .isle{font:inherit;color:inherit;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:10px 11px;display:flex;flex-direction:column;gap:6px;min-width:0;cursor:pointer}
+.topv button.isle:hover{border-color:var(--accent)}.topv .soonisle{border-style:dashed;cursor:default;opacity:.8}
+.topv .ih{font-weight:700;font-size:14px;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}.topv .ih small{font-weight:400;color:var(--muted);font-size:11.5px}.topv .ih .sm{margin-left:auto}
+.topv .nums{display:flex;flex-wrap:wrap;gap:4px 14px}.topv .nums span{display:flex;flex-direction:column;min-width:0}.topv .nums small{font-size:11px;color:var(--muted)}.topv .nums b{font-size:17px;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.topv .nums b.neg{color:#b5452f}.topv .nums b.pos{color:#2f7a4a}
+.topv .tx{margin:0;font-size:12px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.topv .sm{font-style:normal;font-size:10px;line-height:1;border-radius:3px;padding:2px 3px;border:1px solid;font-weight:700}
+.topv .sm-real{color:#2b6c9c;border-color:#2b6c9c88}.topv .sm-assume{color:#a26a12;border-color:#a26a1288}.topv .sm-game{color:#2f7a4a;border-color:#2f7a4a88}
+.topv .bridges{border-top:1px dashed var(--line);padding-top:8px;font-size:13px}.topv .bridges summary{cursor:pointer;font-weight:700;min-height:32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.topv .bridges summary small{font-weight:400;color:var(--muted);font-size:11.5px}
+.topv .bsum{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}.topv .bs{font-size:11.5px;border-radius:999px;padding:1px 9px;border:1px solid var(--line)}.topv .lg{margin-left:auto;font-size:11.5px;color:var(--muted);display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.topv .bs-done .bst,.topv .bsum .bs-done{color:#2f7a4a;border-color:#2f7a4a66}.topv .bs-temp .bst,.topv .bsum .bs-temp{color:#a26a12;border-color:#a26a1266}.topv .bs-none .bst,.topv .bsum .bs-none{color:var(--muted)}.topv .bs-retired .bst,.topv .bsum .bs-retired{color:var(--muted);text-decoration:line-through}
+.topv .blist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px}
+.topv .blist li{border:1px solid var(--line);border-radius:8px;padding:6px 8px;display:grid;gap:2px;background:var(--paper)}.topv .blist li.bs-none,.topv .blist li.bs-retired{border-style:dashed;opacity:.75}
+.topv .blist .bst{font-size:10.5px;font-weight:700}.topv .blist b{font-size:13px}.topv .blist .bv{font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:3px 8px}.topv .blist small{font-size:11px;color:var(--muted);line-height:1.5}
+@media (max-width:900px){.topv .isles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.topv .isles{grid-template-columns:1fr}.topv .nums b{font-size:16px}}
 @media (max-width:900px){.topv .grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topv .ly,.topv .ly.wide{grid-column:span 1}}
 @media (max-width:560px){.topv .grid{grid-template-columns:1fr}.topv .ly,.topv .ly.wide,.topv .ly:nth-child(3){grid-column:auto}}`;
 
@@ -86,6 +164,7 @@ function render(){const box=$('topv');
   box.innerHTML=`<div class="in"><div class="hd"><div><h1>みなと川ダイアリー</h1>
       <p class="lede">世界の出来事は、どうやって駅の売店まで届くのか。売店でのあなたの小さな判断は、どこまで届くのか。5つのレイヤーを行き来しながら、架空の沿線を動かしてみてください。</p></div>
       <div class="acts"><a class="memo" href="docs/ideas.html" target="_blank" rel="noopener">アイデア帳<small>これから足すこと</small>↗</a><button type="button" class="go" id="topGo">路線図とダイヤへ</button></div></div>
+    <section class="today" id="topToday" aria-label="きょうの沿線"></section>
     <div class="grid">${L.map((x,i)=>`<section class="ly" aria-label="${x.name}"><div class="art">${x.img?`<img src="${x.img}" alt="${x.name}のイメージ" loading="lazy">`:x.art}${(x.pins||[]).map(p=>`<span class="pin${p.main?' main':''}" style="left:${p.x}%;top:${p.y}%">${p.t}</span>`).join('')}${x.pins?'<span class="cap">イメージ（AIで描いた絵）</span>':''}</div>
       <div class="bd"><div class="nm"><b>${x.name}</b><small>${x.sub}</small><span class="st${x.state==='遊べる'?' ok':''}">${x.state==='遊べる'?'遊べる':'読める（一部）'}</span></div>
       ${x.items.map(([t,a])=>`<button type="button" class="it${/^(karte|factory):/.test(a)?' ext':''}" data-go="${a}">${t}</button>`).join('')}
@@ -95,8 +174,9 @@ function render(){const box=$('topv');
       <span>沿線・会社・人はすべて架空です。歴史や数字の多くは、現実の出来事や統計を元に作っています。</span></div></div>`;
   box.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   $('topGo').onclick=()=>go('play');
+  paintToday();loadToday();
   $('topSkip').onchange=e=>{try{e.target.checked?localStorage.setItem(KEY,'1'):localStorage.removeItem(KEY);}catch(_){}};}
-function open(){const b=$('topv');render();b.hidden=false;b.scrollTop=0;try{b.querySelector('.go').focus({preventScroll:true});}catch(e){}}
+function open(){const b=$('topv');b.hidden=false;render();b.scrollTop=0;try{b.querySelector('.go').focus({preventScroll:true});}catch(e){}}
 function close(){const b=$('topv');if(b)b.hidden=true;}
 
 {const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
