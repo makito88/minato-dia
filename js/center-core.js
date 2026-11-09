@@ -12,6 +12,7 @@
    ・運行日ごとの記録（売上の記録とセンターの発注）は、画面がブラウザの dia-orders に残す（ここは計算だけ。DOM も localStorage も使わない）。
    ・第3回（2026-11-07）から：工場の納品書（js/factory-night.js）で足りない品は、その出荷数までしか売店に届かない（supplyFor → kiosk-core の ctx.supply）。
      流れ（工場→センター→店ごとに分けてセンター在庫の品と合わせる→トラック→売店の便）の時刻は data/center.json の flow と slip.trucks。
+   ・2026-11-09 から：運行日 N の注文は、N-1 の 19:00 の記録（pre）と N-2 までの1日の記録だけで決める（19:30 に決める注文が、それより後の売れ行きを使わないように）。
      運行日の締めで、どの便で何が届いたか・届かなかった分・センターに残った分（取引先へ）を「到着」として残す（arrival）。
    ===================================================================== */
 (function(root){
@@ -32,8 +33,26 @@ function salesRecord(kcfg,state,res){const items={},ids=new Set([...Object.keys(
     const a=[res.sold[pid]||0,res.lostSO[pid]||0,res.wasteBy[pid]||0,left];
     while(a.length&&a[a.length-1]===0)a.pop();if(a.length)items[pid]=a;}   // 終わりの0は書かない（引き継ぎコードを小さく）
   const soldout=Object.keys(res.lostSO||{}).filter(k=>res.lostSO[k]>0).length;
-  return {day:res.day,store:storeKey(state),cond:res.cond?{day:res.cond.day,wx:res.cond.wx,season:res.cond.season}:null,
-    waste:Math.round(res.pl&&res.pl.waste||0),soldout,items};}
+  const out={day:res.day,store:storeKey(state),cond:res.cond?{day:res.cond.day,wx:res.cond.wx,season:res.cond.season}:null,
+    waste:Math.round(res.pl&&res.pl.waste||0),soldout,items};
+  const pre=preRecord(kcfg,res,cutOf(kcfg));if(pre)out.pre=pre;return out;}
+
+/* 19:00 の記録（2026-11-09）：センターが次の運行日の注文を決める 19:30 に、もう確定している数だけ。
+   売店の1日の出来事の列（res.ev・res.snap）から、その時刻までの [売れた数, 売り切れで逃した数, その時刻の在庫（棚＋裏）, うちその日に届いた分]。
+   売店は 26:00 に締めるが、注文に使うのはこの数だけ（因果と時刻の順。19:00 より後の売れ行きは、次の次の運行日の注文から使う） */
+function cutOf(kcfg){return kcfg.orderDeadline!=null?kcfg.orderDeadline:1140;}
+function preRecord(kcfg,res,T){if(!res||!res.ev||!res.snap||!res.snap.length)return null;const sold={},lost={},got={};
+  for(const e of res.ev){if(e.t>=T)break;if(e.k==='buy')for(const [pid,q] of e.items)sold[pid]=(sold[pid]||0)+q;
+    else if(e.k==='look'&&e.why==='売り切れ'&&e.pid)lost[e.pid]=(lost[e.pid]||0)+1;
+    else if(e.k==='delivery')for(const pid in e.items||{})got[pid]=(got[pid]||0)+e.items[pid];}
+  let sn=res.snap[0];for(const x of res.snap){if(x.t<=T)sn=x;else break;}
+  const items={},ids=new Set([...Object.keys(sold),...Object.keys(lost),...Object.keys(sn.s||{})]);
+  for(const pid of ids){if(!genreOf(kcfg,pid))continue;const stock=((sn.s||{})[pid]||0)+((sn.b||{})[pid]||0);
+    const a=[sold[pid]||0,lost[pid]||0,stock,Math.min(stock,got[pid]||0)];while(a.length&&a[a.length-1]===0)a.pop();if(a.length)items[pid]=a;}
+  return {at:T,items};}
+/* その時刻より前に来る客の割合（ジャンルの時間帯×店の時間ごとの客）。19:00 までの数から1日の数を見込むのに使う */
+function shareBefore(kcfg,state,gid,ty,T){const O0=kcfg.open[0],O1=kcfg.open[1],g=genreCfg(kcfg,gid),cH=state.custH&&state.custH[ty];
+  const w=h=>hm(g.hours,h)*(cH&&cH[h]!=null?Math.max(0.2,cH[h]):1);let tot=0,pre=0;for(let h=O0;h<O1;h++){const x=w(h);tot+=x;pre+=x*clamp((T/60-h),0,1);}return tot?pre/tot:1;}
 
 /* 天気・季節の向き不向き（店全体×ジャンル）。倍率は 1/cap〜cap に収める */
 function condW(kcfg,ccfg,gid,c){if(!c)return 1;const g=genreCfg(kcfg,gid),cap=ccfg.wxCap||4;
@@ -53,7 +72,9 @@ function segShare(kcfg,state,gid,ty){const O0=kcfg.open[0],O1=kcfg.open[1],g=gen
    opts：{aim:'waste'|'mid'|'soldout', shelf: kiosk-core の shelfInfo（棚に置いている品だけ決める）, cur: 店のいまの仕入れ数}
    返すもの：{items:{pid:数}, by:{factory:{},center:{},direct:{}}, why:{pid:{mu,sd,n,from}}} */
 function plan(kcfg,ccfg,state,recs,next,opts){opts=opts||{};const A=(ccfg.aims||{})[opts.aim||ccfg.defaultAim||'mid']||{z:0.35},key=storeKey(state);
-  const mine=(recs||[]).filter(r=>r.store===key),ty=next&&next.day||'wd';
+  const all=(recs||[]).filter(r=>r.store===key),ty=next&&next.day||'wd',fd=opts.forDay;
+  // forDay（注文する運行日）があれば、1日まるごと使うのは2日前まで。前の日は 19:00 の記録（pre）だけ（19:30 に注文を決めるので）
+  const prev=fd!=null?all.find(r=>r.day===fd-1&&r.pre):null,mine=fd!=null?all.filter(r=>r.day<=fd-2):all;
   const same=mine.filter(r=>r.cond&&r.cond.day===ty).slice(-(ccfg.lookback||4)),any=mine.slice(-(ccfg.lookback||4)*2);
   const items={},by={factory:{},center:{},direct:{}},why={},cur=opts.cur||state.order||{},shelf=opts.shelf||{};
   for(const pid in shelf){const gid=genreOf(kcfg,pid);if(!gid)continue;const route=routeOf(ccfg,gid),g=genreCfg(kcfg,gid),cap=shelf[pid].cap||0;
@@ -62,6 +83,8 @@ function plan(kcfg,ccfg,state,recs,next,opts){opts=opts||{};const A=(ccfg.aims||
     let use=same,from='same';if(!use.length){use=any;from='any';}
     const tyN=t=>{const a=state.custH&&state.custH[t];return a?a.reduce((s,v)=>s+(v||0),0):0;},tyF=r=>{const a=tyN(ty),b=tyN(r.cond&&r.cond.day);return a>0&&b>0?clamp(a/b,0.5,2):1;};
     const vals=use.map(r=>{const x=r.items[pid]||[];const d=(x[0]||0)+(x[1]||0)*(ccfg.lostW??0.7);return d/condW(kcfg,ccfg,gid,r.cond)*(from==='any'?tyF(r):1);});
+    if(prev&&(from==='any'||(prev.cond&&prev.cond.day===ty))){const ptY=(prev.cond&&prev.cond.day)||ty,sh=shareBefore(kcfg,state,gid,ptY,prev.pre.at);
+      if(sh>=0.3){const x=prev.pre.items[pid]||[];const d=((x[0]||0)+(x[1]||0)*(ccfg.lostW??0.7))/sh;vals.push(d/condW(kcfg,ccfg,gid,prev.cond)*(from==='any'?tyF(prev):1));}}
     const n=vals.length,wn=condW(kcfg,ccfg,gid,next);
     const life=g.life||0,perish=life<99;   // その日のうちに売る品・パン（2日）は捨てることがある
     let mu=n?vals.reduce((a,b)=>a+b,0)/n*wn:0;
@@ -113,6 +136,6 @@ function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!sl
   const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
 function putArrival(log,a,keep){const d=dayOf(log,a.day);(d.arr||(d.arr={}))[a.store]=a;trim(log,keep);return log;}
 
-root.CenterCore={storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
+root.CenterCore={preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
 if(typeof module!=='undefined')module.exports=root.CenterCore;
 })(typeof window!=='undefined'?window:globalThis);

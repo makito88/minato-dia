@@ -86,7 +86,7 @@ function saveOrders(o){try{const raw=JSON.stringify(o);localStorage.setItem(OKEY
 /* 到着の記録（第3回）：どの便で何が届いたか・工場の不足で届かなかった数・センターに残った数（取引先へ） */
 function arrivalToCenter(res){if(!CC||!V.ccfg||!CC.arrival)return;try{const lg=loadOrders(),d=lg.days.find(x=>x.day===res.day);CC.putArrival(lg,CC.arrival(V.cfg,V.ccfg,V.st,res,d&&d.slip),V.ccfg.keepDays);saveOrders(lg);}catch(e){console.warn('到着の記録を残せませんでした',e);}}
 function salesToCenter(res){if(!CC||!V.ccfg)return;try{const lg=loadOrders();CC.putRecord(lg,CC.salesRecord(V.cfg,V.st,res),V.ccfg.keepDays);saveOrders(lg);}catch(e){console.warn('売上の記録を残せませんでした',e);}}
-function planFor(cond){loadOrders();const S=V.st,k=[gDay(),center().aim,JSON.stringify(cond),JSON.stringify(S.layout),V.ordRaw&&V.ordRaw.length,JSON.stringify(orderFor(gDay()))].join('|');if(V.pvK===k&&V.pv)return V.pv;V.pvK=k;return V.pv=CC.plan(V.cfg,V.ccfg,S,CC.recsOf(loadOrders(),CC.storeKey(S)),cond,{aim:center().aim,shelf:KC.shelfInfo(V.cfg,S.layout),cur:orderFor(gDay())});}
+function planFor(cond,fd){if(fd==null)fd=gDay();loadOrders();const S=V.st,k=[fd,center().aim,JSON.stringify(cond),JSON.stringify(S.layout),V.ordRaw&&V.ordRaw.length,JSON.stringify(orderFor(gDay()))].join('|');if(V.pvK===k&&V.pv)return V.pv;V.pvK=k;return V.pv=CC.plan(V.cfg,V.ccfg,S,CC.recsOf(loadOrders(),CC.storeKey(S)),cond,{forDay:fd,aim:center().aim,shelf:KC.shelfInfo(V.cfg,S.layout),cur:orderFor(gDay())});}
 // 運行日の初め（前の日を締めたあと）に1回：おまかせならセンターの数をその日の仕入れ数に。どちらの店も、その日の発注を dia-orders に残す
 function dailyOrder(){if(!CC||!V.ccfg||!V.st)return;const S=V.st,day=gDay(),C=center();if(C.ordDay===day||S.closed!==day-1)return;
   try{const c=gCond(),cond={day:c.day,wx:c.wx,season:c.season};let items=orderFor(day),o={mode:'self'};
@@ -329,7 +329,7 @@ function renderSheet(){const pid=V.sheet,box=$('ksSheet'),res=V.res;if(!pid||!re
       <span>きっかけ</span><b id="shMot">${motText(pid,res)}</b>
       <span>一緒に</span><b id="shWith">${withText(pid,res)}</b></div>
     <div class="ks-sbox"><h4>仕入れ（${unit}）</h4>
-      ${managed(pid)?`<div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>次の運行日</span><b><span class="ks-auto">おまかせ</span> 見込み${planFor(nextCond()).items[pid]??'—'}</b></div><p>センターにおまかせしています。毎晩の売上の記録から、センターが次の運行日の数を決めます（ねらい「${esc(aimName())}」）。店で数を変えるときは「商品」タブで「自分で決める」に戻してください。</p></div>`:`
+      ${managed(pid)?`<div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>次の運行日</span><b><span class="ks-auto">おまかせ</span> 見込み${planFor(nextCond(),gDay()+1).items[pid]??'—'}</b></div><p>センターにおまかせしています。毎晩の売上の記録から、センターが次の運行日の数を決めます（ねらい「${esc(aimName())}」）。店で数を変えるときは「商品」タブで「自分で決める」に戻してください。</p></div>`:`
       <div class="ks-sg"><span>きょうの便</span><b>${o.cur}</b><span>${dayWord(o.na)}</span><span class="ks-num"><button type="button" id="shOm" aria-label="減らす">−</button><b class="${o.d?'chg':''}">${o.nx}</b><button type="button" id="shOp" aria-label="増やす">＋</button></span></div>
       <p>${o.d?`第${o.na}運行日（${dayWord(o.na).replace('の便から','')}）から ${o.cur} → ${o.nx}（${o.d>0?'＋':'−'}${Math.abs(o.d)}）に変わります。`:'いまは変えていません。'}締め切りは${fmtT(V.cfg.orderDeadline)}。それを過ぎて変えるとその次の運行日からになります。きょうの便は変わりません。</p></div>`}
     ${E.off?`<div class="ks-sbox"><h4>当日の便に足す（日持ちする品）</h4>${addOnOk(p)?`<div class="ks-sbtns"><span class="ks-num"><button type="button" id="shEm" aria-label="減らす">−</button><b>${V.shQ}個</b><button type="button" id="shEp" aria-label="増やす">＋</button></span>
@@ -512,7 +512,7 @@ const TK=()=>window.TrackCore||null;
 function trkNow(){let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return m;}
 function trkSplit(items){const I=ix(),o={factory:{},center:{},direct:{}};for(const pid in items||{}){const q=items[pid];if(!q||!I.P[pid])continue;o[CC.routeOf(V.ccfg,I.P[pid].genre)][pid]=q;}return o;}
 // あすの見込み（まだ dia-orders にない注文）。おまかせの店はセンターの見込み、自分で決める店は予定の数
-function trkEst(day){const items=isAuto()?planFor(nextCond()).items:orderFor(day);return {no:CC.orderNo(day,CC.storeKey(V.st)),...trkSplit(items)};}
+function trkEst(day){const items=isAuto()?planFor(nextCond(),gDay()+1).items:orderFor(day);return {no:CC.orderNo(day,CC.storeKey(V.st)),...trkSplit(items)};}
 // 便ごとの数（flow.runs と同じ並び）：きょうは売店の計算の結果、前の日は到着の記録、あすは見込み（朝の便に全部）
 function trkRuns(day,o,res){const F=V.ccfg.flow,I=ix(),key=CC.storeKey(V.st),R=F.runs||[];
   if(day===gDay()&&res)return R.map(r=>{const x={f:{},c:0,d:0,cut:null,items:{}};for(const e of res.ev){if(e.k!=='delivery'||e.express||e.addOn||Math.abs(e.t-r.t)>60)continue;
@@ -579,7 +579,7 @@ function renderTrack(b,res){const T=TK();if(!T||!CC||!V.ccfg||!V.ccfg.track){b.i
   const ta=b.querySelector('#trkAll');if(ta)ta.onclick=()=>{V.trkAll=!V.trkAll;renderBody(true);};}
 /* 商品：値段・仕入れ数・属性・売れ行き・評価 */
 function renderItems(b,res){const I=ix(),S=V.st,set=curSet(),si=KC.shelfInfo(V.cfg,set.layout),stock=KC.stockAt(res,gT()),o=KC.soFar(V.cfg,res,gT()),na=nextOrderDay(),nextO=orderFor(na),today=orderFor(gDay());
-  const pv=isAuto()?planFor(nextCond()):null;
+  const pv=isAuto()?planFor(nextCond(),gDay()+1):null;
   const ordCell=(p,s)=>{const v=nextO[p.id]||0,cur=today[p.id]||0;if(!s&&!v)return '<span class="mut">棚になし</span>';
     if(managed(p.id)){const w=pv&&pv.items[p.id];return `<span class="ks-auto" title="センターにおまかせ">おまかせ</span><span class="ks-diff">${w!=null?`見込み${w}（きょう${cur}）`:`きょう${cur}`}</span>`;}return `<span class="ks-num"><button type="button" data-or="${p.id}" data-d="-1" aria-label="減らす">−</button><b class="${v!==cur?'chg':''}">${v}</b><button type="button" data-or="${p.id}" data-d="1" aria-label="増やす">＋</button></span><span class="ks-diff${v!==cur?'':' off'}">${v!==cur?`きょう${cur}から${v>cur?'＋':'−'}${Math.abs(v-cur)}`:'変更なし'}</span>`;};
   // 発注の予定：まだ効いていない変更を、何日目からかと増減でまとめる（取り消しもできる）

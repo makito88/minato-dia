@@ -1,84 +1,299 @@
 {
   "v": 1,
   "note": "島どうしのつながり（橋）の一覧。橋の約束：1本ごとに id（一度決めたら変えない）・from・to・state・values（渡す数字の名前・単位・出どころ）・read（いつ読むか）・desc を書く。やめる橋は消さずに state を retired にする。島は相手の中身を直接読まず、ここに書いた数字だけを受け取る。受け取るのは、受け取る時刻より前に確定した数字だけ（一方向・時刻の順）。効き目（倍率）は毎回計算し直し、保存しない。",
-  "srcNames": {"real": "現", "assume": "仮", "game": "内"},
-  "srcLong": {"real": "現実から取り入れた数字（出典あり）", "assume": "仮に決めた数字（あとで変えてよい）", "game": "ゲームの中で生まれた結果"},
-  "states": {"done": "実装済み", "temp": "仮の数値", "none": "未接続", "retired": "廃止"},
-  "islands": {"rail": "鉄道", "kiosk": "売店", "center": "配送センター", "factory": "工場", "survey": "アンケート", "weather": "天気と暦", "housing": "住宅", "residents": "住民"},
+  "srcNames": {
+    "real": "現",
+    "assume": "仮",
+    "game": "内"
+  },
+  "srcLong": {
+    "real": "現実から取り入れた数字（出典あり）",
+    "assume": "仮に決めた数字（あとで変えてよい）",
+    "game": "ゲームの中で生まれた結果"
+  },
+  "states": {
+    "done": "実装済み",
+    "temp": "仮の数値",
+    "none": "未接続",
+    "retired": "廃止"
+  },
+  "islands": {
+    "rail": "鉄道",
+    "kiosk": "売店",
+    "center": "配送センター",
+    "factory": "工場",
+    "survey": "アンケート",
+    "weather": "天気と暦",
+    "housing": "住宅",
+    "residents": "住民"
+  },
   "links": [
     {
-      "id": "weather-to-all", "name": "天気と暦 → 各島", "from": "weather", "to": "rail,kiosk",
-      "state": "done", "strength": 1,
-      "values": [{"name": "wx", "unit": "晴れ・くもり・雨・雪", "src": "real"}, {"name": "dayKind", "unit": "平日・土曜・日曜祝日", "src": "real"}],
-      "read": {"when": "dayStart", "at": null, "note": "運行日の始め（朝4:30）。立川市の1日の天気と祝日の暦"},
+      "id": "weather-to-all",
+      "name": "天気と暦 → 各島",
+      "from": "weather",
+      "to": "rail,kiosk",
+      "state": "done",
+      "strength": 1,
+      "values": [
+        {
+          "name": "wx",
+          "unit": "晴れ・くもり・雨・雪",
+          "src": "real"
+        },
+        {
+          "name": "dayKind",
+          "unit": "平日・土曜・日曜祝日",
+          "src": "real"
+        }
+      ],
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "運行日の始め（朝4:30）。立川市の1日の天気と祝日の暦"
+      },
       "desc": "その日の天気と曜日で、乗る人・売店の売れ方が変わる。"
     },
     {
-      "id": "rail-to-kiosk", "name": "鉄道 → 売店（人の流れ）", "from": "rail", "to": "kiosk",
-      "state": "done", "strength": 1,
-      "values": [{"name": "flows", "unit": "人/時（目的ごと・乗る人と降りる人）", "src": "game"}, {"name": "stops", "unit": "本/時（止まる列車）", "src": "game"}],
-      "read": {"when": "dayStart", "at": null, "note": "運行日の始め。その日のダイヤで先に計算した乗客の流れ"},
+      "id": "rail-to-kiosk",
+      "name": "鉄道 → 売店（人の流れ）",
+      "from": "rail",
+      "to": "kiosk",
+      "state": "done",
+      "strength": 1,
+      "values": [
+        {
+          "name": "flows",
+          "unit": "人/時（目的ごと・乗る人と降りる人）",
+          "src": "game"
+        },
+        {
+          "name": "stops",
+          "unit": "本/時（止まる列車）",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "運行日の始め。その日のダイヤで先に計算した乗客の流れ"
+      },
       "desc": "列車が着く時刻と乗り降りの人数から、売店の前を通る人と立ち止まれる時間が決まる。"
     },
     {
-      "id": "kiosk-to-center", "name": "売店 → 配送センター（売上の記録）", "from": "kiosk", "to": "center",
-      "state": "done", "strength": 1,
-      "values": [{"name": "sold", "unit": "個/日（品ごと）", "src": "game"}],
-      "read": {"when": "after", "at": 1560, "note": "売店がその日を締めたあと（26:00）。次の日より前の発注に使う"},
-      "desc": "売れた数がセンターのおまかせ発注の元になる（dia-orders）。"
+      "id": "kiosk-to-center",
+      "name": "売店 → 配送センター（売上の記録）",
+      "from": "kiosk",
+      "to": "center",
+      "state": "done",
+      "strength": 1,
+      "values": [
+        {
+          "name": "pre",
+          "unit": "個（品ごと：19:00 までに売れた数・売り切れで逃した数・19:00 の在庫）",
+          "src": "game"
+        },
+        {
+          "name": "sold",
+          "unit": "個/日（品ごと。1日まるごと。2日後の注文と記録用）",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "after",
+        "at": 1140,
+        "note": "19:00 に確定した数を、19:30 にセンターが次の運行日の注文に使う。1日まるごとの記録（26:00 の締め）は、次の次の運行日の注文から使う（2026-11-09 に時刻の順をそろえた）"
+      },
+      "desc": "売れた数がセンターのおまかせ発注の元になる（dia-orders）。注文に使うのは、注文を決める時刻より前に確定した数だけ。"
     },
     {
-      "id": "center-to-factory", "name": "配送センター → 工場（注文）", "from": "center", "to": "factory",
-      "state": "done", "strength": 1,
-      "values": [{"name": "order", "unit": "個（品ごと）", "src": "game"}],
-      "read": {"when": "after", "at": 1170, "note": "センターが19:30にまとめた注文。工場は20:00に確定して夜に作る"},
+      "id": "center-to-factory",
+      "name": "配送センター → 工場（注文）",
+      "from": "center",
+      "to": "factory",
+      "state": "done",
+      "strength": 1,
+      "values": [
+        {
+          "name": "order",
+          "unit": "個（品ごと）",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "after",
+        "at": 1170,
+        "note": "センターが19:30にまとめた注文。工場は20:00に確定して夜に作る"
+      },
       "desc": "注文の数だけ、工場の夜のラインが作る。"
     },
     {
-      "id": "factory-to-kiosk-slip", "name": "工場 → 売店（納品書の出荷数）", "from": "factory", "to": "kiosk",
-      "state": "done", "strength": 1,
-      "values": [{"name": "supply", "unit": "個/日（品ごと・届く上限）", "src": "game"}],
-      "read": {"when": "dayStart", "at": null, "note": "前の夜に確定した納品書。売店の運行日の始めに読む"},
+      "id": "factory-to-kiosk-slip",
+      "name": "工場 → 売店（納品書の出荷数）",
+      "from": "factory",
+      "to": "kiosk",
+      "state": "done",
+      "strength": 1,
+      "values": [
+        {
+          "name": "supply",
+          "unit": "個/日（品ごと・届く上限）",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "前の夜に確定した納品書。売店の運行日の始めに読む"
+      },
       "desc": "工場が作れなかった品は、売店に届く数がその分だけ減る。"
     },
     {
-      "id": "survey-to-kiosk", "name": "アンケート → 売店（この駅のくらし）", "from": "survey", "to": "kiosk",
-      "state": "temp", "strength": 1,
+      "id": "survey-to-kiosk",
+      "name": "アンケート → 売店（この駅のくらし）",
+      "from": "survey",
+      "to": "kiosk",
+      "state": "temp",
+      "strength": 1,
       "values": [
-        {"name": "net", "unit": "%（ネット通販を月1回以上）", "src": "game"},
-        {"name": "cashless", "unit": "%（支払いはほとんどキャッシュレス）", "src": "game"},
-        {"name": "remote", "unit": "%（週1日以上リモートワーク）", "src": "game"},
-        {"name": "ages", "unit": "割合（駅のまわりに住む人の年代）", "src": "assume"}
+        {
+          "name": "net",
+          "unit": "%（ネット通販を月1回以上）",
+          "src": "game"
+        },
+        {
+          "name": "cashless",
+          "unit": "%（支払いはほとんどキャッシュレス）",
+          "src": "game"
+        },
+        {
+          "name": "remote",
+          "unit": "%（週1日以上リモートワーク）",
+          "src": "game"
+        },
+        {
+          "name": "ages",
+          "unit": "割合（駅のまわりに住む人の年代）",
+          "src": "assume"
+        }
       ],
-      "read": {"when": "dayStart", "at": null, "note": "運行日の始め。その駅の、いちばん新しい調査の年（毎年10月）の結果。その年の調査はもう確定している"},
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "運行日の始め。その駅の、いちばん新しい調査の年（毎年10月）の結果。その年の調査はもう確定している"
+      },
       "effects": {
-        "net": {"ref": 50, "k": 0.5, "min": 0.85, "max": 1.1, "src": "assume", "text": "ネット通販が多いほど、ついで買い（2品目から）が少し減る"},
-        "cashless": {"ref": 55, "k": 0.3, "min": 0.9, "max": 1.25, "src": "assume", "refSrc": "real", "refNote": "基準の55%は NewDays の電子マネー決済 54.3%（2019年12月末）から", "text": "キャッシュレスが多いほど、電子マネーで払う人が増え、会計が速い（列で逃す客が減る）"},
-        "remote": {"ref": 10, "kMorning": 1.0, "kNoon": 0.5, "morning": [6, 10], "noon": [11, 14], "src": "assume", "text": "リモートワークが多いほど、平日の朝の通勤・通学の客が減り、昼の買い物の客が少し増える"},
-        "ages": {"k": 0.5, "purposes": [3], "src": "assume", "text": "私用・買い物の客の年代を、駅のまわりに住む人の年代に少し近づける（沿線全体との比）"}
+        "net": {
+          "ref": 50,
+          "k": 0.5,
+          "min": 0.85,
+          "max": 1.1,
+          "src": "assume",
+          "text": "ネット通販が多いほど、ついで買い（2品目から）が少し減る"
+        },
+        "cashless": {
+          "ref": 55,
+          "k": 0.3,
+          "min": 0.9,
+          "max": 1.25,
+          "src": "assume",
+          "refSrc": "real",
+          "refNote": "基準の55%は NewDays の電子マネー決済 54.3%（2019年12月末）から",
+          "text": "キャッシュレスが多いほど、電子マネーで払う人が増え、会計が速い（列で逃す客が減る）"
+        },
+        "remote": {
+          "ref": 10,
+          "kMorning": 1.0,
+          "kNoon": 0.5,
+          "morning": [
+            6,
+            10
+          ],
+          "noon": [
+            11,
+            14
+          ],
+          "src": "assume",
+          "text": "リモートワークが多いほど、平日の朝の通勤・通学の客が減り、昼の買い物の客が少し増える"
+        },
+        "ages": {
+          "k": 0.5,
+          "purposes": [
+            3
+          ],
+          "src": "assume",
+          "text": "私用・買い物の客の年代を、駅のまわりに住む人の年代に少し近づける（沿線全体との比）"
+        }
       },
       "desc": "アンケートの結果（ゲーム内で生まれた数字）が、その駅の売店の客の来かた・買いかたを小さく変える。strength を 0 にすると、つなぐ前とまったく同じ。",
       "since": "2026-11-09"
     },
     {
-      "id": "factory-to-kiosk-sameday", "name": "工場 → 売店（当日の出荷と到着）", "from": "factory", "to": "kiosk",
-      "state": "none", "strength": 0,
-      "values": [{"name": "shipped", "unit": "個（品ごと）", "src": "game"}],
-      "read": {"when": "after", "at": null, "note": "時刻つきになる見込み（例：8:00に出荷が確定 → 10:00に到着 → 12:00から販売）。{day, t, value} の t に確定した時刻を入れる"},
+      "id": "factory-to-kiosk-sameday",
+      "name": "工場 → 売店（当日の出荷と到着）",
+      "from": "factory",
+      "to": "kiosk",
+      "state": "none",
+      "strength": 0,
+      "values": [
+        {
+          "name": "shipped",
+          "unit": "個（品ごと）",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "after",
+        "at": null,
+        "note": "時刻つきになる見込み（例：8:00に出荷が確定 → 10:00に到着 → 12:00から販売）。{day, t, value} の t に確定した時刻を入れる"
+      },
       "desc": "まだつないでいない。工場が昼にも作るようになったら、当日の便として届ける。"
     },
     {
-      "id": "survey-to-rail", "name": "アンケート → 鉄道（乗る人の数）", "from": "survey", "to": "rail",
-      "state": "none", "strength": 0,
-      "values": [{"name": "remote", "unit": "%", "src": "game"}, {"name": "commuteRail", "unit": "%（通勤に鉄道）", "src": "game"}],
-      "read": {"when": "dayStart", "at": null, "note": "運行日の始め（予定）"},
+      "id": "survey-to-rail",
+      "name": "アンケート → 鉄道（乗る人の数）",
+      "from": "survey",
+      "to": "rail",
+      "state": "none",
+      "strength": 0,
+      "values": [
+        {
+          "name": "remote",
+          "unit": "%",
+          "src": "game"
+        },
+        {
+          "name": "commuteRail",
+          "unit": "%（通勤に鉄道）",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "運行日の始め（予定）"
+      },
       "desc": "まだつないでいない。いまは売店に寄る通勤客だけが減り、列車に乗る人の数は変わらない。"
     },
     {
-      "id": "housing-to-survey", "name": "住宅・住民 → アンケート（住む人の年代）", "from": "housing", "to": "survey",
-      "state": "none", "strength": 0,
-      "values": [{"name": "ages", "unit": "割合", "src": "game"}],
-      "read": {"when": "yearStart", "at": null, "note": "毎年の調査の前（予定）"},
+      "id": "housing-to-survey",
+      "name": "住宅・住民 → アンケート（住む人の年代）",
+      "from": "housing",
+      "to": "survey",
+      "state": "none",
+      "strength": 0,
+      "values": [
+        {
+          "name": "ages",
+          "unit": "割合",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "yearStart",
+        "at": null,
+        "note": "毎年の調査の前（予定）"
+      },
       "desc": "まだ島がない。住宅の島ができたら、駅のまわりの年代の割合がゲームの中で変わる。"
     }
   ]
