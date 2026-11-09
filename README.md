@@ -22,6 +22,7 @@
 - [沿線暦と沿線だより](docs/features/ensen.md)
 - [駅ナカ リサーチ](docs/features/research.md)
 - [売店の運営](docs/features/kiosk.md)
+- [配送会社とセンターの倉庫](docs/features/haiso.md)
 - [おにぎり工場（米・パン・サンドイッチ・ドーナッツ・収支）](docs/features/factory.md)
 - [保存と引き継ぎ・留守のあいだ](docs/features/save.md)
 - [設定資料（引き継ぎメモ・アイデア帳・街のカルテ）](docs/features/karte.md)

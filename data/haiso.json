@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "note": "配送会社（みなと川運輸）の設定（2026-11-09・すべて仮）。計算は js/haiso-core.js、画面は js/haiso-view.js。便の時刻と店までの分は data/center.json（flow・slip.trucks・slip.delay・slip.late）をそのまま使う。",
+  "src": "assume",
+  "own": "haiso",
+  "other": "other",
+  "trucks": {
+    "fc": {"label": "定温トラック（工場→センター）", "n": 2, "cap": 16, "min": 15, "km": 10},
+    "cs": {"label": "2トントラック（センター→店）", "cap": 10, "kmPerMin": 0.6}
+  },
+  "perCart": {"factory": 300, "center": 150, "_note": "かご車1台に積める数（個・仮）。工場の品は番重、センターの品はケースで積む"},
+  "handleMin": 15,
+  "cost": {"fuelPerKm": 38, "wageH": 1950, "truckDay": 7500, "_note": "自社便の費用：燃料（円/km）・運転手の時給（積みおろしと帰り道を含む）・トラック1台1日の持ち費（リース・保険・点検）"},
+  "otherFee": {"chase": 9000, "extra": 15000, "_note": "他社（港浜急送）に頼むときの1便の料金。chase＝追いかけ便、extra＝積みきれない日の応援便"},
+  "fare": {"perStop": 2500, "perCart": 350, "fc": 12000, "_note": "運賃表：センターがみなと川運輸に払う。店に1回寄るごと perStop、かご車1台ごと perCart。工場→センターは1便 fc（工場が払う）"}
+}

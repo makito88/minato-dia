@@ -950,6 +950,13 @@ window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()
     const acc=(o,r)=>{o.sales+=r.pl.sales/n;o.profit+=r.pl.profit/n;o.cust+=r.hourlyN.reduce((a,b)=>a+b,0)/n;r.hourlyN.slice(5,25).forEach((x,i)=>o.hourlyN[i]+=x/n);o.ev+=r.ev.length/n;o.lost+=((r.reasons||{})['列が長い']||0)/n;o.basket2+=r.ev.filter(e=>e.k==='buy'&&e.addon).length/n;};
     const on=z(),off=z();for(let i=0;i<n;i++){const ci={...c,day:c.day+i*7};acc(on,KC.simulate(V.cfg,V.st,ci));acc(off,KC.simulate(V.cfg,V.st,{...ci,fx:undefined}));}
     return {link:linkNow(V.st.st,gCond()),n,on,off};},
+  get ccfg(){return V.ccfg;},
+  // 配送会社の画面（js/haiso-view.js）に渡す数：その日の納品書と、便ごとの工場の品・センターの品の個数（きょうは売店の計算、前の日は到着の記録）
+  haisoInput(day){if(!V.st||!V.ccfg||!CC)return null;day=day??gDay();const key=CC.storeKey(V.st),lg=loadOrders(),d=lg.days.find(x=>x.day===day),I=ix(),rt=pid=>CC.routeOf(V.ccfg,I.P[pid]&&I.P[pid].genre);
+    let runs=null;if(day===gDay()){ensureRes();const res=V.res;if(res&&res.day===day){const by={};for(const e of res.ev){if(e.k!=='delivery'||e.express||e.addOn)continue;const x=by[e.name]||(by[e.name]={bin:e.name,f:0,c:0});for(const pid in e.items||{}){const r=rt(pid);if(r==='factory')x.f+=e.items[pid];else if(r==='center')x.c+=e.items[pid];}}runs=Object.values(by);}}
+    else{const a=d&&d.arr&&d.arr[key];if(a)runs=a.runs.map(r=>({bin:r.bin,f:Object.values(r.f||{}).reduce((x,y)=>x+y,0),c:r.c||0}));}
+    if(!runs)return null;return {day,cond:day===gDay()?gCond():(d&&d.cond)||null,slip:d&&d.slip&&!d.slip.err?d.slip:null,stores:[{key,runs}],store:`${stName(V.st.st)}駅${V.rcfg.places[V.st.place].name}店`};},
+  get day(){return gDay();},
   // センターの倉庫の画面（js/center-view.js）に渡す数（計算は CenterCore。ここは読むだけ）
   centerInfo(){if(!V.cfg||!V.ccfg||!V.ccfg.ws||!CC||!CC.csOutlook)return {err:'設定を読み込み中です'};if(!V.st)return {err:'まだ売店がありません。売店を出すと、センターが品を届け始めます。'};
     ensureRes();const cs=loadCS();if(!cs||cs.day==null)return {err:'センターの倉庫はまだ動いていません'};const day=gDay(),I=ix(),res=V.res,now=gT(),todo={},done={},cut={};
