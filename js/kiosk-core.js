@@ -107,7 +107,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;
       let q;if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
       else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
-      if(supLeft&&supLeft[pid]!=null){const lf=Math.max(0,supLeft[pid]);if(q>lf){const c=q-lf;if(lf+c>0&&ctx.supply[pid]<(dayOrder[pid]||0)){cutBy[pid]=(cutBy[pid]||0)+c;(d._cut||(d._cut={}))[pid]=c;}q=lf;}supLeft[pid]=lf-q;}
+      if(supLeft&&supLeft[pid]!=null){const lf=Math.max(0,supLeft[pid]);if(q>lf){const c=q-lf;if(lf+c>0&&ctx.supply[pid]<((ctx.supplyOrd&&ctx.supplyOrd[pid]!=null)?ctx.supplyOrd[pid]:(dayOrder[pid]||0))){cutBy[pid]=(cutBy[pid]||0)+c;(d._cut||(d._cut={}))[pid]=c;}q=lf;}supLeft[pid]=lf-q;}
       if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}
     deliveredCost+=cost;const e={t,k:'delivery',n,cost,name:d.name,items:its};if(d._cut){e.cut=d._cut;delete d._cut;}ev.push(e);};   // items：この便で届いた品と数（画面の「次の便」に使う）
   // ホットスナック：冷凍で裏に置き、ケースが少なくなったら調理する（保温時間を過ぎたら捨てる）

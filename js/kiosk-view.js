@@ -44,13 +44,15 @@ const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
   let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
-  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:(linkNow(S.st,c)||{}).fx};}
+  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),supplyOrd:supplyOrdOf(day),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:(linkNow(S.st,c)||{}).fx};}
 /* 橋：アンケート → 売店。その運行日の日付（朝4:30区切り）で、いちばん新しい調査の年を読む。効き目は保存しない（毎回作り直す・同じ条件なら同じ） */
 const opNoon=()=>{const DAY=864e5,J=9*36e5,S0=270*6e4;return new Date(Math.floor((Date.now()+J-S0)/DAY)*DAY+S0-J+12*36e5);};
 function linkNow(st,c){if(!window.SurveyToKiosk||!window.SurveyCore||!V.links||!V.survey)return null;
   return g(()=>SurveyToKiosk.read(V.links,V.survey,SurveyCore,{st,year:SurveyToKiosk.yearFor(V.survey,SurveyCore,opNoon()),isWeekday:(c||gCond()).day==='wd'}),null);}
 /* その日に工場の品が届く上限（納品書の出荷数）。納品書がない日は null（上限なし） */
-function supplyOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip?CC.supplyFor(d.slip,CC.storeKey(V.st)):null;}
+function supplyOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip?CC.supplyFor(d.slip,CC.storeKey(V.st),V.cfg,V.ccfg,KC.shelfInfo(V.cfg,V.st.layout)):null;}
+/* 工場に頼んだ数（納品書の注文の数）。工場が足りなかったかどうかは、これと出荷数でくらべる */
+function supplyOrdOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip?CC.supplyOrdFor(d.slip,CC.storeKey(V.st),V.cfg,V.ccfg,KC.shelfInfo(V.cfg,V.st.layout)):null;}
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（次の日の計算より先に）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
@@ -93,7 +95,7 @@ function dailyOrder(){if(!CC||!V.ccfg||!V.st)return;const S=V.st,day=gDay(),C=ce
     if(C.mode==='auto'){const p=planFor(cond);S.order=orderFor(day);Object.assign(S.order,p.items);
       for(const e of (S.orderQ||[]))for(const pid in e.order)if(managed(pid))delete e.order[pid];   // おまかせの品は、店で入れた予定を使わない
       items=orderFor(day);o={mode:'auto',aim:C.aim};}
-    const lg=loadOrders();CC.putOrder(V.cfg,V.ccfg,lg,day,CC.storeKey(S),{...o,items},V.ccfg.keepDays);{const dd=lg.days.find(x=>x.day===day);if(dd)dd.cond=cond;}saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
+    const lg=loadOrders(),fq=CC.factoryQty(V.cfg,V.ccfg,S,CC.recsOf(lg,CC.storeKey(S)),day,items);CC.putOrder(V.cfg,V.ccfg,lg,day,CC.storeKey(S),{...o,items,fq},V.ccfg.keepDays);{const dd=lg.days.find(x=>x.day===day);if(dd)dd.cond=cond;}saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
   C.ordDay=day;persist();slipNow(day);}
 /* 納品書（発注と配送 第2回・第3回）：運行日が変わったら、その夜の工場の結果から納品書を作って dia-orders に残す（計算は js/factory-night.js）。
    第3回から、売店にはその出荷数までしか届かない（ctxNow の supply）。そのため納品書は、その日の売店の計算より先に「同じ流れの中で」作る

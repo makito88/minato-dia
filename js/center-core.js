@@ -103,6 +103,18 @@ function plan(kcfg,ccfg,state,recs,next,opts){opts=opts||{};const A=(ccfg.aims||
     items[pid]=q;by[route][pid]=q;why[pid]={mu:+mu.toFixed(1),sd:+sd.toFixed(1),n,from,w:+w.toFixed(2)};}
   return {items,by,why,aim:opts.aim||ccfg.defaultAim||'mid',type:ty};}
 
+/* 工場に頼む数（2026-11-09）：日持ちする工場の品（パン）の仕入れ数は「棚と裏の在庫の目標」なので、
+   そのまま工場に頼むと、前の日の残りの分が店に届かずセンターに残る。前の日の 19:00 の記録から「次の朝に残っている数」を見込み、
+   目標との差（＝届ける数）だけを頼む。残りの見込み：19:00 にあった、その日に届いた分（古い分から先に売れる）から、19:00 より後に売れる見込みを引く。
+   前の日の記録がなければ、目標のまま。返すのは、その品の頼む数だけ {pid:数} */
+function factoryQty(kcfg,ccfg,state,recs,forDay,items){const key=storeKey(state),prev=(recs||[]).find(r=>r.store===key&&r.day===forDay-1&&r.pre),out={};
+  for(const pid in items){const gid=genreOf(kcfg,pid);if(!gid||routeOf(ccfg,gid)!=='factory')continue;const life=genreCfg(kcfg,gid).life||0;if(life<2)continue;
+    const target=items[pid]||0;if(!prev){out[pid]=target;continue;}
+    const x=prev.pre.items[pid]||[],sold=x[0]||0,lost=x[1]||0,stock=x[2]||0,fresh=x[3]||0,ty=(prev.cond&&prev.cond.day)||'wd',sh=shareBefore(kcfg,state,gid,ty,prev.pre.at);
+    const after=sh>=0.05?(sold+lost*(ccfg.lostW??0.7))/sh*(1-sh):0,old=Math.max(0,stock-fresh),carry=Math.max(0,fresh-Math.max(0,after-old));
+    out[pid]=Math.max(0,Math.round(target-carry));}
+  return out;}
+
 /* 運行日ごとの記録（dia-orders）に足す。log={v:1,days:[{day,recs:{店:記録},orders:{店:発注},factory:{no,items}}]} */
 function emptyLog(){return {v:1,days:[]};}
 function dayOf(log,day){let d=log.days.find(x=>x.day===day);if(!d){d={day,recs:{},orders:{}};log.days.push(d);log.days.sort((a,b)=>a.day-b.day);}return d;}
@@ -110,6 +122,7 @@ function putRecord(log,rec,keep){const d=dayOf(log,rec.day);d.recs[rec.store]=re
 /* 発注：店ごとの数（自分で決めた店も、おまかせの店も）。工場で作る品は全店の合計を工場への発注に */
 function putOrder(kcfg,ccfg,log,forDay,key,o,keep){const d=dayOf(log,forDay),f={},c={},dr={};
   for(const pid in o.items){const q=o.items[pid];if(!q)continue;const r=routeOf(ccfg,genreOf(kcfg,pid));(r==='factory'?f:r==='direct'?dr:c)[pid]=q;}
+  if(o.fq)for(const pid in o.fq){if(o.fq[pid]>0)f[pid]=o.fq[pid];else delete f[pid];}   // 工場に頼む数（日持ちする工場の品は「届ける数」。factoryQty）
   d.orders[key]={no:orderNo(forDay,key),mode:o.mode||'self',aim:o.aim||null,factory:f,center:c,direct:dr,ask:o.ask||null};
   const tot={};for(const k in d.orders)for(const pid in d.orders[k].factory)tot[pid]=(tot[pid]||0)+d.orders[k].factory[pid];
   d.factory={no:'F'+String(forDay).padStart(4,'0'),at:ccfg.times&&ccfg.times.factoryFix||1200,items:tot,from:Object.values(d.orders).map(x=>x.no)};
@@ -118,8 +131,13 @@ function trim(log,keep){keep=keep||30;if(log.days.length>keep+1)log.days=log.day
 function recsOf(log,key){return (log&&log.days||[]).map(d=>d.recs&&d.recs[key]).filter(Boolean);}
 
 /* 売店に回せる工場の品の上限＝納品書の出荷数（工場の品すべて。届く数が工場の出荷数をこえないように） */
-function supplyFor(slip,key){const m=slip&&!slip.err&&slip.stores&&slip.stores[key];if(!m)return null;const o={};
-  for(const pid in m.items)o[pid]=m.items[pid][1];return Object.keys(o).length?o:null;}
+function supplyFor(slip,key,kcfg,ccfg,shelf){const m=slip&&!slip.err&&slip.stores&&slip.stores[key];if(!m)return null;const o={};
+  for(const pid in m.items)o[pid]=m.items[pid][1];
+  // 工場の品で、この店が頼まなかった品（届ける数が0）は、店に届かない（2026-11-09。shelf を渡したときだけ）
+  if(kcfg&&ccfg&&shelf)for(const pid in shelf)if(o[pid]==null&&routeOf(ccfg,genreOf(kcfg,pid))==='factory')o[pid]=0;
+  return Object.keys(o).length?o:null;}
+/* 工場に頼んだ数（納品書の注文の数）。頼まなかった工場の品は0 */
+function supplyOrdFor(slip,key,kcfg,ccfg,shelf){const s=supplyFor(slip,key,kcfg,ccfg,shelf);if(!s)return null;const m=slip.stores[key],o={};for(const pid in s)o[pid]=m.items[pid]?m.items[pid][0]:0;return o;}
 /* トラックと、店に着く時刻（センターを出てからの分） */
 function truckFor(ccfg,key){const st=String(key).split('-')[0],T=(ccfg.slip&&ccfg.slip.trucks)||[];const t=T.find(x=>(x.st||[]).includes(st));return t?{id:t.id,name:t.name,min:(t.min&&t.min[st])||0}:null;}
 /* 流れの時刻（画面用）：工場の包装の締め切り → 工場を出る → センターに着く → 分けて合わせる → 便ごとにトラックが出る → 店に着く → 便の時刻に棚へ */
@@ -136,6 +154,6 @@ function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!sl
   const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
 function putArrival(log,a,keep){const d=dayOf(log,a.day);(d.arr||(d.arr={}))[a.store]=a;trim(log,keep);return log;}
 
-root.CenterCore={preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
+root.CenterCore={supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
 if(typeof module!=='undefined')module.exports=root.CenterCore;
 })(typeof window!=='undefined'?window:globalThis);
