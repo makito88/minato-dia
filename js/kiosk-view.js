@@ -287,7 +287,7 @@ function badge(){const n=V.st?V.st.unread||0:0;for(const id of ['ksBtn','mks']){
 function readNews(){if(!V.st)return;if(V.st.unread){V.newN=V.st.unread;V.st.unread=0;persist();}badge();}
 /* 上の帯の「売店」：新しいお知らせがあれば、そのままお知らせを開く */
 function openFromBadge(){if(V.st&&V.st.unread){V.tab='news';readNews();}setOpen(true);}
-function setOpen(o){V.open=o;$('ksv').hidden=!o;if(!o)V.newN=0;if(o){V.prevSpeed=g(()=>speed,null);setMult(1);V.people=[];V.bubbles=[];V.lastT=null;render(true);cancelAnimationFrame(V.raf);V.lastTs=0;V.raf=requestAnimationFrame(loop);}
+function setOpen(o){V.open=o;$('ksv').hidden=!o;if(!o)V.newN=0;if(o){V.prevSpeed=g(()=>LIVE?'live':speed,null);setMult(1);V.people=[];V.bubbles=[];V.lastT=null;render(true);cancelAnimationFrame(V.raf);V.lastTs=0;V.raf=requestAnimationFrame(loop);}
   else{cancelAnimationFrame(V.raf);if(V.prevSpeed!=null)g(()=>setSpeed(V.prevSpeed));}}
 
 /* ---------- 開店前：場所を選ぶ ---------- */
