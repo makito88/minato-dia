@@ -8,10 +8,33 @@
    ===================================================================== */
 (function(){
 'use strict';
-const SLOTS='dia-saves',SLOTN=3,SKIP=new Set([SLOTS,'dia-ride-dbg']);
+const SLOTS='dia-saves',SLOTN=3,BKEY='dia-backup',SKIP=new Set([SLOTS,'dia-ride-dbg',BKEY]);   // dia-backup はこの端末だけの記録（引き継ぎコードに入れない）
+/* 書き出しの声かけ・保存の大きさ（2026-11-09）
+   ・ブラウザの保存は、端末の買い替え・ブラウザのデータ削除・しばらく開かないこと（とくに iPhone の Safari）で消えることがある。
+     最後に引き継ぎコードを外へ持ち出してから REMIND 日たったら、画面の下に小さく知らせる（「あとで」で SNOOZE 日は出さない）。
+   ・保存の大きさ：ブラウザの保存は 1つのサイトでふつう約500万文字まで。WARN をこえたら知らせる */
+const REMIND=14,SNOOZE=3,LIMIT=5e6,WARN=0.6,DAY=864e5;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
+
+function bk(){try{const o=JSON.parse(localStorage.getItem(BKEY)||'null');return o&&o.v===1?o:{v:1,at:null,snooze:null};}catch(e){return {v:1,at:null,snooze:null};}}
+function putBk(o){try{localStorage.setItem(BKEY,JSON.stringify(o));}catch(e){}}
+function markExported(){const o=bk();o.at=Date.now();o.snooze=null;putBk(o);hideNag();}
+/* この端末の保存の大きさ（文字数。ブラウザの上限もふつう文字数で数える） */
+function usage(){const list=[];let total=0;try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i),v=localStorage.getItem(k)||'',n=k.length+v.length;total+=n;list.push([k,n]);}}catch(e){}list.sort((a,b)=>b[1]-a[1]);return {total,list,rate:total/LIMIT};}
+const kc=n=>n>=1e6?(n/1e6).toFixed(1)+'百万文字':n>=1e3?Math.round(n/1e3)+'千文字':n+'文字';
+function usageLine(){const u=usage(),top=u.list.slice(0,3).map(([k,n])=>`${k} ${kc(n)}`).join('・');return `この端末の保存：${kc(u.total)}（ブラウザの上限のおよそ${Math.round(u.rate*100)}%）。大きいもの：${top||'なし'}${u.list.some(([k])=>k===SLOTS)?'。一時保存は、全部の写しを持つので大きくなります（使わない枠は消すと軽くなります）':''}`;}
+/* 下に出す小さな知らせ */
+function progressed(){const J=k=>{try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}};const e=J('dia-ensen'),k=J('dia-kiosk');return (e&&e.day>=3)||(k&&k.hist&&k.hist.length>=2);}
+function nagText(){const o=bk(),now=Date.now(),u=usage();if(o.snooze&&now<o.snooze)return null;
+  if(u.rate>=WARN)return `保存がブラウザの上限の約${Math.round(u.rate*100)}%まで来ています。引き継ぎコードを書き出し、使わない一時保存を消すと安心です。`;
+  if(!progressed())return null;const d=o.at?Math.floor((now-o.at)/DAY):null;if(d!=null&&d<REMIND)return null;
+  return d==null?'まだ引き継ぎコードを書き出していません。ブラウザの保存は、端末の買い替えやデータの削除で消えることがあります。ときどき「ファイルに保存」しておくと安心です。':`最後に引き継ぎコードを書き出してから${d}日たちました。ときどき「ファイルに保存」しておくと安心です。`;}
+function showNag(){const t=nagText();if(!t)return;let n=$('svNag');if(!n){n=document.createElement('div');n.id='svNag';n.className='svnag';n.setAttribute('role','status');document.body.appendChild(n);}
+  n.innerHTML=`<span>${esc(t)}</span><button type="button" class="svp-btn pri" id="svNagGo">書き出す</button><button type="button" class="svp-btn" id="svNagLater">あとで</button>`;n.hidden=false;
+  $('svNagGo').onclick=()=>{hideNag();open(true);make();};$('svNagLater').onclick=()=>{const o=bk();o.snooze=Date.now()+SNOOZE*DAY;putBk(o);hideNag();};}
+function hideNag(){const n=$('svNag');if(n)n.hidden=true;}
 
 /* いまの保存をまとめる・戻す */
 function collect(){const keys={};try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('dia-')&&!SKIP.has(k))keys[k]=localStorage.getItem(k);}}catch(e){}return keys;}
@@ -60,14 +83,15 @@ const CSS=`
 .svp-slot:first-of-type{border-top:none}.svp-slot b{font-size:13.5px}.svp-slot span{display:block;font-size:12px;color:var(--muted)}
 .svp-code{width:100%;min-height:84px;font:12px/1.4 var(--f-mono);border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);padding:8px;word-break:break-all;box-sizing:border-box}
 .svp-msg{font-size:13px;min-height:1.4em}.svp-msg.ok{color:#2f8a4a}.svp-msg.ng{color:#c9573f}
-`;
+
+.svnag{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:95;width:min(640px,calc(100vw - 24px));background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 24px rgb(0 0 0 / .2);padding:10px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;line-height:1.6}.svnag span{flex:1 1 260px}`;
 function mount(){const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
   const after=$('ksBtn')||$('rsBtn')||$('tayoriBtn')||document.querySelector('.clockbox');
   if(after){const b=document.createElement('button');b.id='svBtn';b.type='button';b.className='tayoribtn';b.textContent='保存・引き継ぎ';after.after(b);b.onclick=()=>open(true);}
   const mb=document.querySelector('.minibar-in');if(mb){const b=document.createElement('button');b.id='msv';b.type='button';b.className='mspeed tayorimini';b.textContent='保存';mb.appendChild(b);b.onclick=()=>open(true);}
   const p=document.createElement('div');p.id='svp';p.className='svp';p.hidden=true;p.setAttribute('role','dialog');p.setAttribute('aria-modal','true');p.setAttribute('aria-label','保存と引き継ぎ');
   p.innerHTML=`<div class="svp-in"><div class="svp-hd"><h2>保存と引き継ぎ</h2><button type="button" class="svp-btn" id="svClose">閉じる</button></div>
-    <p class="svp-note" style="margin:0">ゲームはこの端末のブラウザに自動で保存されています（運転パターン・この日の条件・沿線暦・リサーチ・売店）。ここでは、その状態を取っておいたり、別の端末へ持っていったりできます。</p>
+    <p class="svp-note" id="svUse" style="margin:0"></p><p class="svp-note" style="margin:0">ゲームはこの端末のブラウザに自動で保存されています（運転パターン・この日の条件・沿線暦・リサーチ・売店）。ここでは、その状態を取っておいたり、別の端末へ持っていったりできます。</p>
     <div class="svp-card"><h3>一時保存（この端末の中）</h3><p class="svp-note">いまの状態を3つまで取っておけます。「戻す」と、その時点の状態に置きかえてページを読み直します。</p><div id="svSlots"></div></div>
     <div class="svp-card"><h3>別の端末へ引き継ぐ</h3><p class="svp-note">いまの状態を「引き継ぎコード」にします。パソコンでコードを作り、スマホへ送って（自分あてのメッセージ・メール・ファイル共有など）、スマホのこの画面の「読み込む」に貼りつけるか、ファイルを選んでください。リンクを送った場合は、スマホでそのリンクを開くだけで読み込みの確認が出ます。サーバーには何も送りません。</p>
       <div class="svp-row"><button type="button" class="svp-btn pri" id="svMake">引き継ぎコードを作る</button><span id="svSize" class="svp-note" style="margin:0"></span></div>
@@ -81,21 +105,21 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
       <div class="svp-msg" id="svMsg2" aria-live="polite"></div></div></div>`;
   document.body.appendChild(p);
   $('svClose').onclick=()=>open(false);p.addEventListener('click',e=>{if(e.target===p)open(false);});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!p.hidden)open(false);});
-  $('svMake').onclick=make;$('svCopy').onclick=()=>copy($('svCode').value,'コードをコピーしました');$('svLink').onclick=()=>copy(linkOf($('svCode').value),'リンクをコピーしました');
-  $('svFile').onclick=()=>{const blob=new Blob([$('svCode').value],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=saveName();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);msg(1,'ファイルに保存しました','ok');};
+  $('svMake').onclick=make;$('svCopy').onclick=()=>{copy($('svCode').value,'コードをコピーしました');markExported();};$('svLink').onclick=()=>markExported()||copy(linkOf($('svCode').value),'リンクをコピーしました');
+  $('svFile').onclick=()=>{markExported();const blob=new Blob([$('svCode').value],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=saveName();document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);msg(1,'ファイルに保存しました','ok');};
   if(navigator.share){$('svShare').hidden=false;
     // ファイルを添付して共有する（メールを選ぶと、添付された状態で開く）。ファイルを共有できないブラウザはリンクを共有
     const fileOf=()=>new File([$('svCode').value],saveName(),{type:'text/plain'});
     let canFile=false;try{canFile=!!(navigator.canShare&&navigator.canShare({files:[new File(['x'],'x.txt',{type:'text/plain'})]}));}catch(e){}
     if(canFile)$('svShare').textContent='メールなどで送る（ファイル）';
-    $('svShare').onclick=()=>{const p=canFile?{files:[fileOf()],title:'みなと川ダイアリーの引き継ぎ',text:'添付のファイルを、スマホのゲームの「保存」→「ファイルを選ぶ」で読み込みます。'}:{title:'みなと川ダイアリーの引き継ぎ',text:'このリンクを開くと続きから遊べます',url:linkOf($('svCode').value)};navigator.share(p).catch(()=>{});};}
+    $('svShare').onclick=()=>{markExported();const p=canFile?{files:[fileOf()],title:'みなと川ダイアリーの引き継ぎ',text:'添付のファイルを、スマホのゲームの「保存」→「ファイルを選ぶ」で読み込みます。'}:{title:'みなと川ダイアリーの引き継ぎ',text:'このリンクを開くと続きから遊べます',url:linkOf($('svCode').value)};navigator.share(p).catch(()=>{});};}
   $('svCheck').onclick=()=>check($('svIn').value);$('svPick').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;f.text().then(t=>{$('svIn').value=t.trim();check(t);});};
   $('svCancel').onclick=()=>{V.pending=null;$('svConfirm').hidden=true;msg(2,'');};$('svApply').onclick=apply;}
 const V={pending:null};
 function msg(n,t,c){const e=$('svMsg'+n);e.textContent=t||'';e.className='svp-msg'+(c?' '+c:'');}
 function copy(t,ok){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>msg(1,ok,'ok')).catch(()=>{const ta=$('svCode');ta.focus();ta.select();msg(1,'コピーできなかったので、コードを選んだ状態にしました。長押しまたは Ctrl+C でコピーしてください。','ng');});}
 const linkOf=code=>location.origin+location.pathname+'#load='+code;
-function open(o){$('svp').hidden=!o;if(o){renderSlots();msg(1,'');msg(2,'');$('svOut').hidden=true;$('svSize').textContent='';$('svConfirm').hidden=true;}}
+function open(o){$('svp').hidden=!o;if(o){{const e=$('svUse');if(e){const b=bk();e.textContent=usageLine()+`。最後の書き出し：${b.at?when(b.at):'まだ'}`;}}renderSlots();msg(1,'');msg(2,'');$('svOut').hidden=true;$('svSize').textContent='';$('svConfirm').hidden=true;}}
 function renderSlots(){const a=slots();$('svSlots').innerHTML=Array.from({length:SLOTN},(_,i)=>{const s=a[i];return `<div class="svp-slot"><div><b>${s?esc(s.name):'（空き）'}</b><span>${s?when(s.at)+'・'+esc(s.sum):'まだ保存していません'}</span></div>
     <div class="svp-row"><button type="button" class="svp-btn" data-save="${i}">${s?'上書き':'ここに保存'}</button>${s?`<button type="button" class="svp-btn" data-load="${i}">戻す</button><button type="button" class="svp-btn" data-del="${i}" aria-label="消す">消す</button>`:''}</div></div>`;}).join('');
   $('svSlots').querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.save),a2=slots(),keys=collect();a2[i]={name:'保存'+(i+1),at:Date.now(),sum:summary(keys),keys};if(!putSlots(a2)){alertIn('保存できませんでした（ブラウザの保存領域がいっぱいかもしれません）');return;}renderSlots();});
@@ -114,6 +138,6 @@ function apply(){const p=V.pending;if(!p)return;window.__diaRestoring=true;if(!r
 /* リンク（#load=…）で開いたとき：確認を出す */
 function fromHash(){const m=location.hash.match(/(?:^#|&)load=([^&]+)/);if(!m)return;open(true);$('svIn').value=decodeURIComponent(m[1]);check($('svIn').value).then(()=>{$('svConfirm').scrollIntoView({block:'center'});});}
 
-mount();fromHash();
+mount();fromHash();setTimeout(()=>{try{showNag();}catch(e){}},6000);
 window.minatoSave={collect,summary,encode,decode,open:()=>open(true)};
 })();
