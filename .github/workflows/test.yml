@@ -1,0 +1,23 @@
+# push のたびに、検査（tools/lint.cjs）とテスト（tests/*.cjs）を自動で動かす（2026-11-09）
+# 失敗すると GitHub の画面に赤い × が出て、メールで知らせが来る
+name: test
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 検査（文法・コメントのうしろの処理・読み込むファイル）
+        run: node tools/lint.cjs
+      - name: テスト
+        run: |
+          for f in tests/*.cjs; do
+            echo "== $f"
+            node "$f" || exit 1
+          done

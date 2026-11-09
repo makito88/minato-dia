@@ -28,4 +28,4 @@
 - 沿線くらしアンケート：`survey.html`・`js/survey-*.js`・`data/survey.json`。路線のお絵かき帖：`route-editor.html`・`js/route-*.js`・`data/routes.json`。街のカルテ：`docs/machi-karte.html`・`docs/town.json`。
 - 会社（2026-11-09）：売店＝みなとスタンド、センター＝川辺ロジスティクス、工場＝港浜フーズ、配送会社＝みなと川運輸（グループの別々の会社）、他社の運送＝港浜急送、問屋＝みなと卸（`data/companies.json`）。センターの倉庫：`js/center-view.js`（計算は center-core の cs*）。配送会社：`js/haiso-core.js`・`js/haiso-view.js`・`data/haiso.json`。
 - 橋（島どうしのつながり）：`data/links.json`・`js/links/*.js`（11/9 にアンケート→売店）。トップの「きょうの沿線」と「研究室」：`js/top.js`。
-- テスト：`tests/*.cjs`（node で動かす）。
+- テスト：`tests/*.cjs`（node で動かす）。検査：`node tools/lint.cjs`（文法・行の途中の // のうしろの処理・読み込むファイル）。GitHub に push すると、検査とテストが自動で動く（`.github/workflows/test.yml`。失敗すると GitHub に赤い ×）。
