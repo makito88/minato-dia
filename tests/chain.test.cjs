@@ -20,23 +20,29 @@ function run(days,opts){opts=opts||{};let st=KC.create(K,{st:'M',place:'home',se
       assert.deepEqual(CC.plan(K,C,st,r2,cond,{forDay:day,aim:'mid',shelf,cur:st.order}).items,p.items,'19:00 より後の数は注文に使わない day '+day);}
     const order={...st.order,...p.items};st.order=order;
     const fq=CC.factoryQty(K,C,st,recs,day,order);CC.putOrder(K,C,log,day,key,{mode:'auto',items:order,fq},30);const d=log.days.find(x=>x.day===day);d.cond=cond;
-    const night=FN.runNight(D,{rice:{},bread:{},sand:{},donut:{}},{day,no:d.factory.no,items:d.factory.items,season:'aut'});
+    const night=FN.runNight(D,{rice:opts.shortFrom&&day>=opts.shortFrom?{batches:20,start:1140}:{},bread:{},sand:{},donut:{}},{day,no:d.factory.no,items:d.factory.items,season:'aut'});
     d.slip=FN.slip(D,C,d,night);const m=d.slip.stores[key];
     for(const pid in d.factory.items)assert.equal(m.items[pid][0],d.orders[key].factory[pid],'店の注文＝工場への注文 '+pid);
     const sh2=KC.shelfInfo(K,st.layout);
-    const res=KC.simulate(K,st,ctxOf(st,day,order,{supply:CC.supplyFor(d.slip,key,K,C,sh2),supplyOrd:CC.supplyOrdFor(d.slip,key,K,C,sh2)}));
+    const ct=opts.noCart?null:CC.cart(K,C,d.slip,key,sh2);
+    if(ct)for(const pid in m.items){const t=Object.values(ct.runs).reduce((x,r)=>x+(r[pid]||0),0);assert.equal(t,m.items[pid][1],'かご車の合計＝出荷数 '+pid);}
+    const res=KC.simulate(K,st,ctxOf(st,day,order,{supply:CC.supplyFor(d.slip,key,K,C,sh2),supplyOrd:CC.supplyOrdFor(d.slip,key,K,C,sh2),cart:ct}));
+    if(ct)for(const e of res.ev)if(e.k==='delivery'&&!e.express&&!e.addOn)for(const pid in ct.pids)assert.equal(e.items[pid]||0,(ct.runs[e.name]||{})[pid]||0,'便ごとに、かご車のとおり届く '+e.name+' '+pid);
     if(m.short.q===0)assert.ok(!res.cut||!Object.keys(res.cut).length,'工場が足りた日は「届かなかった」がない day '+day);
     const arr=CC.arrival(K,C,st,res,d.slip);CC.putArrival(log,arr,30);
     const byG={};for(const pid in m.items){const g=gen(pid),o=byG[g]||(byG[g]={ord:0,ship:0,got:0,left:0});o.ord+=m.items[pid][0];o.ship+=m.items[pid][1];o.left+=arr.left[pid]||0;}
     for(const r of arr.runs)for(const pid in r.f)byG[gen(pid)].got+=r.f[pid];
     for(const g in byG){const o=byG[g];assert.ok(o.ship<=o.ord);assert.equal(o.got+o.left,o.ship,'届いた＋残った＝出荷 '+g+' day '+day+' '+JSON.stringify(o)+JSON.stringify(m.items));}
     const rec=CC.salesRecord(K,st,res);assert.ok(rec.pre&&rec.pre.at===CC.cutOf(K),'19:00 の記録');CC.putRecord(log,rec,30);
-    st=KC.closeDay(K,st,res,{}).state;out.push({day,byG});}
+    out.push({day,byG,short:m.short.q,cut:Object.values(res.cut||{}).reduce((x,y)=>x+y,0)});st=KC.closeDay(K,st,res,{}).state;}
   return out;}
 
 const R14=run(14);
 // パン：作ったのにセンターに残る数（前は14日で30個前後）
 const breadLeft=R14.reduce((t,x)=>t+((x.byG.bread||{}).left||0),0);console.log('  パンがセンターに残った数（14日）',breadLeft);assert.ok(breadLeft<=8,'パンの作りすぎ '+breadLeft);
 for(const x of R14)console.log('  第'+x.day+'運行日',Object.entries(x.byG).map(([g,o])=>`${g} 注文${o.ord}・出荷${o.ship}・届いた${o.got}・残り${o.left}`).join('／'));
+// 工場が足りない夜（釜が少なく遅い）：足りない数だけ「届かなかった」になり、届いた数＋残り＝出荷数のまま
+{const S=run(6,{shortFrom:4});const sd=S.filter(x=>x.short>0);assert.ok(sd.length>=1,'足りない夜がある');for(const x of sd)assert.equal(x.cut,x.short,'届かなかった数＝足りなかった数 day '+x.day);
+  console.log('  工場が足りない夜：',sd.map(x=>'第'+x.day+'運行日 '+x.short+'個').join('・'));}
 module.exports={run};
 console.log('chain.test ok');

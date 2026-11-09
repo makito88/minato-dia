@@ -136,6 +136,20 @@ function supplyFor(slip,key,kcfg,ccfg,shelf){const m=slip&&!slip.err&&slip.store
   // 工場の品で、この店が頼まなかった品（届ける数が0）は、店に届かない（2026-11-09。shelf を渡したときだけ）
   if(kcfg&&ccfg&&shelf)for(const pid in shelf)if(o[pid]==null&&routeOf(ccfg,genreOf(kcfg,pid))==='factory')o[pid]=0;
   return Object.keys(o).length?o:null;}
+/* かご車（2026-11-09）：センターが、工場から届いた品（納品書の出荷数）を、便ごとに店へ分ける。
+   その日のうちに売る品（おにぎり・サンド・ドーナッツ）は、その品のジャンルが載っている便に、朝5・昼前2.5・午後2.5 の重みで分ける（端数は合計が出荷数とちょうど同じになるように）。
+   日持ちする品（パン）は、載っている最初の便（朝の便）にまとめる。店は、この数をそのまま受け取る（店の計算は便ごとの数を決めない）。
+   センター在庫の品（飲み物・お菓子など）は、いままでどおり、便が着いたときの店の在庫を見て足す（センターの在庫に限りはまだない）。
+   返すもの：{runs:{便の名前:{品:数}}, pids:{品:1}, cut:{品:工場が足りなくて届かない数}}。納品書がなければ null */
+function cart(kcfg,ccfg,slip,key,shelf){const sup=supplyFor(slip,key,kcfg,ccfg,shelf),ord=supplyOrdFor(slip,key,kcfg,ccfg,shelf);if(!sup)return null;
+  const runs={},pids={},cut={},DL=kcfg.deliveries||[];for(const d of DL)runs[d.name]={};
+  for(const pid in sup){const gid=genreOf(kcfg,pid);if(!gid)continue;pids[pid]=1;const q=sup[pid]||0,o=ord&&ord[pid]!=null?ord[pid]:q;if(o>q)cut[pid]=o-q;if(!q)continue;
+    const on=DL.filter(d=>d.all||(d.genres||[]).includes(gid));if(!on.length)continue;
+    if((genreCfg(kcfg,gid).life||0)>=2){runs[on[0].name][pid]=q;continue;}
+    const w=on.map(d=>d.all?2:1),W=w.reduce((x,y)=>x+y,0),raw=w.map(x=>q*x/W),fl=raw.map(Math.floor);let left=q-fl.reduce((x,y)=>x+y,0);
+    const ord2=raw.map((x,i)=>[x-fl[i],i]).sort((x,y)=>y[0]-x[0]||x[1]-y[1]);for(const [,i] of ord2){if(left<=0)break;fl[i]++;left--;}
+    on.forEach((d,i)=>{if(fl[i])runs[d.name][pid]=fl[i];});}
+  return {runs,pids,cut};}
 /* 工場に頼んだ数（納品書の注文の数）。頼まなかった工場の品は0 */
 function supplyOrdFor(slip,key,kcfg,ccfg,shelf){const s=supplyFor(slip,key,kcfg,ccfg,shelf);if(!s)return null;const m=slip.stores[key],o={};for(const pid in s)o[pid]=m.items[pid]?m.items[pid][0]:0;return o;}
 /* トラックと、店に着く時刻（センターを出てからの分） */
@@ -154,6 +168,6 @@ function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!sl
   const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
 function putArrival(log,a,keep){const d=dayOf(log,a.day);(d.arr||(d.arr={}))[a.store]=a;trim(log,keep);return log;}
 
-root.CenterCore={supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
+root.CenterCore={cart,supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
 if(typeof module!=='undefined')module.exports=root.CenterCore;
 })(typeof window!=='undefined'?window:globalThis);
