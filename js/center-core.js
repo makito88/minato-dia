@@ -157,6 +157,62 @@ function cart(kcfg,ccfg,slip,key,shelf){const sup=supplyFor(slip,key,kcfg,ccfg,s
 function supplyOrdFor(slip,key,kcfg,ccfg,shelf){const s=supplyFor(slip,key,kcfg,ccfg,shelf);if(!s)return null;const m=slip.stores[key],o={};for(const pid in s)o[pid]=m.items[pid]?m.items[pid][0]:0;return o;}
 /* トラックと、店に着く時刻（センターを出てからの分） */
 function truckFor(ccfg,key){const st=String(key).split('-')[0],T=(ccfg.slip&&ccfg.slip.trucks)||[];const t=T.find(x=>(x.st||[]).includes(st));return t?{id:t.id,name:t.name,min:(t.min&&t.min[st])||0}:null;}
+/* =====================================================================
+   センターの倉庫（2026-11-09）：センター在庫の品（飲み物・お菓子・日用品・冷凍のホットスナック）に限りをつける
+   ・倉庫の記録 cs＝{v:1, day:開けた運行日, closed:締めた運行日, stock:{品:数}, po:[問屋への発注], log:[日ごとの出入り]}（画面が dia-center に残す）
+   ・運行日の始め（csOpen）：その日に着く問屋の品を在庫に足す → 発注日（data/center.json の ws.orderDays）なら、おまかせの数を問屋に頼む（次の運行日に着く）
+   ・その日の店への便は、始めの在庫まで（kiosk-core の ctx.cstock）。足りなければ店に届く数が減る（res.ccut）
+   ・運行日の締め（csClose）：その日に店へ出した数を在庫から引く。同じ日を2回引かない
+   ・時刻の順：発注は運行日の始め（前の日の締めのあと）なので、前の日までの1日の記録を使ってよい
+   ===================================================================== */
+function csNew(){return {v:1,day:null,closed:null,stock:{},po:[],log:[]};}
+function centerPids(kcfg,ccfg,shelf){return Object.keys(shelf||{}).filter(pid=>{const g=genreOf(kcfg,pid);return g&&routeOf(ccfg,g)==='center';});}
+/* 1日の出る数の見込み（全店の合計）：最近の記録の「売れた数＋売り切れで逃した数×lostW」。記録がなければ 店の仕入れ数×guess */
+function csDemand(kcfg,ccfg,recs,stores,pid,upto,cs){const W=ccfg.ws||{},lw=ccfg.lostW??0.7,by={};
+  // センター自身の記録（店へ出した数＋足りなくて出せなかった数）が3日以上あれば、それを使う（店は便ごとに目標まで足すので、売れ方よりまとまって出る）
+  const L=cs?cs.log.filter(x=>x.day<=upto&&!x.fill).slice(-(W.lookback||7)):[];   // fill：店を開いた日（棚を満たす分）は入れない
+  if(L.length>=3){const v=L.map(x=>((x.out||{})[pid]||0)+((x.short||{})[pid]||0)),mu=v.reduce((a,b)=>a+b,0)/v.length,sd=Math.sqrt(v.reduce((a,b)=>a+(b-mu)*(b-mu),0)/Math.max(1,v.length-1));return {mu,sd:Math.max(sd,Math.sqrt(mu)),n:L.length,from:'center'};}
+  for(const r of recs||[]){if(r.day>upto)continue;const st=stores.find(x=>x.key===r.store);if(!st)continue;const x=r.items[pid]||[];by[r.day]=(by[r.day]||0)+(x[0]||0)+(x[1]||0)*lw;}
+  const days=Object.keys(by).map(Number).sort((a,b)=>a-b).slice(-(W.lookback||7)),vals=days.map(d=>by[d]),n=vals.length;
+  if(!n){const g=stores.reduce((t,st)=>t+((st.order||{})[pid]||0),0)*(W.guess??0.35);return {mu:g,sd:Math.sqrt(g),n:0};}
+  const mu=vals.reduce((a,b)=>a+b,0)/n,sd=n>=3?Math.sqrt(vals.reduce((a,b)=>a+(b-mu)*(b-mu),0)/(n-1)):Math.sqrt(mu);return {mu,sd:Math.max(sd,Math.sqrt(mu)),n};}
+function nextOrderDay(ccfg,d){const O=(ccfg.ws&&ccfg.ws.orderDays)||[1,4];for(let k=0;k<14;k++)if(O.includes(((d+k)%7+7)%7))return d+k;return d+7;}
+function onOrder(cs,pid,after){return cs.po.filter(p=>p.st!=='in'&&p.arr>after).reduce((t,p)=>t+((p.items||{})[pid]||0),0);}
+/* おまかせの発注の数（day の朝に頼み、day+lead に着く。次の次の入荷＝次の発注日＋lead の前の日までを満たす） */
+function wsQty(kcfg,ccfg,cs,day,pid,dm){const W=ccfg.ws||{},L=W.lead??1,d2=nextOrderDay(ccfg,day+1),span=d2-day,cs0=cs.stock[pid]||0;
+  const need=dm.mu*span+(W.z??1.3)*dm.sd*Math.sqrt(span+L),pos=cs0+onOrder(cs,pid,day)-dm.mu*L,q=Math.max(0,need-pos);if(q<=0.5)return 0;
+  const c=(W.case||{})[genreOf(kcfg,pid)]||1;return Math.ceil(q/c)*c;}
+/* 運行日の始め。o＝{stores:[{key, order:仕入れ数, shelf}], recs:全店の売上の記録}。返すもの：この日に足した・頼んだこと */
+function csOpen(kcfg,ccfg,cs,day,o){const W=ccfg.ws||{},stores=o.stores||[],pids=[...new Set(stores.flatMap(st=>centerPids(kcfg,ccfg,st.shelf)))],did={in:[],po:[]};
+  if(cs.day==null){for(const pid of pids){const dm=csDemand(kcfg,ccfg,o.recs,stores,pid,day-1,cs),c=(W.case||{})[genreOf(kcfg,pid)]||1,fill=stores.reduce((t,st)=>t+((st.order||{})[pid]||0),0);cs.stock[pid]=Math.ceil((fill+dm.mu*(W.initDays??5))/c)*c;}cs.day=day-1;}   // はじめの在庫：店の棚を1回満たす分＋initDays 日分
+  for(const pid of pids)if(cs.stock[pid]==null)cs.stock[pid]=0;
+  for(let d=cs.day+1;d<=day;d++){
+    for(const p of cs.po)if(p.st!=='in'&&p.arr<=d){for(const pid in p.items)cs.stock[pid]=(cs.stock[pid]||0)+p.items[pid];p.st='in';p.got=d;did.in.push(p.no);}
+    if((W.orderDays||[1,4]).includes(((d%7)+7)%7)&&!cs.po.some(p=>p.day===d)){const items={};
+      for(const pid of pids){const q=wsQty(kcfg,ccfg,cs,d,pid,csDemand(kcfg,ccfg,o.recs,stores,pid,d-1,cs));if(q>0)items[pid]=q;}
+      if(Object.keys(items).length){const p={no:'W'+String(d).padStart(4,'0'),day:d,arr:d+(W.lead??1),items,st:'out'};cs.po.push(p);did.po.push(p.no);}}}
+  cs.day=Math.max(cs.day,day);if(!cs.open||cs.open.day!==day){cs.open={day,stock:{...cs.stock}};did.changed=true;}   // その日の始めの在庫（店への便の上限。締めで在庫が減っても、その日の計算は変わらない）
+  if(did.in.length||did.po.length)did.changed=true;if(cs.po.length>12)cs.po=cs.po.filter(p=>p.st!=='in').concat(cs.po.filter(p=>p.st==='in').slice(-8)).sort((a,b)=>a.day-b.day);
+  return did;}
+/* その日に店へ出したセンター在庫の品（便と当日の追加） */
+function centerOut(kcfg,ccfg,res){const out={};for(const e of res.ev||[]){if(e.k!=='delivery'||(e.express&&!e.addOn))continue;for(const pid in e.items||{}){const g=genreOf(kcfg,pid);if(g&&routeOf(ccfg,g)==='center')out[pid]=(out[pid]||0)+e.items[pid];}}return out;}
+/* 運行日の締め：店へ出した数を引く（同じ日を2回引かない） */
+function csClose(kcfg,ccfg,cs,res){if(cs.closed!=null&&res.day<=cs.closed)return false;const out=centerOut(kcfg,ccfg,res);
+  for(const pid in out)cs.stock[pid]=Math.max(0,(cs.stock[pid]||0)-out[pid]);
+  cs.log.push({day:res.day,out,...(cs.log.length?{}:{fill:true}),short:res.ccut&&Object.keys(res.ccut).length?res.ccut:null});if(cs.log.length>21)cs.log=cs.log.slice(-21);cs.closed=res.day;return true;}
+/* 在庫の見通し（画面用）：次に着く日までに出ていく見込みと、足りなくなるおそれ。
+   返すもの：{pid:{stock, mu, cover:何日分, next:次に着く日, nextQ:その数, until:それまでに出る見込み, after:着く前の見込みの残り, st:'ok'|'thin'|'short'}} */
+function csOutlook(kcfg,ccfg,cs,day,o){const W=ccfg.ws||{},stores=o.stores||[],out={},T=o.today||null;   // today：{done:きょうもう出した, todo:きょうこれから出す, cut:きょう足りずに出せなかった}（画面から）
+  for(const pid of Object.keys(cs.stock)){const dm=csDemand(kcfg,ccfg,o.recs,stores,pid,day-1,cs),s0=cs.stock[pid]||0;
+    const p=cs.po.filter(x=>x.st!=='in'&&x.arr>day&&(x.items||{})[pid]).sort((a,b)=>a.arr-b.arr)[0];
+    const next=p?p.arr:nextOrderDay(ccfg,day+1)+(W.lead??1),days=next-day;
+    // きょうの分は売店の計算でもう決まっている（T があれば、いまの在庫＝朝の在庫−もう出した数、きょうこれから出す数は見込みでなく実際の数）
+    const done=T?(T.done[pid]||0):0,todo=T?(T.todo[pid]||0):0,now=Math.max(0,(T&&cs.open&&cs.open.day===day?(cs.open.stock[pid]||0):s0)-done);
+    const until=T?todo+dm.mu*Math.max(0,days-1):dm.mu*days,after=now-until,cut=T&&T.cut?(T.cut[pid]||0):0;
+    const st=cut>0||after<0?'short':(after<(W.z??1.3)*dm.sd*Math.sqrt(days)||now<dm.mu*1.5)?'thin':'ok';
+    out[pid]={stock:now,cut,mu:dm.mu,sd:dm.sd,n:dm.n,cover:dm.mu>0?now/dm.mu:99,next,nextQ:p?p.items[pid]:0,planned:!p,until,after,st};}
+  return out;}
+
 /* トラックの便（2026-11-09）：センターを出る時刻（flow.runs の depart）＋店までの分＋遅れ＝店に着く時刻。
    遅れは slip.delay（トラック・便・運行日ごとに決まった乱数＋雨・大雪）。棚に並ぶのは、便の時刻と着いた時刻の遅いほう。
    時刻はその運行日の0:00からの分（朝の便は前の夜 28:00＝4:00 に出るので、1440 を引く）。
@@ -179,6 +235,6 @@ function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!sl
   const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
 function putArrival(log,a,keep){const d=dayOf(log,a.day);(d.arr||(d.arr={}))[a.store]=a;trim(log,keep);return log;}
 
-root.CenterCore={truckRuns,cart,supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
+root.CenterCore={csNew,centerPids,csDemand,nextOrderDay,wsQty,csOpen,centerOut,csClose,csOutlook,truckRuns,cart,supplyOrdFor,factoryQty,preRecord,shareBefore,cutOf,storeKey,orderNo,routeOf,salesRecord,plan,segShare,condW,emptyLog,putRecord,putOrder,recsOf,supplyFor,truckFor,flowOf,arrival,putArrival};
 if(typeof module!=='undefined')module.exports=root.CenterCore;
 })(typeof window!=='undefined'?window:globalThis);

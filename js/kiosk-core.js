@@ -104,16 +104,19 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const supLeft=ctx.supply?{...ctx.supply}:null,cutBy={};
   // かご車（2026-11-09）：ctx.cart があれば、工場の品は、センターが便ごとに分けた数をそのまま受け取る（上限・割合の計算は使わない）
   const CT=ctx.cart||null;
+  // センターの倉庫（2026-11-09）：ctx.cstock＝その日にセンターから出せる数（センター在庫の品）。足りなければ届く数が減る（ccut）
+  const cLeft=ctx.cstock?{...ctx.cstock}:null,ccut={};
+  const capC=(pid,q,dd)=>{if(!cLeft||cLeft[pid]==null||q<=0)return q;const lf=Math.max(0,cLeft[pid]);if(q>lf){ccut[pid]=(ccut[pid]||0)+q-lf;(dd._ccut||(dd._ccut={}))[pid]=(dd._ccut[pid]||0)+q-lf;q=lf;}cLeft[pid]=lf-q;return q;};
   const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;const its={};
-    if(d.express){let n2=0,c2=0;const names=[];for(const pid in d.express.items){const it=P[pid];if(!it)continue;const q=d.express.items[pid];(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n2+=q;c2+=q*it.cost;names.push(it.short);its[pid]=q;}
+    if(d.express){let n2=0,c2=0;const names=[];for(const pid in d.express.items){const it=P[pid];if(!it)continue;const q=d.addOn?capC(pid,d.express.items[pid],d):d.express.items[pid];if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n2+=q;c2+=q*it.cost;names.push(it.short);its[pid]=q;}
       deliveredCost+=c2;ev.push({t,k:'delivery',n:n2,cost:c2+(d.fee!=null?d.fee:cfg.express.fee),name:(d.addOn?d.name+'に追加（':'臨時便（')+names.join('・')+'）',items:its,express:!d.addOn,addOn:!!d.addOn});return;}
     for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;
       let q;if(CT&&CT.pids[pid]){q=((CT.runs[d.name]||{})[pid])||0;if(d.all&&CT.cut[pid]){cutBy[pid]=CT.cut[pid];(d._cut||(d._cut={}))[pid]=CT.cut[pid];}if(q>0){(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}continue;}
       if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
       else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
       if(supLeft&&supLeft[pid]!=null){const lf=Math.max(0,supLeft[pid]);if(q>lf){const c=q-lf;if(lf+c>0&&ctx.supply[pid]<((ctx.supplyOrd&&ctx.supplyOrd[pid]!=null)?ctx.supplyOrd[pid]:(dayOrder[pid]||0))){cutBy[pid]=(cutBy[pid]||0)+c;(d._cut||(d._cut={}))[pid]=c;}q=lf;}supLeft[pid]=lf-q;}
-      if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}
-    deliveredCost+=cost;const e={t,k:'delivery',n,cost,name:d.name,items:its};if(d.late)e.late=d.late;if(d._cut){e.cut=d._cut;delete d._cut;}ev.push(e);};   // items：この便で届いた品と数（画面の「次の便」に使う）
+      q=capC(pid,q,d);if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}
+    deliveredCost+=cost;const e={t,k:'delivery',n,cost,name:d.name,items:its};if(d.late)e.late=d.late;if(d._ccut){e.ccut=d._ccut;delete d._ccut;}if(d._cut){e.cut=d._cut;delete d._cut;}ev.push(e);};   // items：この便で届いた品と数（画面の「次の便」に使う）
   // ホットスナック：冷凍で裏に置き、ケースが少なくなったら調理する（保温時間を過ぎたら捨てる）
   //   温める数は「この先 ahead 分に売れそうな数」。売れそうな数は、それまでの日の時間帯ごとの売れ方（state.hotF）から。まだ分からない時間帯は prior×時間帯の重み
   const HC=ix.G.hot.cook||{},HOLD=ix.G.hot.hold;
@@ -260,7 +263,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const recruit=hasCrew?(state.crew.ads||[]).filter(a=>a.day===ctx.day).length*cfg.crew.ad.fee:0;
   const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:crewRes.reduce((s,x)=>s+x.yen,0),recruit,shrink:shrinkCost,guard:guardFee,commute,social,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
   pl.cost=pl.cogs+pl.waste+(pl.shrink||0)+(pl.guard||0)+pl.express+pl.staff+pl.commute+pl.social+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
-  return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,shrinkBy,shrinkN,closed:closedSp,closedN,cut:cutBy,supplyLeft:supLeft};}
+  return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,shrinkBy,shrinkN,closed:closedSp,closedN,cut:cutBy,supplyLeft:supLeft,ccut,cstockLeft:cLeft};}
 
 /* 評価：客層の好み（甘さ・味の濃さ・量）と商品の味のずれ、値段 */
 function review(cfg,ps,it,ratio,r,care){care=care||0;const [s,k,v]=it.taste,[ps1,pk,pv]=ps.taste,T=cfg.reviews;let stars=4.3+(r()-0.5)*0.8;const bad=[];

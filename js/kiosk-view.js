@@ -35,7 +35,7 @@ Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.j
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
 // 工場の設定（納品書を作るのに使う。読めなくても売店はいつもどおり）
 if(window.FactoryNight)fetch('data/factory.json').then(r=>r.ok?r.json():null).then(d=>{V.fD=d;setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
-if(CC)fetch('data/center.json?v=20261109d').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
+if(CC)fetch('data/center.json?v=20261109e').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
 const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム本体の運賃表）
@@ -44,7 +44,7 @@ const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
   let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
-  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),supplyOrd:supplyOrdOf(day),cart:cartOf(day),truck:truckOf(day,c),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:(linkNow(S.st,c)||{}).fx};}
+  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),supplyOrd:supplyOrdOf(day),cart:cartOf(day),cstock:cstockOf(day),truck:truckOf(day,c),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:(linkNow(S.st,c)||{}).fx};}
 /* 橋：アンケート → 売店。その運行日の日付（朝4:30区切り）で、いちばん新しい調査の年を読む。効き目は保存しない（毎回作り直す・同じ条件なら同じ） */
 const opNoon=()=>{const DAY=864e5,J=9*36e5,S0=270*6e4;return new Date(Math.floor((Date.now()+J-S0)/DAY)*DAY+S0-J+12*36e5);};
 function linkNow(st,c){if(!window.SurveyToKiosk||!window.SurveyCore||!V.links||!V.survey)return null;
@@ -61,12 +61,12 @@ function supplyOrdOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders(
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（次の日の計算より先に）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
-function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();dailyOrder();const c=ctxNow();if(!c)return V.res;
-  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+JSON.stringify(c.addOn||[])+'|'+(V.editRev||0)+'|'+JSON.stringify(c.supply||0)+'|'+(c.fx?JSON.stringify(c.fx):'');
+function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();dailyOrder();csOpenToday();const c=ctxNow();if(!c)return V.res;
+  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+JSON.stringify(c.addOn||[])+'|'+(V.editRev||0)+'|'+JSON.stringify(c.supply||0)+'|'+(c.cstock?JSON.stringify(c.cstock):'')+'|'+(c.fx?JSON.stringify(c.fx):'');
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();V.evI=KC.idxAt(V.res,gT());return V.res;}
 function tick(){if(!V.cfg||!V.st)return;ensureRes();}
-function closeToday(res){const S=V.st;salesToCenter(res);arrivalToCenter(res);
+function closeToday(res){const S=V.st;salesToCenter(res);arrivalToCenter(res);if(CC&&CC.csClose&&V.ccfg&&V.ccfg.ws){const cs=loadCS();if(cs&&cs.open&&cs.open.day===res.day&&CC.csClose(V.cfg,V.ccfg,cs,res))saveCS();}
   // その日の最後の設定を、次の日からの設定にする。新しく並べた品は「並べた日」を覚える（マニアが来る）
   const last=S.today&&S.today.day===res.day&&S.today.edits.length?S.today.edits.at(-1):null;
   const before=new Set(Object.keys(KC.shelfInfo(V.cfg,S.layout)));
@@ -89,6 +89,16 @@ function managed(pid){return isAuto()&&CC.routeOf(V.ccfg,ix().P[pid].genre)!=='d
 function aimName(a){const A=V.ccfg&&V.ccfg.aims||{};return (A[a||center().aim]||{}).name||'';}
 // dia-orders は読むたびに解かず、文字が変わったときだけ解く（引き継ぎで書きかわっても読み直せるように、文字で比べる）
 function loadOrders(){let raw=null;try{raw=localStorage.getItem(OKEY);}catch(e){}if(V.ordRaw===raw&&V.ordLog)return V.ordLog;let o=null;try{o=JSON.parse(raw||'null');}catch(e){}V.ordRaw=raw;V.ordLog=o&&o.v===1&&Array.isArray(o.days)?o:CC.emptyLog();return V.ordLog;}
+/* センターの倉庫（dia-center・2026-11-09）：計算は CenterCore.csOpen／csClose。読み書きはここだけ */
+const CSKEY='dia-center';
+function loadCS(){if(V.csObj)return V.csObj;let o=null;try{o=JSON.parse(localStorage.getItem(CSKEY)||'null');}catch(e){}V.csObj=o&&o.v===1?o:(CC&&CC.csNew?CC.csNew():null);return V.csObj;}
+function saveCS(){try{if(V.csObj)localStorage.setItem(CSKEY,JSON.stringify(V.csObj));}catch(e){}}
+function csCtx(day){const S=V.st;return {stores:[{key:CC.storeKey(S),order:orderFor(day),shelf:KC.shelfInfo(V.cfg,S.layout)}],recs:CC.recsOf(loadOrders(),CC.storeKey(S))};}
+// 運行日の始め：前の日を締めたあとに1回（問屋の品が着く・発注日ならおまかせで頼む）
+function csOpenToday(){if(!CC||!CC.csOpen||!V.ccfg||!V.ccfg.ws||!V.st)return;const day=gDay();if(V.st.closed<day-1)return;const cs=loadCS();if(!cs||(cs.day===day&&cs.open&&cs.open.day===day))return;
+  try{const did=CC.csOpen(V.cfg,V.ccfg,cs,day,csCtx(day));if(did.changed)saveCS();
+    if(did.po.length&&V.ccfg.newsDaily){const p=cs.po.find(x=>x.no===did.po[0]),n=Object.values(p.items).reduce((a,b)=>a+b,0);V.st.news.push({day,kind:'center',title:`センター：問屋に ${n}個を発注（${p.no}・第${p.arr}運行日に着く）`,text:`センターのおまかせ。全店の最近の出かたから、次の次の入荷までの分を、ケース単位で頼みました（${Object.keys(p.items).length}品）。`});V.st.unread=(V.st.unread||0)+1;persist();badge();}}catch(e){console.warn('センターの倉庫を進められませんでした',e);}}
+function cstockOf(day){if(!CC||!CC.centerPids||!V.ccfg||!V.ccfg.ws||!V.st)return null;const cs=loadCS();if(!cs||!cs.open||cs.open.day!==day)return null;const o={};for(const pid of CC.centerPids(V.cfg,V.ccfg,KC.shelfInfo(V.cfg,V.st.layout)))o[pid]=cs.open.stock[pid]||0;return o;}
 function saveOrders(o){try{const raw=JSON.stringify(o);localStorage.setItem(OKEY,raw);V.ordRaw=raw;V.ordLog=o;}catch(e){}}
 /* 到着の記録（第3回）：どの便で何が届いたか・工場の不足で届かなかった数・センターに残った数（取引先へ） */
 function arrivalToCenter(res){if(!CC||!V.ccfg||!CC.arrival)return;try{const lg=loadOrders(),d=lg.days.find(x=>x.day===res.day);CC.putArrival(lg,CC.arrival(V.cfg,V.ccfg,V.st,res,d&&d.slip),V.ccfg.keepDays);saveOrders(lg);}catch(e){console.warn('到着の記録を残せませんでした',e);}}
@@ -575,7 +585,7 @@ function renderTrack(b,res){const T=TK();if(!T||!CC||!V.ccfg||!V.ccfg.track){b.i
   const cust=pids.slice(0,V.trkAll?999:12).map(pid=>{const p=I.P[pid],ts=T.shelfTimes({genre:p.genre,now:tNow,today:todayBy[pid],tomorrowQ:tqAll[pid]??null,deliveries:V.cfg.deliveries}),nx=ts[0],tm=ts.find(x=>x.day===1);
     const fac=CC.routeOf(V.ccfg,p.genre)==='factory';
     return `<div><span><b>${esc(p.name)}</b>${fac?` <small>港の工場</small>`:''}</span><span>${nx&&nx.day===0?`きょう ${F(nx.t)}ごろ（${esc(nx.bin)}）・`:''}${tm?`${mw} <b>${F(tm.t)}ごろ</b>${tm.q!=null?`<small>（発注${tm.q}個）</small>`:''}`:''}</span></div>`;}).join('');
-  b.innerHTML=`<div class="ks-card"><h3><span>荷物の行方</span><small>注文番号ごとに、注文から棚に並ぶまで。時刻はすべて仮（data/center.json）</small></h3>
+  b.innerHTML=`<div class="ks-card"><h3><span>荷物の行方</span><small>注文番号ごとに、注文から棚に並ぶまで。時刻はすべて仮（data/center.json）</small>${window.minatoCenter?'<button type="button" class="ks-btn" onclick="minatoCenter.open()" style="margin-left:auto">センターの倉庫を見る</button>':''}</h3>
     <div class="trk-nos" role="group" aria-label="注文番号">${list.map(x=>`<button type="button" class="ks-chip" data-trk="${x.day}" aria-pressed="${x.day===sel}">${esc(x.no)}${x.est?'（見込み）':x.day===day?'（きょう）':''}</button>`).join('')}</div>
     <div style="margin-top:8px">${nowBox}</div></div>
     <div class="trk-grid"><div class="ks-card"><h3><span>店員から見る：時刻の順</span><small>●＝いま</small></h3><ol class="trk-st">${stepsHTML}${runHTML}</ol>
@@ -940,5 +950,12 @@ window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()
     const acc=(o,r)=>{o.sales+=r.pl.sales/n;o.profit+=r.pl.profit/n;o.cust+=r.hourlyN.reduce((a,b)=>a+b,0)/n;r.hourlyN.slice(5,25).forEach((x,i)=>o.hourlyN[i]+=x/n);o.ev+=r.ev.length/n;o.lost+=((r.reasons||{})['列が長い']||0)/n;o.basket2+=r.ev.filter(e=>e.k==='buy'&&e.addon).length/n;};
     const on=z(),off=z();for(let i=0;i<n;i++){const ci={...c,day:c.day+i*7};acc(on,KC.simulate(V.cfg,V.st,ci));acc(off,KC.simulate(V.cfg,V.st,{...ci,fx:undefined}));}
     return {link:linkNow(V.st.st,gCond()),n,on,off};},
+  // センターの倉庫の画面（js/center-view.js）に渡す数（計算は CenterCore。ここは読むだけ）
+  centerInfo(){if(!V.cfg||!V.ccfg||!V.ccfg.ws||!CC||!CC.csOutlook)return {err:'設定を読み込み中です'};if(!V.st)return {err:'まだ売店がありません。売店を出すと、センターが品を届け始めます。'};
+    ensureRes();const cs=loadCS();if(!cs||cs.day==null)return {err:'センターの倉庫はまだ動いていません'};const day=gDay(),I=ix(),res=V.res,now=gT(),todo={},done={},cut={};
+    if(res&&res.day===day)for(const e of res.ev){if(e.k!=='delivery'||(e.express&&!e.addOn))continue;for(const pid in e.items||{})(e.t>now?todo:done)[pid]=((e.t>now?todo:done)[pid]||0)+e.items[pid];if(e.t<=now)for(const pid in e.ccut||{})cut[pid]=(cut[pid]||0)+e.ccut[pid];}
+    const out=CC.csOutlook(V.cfg,V.ccfg,cs,day,{...csCtx(day),today:cs.closed===day?null:{done,todo,cut}});
+    const runs=res&&res.day===day?res.ev.filter(e=>e.k==='delivery'&&!e.express&&!e.addOn).map(e=>({name:e.name,t:e.t,n:Object.keys(e.items||{}).filter(p=>out[p]).reduce((a,p)=>a+e.items[p],0),done:e.t<=now,ccut:e.ccut?Object.values(e.ccut).reduce((a,b)=>a+b,0):0})):[];
+    return {day,now,cs,out,todo,done,runs,ws:V.ccfg.ws,store:`${stName(V.st.st)}駅${V.rcfg.places[V.st.place].name}店`,name:pid=>I.P[pid]?I.P[pid].name:pid,genre:pid=>I.P[pid]&&I.P[pid].genre,nextOrder:CC.nextOrderDay(V.ccfg,day+((cs.po.some(p=>p.day===day))?1:0)),fmt:fmtT};},
   reset(){try{localStorage.removeItem(KEY);}catch(e){}V.st=null;V.res=null;render(true);badge();}};
 })();

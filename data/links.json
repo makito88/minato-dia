@@ -25,7 +25,8 @@
     "survey": "アンケート",
     "weather": "天気と暦",
     "housing": "住宅",
-    "residents": "住民"
+    "residents": "住民",
+    "ws": "問屋"
   },
   "links": [
     {
@@ -178,6 +179,55 @@
         "note": "運行日の始め。センターを出る時刻（data/center.json の flow.runs）＋店までの分（slip.trucks）＋遅れ（slip.delay）。便の時刻より遅いと、着いた時刻に棚へ"
       },
       "desc": "トラックが遅れると、店の品出しが遅れる。遅れの大きさは仮。",
+      "since": "2026-11-09"
+    },
+    {
+      "id": "ws-to-center",
+      "name": "問屋 → センター（週2回の入荷）",
+      "from": "ws",
+      "to": "center",
+      "state": "temp",
+      "strength": 1,
+      "values": [
+        {
+          "name": "po",
+          "unit": "個（品ごと・ケース単位）",
+          "src": "game"
+        },
+        {
+          "name": "orderDays",
+          "unit": "運行日（7で割った余り 1・4）",
+          "src": "assume"
+        }
+      ],
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "発注の日の朝（前の日の締めのあと）に、センターがおまかせで頼む。次の運行日の朝 3:00 に着く"
+      },
+      "desc": "問屋の品（飲み物・お菓子・日用品・冷凍のホットスナック）が、センターの倉庫に入る。問屋の在庫は限りなし（仮）。",
+      "since": "2026-11-09"
+    },
+    {
+      "id": "center-stock-to-kiosk",
+      "name": "センターの倉庫 → 売店（その日に出せる数）",
+      "from": "center",
+      "to": "kiosk",
+      "state": "temp",
+      "strength": 1,
+      "values": [
+        {
+          "name": "cstock",
+          "unit": "個（品ごと・その日の始めの倉庫の在庫）",
+          "src": "game"
+        }
+      ],
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "運行日の始め（その日に着いた問屋の品を足したあと）。店への便は、この数まで"
+      },
+      "desc": "倉庫に足りなければ、店に届く数が減る。店へ出した数は、その日の締めで倉庫から引く。",
       "since": "2026-11-09"
     },
     {

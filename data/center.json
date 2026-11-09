@@ -67,6 +67,26 @@
   "keepDaysNote": "dia-orders（運行日ごとの売上の記録とセンターの発注）に残す日数",
   "lostW": 0.7,
   "lostWNote": "売り切れで逃した人を、売れそうな数にどれだけ足すか（同じ人が何度も数えられる・ほかの品で済ませた人もいるので少し割り引く）",
+  "ws": {
+    "name": "みなと卸",
+    "label": "問屋（みなと卸）",
+    "orderDays": [1, 4],
+    "orderNote": "運行日の番号を7で割った余りが1と4の日（週2回。3日と4日おき）の朝に、センターがおまかせで発注する",
+    "lead": 1,
+    "arriveLabel": "次の運行日の朝 3:00 にセンターへ着く（朝の便の仕分けに間に合う）",
+    "lookback": 7,
+    "z": 2.0,
+    "initDays": 2,
+    "guess": 0.8,
+    "case": {"colddrink": 24, "coffee": 24, "hotdrink": 24, "energy": 10, "alcohol": 24, "snack": 12, "gummy": 10, "daily": 10, "umbrella": 10, "hot": 20},
+    "zones": [
+      {"id": "drink", "name": "常温・飲み物", "genres": ["colddrink", "coffee", "hotdrink", "energy", "alcohol"]},
+      {"id": "dry", "name": "常温・お菓子と日用品", "genres": ["snack", "gummy", "daily", "umbrella"]},
+      {"id": "frozen", "name": "冷凍・ホットスナック", "genres": ["hot"]}
+    ],
+    "src": "assume",
+    "note": "センター在庫の品（飲み物・お菓子・日用品・冷凍のホットスナック）を問屋から仕入れる（2026-11-09・すべて仮）。おまかせの数：全店の最近 lookback 日の『売れた数＋売り切れで逃した数×lostW』の1日の平均×（次の次の入荷までの日数）＋z×ばらつき − （いまの在庫＋届く予定の数 − 届くまでに出ていく見込み）を、ケース（case）単位に切り上げ。記録がないうちは、店の仕入れ数×guess を1日の数とみる。はじめの在庫は initDays 日分"
+  },
   "slip": {
     "news": true,
     "maxBack": 7,
