@@ -35,7 +35,7 @@ Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.j
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
 // 工場の設定（納品書を作るのに使う。読めなくても売店はいつもどおり）
 if(window.FactoryNight)fetch('data/factory.json').then(r=>r.ok?r.json():null).then(d=>{V.fD=d;setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
-if(CC)fetch('data/center.json?v=20261109e').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
+if(CC)fetch('data/center.json?v=20261109f').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
 const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム本体の運賃表）
