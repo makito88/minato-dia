@@ -35,14 +35,15 @@ for(let day=10;day<16;day++){
   for(const pid in sl.items){const [o,s]=sl.items[pid];assert.equal(o,d.factory.items[pid]);assert(s>=0&&s<=o);
     const sum=Object.values(sl.stores).reduce((a,x)=>a+(x.items[pid]?x.items[pid][1]:0),0);assert.equal(sum,s,'stores share the shipped amount');
     for(const k in sl.stores){const x=sl.stores[k].items[pid];if(x)assert.equal(x[0],d.orders[k].factory[pid]);}}
-  const sq=Object.values(sl.items).reduce((a,x)=>a+x[0]-x[1],0);assert.equal(sl.short.q,sq);
+  const sq=Object.values(sl.items).reduce((a,x)=>a+x[0]-x[1]-(x[2]||0),0);assert.equal(sl.short.q,sq);
   assert.equal(Object.values(sl.stores).reduce((a,x)=>a+x.short.q,0),sq,'store shortages add up');
   assert.equal(sl.stores['C-home'].truck,'A');assert.equal(sl.stores['N-gate'].truck,'B');
   assert.equal(sl.stores['C-home'].no,'O'+String(day).padStart(4,'0')+'-C-home','order number carried to the slip');
   assert.equal(sl.order,d.factory.no);
-  if(sq>0)shortSeen++;nights++;
+  if(sq>0||sl.late)shortSeen++;   // 2026-11-09 から：遅れてできた分は待つか追いかけ便になるので、足りない夜は「遅れた夜」としても数える
+  if(sl.late&&sl.late.mode==='chase')for(const pid in sl.items){const ch=sl.items[pid][2]||0;assert.equal(Object.values(sl.stores).reduce((a,x)=>a+((x.items[pid]&&x.items[pid][2])||0),0),ch,'追いかけ便の分を店に分ける');}nights++;
   console.log(`day ${day} ${d.factory.no}: center ${Object.values(d.factory.items).reduce((a,b)=>a+b,0)} → shipped ${Object.values(sl.items).reduce((a,x)=>a+x[1],0)}, short ${sl.short.n} items/${sl.short.q}`,JSON.stringify(night.lines));}
-assert(shortSeen>=1,'a short night is reported');
+assert(shortSeen>=1,'a short or late night is reported');
 assert.equal(JSON.stringify(D),snap,'factory configuration is not changed');
 // 3) 工場の画面用：いちばん新しい発注
 const w=FN.withCenter({seed:3},log);assert.equal(w.centerNo,'F0015');assert.equal(w.seed,3);

@@ -33,9 +33,9 @@ function runNight(D,cfgs,o){const sp=splitItems(D,o.items),m=kioskMap(D),seed=se
   const lines={},rows={};
   for(const L of LINES){const C=root[L.core];if(!C)continue;const mine={};for(const pid in sp.made)if(m[pid].line===L.id)mine[pid]=sp.made[pid];
     const cfg=Object.assign({},cfgs&&cfgs[L.id]||{},{seed,season,center:mine,centerNo:o.no||null});
-    const S=C.simulate(D,cfg).summary;lines[L.id]={order:S.order,shipped:S.shipped,short:S.short};
+    const S=C.simulate(D,cfg).summary;lines[L.id]={order:S.order,shipped:S.shipped,short:S.short,lastDone:S.lastDone!=null?S.lastDone:S.lastPack!=null?S.lastPack:null};
     const byId={};for(const r of L.rows(S)||[])byId[r.id]=r;
-    for(const pid in mine){const r=byId[m[pid].id];if(!r)continue;rows[pid]={line:L.id,order:r.order,shipped:r.shipped,c:mine[pid]};}}
+    for(const pid in mine){const r=byId[m[pid].id];if(!r)continue;rows[pid]={line:L.id,order:r.order,shipped:r.shipped,late:Math.max(0,Math.min((r.order||0)-(r.shipped||0),r.late||0)),c:mine[pid]};}}   // late：締め切りのあとにできた数（足りない分まで）
   return {seed,season,lines,rows,stock:sp.stock};}
 
 /* センターの分（自社の売店）の出荷：売店を最優先（docs/factory-discussion.md の方針）。工場が足りないときは、ほかの店・取引先の分から減らす。
@@ -50,14 +50,25 @@ function truckOf(ccfg,store){const st=String(store).split('-')[0],T=(ccfg&&ccfg.
 
 /* 納品書：day＝dia-orders の1日（orders・factory）、night＝runNight の結果。
    {no, order, day, seed, ready, at, items:{pid:[注文,出荷]}, short:{n,q}, stock:{pid:数}, stores:{店:{no,items,short,truck}}} */
-function slip(D,ccfg,day,night){const f=day.factory||{},items={},stores={},S=ccfg&&ccfg.slip||{};let sn=0,sq=0;
-  for(const pid in night.rows){const r=night.rows[pid],s=centerShip(r);items[pid]=[r.c,s];if(s<r.c){sn++;sq+=r.c-s;}
+/* 工場が遅れたとき（決め方 D・data/center.json の slip.late）：締め切りのあとにできた品（rows.late）が売店の分に要るとき、
+   最後の品ができた時刻（そのラインの lastDone）までの遅れが waitMax 分までなら「待つ」（wait 分だけトラックと朝の便が遅れ、全部のせる）、
+   それより長ければ「追いかけ便」（できてから積んでセンターへ。そのあとに出る最初の便にのせる）。返すもの：{mode:'none'|'wait'|'chase', wait, extra:{pid:数}, at, bin} */
+function lateRule(D,ccfg,night){const LR=(ccfg&&ccfg.slip&&ccfg.slip.late)||null,extra={};let endT=null;
+  for(const pid in night.rows){const r=night.rows[pid],e=Math.min(r.c,(r.shipped||0)+(r.late||0))-centerShip(r);if(e>0){extra[pid]=e;const ld=(night.lines[r.line]||{}).lastDone;if(ld!=null)endT=Math.max(endT??ld,ld);}}
+  if(!LR||!Object.keys(extra).length||endT==null)return {mode:'none',wait:0,extra:{}};
+  const wait=Math.max(0,Math.ceil(endT-D.deadline));if(wait<=LR.waitMax)return {mode:'wait',wait,extra};
+  const at=endT+LR.load+LR.drive,ready=at+LR.sort,R=(ccfg.flow&&ccfg.flow.runs)||[];
+  const run=R.map(x=>({bin:x.bin,dep:x.depart>=1440?x.depart:x.depart+1440})).find(x=>x.dep>=ready);
+  return run?{mode:'chase',wait:0,extra,at,bin:run.bin,fee:LR.fee||0,end:endT}:{mode:'lost',wait:0,extra:{},end:endT};}
+function slip(D,ccfg,day,night){const f=day.factory||{},items={},stores={},S=ccfg&&ccfg.slip||{};let sn=0,sq=0;const LT=lateRule(D,ccfg,night);
+  for(const pid in night.rows){const r=night.rows[pid],e=LT.extra[pid]||0,s=centerShip(r)+(LT.mode==='wait'?e:0),ch=LT.mode==='chase'?e:0;items[pid]=ch?[r.c,s,ch]:[r.c,s];if(s+ch<r.c){sn++;sq+=r.c-s-ch;}
     const parts={};for(const k in day.orders||{}){const q=(day.orders[k].factory||{})[pid]||0;if(q>0)parts[k]=q;}
-    const got=share(s,parts);for(const k in parts){const st=stores[k]||(stores[k]={no:day.orders[k].no,items:{},short:{n:0,q:0},truck:truckOf(ccfg,k)});
-      st.items[pid]=[parts[k],got[k]||0];if((got[k]||0)<parts[k]){st.short.n++;st.short.q+=parts[k]-(got[k]||0);}}}
+    const got=share(s,parts),rest={};for(const k in parts)rest[k]=Math.max(0,parts[k]-(got[k]||0));const gotC=ch?share(ch,rest):{};
+    for(const k in parts){const st=stores[k]||(stores[k]={no:day.orders[k].no,items:{},short:{n:0,q:0},truck:truckOf(ccfg,k)});const c2=gotC[k]||0;
+      st.items[pid]=c2?[parts[k],got[k]||0,c2]:[parts[k],got[k]||0];if((got[k]||0)+c2<parts[k]){st.short.n++;st.short.q+=parts[k]-(got[k]||0)-c2;}}}
   for(const k in day.orders||{})for(const pid in night.stock){const q=(day.orders[k].factory||{})[pid]||0;if(!q)continue;const st=stores[k]||(stores[k]={no:day.orders[k].no,items:{},short:{n:0,q:0},truck:truckOf(ccfg,k)});(st.stock||(st.stock={}))[pid]=q;}
   return {no:'N'+String(day.day).padStart(4,'0'),order:f.no||null,day:day.day,seed:night.seed,season:night.season,
-    ready:D.deadline,at:D.ship&&D.ship.depart,bin:S.bin||null,items,short:{n:sn,q:sq},stock:night.stock,lines:night.lines,stores};}
+    ready:D.deadline,at:D.ship&&D.ship.depart,bin:S.bin||null,items,short:{n:sn,q:sq},late:LT.mode==='none'?null:{mode:LT.mode,wait:LT.wait,end:LT.end??null,at:LT.at??null,bin:LT.bin??null,fee:LT.fee??0},stock:night.stock,lines:night.lines,stores};}
 
 /* 工場の画面用：dia-orders の文字（getItem で読む）から、いちばん新しいセンターの発注を夜の条件に足す。
    画面の条件（cfg）は書きかえず、写しを返す。保存する条件には center を入れない */
@@ -66,6 +77,6 @@ function withCenter(cfg,log){const d=latest(log);if(!d)return cfg;return Object.
 function centerNote(D,log,lineId,unit){const d=latest(log);if(!d)return '';const m=kioskMap(D);let n=0;for(const pid in d.factory.items)if(m[pid]&&m[pid].line===lineId)n+=d.factory.items[pid];
   if(!n)return `センターの発注 ${d.factory.no}（第${d.day}運行日）には、このラインの品はありません。`;
   return `センターの発注 ${d.factory.no}（第${d.day}運行日）の${n}${unit||'個'}を、20:00の注文に足しています（ほかの店・取引先の分は夜の番号どおり）。${d.slip&&!d.slip.err?`納品書 ${d.slip.no} は夜の番号 ${d.slip.seed} の夜で作りました。`:''}`;}
-root.FactoryNight={readLog,withCenter,centerNote,LINES,kioskMap,seasonOf,seedOf,latest,splitItems,cfgsFrom,runNight,centerShip,share,truckOf,slip};
+root.FactoryNight={lateRule,readLog,withCenter,centerNote,LINES,kioskMap,seasonOf,seedOf,latest,splitItems,cfgsFrom,runNight,centerShip,share,truckOf,slip};
 if(typeof module!=='undefined')module.exports=root.FactoryNight;
 })(typeof window!=='undefined'?window:globalThis);

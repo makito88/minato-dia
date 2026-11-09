@@ -35,7 +35,7 @@ for(let day=10;day<16;day++){
   for(const pid in m.items){const [o,s]=m.items[pid];assert((got[pid]||0)<=s,`届いた数 ≤ 出荷数 ${pid} ${got[pid]}>${s}`);
     if(s>=o)assert(!(res.cut&&res.cut[pid]),'cut only when short '+pid);}
   const arr=CC.arrival(K,C,st,res,d.slip);CC.putArrival(log,arr,30);
-  for(const pid in m.items){const s=m.items[pid][1];assert.equal((got[pid]||0)+(arr.left[pid]||0),s,'届いた＋センターに残った＝出荷 '+pid);}
+  for(const pid in m.items){const s=m.items[pid][1]+(m.items[pid][2]||0);assert.equal((got[pid]||0)+(arr.left[pid]||0),s,'届いた＋センターに残った＝出荷 '+pid);}
   assert.equal(arr.runs.length,3);assert.deepEqual(arr.runs.map(r=>r.bin),['朝の便','昼前の便','午後の便']);
   const cut=Object.values(res.cut||{}).reduce((a,b)=>a+b,0);cutAll+=cut;if(m.short.q>0){shortDays++;assert(cut>0,'short slip → cut');}
   console.log(`  第${day}運行日 ${m.no}：工場の品 発注${Object.values(m.items).reduce((a,x)=>a+x[0],0)}・出荷${Object.values(m.items).reduce((a,x)=>a+x[1],0)}・届いた${Object.values(got).reduce((a,b)=>a+b,0)}・届かない${cut}・センターに残った${Object.values(arr.left).reduce((a,b)=>a+b,0)}・トラック${arr.truck}`);}

@@ -32,7 +32,7 @@ function timeline(ccfg,o){const F=ccfg.flow||{},K=ccfg.track||{},tr=truck(ccfg,o
   if(S('sum'))S('sum').note=ord.no?`注文番号 ${ord.no}（工場の品${sum(fac)}・センター在庫${sum(ord.center)}・直送${sum(ord.direct)}）${o.est?'・いまは見込み（数は運行日の初めに決まる）':''}`:'';
   if(S('fix'))S('fix').note=o.fix&&o.fix.no?`工場への発注 ${o.fix.no}（全店の合計）`:'';
   if(S('make'))S('make').note=Object.keys(lines).map(g=>`${(K.lines||{})[g]||g} ${lines[g]}`).join('・');
-  if(S('pack')){const m=o.slip&&o.slip.store;S('pack').note=o.slip&&o.slip.no?(m?`納品書 ${o.slip.no}：出荷 ${sum(Object.fromEntries(Object.entries(m.items).map(([k,a])=>[k,a[1]])))}/${sum(Object.fromEntries(Object.entries(m.items).map(([k,a])=>[k,a[0]])))}${m.short&&m.short.q>0?`・${m.short.n}品で${m.short.q}個足りない（その分は届かない）`:'・そろった'}`:`納品書 ${o.slip.no}`):'';}
+  if(S('pack')){const m=o.slip&&o.slip.store;S('pack').note=o.slip&&o.slip.no?(m?`納品書 ${o.slip.no}：出荷 ${sum(Object.fromEntries(Object.entries(m.items).map(([k,a])=>[k,a[1]+(a[2]||0)])))}/${sum(Object.fromEntries(Object.entries(m.items).map(([k,a])=>[k,a[0]])))}${m.short&&m.short.q>0?`・${m.short.n}品で${m.short.q}個足りない（その分は届かない）`:'・そろった'}${o.slip.late&&o.slip.late.mode==='wait'?`・工場が${o.slip.late.wait}分遅れ、トラックが待った`:''}${o.slip.late&&o.slip.late.mode==='chase'?`・あとからできた分は追いかけ便で${o.slip.late.bin}へ`:''}`:`納品書 ${o.slip.no}`):'';}
   if(S('ctr'))S('ctr').note=F.center&&F.center.sort||'';
   const runs=(F.runs||[]).map((r,i)=>{const x=(o.runs||[])[i]||{},dep=runT(r.depart),arr=dep+(tr?tr.min:0)+(x.late||0);   // late：トラックの遅れ（分）
     return {bin:r.bin,depart:dep,arrive:arr,late:x.late||0,soon:Math.max(dep,arr-(R.soon??10)),shelf:Math.max(runT(r.t),arr),f:x.f||{},c:x.c||0,d:x.d||0,cut:x.cut||null,n:sum(x.f)+(x.c||0)+(x.d||0),hold:i>0?(F.center&&F.center.hold||''):''};});

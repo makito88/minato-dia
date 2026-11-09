@@ -143,7 +143,10 @@ function supplyFor(slip,key,kcfg,ccfg,shelf){const m=slip&&!slip.err&&slip.store
    返すもの：{runs:{便の名前:{品:数}}, pids:{品:1}, cut:{品:工場が足りなくて届かない数}}。納品書がなければ null */
 function cart(kcfg,ccfg,slip,key,shelf){const sup=supplyFor(slip,key,kcfg,ccfg,shelf),ord=supplyOrdFor(slip,key,kcfg,ccfg,shelf);if(!sup)return null;
   const runs={},pids={},cut={},DL=kcfg.deliveries||[];for(const d of DL)runs[d.name]={};
-  for(const pid in sup){const gid=genreOf(kcfg,pid);if(!gid)continue;pids[pid]=1;const q=sup[pid]||0,o=ord&&ord[pid]!=null?ord[pid]:q;if(o>q)cut[pid]=o-q;if(!q)continue;
+  const m=slip.stores[key],LT=slip.late;
+  // 追いかけ便（工場が遅れたとき）：あとからできた分を、のせる便（LT.bin）に足す
+  if(LT&&LT.mode==='chase'&&LT.bin&&runs[LT.bin])for(const pid in m.items){const c2=m.items[pid][2]||0;if(c2>0&&sup[pid]!=null)runs[LT.bin][pid]=(runs[LT.bin][pid]||0)+c2;}
+  for(const pid in sup){const gid=genreOf(kcfg,pid);if(!gid)continue;pids[pid]=1;const ch=(m.items[pid]&&m.items[pid][2])||0,q=sup[pid]||0,o=ord&&ord[pid]!=null?ord[pid]:q;if(o>q+ch)cut[pid]=o-q-ch;if(!q)continue;
     const on=DL.filter(d=>d.all||(d.genres||[]).includes(gid));if(!on.length)continue;
     if((genreCfg(kcfg,gid).life||0)>=2){runs[on[0].name][pid]=q;continue;}
     const w=on.map(d=>d.all?2:1),W=w.reduce((x,y)=>x+y,0),raw=w.map(x=>q*x/W),fl=raw.map(Math.floor);let left=q-fl.reduce((x,y)=>x+y,0);
@@ -159,9 +162,9 @@ function truckFor(ccfg,key){const st=String(key).split('-')[0],T=(ccfg.slip&&ccf
    時刻はその運行日の0:00からの分（朝の便は前の夜 28:00＝4:00 に出るので、1440 を引く）。
    返すもの：[{bin, t:便の時刻, depart, arrive, late:遅れ, shelf:棚に並ぶ時刻}] */
 function hashS(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;}
-function truckRuns(ccfg,key,day,cond){const F=ccfg.flow;if(!F)return [];const tr=truckFor(ccfg,key),TD=(ccfg.slip&&ccfg.slip.delay)||{};
+function truckRuns(ccfg,key,day,cond,wait){const F=ccfg.flow;if(!F)return [];const sortEnd=(F.center&&F.center.sortEnd)||0;wait=wait||0;const tr=truckFor(ccfg,key),TD=(ccfg.slip&&ccfg.slip.delay)||{};   // wait：工場を待った分（朝の便が遅れる）
   return (F.runs||[]).map(r=>{const u=(hashS(['truck',day,tr?tr.id:'-',r.bin].join('|'))%1000)/1000,late=Math.round((TD.max||0)*u*u)+(((TD.wx||{})[cond&&cond.wx])||0);
-    const dep=r.depart>=1440?r.depart-1440:r.depart,arr=dep+(tr?tr.min:0)+late;return {bin:r.bin,t:r.t,depart:dep,arrive:arr,late,shelf:Math.max(r.t,arr)};});}
+    const dep=r.depart>=1440?Math.max(r.depart,wait?sortEnd+wait:0)-1440:r.depart,arr=dep+(tr?tr.min:0)+late;return {bin:r.bin,t:r.t,depart:dep,arrive:arr,late:late+(r.depart>=1440?Math.max(0,dep+1440-r.depart):0),shelf:Math.max(r.t,arr)};});}
 /* 流れの時刻（画面用）：工場の包装の締め切り → 工場を出る → センターに着く → 分けて合わせる → 便ごとにトラックが出る → 店に着く → 便の時刻に棚へ */
 function flowOf(ccfg,key){const F=ccfg.flow;if(!F)return null;const tr=truckFor(ccfg,key);
   return {factory:F.factory,center:F.center,truck:tr,runs:(F.runs||[]).map(r=>({bin:r.bin,t:r.t,depart:r.depart,arrive:r.depart+(tr?tr.min:0),factory:r.factory}))};}
@@ -172,7 +175,7 @@ function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!sl
   for(const e of res.ev||[]){if(e.k!=='delivery'||e.express||e.addOn)continue;const f={},n={c:0,d:0};
     for(const pid in e.items||{}){const q=e.items[pid],r=routeOf(ccfg,genreOf(kcfg,pid));if(r==='factory'){f[pid]=q;got[pid]=(got[pid]||0)+q;}else n[r==='direct'?'d':'c']+=q;}
     const b=binOf(e.t);runs.push({t:e.t,bin:b?b.bin:e.name,f,c:n.c,d:n.d,cut:e.cut||null});}
-  const left={};for(const pid in fItems){const l=fItems[pid][1]-(got[pid]||0);if(l>0)left[pid]=l;}
+  const left={};for(const pid in fItems){const l=fItems[pid][1]+(fItems[pid][2]||0)-(got[pid]||0);if(l>0)left[pid]=l;}   // 追いかけ便の分（[2]）も出荷に入れる
   const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
 function putArrival(log,a,keep){const d=dayOf(log,a.day);(d.arr||(d.arr={}))[a.store]=a;trim(log,keep);return log;}
 
