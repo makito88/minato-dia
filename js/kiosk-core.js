@@ -46,12 +46,14 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const setAt=t=>{let e=edits[0];for(const x of edits)if(x.t<=t)e={...e,...x};return e;};
   // 人の流れ・立ち止まれる時間・寄る人
   const RC=root.ResearchCore,F=RC.footfall(R,state.st,state.place,ctx.flows,ctx.plats),DW=RC.dwellOf(R,state.place,ctx.stops);
-  const ageMix=p=>{const o=R.ages.station[state.st];return (o&&o[String(p)])||R.ages.byPurpose[p];};
+  // 橋の入口（data/links.json）：つなぎが渡す効き目は ctx.fx だけ。ないとき・強さ0のときは、すべて 1（今までと同じ。乱数の引き方も変えない）
+  const FX=ctx.fx||{},fF=(p,h)=>FX.foot&&FX.foot[p]&&FX.foot[p][h]!=null?FX.foot[p][h]:1,fEm=FX.em||1,fBk=FX.basket||1;
+  const ageMix=p=>{const o=R.ages.station[state.st],b=(o&&o[String(p)])||R.ages.byPurpose[p],m=FX.age&&FX.age[p];return m?b.map((w,i)=>w*(m[i]??1)):b;};
   const visitors=[];
   for(let h=Math.floor(O0/60);h<Math.ceil(O1/60);h++){const dwf=clamp(Math.pow(Math.max(0.3,(DW[h]||1.5))/2,cfg.visit.dwellPow),0.5,2);
-    for(let p=0;p<4;p++){const n=poisson((F[p][h]||0)*cfg.visit.cap[p]*dwf,r);
+    for(let p=0;p<4;p++){const n=poisson((F[p][h]||0)*cfg.visit.cap[p]*dwf*fF(p,h),r);
       for(let i=0;i<n;i++){const a=pickW(ageMix(p),r),pm=cfg.personaMap[String(p)][a],ps=pickO(pm,r);const t=h*60+r()*60;if(t<O0||t>=O1)continue;
-        visitors.push({t,p,a,ps,em:r()<Math.min(0.97,R.payment.emoney[a]*R.payment.purposeMul[p]),dw:DW[h]||1.5});}}}
+        visitors.push({t,p,a,ps,em:r()<Math.min(0.97,R.payment.emoney[a]*R.payment.purposeMul[p]*fEm),dw:DW[h]||1.5});}}}
   // 常連：決まった時刻ごろに、決まった品を買いに来る（通勤・通学の人は平日だけ）
   for(const g of state.regulars){if(g.wd&&(ctx.cond.day!=='wd'))continue;if(r()<0.12)continue;const t=g.t+(r()-0.5)*12;if(t<O0||t>=O1)continue;visitors.push({t,p:g.p,a:g.a,ps:g.ps,em:g.em,dw:DW[Math.floor(t/60)]||1.5,reg:g});}
   // マニア：漫画誌の発売日（月曜）や、マニアの多い品を新しく置いた日に、朝から来る
@@ -64,8 +66,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const moodG={};for(const g of cfg.genres){const z=gz();moodG[g.id]=(M.fixed||[]).includes(g.id)?1:Math.exp(z*(M.daySd||0));}
   // なんとなく寄る人：買うつもりはなかったが、目に入った物を見に来る
   if(M.impulse)for(let h=Math.floor(O0/60);h<Math.ceil(O1/60);h++){const dwf=clamp(Math.pow(Math.max(0.3,(DW[h]||1.5))/2,cfg.visit.dwellPow),0.5,2);
-    for(let p=0;p<4;p++){const n=poisson((F[p][h]||0)*M.impulse*dwf,r);for(let i=0;i<n;i++){const a=pickW(ageMix(p),r),ps=pickO(cfg.personaMap[String(p)][a],r),t=h*60+r()*60;if(t<O0||t>=O1)continue;
-      visitors.push({t,p,a,ps,em:r()<Math.min(0.97,R.payment.emoney[a]*R.payment.purposeMul[p]),dw:DW[h]||1.5,imp:true});}}}
+    for(let p=0;p<4;p++){const n=poisson((F[p][h]||0)*M.impulse*dwf*fF(p,h),r);for(let i=0;i<n;i++){const a=pickW(ageMix(p),r),ps=pickO(cfg.personaMap[String(p)][a],r),t=h*60+r()*60;if(t<O0||t>=O1)continue;
+      visitors.push({t,p,a,ps,em:r()<Math.min(0.97,R.payment.emoney[a]*R.payment.purposeMul[p]*fEm),dw:DW[h]||1.5,imp:true});}}}
   // SNSを見て来る人：話題になっている品を目当てに、昼から夜に来る
   if(M.snsSeek)for(const pid in si0){const b=state.buzz[pid]||0;if(b<=0.03)continue;const n=poisson(dayFoot*b*M.snsSeek,r);
     for(let i=0;i<n;i++){const t=Math.max(O0,600+r()*660);if(t>=O1)continue;const ps=pickO({jk:3,salF:2,tou:2,stu:1},r);visitors.push({t,p:ps==='tou'?2:3,a:ps==='jk'?0:1,ps,em:true,dw:DW[Math.floor(t/60)]||1.5,sns:pid});}}
@@ -200,7 +202,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     // 列：電車の時間までに買えるか
     const items=[[it.id,v.mania?(1+Math.floor(r()*3)):1]];
     // かご：最初の品との相性で、もう1品・2品…と足す（関係のない品を手に取る人も、同じ品を2つの人もいる）
-    const BK=cfg.basket;if(BK&&!v.mania){const bh=hm(BK.hours,h),bp=BK.ps[v.ps]??1;let pr=BK.add*bp*bh*(v.reg?0.5:1);
+    const BK=cfg.basket;if(BK&&!v.mania){const bh=hm(BK.hours,h),bp=BK.ps[v.ps]??1;let pr=BK.add*bp*bh*(v.reg?0.5:1)*fBk;
       const have=new Set(items.map(x=>x[0])),ok=c=>SI[c.id]&&stockOf(c.id)>0&&!have.has(c.id)&&!(ix.G[c.genre].age&&minor)&&c.genre!=='tobacco'&&(c.genre!=='hot'||hotStock(c.id)>0);
       if(rB()<BK.double*bp&&['colddrink','onigiri','gummy','coffee','bread'].includes(it.genre))items[0][1]=2;
       for(let n=1;n<BK.max&&rB()<pr;n++){const base=P[items[0][0]].genre,PR=BK.pairs[base]||{};let pick=null,kind;

@@ -27,8 +27,10 @@ const V={cfg:null,rcfg:null,err:null,st:null,open:false,res:null,resKey:'',lastD
 const narrow=()=>window.innerWidth<760;
 addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=n;if(V.open)render(true);}});
 /* ---------- 読み込み・保存 ---------- */
-Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();})])
-  .then(([c,rc])=>{V.cfg=c;V.rcfg=rc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
+// 橋の一覧とアンケート（読めなくても売店はいつもどおり。アンケート→売店の橋が「未接続」になるだけ）。売店の最初の計算より前にそろえる（途中で効き目が入って結果が変わらないように）
+const optJson=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
+Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();}),optJson('data/links.json?v=20261109a'),window.SurveyToKiosk?optJson('data/survey.json'):null])
+  .then(([c,rc,lk,sv])=>{V.cfg=c;V.rcfg=rc;V.links=lk;V.survey=sv;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
 // 工場の設定（納品書を作るのに使う。読めなくても売店はいつもどおり）
@@ -42,14 +44,18 @@ const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
   let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
-  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0};}
+  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:(linkNow(S.st,c)||{}).fx};}
+/* 橋：アンケート → 売店。その運行日の日付（朝4:30区切り）で、いちばん新しい調査の年を読む。効き目は保存しない（毎回作り直す・同じ条件なら同じ） */
+const opNoon=()=>{const DAY=864e5,J=9*36e5,S0=270*6e4;return new Date(Math.floor((Date.now()+J-S0)/DAY)*DAY+S0-J+12*36e5);};
+function linkNow(st,c){if(!window.SurveyToKiosk||!window.SurveyCore||!V.links||!V.survey)return null;
+  return g(()=>SurveyToKiosk.read(V.links,V.survey,SurveyCore,{st,year:SurveyToKiosk.yearFor(V.survey,SurveyCore,opNoon()),isWeekday:(c||gCond()).day==='wd'}),null);}
 /* その日に工場の品が届く上限（納品書の出荷数）。納品書がない日は null（上限なし） */
 function supplyOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip?CC.supplyFor(d.slip,CC.storeKey(V.st)):null;}
 function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（次の日の計算より先に）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
 function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();dailyOrder();const c=ctxNow();if(!c)return V.res;
-  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+JSON.stringify(c.addOn||[])+'|'+(V.editRev||0)+'|'+JSON.stringify(c.supply||0);
+  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+JSON.stringify(c.addOn||[])+'|'+(V.editRev||0)+'|'+JSON.stringify(c.supply||0)+'|'+(c.fx?JSON.stringify(c.fx):'');
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();V.evI=KC.idxAt(V.res,gT());return V.res;}
 function tick(){if(!V.cfg||!V.st)return;ensureRes();}
@@ -183,6 +189,7 @@ const CSS=`
 .ks-center{border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin:8px 0;display:grid;gap:4px}.ks-center-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}.ks-center .ks-chip{font-size:12.5px;padding:4px 10px}.ks-auto{display:inline-block;font-size:11px;padding:1px 6px;border-radius:5px;background:var(--paper);border:1px solid var(--line);color:var(--ink)}.ks-chip[aria-pressed="true"],.ks-btn.pri{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700}
 .ks-btn:focus-visible,.ks-chip:focus-visible,.ks-tab:focus-visible,.ks-slot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ks-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.ks-life{margin:0 0 6px;font-size:12px;line-height:1.6;color:var(--muted,#667);overflow-wrap:anywhere}.ks-life b{color:var(--ink,inherit)}.ks-life a{white-space:nowrap}.ks-src{font-style:normal;font-size:10px;border:1px solid currentColor;border-radius:3px;padding:0 2px;margin-left:2px;opacity:.8}.ks-lst{font-size:10px;background:rgba(200,140,40,.15);border-radius:3px;padding:0 4px}
 .ks-card h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}.ks-card h3 small{font-size:11.5px;color:var(--muted);font-weight:400}
 .ks-stage{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#2a2f33}.ks-stage canvas{display:block;width:100%;height:auto}
 .ks-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.ks-kpi div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
@@ -354,12 +361,17 @@ function updateSheet(){const pid=V.sheet,res=V.res;if(!pid||!res||!$('shNow'))re
 function render(full){if(!V.open)return;
   if(!V.cfg){$('ksTop').innerHTML=`<div class="ks-card"><p>${V.err?'設定を読み込めませんでした（'+esc(V.err)+'）。パソコンで index.html を直接開いた場合は読み込めません。':'準備しています…'}</p></div>`;return;}
   if(!V.st){$('ksTitle').textContent='売店を出す';$('ksSub').textContent='';renderSetup();$('ksKpi').innerHTML='';$('ksBody').innerHTML='';$('ksTabs').hidden=true;return;}
-  $('ksTabs').hidden=false;$('ksTop').innerHTML='';const S=V.st,c=gCond();
+  $('ksTabs').hidden=false;const S=V.st,c=gCond();{const h=lifeLine(S.st,c),t=$('ksTop');if(t.dataset.k!==h||!t.querySelector('.ks-life')){t.innerHTML=h;t.dataset.k=h;}}
   $('ksTitle').textContent=`みなとスタンド ${stName(S.st)}駅${V.rcfg.places[S.place].name}店`;
   const tr=S.trend?V.cfg.trends.find(x=>x.id===S.trend.id):null;
   $('ksSub').textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]}・${WXN[c.wx]}・${SEAN[c.season]}${tr?'・世の中は'+tr.name:''}・常連 ${S.regulars.length}人${S.moveNext?`・第${S.moveNext.day}運行日から${stName(S.moveNext.st)}駅へ移転`:''}`;
   $('ksTabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===V.tab)));
   renderKpi();renderAlert(true);if(V.sheet)renderSheet();if(full||V.tab==='log')renderBody(full);}
+/* この駅のくらし（アンケート）：1行と、アンケートのページへの行き先 */
+function lifeLine(st,c){const L=linkNow(st,c);if(!L)return '<p class="ks-life">この駅のくらし（アンケート）：<span class="ks-lst">未接続</span>（設定を読めませんでした）</p>';
+  const v=n=>(L.values.find(x=>x.name===n)||{}).value,f=x=>x.toFixed(2).replace(/0$/,''),fx=L.fx,lk=V.links.links.find(x=>x.id===SurveyToKiosk.ID)||{},stN=(V.links.states||{})[lk.state]||'';
+  const eff=[fx.basket!==1?`ついで買い×${f(fx.basket)}`:'',fx.em!==1?`電子マネー×${f(fx.em)}`:'',fx.foot&&fx.foot[0]?`平日朝の通勤×${f(fx.foot[0][7])}`:'',fx.foot&&fx.foot[3]?`昼の買い物×${f(fx.foot[3][12])}`:''].filter(Boolean).join('・')||'効き目なし（強さ0）';
+  return `<p class="ks-life"><b>この駅のくらし</b>（アンケート ${L.year}年10月<i class="ks-src" title="ゲーム内で生まれた結果">内</i>）：ネット通販 ${Math.round(v('net'))}%・キャッシュレス ${Math.round(v('cashless'))}%・リモートワーク ${Math.round(v('remote'))}% → <span>${eff}</span><i class="ks-src" title="効き目の強さは仮に決めた数字">仮</i> <span class="ks-lst">${esc(stN)}</span> <a href="survey.html#net">アンケートを見る ›</a></p>`;}
 function renderKpi(){const res=ensureRes();if(!res)return;const o=KC.soFar(V.cfg,res,gT()),P=res.pl;
   const share=res.pl.sales?o.sales/res.pl.sales:0;
   $('ksKpi').innerHTML=`<div><span>きょうの売上（いままで）</span><b>${yen(o.sales)}</b></div><div><span>お客さん</span><b>${num(o.cust)}人</b></div>
@@ -911,5 +923,11 @@ window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()
   // リサーチから：その駅・場所を選んだ状態で売店の画面を開く（まだ出していないとき）
   openAt:(st,place)=>{if(!V.st&&PLACES.includes(place))V.form={st,place};setOpen(true);},places:PLACES,sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},
   closeToday(){const r=ensureRes();if(r){closeToday(r);g(()=>{ENS.day=ENS.day;});}return V.st&&V.st.hist.at(-1);},   // 開発用：きょうの分で1日を締める（運行日は進めない）
+  // 開発用：アンケート→売店の橋を外したときと入れたときの、きょうの1日の差（保存は変えない）
+  //   n日分（同じ条件で運行日の番号だけ変える）の平均も出せる。乱数のぶれと、つないだ差を分けて見るため
+  linkDiff(n){const c=ctxNow();if(!c||!V.st)return null;n=n||1;const z=()=>({sales:0,profit:0,cust:0,hourlyN:new Array(20).fill(0),ev:0,lost:0,basket2:0});
+    const acc=(o,r)=>{o.sales+=r.pl.sales/n;o.profit+=r.pl.profit/n;o.cust+=r.hourlyN.reduce((a,b)=>a+b,0)/n;r.hourlyN.slice(5,25).forEach((x,i)=>o.hourlyN[i]+=x/n);o.ev+=r.ev.length/n;o.lost+=((r.reasons||{})['列が長い']||0)/n;o.basket2+=r.ev.filter(e=>e.k==='buy'&&e.addon).length/n;};
+    const on=z(),off=z();for(let i=0;i<n;i++){const ci={...c,day:c.day+i*7};acc(on,KC.simulate(V.cfg,V.st,ci));acc(off,KC.simulate(V.cfg,V.st,{...ci,fx:undefined}));}
+    return {link:linkNow(V.st.st,gCond()),n,on,off};},
   reset(){try{localStorage.removeItem(KEY);}catch(e){}V.st=null;V.res=null;render(true);badge();}};
 })();
