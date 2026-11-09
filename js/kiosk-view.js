@@ -307,7 +307,7 @@ function renderSetup(){const f=V.form,R=V.rcfg,studies=g(()=>JSON.parse(localSto
     <button type="button" class="ks-btn pri" id="ksOpen">${stName(f.st)}駅・${R.places[f.place].name}に売店を出す</button></div>`;
   $('ksTop').querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{f.st=b.dataset.st;render(true);});
   $('ksTop').querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{f.place=b.dataset.pl;render(true);});
-  $('ksOpen').onclick=()=>{const day=gDay();V.st=KC.create(V.cfg,{seed:(Date.now()%100000)+1,st:f.st,place:f.place,day});if(CC)V.st.center={mode:'auto',aim:'mid',ordDay:day};   // 新しい店は最初からセンターにおまかせKS.migrate(V.cfg,V.st);V.st.openedT=gT();V.st.openedDay=day;V.st.unread=0;
+  $('ksOpen').onclick=()=>{const day=gDay();V.st=KC.create(V.cfg,{seed:(Date.now()%100000)+1,st:f.st,place:f.place,day});if(CC)V.st.center={mode:'auto',aim:'mid',ordDay:day};/* 新しい店は最初からセンターにおまかせ */KS.migrate(V.cfg,V.st);V.st.openedT=gT();V.st.openedDay=day;V.st.unread=0;
     V.st.news.push({day,kind:'open',title:`${stName(f.st)}駅・${R.places[f.place].name}に売店を開いた`,text:'はじめは、よくある売店の並べ方と値段です。売れ行きを見ながら変えていきましょう。'});persist();V.res=null;render(true);};}
 
 /* ---------- 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） ---------- */
