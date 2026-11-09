@@ -2,7 +2,7 @@
 // ファイルごとに「区切りのコメント」と「関数・大事な定数」の名前と行番号を並べる。Claude は本体を全部読まずに、ここを grep して必要な行だけ開く。
 const fs=require('fs'),path=require('path');
 const root=path.join(__dirname,'..');
-const files=['index.html','factory.html','survey.html','route-editor.html',...fs.readdirSync(path.join(root,'js')).filter(f=>f.endsWith('.js')).sort().map(f=>'js/'+f)];
+const files=['index.html','factory.html','survey.html','route-editor.html',...fs.readdirSync(path.join(root,'js')).filter(f=>f.endsWith('.js')).sort().map(f=>'js/'+f),...(fs.existsSync(path.join(root,'js','links'))?fs.readdirSync(path.join(root,'js','links')).filter(f=>f.endsWith('.js')).sort().map(f=>'js/links/'+f):[])];
 const out=['# コードの目次（自動で作る：`node tools/codemap.cjs`）','','ファイルごとに、区切りのコメント（■）と、関数・大事な定数の名前と行番号。本体を読む前にここを grep して、必要な行だけ開く。',''];
 for(const f of files){const p=path.join(root,f);if(!fs.existsSync(p))continue;const L=fs.readFileSync(p,'utf8').split('\n');const items=[];
   L.forEach((s,i)=>{const n=i+1;let m;
