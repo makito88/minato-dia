@@ -44,7 +44,9 @@ const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム
 function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.sim.stat[S.st];if(!s)return null;
   let stops;if(V.stopsD===d&&V.stopsSt===S.st)stops=V.stops;else{stops=new Array(H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;V.stopsSt=S.st;}
   const c=gCond(),day=gDay();
-  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),supplyOrd:supplyOrdOf(day),cart:cartOf(day),cstock:cstockOf(day),truck:truckOf(day,c),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:(linkNow(S.st,c)||{}).fx};}
+  return {day,dow:(day+0)%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.rcfg,order:orderFor(day),supply:supplyOf(day),supplyOrd:supplyOrdOf(day),cart:cartOf(day),cstock:cstockOf(day),truck:truckOf(day,c),express:!V.cfg.express.off&&S.today&&S.today.day===day?(S.today.express||[]):[],addOn:S.today&&S.today.day===day?(S.today.addOn||[]):[],edits:S.today&&S.today.day===day?S.today.edits:[],startT:S.openedDay===day?S.openedT:0,fx:seasFx((linkNow(S.st,c)||{}).fx,S.st)};}
+/* 季節のできごと（index.html の seasKioskGenre）：その駅のきょうのできごとで売れやすくなるジャンルを ctx.fx.genre に足す。ないときは今までと同じ */
+const seasFx=(fx,st)=>g(()=>{const ge=seasKioskGenre(st);return ge?SeasonCore.mergeFx(fx,ge):fx;},fx);
 /* 橋：アンケート → 売店。その運行日の日付（朝4:30区切り）で、いちばん新しい調査の年を読む。効き目は保存しない（毎回作り直す・同じ条件なら同じ） */
 const opNoon=()=>{const DAY=864e5,J=9*36e5,S0=270*6e4;return new Date(Math.floor((Date.now()+J-S0)/DAY)*DAY+S0-J+12*36e5);};
 function linkNow(st,c){if(!window.SurveyToKiosk||!window.SurveyCore||!V.links||!V.survey)return null;

@@ -35,21 +35,25 @@ function condFor(i){const d=opDate(i),wd=new Intl.DateTimeFormat('en-US',{timeZo
 const label=c=>({wd:'平日',sat:'土曜',hol:'日曜'}[c.day]||'')+'・'+({sun:'晴れ',cld:'くもり',rain:'雨',snow:'大雪'}[c.wx]||'');
 
 /* 進める：最後に見ていた日（そのときの条件）→ 留守の日（暦の条件）を1日ずつ締める */
-async function catchUp(reason){const a=load();if(!a){save();return;}
-  const from=opIndex(a.at),now=opIndex(Date.now()),missed=now-from;if(missed<=0){save();return;}
+// 季節のできごと：留守の分を進め終わってから、きょうの便りを出す（index.html の SEAS.hold）
+const seasGo=()=>g(()=>{if(SEAS.hold){SEAS.hold=false;ENSEN_UI.seasLetters();}});
+async function catchUp(reason){const a=load();if(!a){save();seasGo();return;}
+  const from=opIndex(a.at),now=opIndex(Date.now()),missed=now-from;if(missed<=0){save();seasGo();return;}
   if(V.busy)return;V.busy=true;
   try{await Promise.race([fetchCal(),new Promise(r=>setTimeout(r,4000))]);}catch(e){}   // 留守の日の天気・祝日を先に取っておく
   const n=Math.min(missed,MAXD),skip=missed-n,ksBefore=g(()=>minatoKiosk.state&&minatoKiosk.state.hist.length,0),rsBefore=g(()=>minatoResearch.state.studies.reduce((s,x)=>s+x.recs.length,0),0),day0=g(()=>ENS.day,1);
   const ov=overlay();const keepCond=g(()=>({...COND}),null),days=[];
   for(let k=0;k<n;k++){const i=k===0?from:now-(n-k);const c=k===0&&a.cond?a.cond:condFor(i);
     ov.textContent=`留守のあいだの運行日を進めています… ${k+1}／${n}（${label(c)}）`;await new Promise(r=>setTimeout(r,30));
+    g(()=>{SEAS.dateI=i;});   // 季節のできごとは、その日の暦の日付で決める
     try{setCond({...COND,...c});rebuild();g(()=>minatoKiosk.sync());g(()=>minatoResearch.sync());   // その日のダイヤで売店・調査の1日分を出しておく
       ENSEN_UI.dayEnd(true);                                                                      // 沿線暦を次の運行日へ（ここで売店・調査がその日を締める）
       g(()=>minatoKiosk.sync());g(()=>minatoResearch.sync());days.push(c);}catch(e){console.warn('留守の運行日を進められませんでした',e);break;}}
+  g(()=>{SEAS.dateI=null;});
   // きょうの条件に戻す（曜日・季節は暦、天気はあとで実際の天気を取りに行く）
   try{const c=condFor(now);setCond({...(keepCond||COND),day:c.day,season:c.season});saveCond();renderCondUI();rebuild();}catch(e){}
   try{T=liveT();}catch(e){}g(()=>liveCond().catch(()=>{}));
-  V.busy=false;save();ov.remove();
+  V.busy=false;save();ov.remove();seasGo();
   // まとめ
   const ks=g(()=>minatoKiosk.state,null),hist=ks?ks.hist.slice(ksBefore):[];
   const sales=hist.reduce((s,h)=>s+h.sales,0),profit=hist.reduce((s,h)=>s+h.profit,0),cust=hist.reduce((s,h)=>s+h.cust,0);

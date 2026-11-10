@@ -47,7 +47,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 人の流れ・立ち止まれる時間・寄る人
   const RC=root.ResearchCore,F=RC.footfall(R,state.st,state.place,ctx.flows,ctx.plats),DW=RC.dwellOf(R,state.place,ctx.stops);
   // 橋の入口（data/links.json）：つなぎが渡す効き目は ctx.fx だけ。ないとき・強さ0のときは、すべて 1（今までと同じ。乱数の引き方も変えない）
-  const FX=ctx.fx||{},fF=(p,h)=>FX.foot&&FX.foot[p]&&FX.foot[p][h]!=null?FX.foot[p][h]:1,fEm=FX.em||1,fBk=FX.basket||1;
+  const FX=ctx.fx||{},fF=(p,h)=>FX.foot&&FX.foot[p]&&FX.foot[p][h]!=null?FX.foot[p][h]:1,fEm=FX.em||1,fBk=FX.basket||1,fG=id=>FX.genre&&FX.genre[id]!=null?FX.genre[id]:1;   // genre：季節のできごとで売れやすくなるジャンル（なければ 1）
   const ageMix=p=>{const o=R.ages.station[state.st],b=(o&&o[String(p)])||R.ages.byPurpose[p],m=FX.age&&FX.age[p];return m?b.map((w,i)=>w*(m[i]??1)):b;};
   const visitors=[];
   for(let h=Math.floor(O0/60);h<Math.ceil(O1/60);h++){const dwf=clamp(Math.pow(Math.max(0.3,(DW[h]||1.5))/2,cfg.visit.dwellPow),0.5,2);
@@ -188,7 +188,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     let want=null,target=v.reg?v.reg.pid:v.mania||v.sns||null;
     if(target)want=P[target].genre;
     else{const gw=cfg.genres.map(g=>{let w=g.base*(ps.pref[g.id]??1)*hm(g.hours,h)*((g.season&&g.season[ctx.cond.season])||1)*((g.wx&&g.wx[ctx.cond.wx])??1);
-        if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w*(moodG[g.id]||1);});
+        if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w*(moodG[g.id]||1)*fG(g.id);});
       want=cfg.genres[pickW(gw,r)].id;}
     // どれを選ぶか（棚に見えている物から）
     const cands=ix.byG[want].filter(it=>SI[it.id]);

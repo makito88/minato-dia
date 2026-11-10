@@ -656,6 +656,7 @@ canvas{display:block;touch-action:manipulation}
   </div>
 </div>
 
+<script src="js/season-core.js?v=20261110a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -906,7 +907,22 @@ function ensDayFactors(day){const C=ENS.cfg.econ,ec=econAt(day),N=NSt;
   let late=ENS.cfg.newFlows.factory.late;for(const o of live)if(o.def.late!=null)late=o.def.late;
   return {day,e:ec.e,phase:ec.phase,cost:ec.cost,shocks,T,late};}
 function ecoApply(o,s,d,t){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=ECO.T[b+p];}
-function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;}
+function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;seasRefresh();}
+/* ---- 季節のできごと（計算は js/season-core.js、設定は data/seasonal.json と data/seasonal-extra.json） ----
+   いつ・どこで起きるかは「保存の種＋暦の日付」だけで決まる。景気が固定でも起きる（暦の行事なので）。
+   その日のイベント（プレイヤーが選ぶもの）と同じ駅なら止める（二重に数えない）。効き目は保存しない */
+const SEAS={cfg:null,dateI:null,list:[],T:null,hold:true};   // dateI：留守の日をまとめて進めるとき、js/away.js がその日の番号を入れる。hold：留守の分を進め終わるまで、きょうの便りを待つ（順番が逆にならないように）
+function seasDayI(){return SEAS.dateI!=null?SEAS.dateI:SeasonCore.opIndex(Date.now());}
+function seasRefresh(){SEAS.list=[];SEAS.T=null;if(!SEAS.cfg||typeof SeasonCore==='undefined')return;
+  const evPlaces=new Set((ACTIVE_EV||[]).map(e=>e.place));
+  SEAS.list=SeasonCore.today(SEAS.cfg,ENS.seed,seasDayI()).filter(o=>!(o.st&&evPlaces.has(o.st)));
+  if(SEAS.list.length){const R=SeasonCore.railRules(SEAS.cfg,SEAS.list),N=NSt,T=new Float32Array(N*N*30*4).fill(1);
+    for(let si=0;si<N;si++)for(let di=0;di<N;di++){if(si===di)continue;for(let h=4;h<30;h++)for(let p=0;p<4;p++)T[((si*N+di)*30+h)*4+p]=Math.max(0.4,Math.min(2.5,SeasonCore.railFactor(R,ALL[si],ALL[di],h,p)));}
+    SEAS.T=T;}
+  try{ENSEN_UI.seasLetters();}catch(e){}}   // 沿線だよりがまだ用意できていないときは、あとで init のときに届く
+function seasApply(o,s,d,t){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=SEAS.T[b+p];}
+// 売店が読む：その駅の、きょうのできごとで売れやすくなるジャンルの倍率（なければ null）
+function seasKioskGenre(st){return SEAS.cfg&&SEAS.list.length?SeasonCore.kioskFx(SEAS.cfg,SEAS.list,st):null;}
 // 新しい街の流れ（試作）：港の工場への通勤・大学病院への通院・温泉の到着と出発の時間
 function newFlowsBase(o,s,d,t,ps,pd){const F=ENS.cfg.newFlows;
   if(NEWD.factory){const f=F.factory,w=f.from[d==='P'?s:d]||0;
@@ -1054,6 +1070,7 @@ function rateParts(s,d,t,noSvc){
   if(s==='C'&&d!=='C') o[3]+=1.2*pd*g(t,1000,110);
   if(ENS.cfg)newFlowsBase(o,s,d,t,ps,pd);
   for(let p=0;p<4;p++)o[p]*=CX.m[p];
+  if(SEAS.T)seasApply(o,s,d,t);             // 季節のできごと（暦の行事。その日だけ）
   if(ECO)ecoApply(o,s,d,t);                 // 沿線暦：景気の波と地域の小さな波（イベントの上乗せより前に掛けるので、イベント分は二重に変わらない）
   if(ENS.cfg)newFlowsAfter(o,s,d,t,ps,pd);
   if(ACTIVE_EV.length)addEventDemand(o,s,d,t);
@@ -3253,14 +3270,22 @@ const ENSEN_UI=(()=>{
   function persist(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
   async function init(){const first=load();
     try{const r=await fetch('data/ensen.json');if(!r.ok)throw new Error('HTTP '+r.status);ENS.cfg=await r.json();}catch(e){ENS.cfg=null;renderAll();return;}
+    try{const [a,b]=await Promise.all(['data/seasonal.json?v=20261110a','data/seasonal-extra.json'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.cfg=a&&typeof SeasonCore!=='undefined'?SeasonCore.merge(a,b):null;}catch(e){SEAS.cfg=null;}   // 季節のできごと（読めなくても、ほかはいつもどおり）
     ensReset(st.seed);ENS.day=st.day;NEWD={...st.newd};
     if(first&&COND.econ!=='auto'&&COND.econ==='mid')COND.econ='auto';   // はじめて使うときは景気を「自動」に
+    setTimeout(()=>{if(SEAS.hold){SEAS.hold=false;seasLetters();}},25000);   // js/away.js が動かなかったときの予備
     ready=true;setCond({...COND});saveCond();renderCondUI();rebuild();renderAll();}
   // 26:00 を過ぎて自然に次の日へ進んだとき（巻き戻しや時刻バーでは呼ばれない）
   function dayEnd(force){if(!ready||!D)return;const minPlay=120;
     if(!force&&played<minPlay){played=0;return;}   // 少ししか進めていない日は数えない（時刻を終わり近くへ動かしてから日をまたぐだけでは、運行日を進めない）
     st=ensEndDay(st,D);ENS.day=st.day;played=0;persist();setCond({...COND});rebuild();renderAll();}
   const tick=(dt)=>{if(playing)played+=speed*dt;};
+  // 季節のできごと：起きた朝に、初めて便りで知らせる（前もっては出さない）。同じ日・同じできごとは1通だけ
+  function seasLetters(){if(!ready||!SEAS.list.length||(SEAS.hold&&SEAS.dateI==null))return;let add=0;
+    for(const o of SEAS.list){const key='seas:'+o.ymd+':'+o.id,L=o.ev.letter;if(!L||(st.letters||[]).some(l=>l.key===key))continue;
+      const r=SeasonCore.rng(SeasonCore.hash(st.seed,key)),pick=a=>Array.isArray(a)?a[Math.floor(r()*a.length)]:a,d={st:o.st&&ST[o.st]?ST[o.st].name:'沿線'};
+      st.letters=[...(st.letters||[]),{id:st.day+'-'+key,day:st.day,st:o.st||null,kind:'season',key,tplId:o.id,who:ensFill(pick(L.who),d),src:L.src,title:ensFill(pick(L.title),d),body:ensFill(pick(L.body),d),read:false,dev:{ymd:o.ymd,mag:o.mag}}].slice(-ENS.cfg.letters.keep);add++;}
+    if(add){persist();renderBadge();if(open){renderFilter();renderList();}}}
   function unread(){return (st&&st.letters||[]).filter(l=>!l.read).length;}
   function renderBadge(){const n=unread();for(const id of ['tayoriBtn','mtayori']){const b=el(id);if(!b)continue;const d=b.querySelector('.dot');if(d){d.hidden=!n;d.textContent=n>9?'9+':String(n);}b.setAttribute('aria-label',`沿線だより${n?`（新着${n}件）`:''}`);}
     const od=el('opday');if(od)od.textContent=ready?`第${st.day}運行日`:'';}
@@ -3282,6 +3307,7 @@ const ENSEN_UI=(()=>{
     box.innerHTML=`<h4>開発用（#dev のときだけ表示）</h4>
       <p>種 ${st.seed}・第${st.day}運行日・景気 ${COND.econ==='auto'?'自動':'固定（'+CONDS.econ.opts[COND.econ].n+'）'}</p>
       <p>景気の値 e=${ec.e.toFixed(3)}（${ec.phase}・第${ec.phaseStart}日から）・費用係数 ${ec.cost.toFixed(3)}${E?'':'　※固定中は補正なし'}</p>
+      <p>季節のできごと（きょうの分だけ。先の予定は出さない）：${SEAS.list.map(o=>`${o.ev.name}［${o.st?ST[o.st].name:'沿線全体'}・強さ${o.mag}］`).join(' ')||'なし'}${SEAS.cfg?`（用意 ${SEAS.cfg.list.length}件）`:'（設定を読めていない）'}</p>
       <p>小さな波：${sh.map(o=>`${shockDef(o.id).name}［予告${o.announce??'なし'}・${o.start}〜${o.end}日・${(o.mag*100).toFixed(1)}%${E&&E.shocks.find(x=>x.id===o.id&&x.start===o.start&&x.suppressed)?'・イベントと重なり停止':''}］`).join(' ')||'なし'}</p>
       <details><summary>着駅×目的の平均補正（6〜23時、今日）</summary>${tbl||'（固定中）'}</details>
       <details><summary>前の日の判定の候補（${(st.lastCand||[]).length}件）</summary><pre>${esc(JSON.stringify(st.lastCand||[],null,1))}</pre></details>
@@ -3331,7 +3357,7 @@ const ENSEN_UI=(()=>{
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&open)setOpen(false);});
     addEventListener('hashchange',()=>{if(open)renderDev();});}
   mount();renderBadge();
-  return {init,dayEnd,tick,renderEval,renderAll,get state(){return st;},get ready(){return ready;},setOpen,resetAll,dev};
+  return {init,dayEnd,tick,renderEval,renderAll,seasLetters,get state(){return st;},get ready(){return ready;},setOpen,resetAll,dev};
 })();
 
 /* ---------- loop ---------- */
@@ -3425,7 +3451,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/research-view.js"></script>
 <!-- 売店運営（第2段）：計算は js/kiosk-core.js、表示は js/kiosk-view.js、設定は data/kiosk.json -->
 <script src="js/kiosk-staff.js?v=20261103d"></script>
-<script src="js/kiosk-core.js?v=20261109o"></script>
+<script src="js/kiosk-core.js?v=20261110a"></script>
 <script src="js/survey-core.js"></script>
 <script src="js/links/survey-to-kiosk.js?v=20261109a"></script>
 <script src="js/center-core.js?v=20261109o"></script>
@@ -3439,7 +3465,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/factory-night.js?v=20261109d"></script>
 <!-- 荷物の行方（注文を追いかける。アイデア帳 6.）の計算 -->
 <script src="js/track-core.js?v=20261109d"></script>
-<script src="js/kiosk-view.js?v=20261109o"></script>
+<script src="js/kiosk-view.js?v=20261110a"></script>
 <script src="js/center-view.js?v=20261109o"></script>
 <script src="js/haiso-core.js?v=20261109n"></script>
 <script src="js/haiso-view.js?v=20261109n"></script>
@@ -3448,10 +3474,10 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <!-- 保存と引き継ぎ（一時保存・別の端末への引き継ぎコード） -->
 <script src="js/save.js?v=20261109l"></script>
 <!-- 留守のあいだ：開いたとき・戻ったときに、閉じていたあいだの運行日をまとめて進める -->
-<script src="js/away.js?v=20261104b"></script>
+<script src="js/away.js?v=20261110a"></script>
 <script src="js/perf-meter.js?v=20261106b"></script>
 <!-- トップページ（5つのレイヤー）：js/top.js -->
-<script src="js/top.js?v=20261109i"></script>
+<script src="js/top.js?v=20261110a"></script>
 
 </body>
 </html>

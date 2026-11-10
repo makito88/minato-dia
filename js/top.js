@@ -116,7 +116,8 @@ function todayHtml(){const day=g(()=>ENS.day,null),c=g(()=>COND,{}),d=opNoon(),y
    </div>
    <div class="isles">
     <button type="button" class="isle" data-go="page:survey.html${sv?'#'+sv.qid:''}"><span class="ih">アンケート<small>目立つ変化</small>${mark('game')}</span>${surv}</button>
-    <div class="isle soonisle"><span class="ih">季節のできごと<small>準備中</small></span><p class="tx">祭り・行事・帰省など。季節の回（第4回）のあとにここに並びます。</p></div>
+    ${(()=>{const L=g(()=>SEAS.list,[])||[];const pl=L.map(o=>o.st?stN(o.st)+'駅のあたり':'沿線のあちこち');
+      return `<button type="button" class="isle" data-go="tayori"><span class="ih">季節のできごと<small>きょうの場所だけ</small>${mark('game')}</span><p class="tx">${L.length?`きょうは ${esc(pl.join('・'))} で、何かあるようです。くわしくは沿線だよりに。`:'きょうは、目立ったできごとの知らせはありません。'}</p></button>`;})()}
    </div>
    <details class="bridges"><summary>島をつなぐ橋（${LK?LK.links.length:0}本）<small>どの数字が、どこからどこへ渡っているか</small></summary>${bridges}</details>`;}
 function paintToday(){const b=$('topToday');if(!b||$('topv').hidden)return;const op=b.querySelector('details')&&b.querySelector('details').open;b.innerHTML=todayHtml();if(op)b.querySelector('details').open=true;

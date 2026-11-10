@@ -57,6 +57,38 @@
       "desc": "その日の天気と曜日で、乗る人・売店の売れ方が変わる。"
     },
     {
+      "id": "season-to-all",
+      "name": "季節のできごと → 鉄道・売店",
+      "from": "weather",
+      "to": "rail,kiosk",
+      "state": "temp",
+      "strength": 1,
+      "values": [
+        {
+          "name": "happen",
+          "unit": "できごと（その日・駅ごと。種と暦の日付で決まる）",
+          "src": "game"
+        },
+        {
+          "name": "railK",
+          "unit": "倍率（駅に着く・出る人、目的と時台ごと）",
+          "src": "assume"
+        },
+        {
+          "name": "genre",
+          "unit": "倍率（売店のジャンルごと）",
+          "src": "assume"
+        }
+      ],
+      "read": {
+        "when": "dayStart",
+        "at": null,
+        "note": "運行日の始め（朝4:30）。保存の種と、その運行日の暦の日付だけで決まる。起きた朝に沿線だよりで初めて知らせる"
+      },
+      "desc": "暦にそった小さな行事が沿線のどこかで起き、その日だけ乗る人と売店の売れ方が少し変わる。設定は data/seasonal.json と data/seasonal-extra.json。",
+      "since": "2026-11-10"
+    },
+    {
       "id": "rail-to-kiosk",
       "name": "鉄道 → 売店（人の流れ）",
       "from": "rail",

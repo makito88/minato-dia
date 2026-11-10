@@ -1,0 +1,5 @@
+{
+ "v": 1,
+ "about": "季節のできごとを、あとから足す場所（週1回の別のタスクが足していく）。形は data/seasonal.json の list と同じ（id・when・dow・times・chance・where・only・scope・mag・rail・kiosk・letter）。本物の行事を下敷きにしてよいが、名前と場所はすべて架空にする。同じ id を書くと data/seasonal.json の分を置きかえる。駅の性格（where に使える言葉）は data/seasonal.json の stations を見る。",
+ "list": []
+}
