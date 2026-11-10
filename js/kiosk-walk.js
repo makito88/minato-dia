@@ -62,14 +62,17 @@ function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx
     if(g==='bento'&&E.range&&(eat?r()<E.range.p:r()<E.range.takeP)){const rs=Math.max(t0,rangeFree);rangeFree=rs+E.range.min;ev.push({t:rs,k:'range',ps:p.v.ps,pid,wait:+(rs-t0).toFixed(1),eat,from:+t0.toFixed(2)});S.range++;tSit=rs+E.range.min;}
     if(!eat)return;
     if(g==='cupmen'&&E.water)tSit=t0+E.water.min;
-    let si=-1;for(let i=0;i<seats.length;i++)if(seats[i]<=tSit&&(si<0||seats[i]<seats[si]))si=i;
+    // 席の種類（2026-11-10）：E.stand があれば 0〜stand-1 が立ち席、そのあとが座る席。座りたい客層（sitPs）は座る席から、年配の人（sitOnly）は座る席だけ。ないときは前と同じ（どの席でも）
+    const nSt=E.stand!=null?E.stand:seats.length,free=(a,b)=>{let k=-1;for(let i=a;i<b;i++)if(seats[i]<=tSit&&(k<0||seats[i]<seats[k]))k=i;return k;};
+    const wantSit=E.sitPs&&r()<(E.sitPs[p.v.ps]||0),only=(E.sitOnly||[]).includes(p.v.ps);
+    let si=only?free(nSt,seats.length):wantSit?free(nSt,seats.length):free(0,nSt);if(si<0&&!only)si=wantSit?free(0,nSt):free(nSt,seats.length);
     if(si<0){ev.push({t:tSit,k:'eatfull',ps:p.v.ps,pid,from:+t0.toFixed(2)});S.eatFull++;return;}
-    const to=tSit+((E.eat||{})[g]||8)+(g==='cupmen'&&E.water?E.water.wait:0);seats[si]=to;
-    ev.push({t:tSit,k:'eatin',ps:p.v.ps,pid,seat:si,to:+to.toFixed(1),from:+t0.toFixed(2)});S.eatIn++;}
+    const sit=si>=nSt&&E.stand!=null,to=tSit+((E.eat||{})[g]||8)*(sit?(E.sitMul||1):1)+(g==='cupmen'&&E.water?E.water.wait:0);seats[si]=to;
+    ev.push({t:tSit,k:'eatin',ps:p.v.ps,pid,seat:si,sit:sit,to:+to.toFixed(1),from:+t0.toFixed(2)});S.eatIn++;if(sit)S.eatSit=(S.eatSit||0)+1;}
   /* KioskCore の店員の道具をつなぐ（simulate の中で、店員が決まってから） */
   const bind=b=>{B=b;};
   const stats=()=>({shift:S.shift,cruise:S.cruise,self:S.self,staffed:S.staffed,selfShare:S.self+S.staffed?+(S.self/(S.self+S.staffed)).toFixed(3):0,selfHelp:S.selfHelp,queueLeft:S.queueLeft,
-    eatIn:S.eatIn,eatFull:S.eatFull,range:S.range,stayAvg:S.stayN?+(S.stay/S.stayN).toFixed(2):0});
+    eatIn:S.eatIn,eatSit:S.eatSit||0,eatFull:S.eatFull,range:S.range,stayAvg:S.stayN?+(S.stay/S.stayN).toFixed(2):0});
   return {visitors,stayOf,basketMul,plan,commit,left,after,bind,stats};}
 root.KioskWalk={begin};
 })(typeof window!=='undefined'?window:globalThis);

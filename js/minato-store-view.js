@@ -25,7 +25,7 @@ const V={K:null,M:null,R:null,cfg:null,st:null,err:null,res:null,resKey:'',resD:
 /* ---------- 読み込み・保存 ---------- */
 const getJ=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.json();});
 Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110d').catch(()=>null)]).then(([K,M,R,L])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.cfg=MS.cfg(K,M);
-  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1)V.st=s;}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
+  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
 function persist(){try{localStorage.setItem(MS.KEY,JSON.stringify(V.st));}catch(e){}}
 const refresh=()=>g(()=>window.minatoKiosk&&minatoKiosk.refresh&&minatoKiosk.refresh());
 
@@ -54,7 +54,7 @@ setInterval(tick,1000);
 /* ---------- 店を出す ---------- */
 function openStore(){const day=gDay(),st=MS.create(V.K,V.M,KC,{seed:(Date.now()%100000)+1,day,staff:2});
   if(KS)KS.migrate(V.cfg,st);st.openedT=gT();st.openedDay=day;st.unread=0;
-  st.news.push({day,kind:'open',title:'港駅・改札口の前に「港の店」を開いた',text:'中に入って歩く店です。レジは有人1台とセルフ1台、イートインは立ち席8。発注は、はじめの数のままです（センターのおまかせ・配送会社の便・お金の流れには、まだつないでいません）。ワッフルとへしこは、地元のお店（ハーフェン堂・汐見屋）が自分で届けます。'});
+  st.news.push({day,kind:'open',title:'港駅・改札口の前に「港の店」を開いた',text:'中に入って歩く店です。レジは有人1台とセルフ1台、イートインは立ち席6と座れる席4。発注は、はじめの数のままです（センターのおまかせ・配送会社の便・お金の流れには、まだつないでいません）。ワッフルとへしこは、地元のお店（ハーフェン堂・汐見屋）が自分で届けます。'});
   V.st=st;V.res=null;V.lastDay=day;persist();refresh();}
 
 /* ---------- 売店の画面の上の欄 ---------- */
@@ -64,7 +64,7 @@ function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.n
   const W=V.cfg.walk,M=V.M;
   if(!V.st){sub.textContent='まだ出していません';kpi.innerHTML='';
     top.innerHTML=`<div class="ks-card"><h3><span>港駅・改札口の前に、2つ目の店を出す</span><small>みなとスタンド（緑ヶ丘の店とは別の店）</small></h3>
-      <p class="ks-note">お客さんが<b>中に入って歩く店</b>です。入口 → 冷蔵ケース → おにぎりの低い棚 → 床の印のところで並ぶ → レジ（有人1台＋セルフ1台）→ 出口。おみやげは奥の角、イートインは立ち席${W.eatIn.seats}（レンジ・お湯）。品は${V.cfg.products.length}品。開店は${M.store.open[0]}時〜${Math.floor(M.store.open[1])}時半（仮）。</p>
+      <p class="ks-note">お客さんが<b>中に入って歩く店</b>です。入口 → 冷蔵ケース → おにぎりの低い棚 → 床の印のところで並ぶ → レジ（有人1台＋セルフ1台）→ 出口。おみやげは奥の角、乾物・おやつは低い棚のとなり、イートインは立ち席${W.eatIn.stand??W.eatIn.seats}${W.eatIn.sit?'＋座れる席'+W.eatIn.sit:''}（レンジ・お湯）。品は${V.cfg.products.length}品。開店は${M.store.open[0]}時〜${Math.floor(M.store.open[1])}時半（仮）。</p>
       <p class="ks-note">港で働く人の交代（6・14・22時）の前後に、作業着の人が早足で来ます。発注は、はじめの数のままです。<b>センターのおまかせ・配送会社の便・お金の流れには、まだつないでいません</b>（あとの回で）。</p>
       <button type="button" class="ks-btn pri" id="msOpen">港駅・改札口の前に「港の店」を出す</button></div>`;
     top.querySelector('#msOpen').onclick=openStore;return;}
@@ -79,11 +79,11 @@ function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.n
 function panel(kpi){kpi=kpi||document.getElementById('ksKpi');const res=ensureRes();if(!kpi||!res)return;
   {const el=document.getElementById('msLocal');if(el){const h=localLine();if(el.dataset.k!==h){el.innerHTML=h;el.dataset.k=h;}}}   /* 地元のお店の欄は時刻で変わるので、数字の欄といっしょに */
   const Tn=gT(),o=KC.soFar(V.cfg,res,Tn),k=KC.idxAt(res,Tn);
-  let f=0,s=0,help=0,left=0,eat=0,loc=0;for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='delivery'&&e.local)loc+=e.cost||0;if(e.k==='buy'){if(e.lane==='s')s++;else f++;}else if(e.k==='selfhelp')help++;else if(e.k==='look'&&e.why==='列が長い')left++;else if(e.k==='eatin')eat++;}
+  let f=0,s=0,help=0,left=0,eat=0,sit=0,loc=0;for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='delivery'&&e.local)loc+=e.cost||0;if(e.k==='buy'){if(e.lane==='s')s++;else f++;}else if(e.k==='selfhelp')help++;else if(e.k==='look'&&e.why==='列が長い')left++;else if(e.k==='eatin'){eat++;if(e.sit)sit++;}}
   const on=(res.crew||[]).filter(w=>(w.spans||[]).some(([a,b])=>Tn>=a&&Tn<b)).map(w=>esc(w.name));
   kpi.innerHTML=`<div><span>きょうの売上（いままで）</span><b>${yen(o.sales)}</b></div><div><span>お客さん</span><b>${num(o.cust)}人</b></div>
     <div><span>セルフレジの割合</span><b>${f+s?Math.round(s/(f+s)*100):0}%</b></div><div><span>セルフで店員を呼んだ</span><b>${help}回</b></div>
-    <div><span>列が長くて帰った</span><b>${left}人</b></div><div><span>イートイン</span><b>${eat}人</b></div><div><span>地元のお店へ（仕入れ）</span><b>${yen(loc)}</b></div><div><span>いまの店員</span><b>${on.length?on.join('・'):'だれもいない'}</b></div>`;}
+    <div><span>列が長くて帰った</span><b>${left}人</b></div><div><span>イートイン（うち座った）</span><b>${eat}人（${sit}人）</b></div><div><span>地元のお店へ（仕入れ）</span><b>${yen(loc)}</b></div><div><span>いまの店員</span><b>${on.length?on.join('・'):'だれもいない'}</b></div>`;}
 
 /* 地元のお店（橋 local-to-kiosk）：きょう届く・届いた数と、お店の人のひとこと */
 function localLine(){const S=V.st,lc=S&&localNow(S,gDay());if(!lc)return '';const P={};for(const p of V.cfg.products)P[p.id]=p;const Tn=gT();
@@ -117,43 +117,48 @@ function sprite(ps,fr){const k=ps+fr;if(V.spr[k])return V.spr[k];const L=LOOK[ps
 /* 店の床・壁・棚（1回だけ描く） */
 function box(c,[x,y,w,d,h],top,front){c.fillStyle=front;c.fillRect(x,y+d-h,w,h);c.fillStyle=top;c.fillRect(x,y-h,w,d);c.strokeStyle='rgba(0,0,0,.18)';c.lineWidth=1;c.strokeRect(x+.5,y-h+.5,w-1,d+h-1);}
 function label(c,t,x,y,col,size){c.fillStyle=col||'#55504a';c.font=`${size||11}px "Zen Kaku Gothic New",sans-serif`;c.textAlign='center';c.fillText(t,x,y);}
-function bg(){if(V.bg)return V.bg;return V.bg=mk(1000,600,c=>{const F=MAP.fx;
-  // コンコースと改札口
-  c.fillStyle='#bdb8ad';c.fillRect(0,500,1000,100);c.strokeStyle='rgba(255,255,255,.25)';for(let x=0;x<1000;x+=40){c.beginPath();c.moveTo(x,500);c.lineTo(x,600);c.stroke();}
+function bg(){if(V.bg)return V.bg;return V.bg=mk(1000,600,c=>{const F=MAP.fx,WY=MAP.wallY;
+  // コンコースと改札口（2026-11-10：コンコースを広く。店の壁 y=456 から改札口まで）
+  c.fillStyle='#bdb8ad';c.fillRect(0,WY,1000,600-WY);c.strokeStyle='rgba(255,255,255,.25)';for(let x=0;x<1000;x+=40){c.beginPath();c.moveTo(x,WY);c.lineTo(x,600);c.stroke();}
   c.fillStyle='#e2c84a';for(let x=310;x<700;x+=6)c.fillRect(x,548,3,3);
   for(let i=0;i<6;i++){const x=320+i*64;c.fillStyle='#8e959b';c.fillRect(x,560,14,36);c.fillStyle='#5d6469';c.fillRect(x,560,14,6);c.fillStyle=i%2?'#2f8a6e':'#3a6ab0';c.fillRect(x+3,568,8,4);}
-  label(c,'港駅 改札口',505,556,'#3a3f44',12);label(c,'コンコース',120,560,'#5a5f64',12);
+  label(c,'港駅 改札口',505,540,'#3a3f44',12);label(c,'コンコース',120,540,'#5a5f64',12);
   // 看板と壁
   c.fillStyle='#22313a';c.fillRect(0,0,1000,40);c.fillStyle='#d33a3a';c.fillRect(20,12,46,5);c.fillRect(20,22,46,5);
   c.fillStyle='#fff';c.font='700 20px "Zen Kaku Gothic New",sans-serif';c.textAlign='left';c.fillText('みなとスタンド 港駅改札前店',80,28);c.fillStyle='#9fd3c7';c.font='12px sans-serif';c.fillText('Haven Stand',398,28);
   c.fillStyle='#e8e2d4';c.fillRect(0,40,1000,30);
   // 床
-  c.fillStyle='#ece7dc';c.fillRect(30,70,940,430);c.strokeStyle='rgba(0,0,0,.05)';for(let x=30;x<970;x+=36){c.beginPath();c.moveTo(x,70);c.lineTo(x,500);c.stroke();}for(let y=70;y<500;y+=36){c.beginPath();c.moveTo(30,y);c.lineTo(970,y);c.stroke();}
-  c.fillStyle='#d9d2c2';c.fillRect(0,40,30,470);c.fillRect(970,40,30,470);
+  c.fillStyle='#ece7dc';c.fillRect(30,70,940,WY-70);c.strokeStyle='rgba(0,0,0,.05)';for(let x=30;x<970;x+=36){c.beginPath();c.moveTo(x,70);c.lineTo(x,WY);c.stroke();}for(let y=70;y<WY;y+=36){c.beginPath();c.moveTo(30,y);c.lineTo(970,y);c.stroke();}
+  c.fillStyle='#d9d2c2';c.fillRect(0,40,30,WY-30);c.fillRect(970,40,30,WY-30);
   // 改札口側の壁（ガラス）と入口・出口
-  c.fillStyle='#9fc3d0';c.fillRect(30,496,940,6);c.fillStyle='#ece7dc';c.fillRect(MAP.door.inX[0],494,MAP.door.inX[1]-MAP.door.inX[0],10);c.fillRect(MAP.door.outX[0],494,MAP.door.outX[1]-MAP.door.outX[0],10);
-  c.fillStyle='#2f8a6e';c.font='700 11px sans-serif';c.textAlign='center';c.fillText('入口 ↑',150,520);c.fillStyle='#8a3a3a';c.fillText('出口 ↓',745,520);
+  c.fillStyle='#9fc3d0';c.fillRect(30,WY-4,940,6);c.fillStyle='#ece7dc';c.fillRect(MAP.door.inX[0],WY-6,MAP.door.inX[1]-MAP.door.inX[0],10);c.fillRect(MAP.door.outX[0],WY-6,MAP.door.outX[1]-MAP.door.outX[0],10);
+  c.fillStyle='#2f8a6e';c.font='700 11px sans-serif';c.textAlign='center';c.fillText('入口 ↑',150,WY+20);c.fillStyle='#8a3a3a';c.fillText('出口 ↓',745,WY+20);
   // 一本道の矢印（入口 → 冷蔵ケース → 低い棚 → レジ）
-  c.strokeStyle='rgba(47,138,110,.16)';c.lineWidth=10;c.lineCap='round';c.setLineDash([2,16]);c.beginPath();c.moveTo(150,470);c.lineTo(110,300);c.lineTo(110,160);c.lineTo(540,160);c.lineTo(550,410);c.lineTo(600,410);c.stroke();c.setLineDash([]);
+  c.strokeStyle='rgba(47,138,110,.16)';c.lineWidth=10;c.lineCap='round';c.setLineDash([2,16]);c.beginPath();c.moveTo(150,430);c.lineTo(110,300);c.lineTo(110,156);c.lineTo(340,156);c.lineTo(340,300);c.lineTo(540,300);c.lineTo(540,380);c.lineTo(580,380);c.stroke();c.setLineDash([]);
   // 棚
-  box(c,F.fridge,'#cfd9dc','#9fb3bb');box(c,F.shelf,'#e3d7bd','#c4b493');box(c,F.omiyage,'#c9a57a','#9a7a52');box(c,F.regfront,'#e3d7bd','#c4b493');
+  box(c,F.fridge,'#cfd9dc','#9fb3bb');box(c,F.shelf,'#e3d7bd','#c4b493');box(c,F.dry,'#e6dcc8','#c9b99a');box(c,F.omiyage,'#c9a57a','#9a7a52');box(c,F.regfront,'#e3d7bd','#c4b493');
   box(c,F.tobacco,'#bdb3a0','#8f8570');box(c,F.warmer,'#e8b98f','#c48a5a');box(c,F.counter,'#b9b2a3','#8c8576');box(c,F.hot,'#f3d9a6','#c9a25a');box(c,F.self,'#4a5056','#33383d');
   box(c,F.hook,'#d9d3c3','#bdb6a4');box(c,F.rack,'#f4f4f0','#cfcfc8');box(c,F.umbrella,'#c9dde6','#9fb3bb');box(c,F.range,'#d6d6d0','#9a9a94');box(c,F.trash,'#7a8a7a','#5a6a5a');
+  // 冷蔵ケースの区切り（左：お弁当・サンドの平台／右：飲み物・お酒の扉）
+  c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=2;for(const x of [180,285]){c.beginPath();c.moveTo(F.fridge[0]+x,F.fridge[1]-F.fridge[4]+2);c.lineTo(F.fridge[0]+x,F.fridge[1]+F.fridge[3]-2);c.stroke();}
+  // イートイン：壁ぞいの立ち席（カウンター）と、座れる席（簡易的な小さなテーブル2つ・あとで隣にカフェ）
   c.fillStyle='#c8b28c';c.fillRect(F.eat[0],F.eat[1],F.eat[2],F.eat[3]);c.fillStyle='#a8925c';c.fillRect(F.eat[0],F.eat[1],4,F.eat[3]);
+  for(const [x,y,w,h] of F.tables){c.fillStyle='rgba(0,0,0,.1)';c.fillRect(x+3,y+h,w-2,4);c.fillStyle='#d8c39a';c.beginPath();c.roundRect(x,y,w,h,4);c.fill();c.strokeStyle='#a8925c';c.lineWidth=1;c.stroke();}
+  for(let i=6;i<10;i++){const [x,y]=MAP.seat(i);c.fillStyle='#8a6e4a';c.beginPath();c.roundRect(x-9,y+2,18,12,3);c.fill();c.fillStyle='#a8865a';c.fillRect(x-9,y-6,18,6);}
   // レジの機械
-  c.fillStyle='#4a5056';c.beginPath();c.roundRect(600,300,40,22,3);c.fill();c.fillStyle='#9fd3c7';c.fillRect(606,304,26,8);c.fillStyle='#9fd3c7';c.fillRect(826,304,30,12);
+  c.fillStyle='#4a5056';c.beginPath();c.roundRect(580,270,40,22,3);c.fill();c.fillStyle='#9fd3c7';c.fillRect(586,274,26,8);c.fillStyle='#9fd3c7';c.fillRect(806,284,30,12);
   // 床の印（有人レジの列）
   for(let k=1;k<=6;k++){const x=MAP.q.f.x+MAP.q.f.dx*k;c.fillStyle=k<=5?'rgba(47,138,110,.35)':'rgba(0,0,0,.08)';c.beginPath();c.ellipse(x,MAP.q.f.y+6,8,3,0,0,7);c.fill();}
-  {const x=MAP.q.f.x+MAP.q.f.dx*5.5;c.strokeStyle='#d8382e';c.lineWidth=2;c.beginPath();c.moveTo(x,396);c.lineTo(x,428);c.stroke();label(c,'床の印',x,438,'#b02e26',10);}
+  {const x=MAP.q.f.x+MAP.q.f.dx*5.5;c.strokeStyle='#d8382e';c.lineWidth=2;c.beginPath();c.moveTo(x,MAP.q.f.y-16);c.lineTo(x,MAP.q.f.y+16);c.stroke();label(c,'床の印',x,MAP.q.f.y-20,'#b02e26',10);}
   for(let k=1;k<=3;k++){c.fillStyle='rgba(58,106,176,.3)';c.beginPath();c.ellipse(MAP.q.s.x,MAP.q.s.y+MAP.q.s.dy*k+6,8,3,0,0,7);c.fill();}
-  // 席の番号・ミラー・カメラ
-  for(let i=0;i<8;i++){const [x,y]=MAP.seat(i);c.fillStyle='rgba(0,0,0,.08)';c.beginPath();c.ellipse(x,y+4,9,3,0,0,7);c.fill();}
-  c.fillStyle='#cfe3ea';c.strokeStyle='#8aa';c.lineWidth=2;c.beginPath();c.arc(44,82,9,0,7);c.fill();c.stroke();c.beginPath();c.arc(690,82,9,0,7);c.fill();c.stroke();
-  c.fillStyle='#333';c.fillRect(950,76,12,7);c.fillRect(36,488,12,7);
+  // 立ち席の印・ミラー・カメラ
+  for(let i=0;i<6;i++){const [x,y]=MAP.seat(i);c.fillStyle='rgba(0,0,0,.08)';c.beginPath();c.ellipse(x,y+4,9,3,0,0,7);c.fill();}
+  c.fillStyle='#cfe3ea';c.strokeStyle='#8aa';c.lineWidth=2;c.beginPath();c.arc(44,82,9,0,7);c.fill();c.stroke();c.beginPath();c.arc(410,82,9,0,7);c.fill();c.stroke();
+  c.fillStyle='#333';c.fillRect(950,76,12,7);c.fillRect(36,WY-12,12,7);
   // 名札
-  label(c,'冷蔵ケース（飲み物・お弁当・サンド）',280,108,'#3a4a50');label(c,'おにぎり・パン・ドーナツ（低い棚）',340,196,'#55504a');label(c,'おみやげ',795,66,'#6a4a2a');
-  label(c,'たばこ',620,200);label(c,'ホット',736,312);label(c,'有人レジ',620,348,'#fff',10);label(c,'セルフ',842,350,'#fff',10);label(c,'レジ前の棚',460,476);
-  label(c,'イートイン（立ち席8）',948,176,'#6a5a3a',10);label(c,'レンジ・お湯',931,50,'#55504a',10);label(c,'ごみ',945,462,'#55504a',10);label(c,'日用品',45,152,'#55504a',10);label(c,'新聞',45,340,'#55504a',10);});}
+  label(c,'冷蔵ケース（お弁当・サンド｜飲み物・お酒）',215,108,'#3a4a50');label(c,'おにぎり・サンド・パン・ドーナツ',235,166,'#55504a',10);label(c,'乾物・おやつ（カップ麺・スナック）',422,166,'#55504a',10);label(c,'おみやげ',500,66,'#6a4a2a');
+  label(c,'たばこ',600,170);label(c,'ホット',716,282);label(c,'有人レジ',600,318,'#fff',10);label(c,'セルフ',822,320,'#fff',10);label(c,'レジ前の棚（グミ・小物）',435,450,'#55504a',10);
+  label(c,'イートイン（立ち席6）',946,100,'#6a5a3a',10);label(c,'座れる席（4）',787,104,'#6a5a3a',10);label(c,'レンジ・お湯',642,52,'#55504a',10);label(c,'ごみ',945,398,'#55504a',10);label(c,'日用品',45,144,'#55504a',10);label(c,'新聞',45,304,'#55504a',10);label(c,'傘',83,448,'#55504a',10);});}
 /* 品の量（10秒に1回描き直す） */
 const DISP={fridge:'front',tobacco:'front',hot:'front',warmer:'front',hook:'v',rack:'v'};
 function shelfLayer(res,Tn){const k=Math.floor(Tn*6)+'|'+(res&&res.day);if(V.shelf&&V.shelfK===k)return V.shelf;V.shelfK=k;
@@ -172,7 +177,7 @@ function shelfLayer(res,Tn){const k=Math.floor(Tn*6)+'|'+(res&&res.day);if(V.she
 
 /* ---------- 絵：毎コマ ---------- */
 function bubble(c,x,y,t,col){c.font='12px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(t).width+14;x=Math.max(34+w/2,Math.min(966-w/2,x));c.fillStyle=col;c.beginPath();c.roundRect(x-w/2,y-11,w,20,8);c.fill();c.beginPath();c.moveTo(x-4,y+9);c.lineTo(x,y+15);c.lineTo(x+4,y+9);c.fill();c.fillStyle='#1c2826';c.textAlign='center';c.fillText(t,x,y+3);}
-function view(){const n=innerWidth<760;if(!n||V.half==='all')return null;return V.half==='ent'?{x:20,y:100,w:600}:{x:400,y:150,w:600};}
+function view(){const n=innerWidth<760;if(!n||V.half==='all')return null;return V.half==='ent'?{x:20,y:80,w:600}:{x:400,y:96,w:600};}
 function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,0,1000,600);return;}
   if(!V.st){c.drawImage(bg(),0,0,1000,600);c.fillStyle='rgba(20,24,28,.55)';c.fillRect(0,0,1000,600);c.fillStyle='#fff';c.font='700 20px sans-serif';c.textAlign='center';c.fillText('港駅・改札口の前に、まだ店がありません',500,300);return;}
   const res=ensureRes(),vw=view();c.save();if(vw){const s=1000/vw.w;c.scale(s,s);c.translate(-vw.x,-vw.y);}
@@ -180,8 +185,8 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
   if(res){if(V.actsRes!==res){V.acts=A.build(res,V.cfg,V.st.layout);V.actsRes=res;}
     const K=A.clerks(res,Tn);
     for(const k of K.list){const sp=sprite('clerk',0);c.drawImage(sp,k.x-14,k.y-38,28,44);}
-    if(!K.list.length){c.fillStyle='#7a2e2e';c.beginPath();c.roundRect(560,270,150,28,6);c.fill();c.fillStyle='#fff';c.font='700 13px sans-serif';c.textAlign='center';c.fillText('ただいま休止中',635,289);}
-    if(K.stop){c.fillStyle='#e0a21b';c.beginPath();c.roundRect(586,330,68,16,4);c.fill();c.fillStyle='#fff';c.font='700 10px sans-serif';c.textAlign='center';c.fillText('しばらくお待ちを',620,342);}
+    if(!K.list.length){c.fillStyle='#7a2e2e';c.beginPath();c.roundRect(560,240,150,28,6);c.fill();c.fillStyle='#fff';c.font='700 13px sans-serif';c.textAlign='center';c.fillText('ただいま休止中',635,259);}
+    if(K.stop){c.fillStyle='#e0a21b';c.beginPath();c.roundRect(566,300,68,16,4);c.fill();c.fillStyle='#fff';c.font='700 10px sans-serif';c.textAlign='center';c.fillText('しばらくお待ちを',600,312);}
     const L=A.at(V.acts,Tn,V.cap),wk=Math.floor(Date.now()/220)%2;
     for(const o of L){if(o.dot){c.fillStyle=(V.cfg.personas.find(p=>p.id===o.a.ps)||{}).icon||'#555';c.beginPath();c.arc(o.x,o.y-4,3.5,0,7);c.fill();continue;}
       const sp=sprite(o.a.ps,o.mv?wk:0);c.drawImage(sp,o.x-14,o.y-38,28,44);

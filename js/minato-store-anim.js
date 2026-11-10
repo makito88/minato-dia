@@ -10,31 +10,36 @@
 /* ---------- 見取り図（キャンバスの座標） ----------
    棚は [x, y, 幅, 奥行き, 前の面の高さ]。お客さんの立つ点は stand()。 */
 const MAP={
-  floor:[30,70,940,430],                     // 店の床（下の端 y=500 が改札口側の壁）
+  // 2026-11-10 ユーザーの頼みで見直し：コンコースを広く（店の床の下の端 y=456、コンコース 456〜600）。冷蔵ケースと低い棚を、品の数に合う長さに縮めた
+  // （1 は約 0.9cm。冷蔵ケース 約3.2m＝飲み物の扉2枚＋お弁当の平台、低い棚 約1.6m の両面、乾物・おやつの棚 約1.1m の両面）。イートインに座れる席4（簡易的）
+  floor:[30,70,940,386],                     // 店の床（下の端 y=456 が改札口側の壁）
+  wallY:456,
   door:{inX:[100,200],outX:[700,790]},       // 入口（左下）と出口（右下）
-  fx:{fridge:[40,72,480,26,34],hook:[34,160,22,170,0],rack:[34,345,22,110,0],umbrella:[70,452,26,26,10],
-      shelf:[150,232,380,42,22],omiyage:[700,96,190,56,18],tobacco:[580,236,200,16,30],warmer:[790,236,40,16,24],
-      counter:[580,322,200,32,26],hot:[700,318,72,30,22],self:[818,330,48,30,30],regfront:[380,440,160,22,14],
-      eat:[930,180,34,270,0],range:[900,96,62,46,20],trash:[930,468,30,24,12]},
-  ent:[150,480],exit:[745,480],
-  reg:{f:[620,402],s:[842,392]},              // 有人レジ・セルフレジでお客さんが立つ点
-  clerk:{f:[620,290],hot:[736,290],self:[842,366]},
-  q:{f:{x:620,y:412,dx:-30,dy:0},s:{x:842,y:420,dx:0,dy:24}},   // 列の並び方（先頭のうしろから）
-  rangeAt:[900,168],seat:i=>[905,200+i*34],
-  corr:[110,555,895]                          // 縦の通路（棚を突っ切らないように、ここを通る）
+  fx:{fridge:[40,72,350,26,34],hook:[34,150,22,140,0],rack:[34,310,22,90,0],umbrella:[70,410,26,26,10],
+      shelf:[150,200,170,42,22],dry:[362,200,120,42,22],omiyage:[420,92,160,50,18],tobacco:[560,206,200,16,30],warmer:[770,206,40,16,24],
+      counter:[560,292,200,32,26],hot:[680,288,72,30,22],self:[798,300,48,30,30],regfront:[360,412,150,20,12],
+      eat:[930,110,34,250,0],range:[612,86,60,42,20],trash:[930,404,30,24,12],tables:[[722,112,40,30],[812,112,40,30]]},
+  ent:[150,440],exit:[745,440],
+  reg:{f:[600,372],s:[822,362]},              // 有人レジ・セルフレジでお客さんが立つ点
+  clerk:{f:[600,260],hot:[716,260],self:[822,336]},
+  q:{f:{x:600,y:382,dx:-30,dy:0},s:{x:822,y:384,dx:0,dy:20}},   // 列の並び方（先頭のうしろから）
+  rangeAt:[642,150],
+  seat:i=>i<6?[905,128+i*40]:[[708,130],[776,130],[798,130],[866,130]][Math.min(3,i-6)],   // 0〜5 立ち席（壁ぞい）・6〜9 座る席（小さなテーブル2つ）
+  corr:[110,340,540,885]                      // 縦の通路（棚を突っ切らないように、ここを通る）
 };
 const SPEED={shf:7000,salM:6000,salF:5600,stu:6000,jk:5000,sen:3200,tou:4000,hou:4200,cru:3800};   // 歩く速さ（座標/分）。絵だけの数字
-const STOP_ORDER=['umbrella','rack','hook','fridge','shelf','omiyage','regfront'];
+const STOP_ORDER=['umbrella','rack','hook','fridge','shelf','dry','omiyage','regfront'];
 /* その品が置いてある場所と、その前に立つ点 */
 function standOf(zk,i,Z){const z=Z[zk];if(!z)return null;const c=i%z.cols,r=Math.floor(i/z.cols);
   switch(zk){
-    case 'fridge':return [60+c*(460/Math.max(1,z.cols-1)),150];
-    case 'shelf':return [162+c*(356/Math.max(1,z.cols-1)),c%2?214:292];
-    case 'hook':return [78,176+c*(150/Math.max(1,z.cols-1))];
-    case 'rack':return [78,356+r*(90/Math.max(1,z.rows-1))];
-    case 'umbrella':return [112,470];
-    case 'omiyage':return [714+c*(160/Math.max(1,z.cols-1)),176];
-    case 'regfront':return [392+c*(136/Math.max(1,z.cols-1)),428];
+    case 'fridge':return [60+c*(320/Math.max(1,z.cols-1)),146];
+    case 'shelf':return [160+c*(150/Math.max(1,z.cols-1)),c%2?182:262];
+    case 'dry':return [372+c*(100/Math.max(1,z.cols-1)),c%2?182:262];
+    case 'hook':return [78,164+c*(112/Math.max(1,z.cols-1))];
+    case 'rack':return [78,318+r*(74/Math.max(1,z.rows-1))];
+    case 'umbrella':return [112,428];
+    case 'omiyage':return [432+c*(136/Math.max(1,z.cols-1)),164];
+    case 'regfront':return [372+c*(126/Math.max(1,z.cols-1)),400];
     default:return null;}}   // たばこ・ホット・ホット飲料はレジで受け取る
 function placeIndex(cfg,layout){const out={};for(const zk in layout){(layout[zk]||[]).forEach((pid,i)=>{if(pid&&!out[pid])out[pid]=[zk,i];});}return out;}
 /* 道のり：同じ横の通りなら真っすぐ、ちがえば近い縦の通路を通る */

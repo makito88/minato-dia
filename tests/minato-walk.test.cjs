@@ -80,3 +80,12 @@ console.log(`  港駅の店 14日：売上${Math.round(sum.sales/14).toLocaleStr
   const fix=L=>L.inv.filter(x=>x.from==='center'&&x.to==='ext'&&(x.what.startsWith('センターの運営')||x.what.startsWith('倉庫'))).reduce((t,x)=>t+x.yen,0);
   assert.ok(Math.abs(fix(L2)-fix(L1)/2)<=2,'2店なら1店あたりの決まった費用は半分');}
 console.log('minato-walk ok');
+
+// 5) 座れる席（2026-11-10 ユーザーの頼み）：0〜5 が立ち席、6〜9 が座る席。年配の人は座る席だけ。座ると食べる時間が長い
+{const E=c.walk.eatIn;assert.equal(E.seats,E.stand+E.sit,'席の数＝立ち席＋座る席');let sit=0,stand=0;
+  for(const r of A.out)for(const e of r.ev)if(e.k==='eatin'){if(e.seat>=E.stand){sit++;assert.ok(e.sit,'座る席');}else{stand++;assert.ok(!e.sit);}
+    if(e.ps==='sen')assert.ok(e.seat>=E.stand,'年配の人は座る席');}
+  assert.ok(sit>0&&stand>0,'座る席も立ち席も使われる '+sit+'/'+stand);
+  // 乾物・おやつの棚：カップ麺とスナックはそこに置く
+  for(const pid of c.layout.dry)if(pid)assert.ok(['cupmen','snack'].includes(I.P[pid].genre),'乾物・おやつの棚 '+pid);
+  console.log(`  イートイン 14日：座る席 ${sit}人・立ち席 ${stand}人`);}

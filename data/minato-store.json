@@ -21,12 +21,13 @@
    "self": 1
   },
   "eatIn": {
-   "seats": 8,
-   "stand": true,
+   "seats": 10,
+   "stand": 6,
    "range": 1,
    "water": 1,
    "cafeLater": true,
-   "note": "立ち席8。あとでカフェにできる形にしておく（このシリーズではカフェは作らない）"
+   "note": "立ち席6＋座れる席4（簡易的な小さなテーブル2つ）。あとで隣にカフェを作る（このシリーズではカフェは作らない）",
+   "sit": 4
   },
   "open": [
    5,
@@ -141,7 +142,22 @@
   "queueMark": 5,
   "queueMarkNote": "床の印（並べる人数）。レジの列がこれより長いと、最後尾に来た人は帰る",
   "eatIn": {
-   "seats": 8,
+   "seats": 10,
+   "stand": 6,
+   "sit": 4,
+   "sitPs": {
+    "sen": 1,
+    "hou": 1,
+    "jk": 1,
+    "tou": 0.6,
+    "cru": 0.6,
+    "salF": 0.3
+   },
+   "sitOnly": [
+    "sen"
+   ],
+   "sitMul": 1.4,
+   "seatNote": "席は立ち席6（壁ぞいのカウンター）＋座れる席4（2人がけの小さなテーブル2つ。つなげると4人）。番号 0〜5 が立ち席、6〜9 が座る席。sitPs の客層はまず座る席を探し、年配の人（sitOnly）は座る席があいていなければ持ち帰る。座ると食べる時間が sitMul 倍。あとで隣にカフェを作るので、簡易的な席（2026-11-10 ユーザーの頼み）。数字はすべて仮",
    "p": {
     "bento": 0.3,
     "cupmen": 0.55,
@@ -197,9 +213,9 @@
     "power": 1500
    },
    "shelf": {
-    "name": "低い棚（入口からレジへの道）",
+    "name": "低い棚（おにぎり・サンド・パン・ドーナツ）",
     "rows": 4,
-    "cols": 14,
+    "cols": 10,
     "depth": 4,
     "eye": [
      1.15,
@@ -207,6 +223,19 @@
      1.0,
      0.75
     ]
+   },
+   "dry": {
+    "name": "乾物・おやつの棚（カップ麺・スナック・おつまみ）",
+    "rows": 4,
+    "cols": 4,
+    "depth": 4,
+    "eye": [
+     1.1,
+     1.2,
+     1.0,
+     0.75
+    ],
+    "new": true
    },
    "hook": {
     "name": "壁のフック（日用品）",
@@ -377,17 +406,6 @@
     "don_choco",
     "don_nama",
     "don_olie",
-    "cm_shoyu",
-    "cm_kitsune",
-    "cm_seafood",
-    "cm_hesiko",
-    "sn_chips",
-    "sn_nori",
-    "sn_stick",
-    "sn_choco",
-    "sn_nuts",
-    "sn_hesiko",
-    "sn_cheka",
     "oni_sake",
     "oni_tuna",
     "oni_yakisaba",
@@ -398,11 +416,6 @@
     "pan_melon",
     "pan_kroket",
     "don_olie",
-    "cm_shoyu",
-    "cm_seafood",
-    "sn_chips",
-    "sn_cheka",
-    "sn_hesiko",
     null,
     null
    ],
@@ -494,12 +507,31 @@
     "en_jelly",
     "en_jelly",
     null
+   ],
+   "dry": [
+    "cm_shoyu",
+    "cm_kitsune",
+    "cm_seafood",
+    "cm_hesiko",
+    "sn_chips",
+    "sn_nori",
+    "sn_stick",
+    "sn_choco",
+    "sn_nuts",
+    "sn_hesiko",
+    "sn_cheka",
+    "cm_shoyu",
+    "cm_seafood",
+    "sn_chips",
+    "sn_cheka",
+    "sn_hesiko"
    ]
   },
   "shrinkZone": {
    "omiyage": 0.8,
    "regfront": 0.4,
-   "note": "盗まれやすさ（data/kiosk.json の shrink.zone と同じ考え）。おみやげの台は奥の角でミラーとカメラ、レジ前の棚は店員の目の前"
+   "note": "盗まれやすさ（data/kiosk.json の shrink.zone と同じ考え）。おみやげの台は奥の角でミラーとカメラ、レジ前の棚は店員の目の前",
+   "dry": 1.0
   },
   "genreZones": {
    "gummy": [
@@ -514,7 +546,10 @@
    "omiyage": [
     "omiyage"
    ],
-   "note": "新しい場所に置けるジャンル（今のジャンルの zones に足す）"
+   "note": "新しい場所に置けるジャンル（今のジャンルの zones に足す）",
+   "snack": [
+    "dry"
+   ]
   },
   "deliveries": {
    "bento": [
@@ -562,7 +597,7 @@
    "id": "cupmen",
    "name": "カップ麺",
    "zones": [
-    "shelf"
+    "dry"
    ],
    "hours": [
     [
