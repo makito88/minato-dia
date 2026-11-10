@@ -24,7 +24,7 @@ const V={K:null,M:null,R:null,cfg:null,st:null,err:null,res:null,resKey:'',resD:
 {const st=document.createElement('style');st.textContent='.ms-leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--muted)}.ms-leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}.ms-half{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.ms-half[hidden]{display:none}.ks-which{display:flex;flex-wrap:wrap;gap:6px}.ks-which[hidden]{display:none}';document.head.appendChild(st);}
 /* ---------- 読み込み・保存 ---------- */
 const getJ=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.json();});
-Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110e').catch(()=>null)]).then(([K,M,R,L])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.cfg=MS.cfg(K,M);
+Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110f').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null)]).then(([K,M,R,L,FJ,HJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.cfg=MS.cfg(K,M);
   try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
 function persist(){try{localStorage.setItem(MS.KEY,JSON.stringify(V.st));}catch(e){}}
 const refresh=()=>g(()=>window.minatoKiosk&&minatoKiosk.refresh&&minatoKiosk.refresh());
@@ -34,7 +34,10 @@ function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.si
   let stops;if(V.stopsD===d)stops=V.stops;else{stops=new Array(KC.H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(KC.H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;}
   const c=gCond(),day=gDay(),ge=g(()=>seasKioskGenre(S.st),null);
   return {day,dow:day%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.R,order:S.order,express:[],addOn:[],edits:[],startT:S.openedDay===day?S.openedT:0,
-    fx:ge?SeasonCore.mergeFx(undefined,ge):undefined,local:localNow(S,day)};}
+    fx:ge?SeasonCore.mergeFx(undefined,ge):undefined,local:localNow(S,day),sameday:samedayNow(S,day,c)};}
+/* 橋：工場 → 売店（できたての便・js/links/factory-to-kiosk-sameday.js）。前の夜の発注と、運行日の始めの天気だけから決まる（同じ日なら同じ） */
+function samedayNow(S,day,c){if(!window.FactoryToKioskSameday||!V.L||!V.FJ||!V.HJ)return undefined;const k=day+'|'+c.wx;if(V.sdK===S&&V.sdKey===k)return V.sd;
+  V.sd=g(()=>FactoryToKioskSameday.plan(V.L,{F:V.FJ,H:V.HJ,M:V.M},S,{day,cond:{wx:c.wx}}),null)||undefined;V.sdK=S;V.sdKey=k;return V.sd;}
 /* 橋：地元のお店 → 売店（js/links/local-to-kiosk.js）。前の夜の締めのあとの店の状態だけから、その日に届く数を決める（同じ日なら同じ） */
 function localNow(S,day){if(!window.LocalToKiosk||!V.L)return undefined;if(V.localK===S&&V.localDay===day)return V.local;
   V.local=g(()=>LocalToKiosk.plan(V.L,V.M,S,{day}),null)||undefined;V.localK=S;V.localDay=day;return V.local;}
@@ -42,7 +45,7 @@ function checkDay(){const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（緑ヶ丘の店と同じ）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
 function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();const c=ctxNow();if(!c)return V.res;
-  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'');
+  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'');
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();return V.res;}
 function closeToday(res){const r=KC.closeDay(V.cfg,V.st,res,{});const lc=V.localDay===res.day?V.local:null;V.st=r.state;
@@ -71,19 +74,19 @@ function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.n
   const S=V.st,c=gCond();sub.textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]||''}・${WXN[c.wx]||''}・歩く店・有人1＋セルフ1`;
   const P=PSN(),ps=['shf','salM','salF','stu','jk','sen','tou','hou','fam','cpl','frd'].filter(k=>P[k]);
   const h=`<div class="ks-card ms-top"><p class="ks-note" style="margin:0">斜め上から見た店の中です。人は、売店の計算で起きた出来事（買った・見て帰った・列で帰った・セルフで迷った・イートイン）を時刻の順に描いたものです。
-    <span class="ks-lst">未接続</span> センターのおまかせ・配送会社の便・お金の流れ（発注は、はじめの数のまま）</p><div id="msLocal"></div>
+    <span class="ks-lst">未接続</span> センターのおまかせ・センターからの配送会社の便・お金の流れ（発注は、はじめの数のまま）</p><div id="msLocal"></div>
     <div class="ms-leg">${ps.map(k=>`<span><i style="background:${P[k].icon}"></i>${esc(P[k].short)}</span>`).join('')}</div>
     <div class="ms-half" ${innerWidth<760?'':'hidden'}><button type="button" class="ks-chip" data-h="reg" aria-pressed="${V.half==='reg'}">レジ側を大きく</button><button type="button" class="ks-chip" data-h="ent" aria-pressed="${V.half==='ent'}">入口側を大きく</button><button type="button" class="ks-chip" data-h="all" aria-pressed="${V.half==='all'}">店ぜんぶ</button></div></div>`;
   if(top.dataset.k!==h){top.innerHTML=h;top.dataset.k=h;top.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{V.half=b.dataset.h;render(o);});}
   panel(kpi);}
 function panel(kpi){kpi=kpi||document.getElementById('ksKpi');const res=ensureRes();if(!kpi||!res)return;
-  {const el=document.getElementById('msLocal');if(el){const h=localLine();if(el.dataset.k!==h){el.innerHTML=h;el.dataset.k=h;}}}   /* 地元のお店の欄は時刻で変わるので、数字の欄といっしょに */
+  {const el=document.getElementById('msLocal');if(el){const h=localLine()+samedayLine();if(el.dataset.k!==h){el.innerHTML=h;el.dataset.k=h;}}}   /* 地元のお店の欄は時刻で変わるので、数字の欄といっしょに */
   const Tn=gT(),o=KC.soFar(V.cfg,res,Tn),k=KC.idxAt(res,Tn);
-  let f=0,s=0,help=0,left=0,eat=0,sit=0,loc=0;for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='delivery'&&e.local)loc+=e.cost||0;if(e.k==='buy'){if(e.lane==='s')s++;else f++;}else if(e.k==='selfhelp')help++;else if(e.k==='look'&&e.why==='列が長い')left++;else if(e.k==='eatin'){eat++;if(e.sit)sit++;}}
+  let f=0,s=0,help=0,left=0,eat=0,sit=0,loc=0,sdf=0;for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='delivery'&&e.local)loc+=e.cost||0;if(e.k==='delivery'&&e.sameday)sdf+=e.fee||0;if(e.k==='buy'){if(e.lane==='s')s++;else f++;}else if(e.k==='selfhelp')help++;else if(e.k==='look'&&e.why==='列が長い')left++;else if(e.k==='eatin'){eat++;if(e.sit)sit++;}}
   const on=(res.crew||[]).filter(w=>(w.spans||[]).some(([a,b])=>Tn>=a&&Tn<b)).map(w=>esc(w.name));
   kpi.innerHTML=`<div><span>きょうの売上（いままで）</span><b>${yen(o.sales)}</b></div><div><span>お客さん</span><b>${num(o.cust)}人</b></div>
     <div><span>セルフレジの割合</span><b>${f+s?Math.round(s/(f+s)*100):0}%</b></div><div><span>セルフで店員を呼んだ</span><b>${help}回</b></div>
-    <div><span>列が長くて帰った</span><b>${left}人</b></div><div><span>イートイン（うち座った）</span><b>${eat}人（${sit}人）</b></div><div><span>地元のお店へ（仕入れ）</span><b>${yen(loc)}</b></div><div><span>いまの店員</span><b>${on.length?on.join('・'):'だれもいない'}</b></div>`;}
+    <div><span>列が長くて帰った</span><b>${left}人</b></div><div><span>イートイン（うち座った）</span><b>${eat}人（${sit}人）</b></div><div><span>地元のお店へ（仕入れ）</span><b>${yen(loc)}</b></div><div><span>できたての便（運賃）</span><b>${yen(sdf)}</b></div><div><span>いまの店員</span><b>${on.length?on.join('・'):'だれもいない'}</b></div>`;}
 
 /* 地元のお店（橋 local-to-kiosk）：きょう届く・届いた数と、お店の人のひとこと */
 function localLine(){const S=V.st,lc=S&&localNow(S,gDay());if(!lc)return '';const P={};for(const p of V.cfg.products)P[p.id]=p;const Tn=gT();
@@ -91,6 +94,13 @@ function localLine(){const S=V.st,lc=S&&localNow(S,gDay());if(!lc)return '';cons
     const what=lc.closed.includes(sh.id)?'きょうは休み':r?(Tn>=r.t?fmtT(r.t)+'に届いた：':fmtT(r.t)+'に届く予定：')+Object.entries(r.items).map(([p,q])=>esc(P[p]?P[p].short:p)+' '+q).join('・'):'きょうは足りている（届けない）';
     return `<li><b>${esc(sh.name)}</b>（${esc(sh.kind)}）${what}${sy?`<br><span style="color:var(--muted)">${esc(sh.person)}「${esc(sy.text)}」</span>`:''}</li>`;}).join('');
   return `<div class="ks-note" style="margin:6px 0 0"><span class="ks-lst">仮の数値</span> 地元のお店から直接（センターを通らない）<ul style="margin:4px 0 0;padding-left:18px">${rows}</ul></div>`;}
+
+/* できたての便（橋 factory-to-kiosk-sameday）：工場の出荷 → みなと川運輸 → 店に着く、と「できたて」の札の時間 */
+function samedayLine(){const S=V.st,sd=S&&samedayNow(S,gDay(),gCond());if(!sd)return '';const P={};for(const p of V.cfg.products)P[p.id]=p;const Tn=gT();
+  const its=Object.entries(sd.items).map(([p,q])=>esc(P[p]?P[p].short:p)+' '+q).join('・');
+  const st=Tn<sd.ship?`工場で作っている（${fmtT(sd.ship)}に出荷の予定）`:Tn<sd.arrive?`${fmtT(sd.ship)}に工場を出た・${fmtT(sd.arrive)}に着く予定`:Tn<sd.tag.to?`${fmtT(sd.arrive)}に着いた・棚に「${esc(sd.tag.label)}」の札（${fmtT(sd.tag.to)}まで）`:`${fmtT(sd.arrive)}に着いた（札は${fmtT(sd.tag.to)}まで）`;
+  const why=[sd.trouble?`工場の朝の釜が遅れて${sd.late}分おそい出荷・少なめ`:'',sd.delay>=10?`トラックが${sd.delay}分おくれ`:''].filter(Boolean).join('・');
+  return `<div class="ks-note" style="margin:6px 0 0"><span class="ks-lst">仮の数値</span> できたての便（${esc(sd.carrier)}・工場の朝の組 → 店）：${st}<br>${its}（${esc(sd.replace)}の分を炊きたてで）${why?`<br><span style="color:var(--warn)">${why}</span>`:''}</div>`;}
 
 /* ---------- 絵：小さな絵を作っておく ---------- */
 const SC=2;

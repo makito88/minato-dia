@@ -102,6 +102,11 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   for(const x of (ctx.addOn||[])){const items=x.items||{};if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:Math.max(x.at,O0-1),name:x.name||'当日の追加',express:{items},fee:0,addOn:true});}
   // 地元のお店（港駅の売店の4回目・2026-11-10）：ctx.local（橋 js/links/local-to-kiosk.js の plan）があれば、その品はセンターの便では届かず、お店が自分で届ける（料金なし・仕入れ値だけ）。ないときは前と同じ
   const LC=ctx.local||null;if(LC)for(const x of LC.runs||[])deliveries.push({t:Math.max(x.t,O0-1),name:x.name,express:{items:x.items},fee:0,local:x.shop});
+  // できたての便（港駅の売店の7回目・2026-11-10）：ctx.sameday（橋 js/links/factory-to-kiosk-sameday.js の plan）があれば、工場の朝の便がその品を着いた時刻に届ける。
+  //   その分は ctx.sameday.replace の便（昼前の便）から減らす（sdLeft）。料金は便ごと（pl.sameday）。ないときは前と同じ
+  const SD=ctx.sameday||null,sdLeft=SD?{...SD.items}:null;let samedayFee=0;
+  if(SD)deliveries.push({t:Math.max(SD.arrive,O0-1),name:'できたての便',express:{items:SD.items},fee:SD.fee||0,sameday:true});
+  const sdCut=(d,pid,q)=>{if(!sdLeft||d.name!==SD.replace||!sdLeft[pid]||q<=0)return q;const c=Math.min(q,sdLeft[pid]);sdLeft[pid]-=c;return q-c;};
   deliveries.sort((a,b)=>a.t-b.t);
   // 工場の品の上限（発注と配送 第3回）：ctx.supply＝その日センターがこの店に回せる数（納品書の出荷数）。ないときは今までどおり（上限なし）。
   // 便ごとの数は今までどおりに決め、上限に届いたらそこで止める。工場が足りなかった品（上限＜その日の発注）だけ、止めた数を cut に記録する
@@ -114,11 +119,11 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const capC=(pid,q,dd)=>{if(!cLeft||cLeft[pid]==null||q<=0)return q;const lf=Math.max(0,cLeft[pid]);if(q>lf){ccut[pid]=(ccut[pid]||0)+q-lf;(dd._ccut||(dd._ccut={}))[pid]=(dd._ccut[pid]||0)+q-lf;q=lf;}cLeft[pid]=lf-q;return q;};
   const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;const its={};
     if(d.express){let n2=0,c2=0;const names=[];for(const pid in d.express.items){const it=P[pid];if(!it)continue;const q=d.addOn?capC(pid,d.express.items[pid],d):d.express.items[pid];if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n2+=q;c2+=q*it.cost;names.push(it.short);its[pid]=q;}
-      deliveredCost+=c2;if(d.local){ev.push({t,k:'delivery',n:n2,cost:c2,name:d.name,items:its,local:d.local});return;}ev.push({t,k:'delivery',n:n2,cost:c2+(d.fee!=null?d.fee:cfg.express.fee),name:(d.addOn?d.name+'に追加（':'臨時便（')+names.join('・')+'）',items:its,express:!d.addOn,addOn:!!d.addOn});return;}
+      deliveredCost+=c2;if(d.sameday){samedayFee+=d.fee||0;ev.push({t,k:'delivery',n:n2,cost:c2,fee:d.fee||0,name:d.name,items:its,sameday:true,carrier:SD.carrier});return;}if(d.local){ev.push({t,k:'delivery',n:n2,cost:c2,name:d.name,items:its,local:d.local});return;}ev.push({t,k:'delivery',n:n2,cost:c2+(d.fee!=null?d.fee:cfg.express.fee),name:(d.addOn?d.name+'に追加（':'臨時便（')+names.join('・')+'）',items:its,express:!d.addOn,addOn:!!d.addOn});return;}
     for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;if(LC&&LC.pids&&LC.pids[pid])continue;
-      let q;if(CT&&CT.pids[pid]){q=((CT.runs[d.name]||{})[pid])||0;if(d.all&&CT.cut[pid]){cutBy[pid]=CT.cut[pid];(d._cut||(d._cut={}))[pid]=CT.cut[pid];}if(d.all&&CT.ccut&&CT.ccut[pid]){ccut[pid]=(ccut[pid]||0)+CT.ccut[pid];(d._ccut||(d._ccut={}))[pid]=(d._ccut[pid]||0)+CT.ccut[pid];}if(q>0&&cLeft&&cLeft[pid]!=null)cLeft[pid]=Math.max(0,cLeft[pid]-q);if(q>0){(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}continue;}
+      let q;if(CT&&CT.pids[pid]){q=sdCut(d,pid,((CT.runs[d.name]||{})[pid])||0);if(d.all&&CT.cut[pid]){cutBy[pid]=CT.cut[pid];(d._cut||(d._cut={}))[pid]=CT.cut[pid];}if(d.all&&CT.ccut&&CT.ccut[pid]){ccut[pid]=(ccut[pid]||0)+CT.ccut[pid];(d._ccut||(d._ccut={}))[pid]=(d._ccut[pid]||0)+CT.ccut[pid];}if(q>0&&cLeft&&cLeft[pid]!=null)cLeft[pid]=Math.max(0,cLeft[pid]-q);if(q>0){(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}continue;}
       if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
-      else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
+      else{const share=d.all?0.5:0.25;q=sdCut(d,pid,Math.round((dayOrder[pid]||0)*share));}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
       if(supLeft&&supLeft[pid]!=null){const lf=Math.max(0,supLeft[pid]);if(q>lf){const c=q-lf;if(lf+c>0&&ctx.supply[pid]<((ctx.supplyOrd&&ctx.supplyOrd[pid]!=null)?ctx.supplyOrd[pid]:(dayOrder[pid]||0))){cutBy[pid]=(cutBy[pid]||0)+c;(d._cut||(d._cut={}))[pid]=c;}q=lf;}supLeft[pid]=lf-q;}
       q=capC(pid,q,d);if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}
     deliveredCost+=cost;const e={t,k:'delivery',n,cost,name:d.name,items:its};if(d.late)e.late=d.late;if(d._ccut){e.ccut=d._ccut;delete d._ccut;}if(d._cut){e.cut=d._cut;delete d._cut;}ev.push(e);};   // items：この便で届いた品と数（画面の「次の便」に使う）
@@ -205,7 +210,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     const logLook=(pid,why)=>{add(looked,pid||('g:'+want),1);add(reasons,why,1);ev.push({t:v.t,k:'look',ps:v.ps,pid,genre:want,why,reg:!!v.reg,mania:!!v.mania});};
     if(!cands.length){add(miss,want,1);logLook(null,'置いていない');if(v.reg)regEvents.push({g:v.reg,ok:false,why:'置いていない'});continue;}
     let it;if(target&&SI[target])it=P[target];
-    else{const ws=cands.map(c=>{const pr=priceOf(c.id)/c.price;return c.w*SI[c.id].vis*repF(c.id)*buzzF(c.id)*trendOn(c)*herdF(c.id,v.t)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(pr-1))*(stockOf(c.id)>0?1:0.6);});it=cands[pickW(ws,r)];}
+    else{const ws=cands.map(c=>{const pr=priceOf(c.id)/c.price;return c.w*SI[c.id].vis*repF(c.id)*buzzF(c.id)*trendOn(c)*herdF(c.id,v.t)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(pr-1))*(stockOf(c.id)>0?1:0.6)*(SD&&SD.tag.pids[c.id]&&v.t>=SD.tag.from&&v.t<SD.tag.to?SD.tag.k:1);});it=cands[pickW(ws,r)];}   // 「できたて」の札（ctx.sameday があるときだけ・効き目は仮）
     if(!it){logLook(null,'迷ってやめた');continue;}
     // 値段
     const ratio=priceOf(it.id)/it.price,buyP=Math.min(1,Math.exp(-cfg.price.elastic*ps.priceSens*Math.max(0,ratio-1))*(ratio<1?1+0.6*(1-ratio)*ps.priceSens:1)*0.92);
@@ -274,7 +279,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const guardFee=SH?Object.keys(SH.guard).filter(k=>guard[k]).reduce((a,k)=>a+SH.guard[k].perDay,0):0;
   const recruit=hasCrew?(state.crew.ads||[]).filter(a=>a.day===ctx.day).length*cfg.crew.ad.fee:0;
   const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:crewRes.reduce((s,x)=>s+x.yen,0),recruit,shrink:shrinkCost,guard:guardFee,commute,social,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
-  pl.cost=pl.cogs+pl.waste+(pl.shrink||0)+(pl.guard||0)+pl.express+pl.staff+pl.commute+pl.social+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
+  if(SD)pl.sameday=samedayFee;   // できたての便の料金（みなと川運輸へ）
+  pl.cost=pl.cogs+pl.waste+(pl.shrink||0)+(pl.guard||0)+pl.express+(pl.sameday||0)+pl.staff+pl.commute+pl.social+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
   const out={day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,shrinkBy,shrinkN,closed:closedSp,closedN,cut:cutBy,supplyLeft:supLeft,ccut,cstockLeft:cLeft};
   if(WK)out.walk=WK.stats();   // 歩く店だけ：セルフの割合・セルフで呼ばれた回数・列で帰った人・イートインなど
   return out;}
