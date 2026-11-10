@@ -1,0 +1,1125 @@
+{
+ "v": 1,
+ "about": "港駅の売店（2つ目の店・みなとスタンド 港駅改札前店）の設定。2026-11-10 の1回目では設定を書いただけで、まだどの計算も読まない（緑ヶ丘の店の棚にも出ない）。2回目から KioskCore が読む。名前はすべて架空。値段・原価・好みの数字はすべて仮（assume）。物語は docs/minato-store-story.md、案は docs/ideas.md の 20.",
+ "src": {
+  "price": "assume",
+  "pref": "assume",
+  "shifts": "assume",
+  "note": "現（real）・仮（assume）・内（game）。ここの数字はすべて仮"
+ },
+ "store": {
+  "id": "minato",
+  "name": "みなとスタンド 港駅改札前店",
+  "short": "港の店",
+  "company": "kiosk",
+  "station": "P",
+  "place": "gate",
+  "form": "walk",
+  "formNote": "walk＝お客さんが中に入って歩く店（入口と出口が別）。緑ヶ丘の店は front（正面から買う形）。2回目で計算に入れる",
+  "registers": {
+   "staffed": 1,
+   "self": 1
+  },
+  "eatIn": {
+   "seats": 8,
+   "stand": true,
+   "range": 1,
+   "water": 1,
+   "cafeLater": true,
+   "note": "立ち席8。あとでカフェにできる形にしておく（このシリーズではカフェは作らない）"
+  },
+  "open": [
+   5,
+   23.5
+  ],
+  "openNote": "閉店は23時より少しあと（22時の交代のあとの人のため）。仮",
+  "path": [
+   "entrance",
+   "fridge",
+   "shelf",
+   "queue",
+   "register",
+   "exit"
+  ],
+  "pathNote": "入口 → 冷蔵ケース → おにぎり・パン・ドーナツの低い棚 → 並ぶ場所（床の印）→ レジ → 出口。おみやげは奥の角、レジ前の低い棚に小物"
+ },
+ "genres": [
+  {
+   "id": "bento",
+   "name": "お弁当・おかず",
+   "zones": [
+    "fridge"
+   ],
+   "hours": [
+    [
+     5,
+     9,
+     1.6
+    ],
+    [
+     11,
+     14,
+     1.8
+    ],
+    [
+     20,
+     24,
+     1.6
+    ]
+   ],
+   "base": 4,
+   "life": 0,
+   "temp": "chill",
+   "needs": [
+    "range"
+   ],
+   "note": "チルド。レンジで温める。工場の5本目のライン（5回目）から。ゆでたまごは問屋から"
+  },
+  {
+   "id": "cupmen",
+   "name": "カップ麺",
+   "zones": [
+    "shelf"
+   ],
+   "hours": [
+    [
+     5,
+     8,
+     1.2
+    ],
+    [
+     11,
+     14,
+     1.3
+    ],
+    [
+     20,
+     25,
+     1.8
+    ]
+   ],
+   "base": 3,
+   "life": 99,
+   "needs": [
+    "water"
+   ],
+   "note": "お湯はイートインの横。持ち帰る人もいる"
+  },
+  {
+   "id": "omiyage",
+   "name": "おみやげ",
+   "zones": [
+    "omiyage"
+   ],
+   "hours": [
+    [
+     10,
+     17,
+     1.6
+    ],
+    [
+     17,
+     20,
+     1.0
+    ]
+   ],
+   "base": 1.5,
+   "life": 99,
+   "note": "奥の角の低い台（新しい場所。2回目で zone を作る）。life は品ごと（ワッフルは数日）"
+  }
+ ],
+ "personas": [
+  {
+   "id": "shf",
+   "name": "交代で働く人",
+   "short": "交代",
+   "icon": "#5a6a3a",
+   "pref": {
+    "coffee": 2.4,
+    "energy": 2.0,
+    "onigiri": 1.6,
+    "tobacco": 2.2,
+    "paper": 1.5,
+    "bento": 1.8,
+    "cupmen": 1.4,
+    "alcohol": 1.4,
+    "daily": 1.3,
+    "hotdrink": 1.3,
+    "donut": 0.4,
+    "magazine": 0.6,
+    "omiyage": 0.05
+   },
+   "priceSens": 0.6,
+   "patience": 0.6,
+   "sns": 0.02,
+   "review": 0.03,
+   "taste": [
+    2,
+    4,
+    4.5
+   ],
+   "male": 0.8,
+   "when": {
+    "shifts": [
+     6,
+     14,
+     22
+    ],
+    "before": 40,
+    "after": 30,
+    "src": "assume",
+    "note": "交代の前に来る人と、終わってから来る人。時刻は街のカルテのみなと川化成の3交代（6・14・22時）。夜勤明け（6時）の人はお弁当とロング缶が多い"
+   }
+  },
+  {
+   "id": "cru",
+   "name": "客船の客",
+   "short": "客船",
+   "icon": "#2a6ab0",
+   "pref": {
+    "omiyage": 3.0,
+    "colddrink": 1.6,
+    "sand": 1.3,
+    "donut": 1.2,
+    "alcohol": 1.0,
+    "daily": 1.0,
+    "snack": 1.1,
+    "tobacco": 0.2,
+    "paper": 0.05,
+    "magazine": 0.3,
+    "bento": 0.5
+   },
+   "priceSens": 0.5,
+   "patience": 1.3,
+   "sns": 0.4,
+   "review": 0.15,
+   "taste": [
+    3.5,
+    3,
+    3
+   ],
+   "male": 0.5,
+   "strength": 0,
+   "when": {
+    "note": "客船が寄る日だけ（8回目の客船の日まで来ない。strength 0）"
+   }
+  }
+ ],
+ "range": {
+  "keep": "data/kiosk.json の products のうち drop 以外は置ける",
+  "drop": [
+   "mg_fashion"
+  ],
+  "more": [
+   "oni_hesiko_n",
+   "oni_shio_n",
+   "san_katsu",
+   "cf_bitou",
+   "cf_black",
+   "hd_bitou",
+   "en_energy",
+   "en_eiyou",
+   "en_jelly",
+   "pp_sports",
+   "tb_a",
+   "tb_b",
+   "tb_c"
+  ],
+  "less": [
+   "san_ham",
+   "pan_cream"
+  ],
+  "note": "more＝緑ヶ丘より多め（◎）、less＝少なめ（△）。どれだけ多くするかは2回目で決める"
+ },
+ "products": [
+  {
+   "id": "oni_yakisaba",
+   "genre": "onigiri",
+   "name": "おにぎり 焼き鯖ほぐし",
+   "short": "焼き鯖",
+   "price": 210,
+   "cost": 134,
+   "temp": "room",
+   "ease": 5,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    0,
+    4,
+    3
+   ],
+   "photo": 0.1,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#e8e2d0",
+   "line": "factory"
+  },
+  {
+   "id": "oni_big",
+   "genre": "onigiri",
+   "name": "大きいおにぎり（そぼろとたまご）",
+   "short": "大きい",
+   "price": 280,
+   "cost": 174,
+   "temp": "room",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    1.5,
+    3.5,
+    4.5
+   ],
+   "photo": 0.2,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#efe0b0",
+   "line": "factory"
+  },
+  {
+   "id": "san_saba",
+   "genre": "sand",
+   "name": "焼き鯖サンド",
+   "short": "鯖サンド",
+   "price": 420,
+   "cost": 252,
+   "temp": "room",
+   "ease": 4,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    4,
+    3.5
+   ],
+   "photo": 0.5,
+   "regular": 0.2,
+   "mania": 0.1,
+   "w": 0.6,
+   "tags": [],
+   "color": "#d9c7a0",
+   "line": "factory",
+   "note": "姉妹港の屋台の鯖サンドにならう"
+  },
+  {
+   "id": "pan_kroket",
+   "genre": "bread",
+   "name": "クロケットパン",
+   "short": "クロケット",
+   "price": 230,
+   "cost": 133,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    1,
+    4,
+    4
+   ],
+   "photo": 0.3,
+   "regular": 0.3,
+   "mania": 0.05,
+   "w": 0.8,
+   "tags": [],
+   "color": "#c9963f",
+   "line": "factory",
+   "note": "姉妹港の国のコロッケを丸パンにはさむ"
+  },
+  {
+   "id": "don_olie",
+   "genre": "donut",
+   "name": "オリボーレン風（干しぶどう入り）",
+   "short": "オリボーレン",
+   "price": 200,
+   "cost": 100,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    4,
+    2,
+    3
+   ],
+   "photo": 0.5,
+   "regular": 0.1,
+   "mania": 0.1,
+   "w": 0.7,
+   "tags": [
+    "donut"
+   ],
+   "color": "#d9a95a",
+   "line": "factory",
+   "season": "win",
+   "note": "冬だけ。イースト生地・クリームなし。今のドーナツのラインに近い"
+  },
+  {
+   "id": "bt_karaage",
+   "genre": "bento",
+   "name": "唐揚げ弁当",
+   "short": "唐揚げ弁当",
+   "price": 480,
+   "cost": 298,
+   "temp": "chill",
+   "ease": 5,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    1,
+    4,
+    4.5
+   ],
+   "photo": 0.1,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.2,
+   "tags": [
+    "karaage"
+   ],
+   "color": "#c97a3a",
+   "line": "bento"
+  },
+  {
+   "id": "bt_saba",
+   "genre": "bento",
+   "name": "焼き鯖弁当",
+   "short": "鯖弁当",
+   "price": 550,
+   "cost": 341,
+   "temp": "chill",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    4,
+    3.5
+   ],
+   "photo": 0.2,
+   "regular": 0.4,
+   "mania": 0.05,
+   "w": 0.9,
+   "tags": [],
+   "color": "#8a9aa8",
+   "line": "bento"
+  },
+  {
+   "id": "bt_nori",
+   "genre": "bento",
+   "name": "のり弁",
+   "short": "のり弁",
+   "price": 420,
+   "cost": 252,
+   "temp": "chill",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    1,
+    3.5,
+    4
+   ],
+   "photo": 0.0,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#2f3a2a",
+   "line": "bento"
+  },
+  {
+   "id": "bt_egg",
+   "genre": "bento",
+   "name": "ゆでたまご（2個）",
+   "short": "ゆでたまご",
+   "price": 130,
+   "cost": 65,
+   "temp": "chill",
+   "ease": 5,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0,
+    2,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#f2ead2",
+   "line": "ws"
+  },
+  {
+   "id": "cm_shoyu",
+   "genre": "cupmen",
+   "name": "カップ麺 しょうゆ",
+   "short": "しょうゆ",
+   "price": 230,
+   "cost": 127,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    4,
+    4
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.1,
+   "tags": [],
+   "color": "#b0452a",
+   "line": "ws"
+  },
+  {
+   "id": "cm_kitsune",
+   "genre": "cupmen",
+   "name": "カップ麺 きつねうどん",
+   "short": "きつね",
+   "price": 230,
+   "cost": 127,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    1.5,
+    3.5,
+    4
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#e0a040",
+   "line": "ws"
+  },
+  {
+   "id": "cm_seafood",
+   "genre": "cupmen",
+   "name": "カップ麺 シーフード",
+   "short": "シーフード",
+   "price": 230,
+   "cost": 127,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    4,
+    4
+   ],
+   "photo": 0.1,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.9,
+   "tags": [],
+   "color": "#3a7ab0",
+   "line": "ws"
+  },
+  {
+   "id": "cm_hesiko",
+   "genre": "cupmen",
+   "name": "鯖へしこ茶漬けの素",
+   "short": "へしこ茶漬け",
+   "price": 380,
+   "cost": 209,
+   "temp": "room",
+   "ease": 3,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    0,
+    4.5,
+    2
+   ],
+   "photo": 0.3,
+   "regular": 0.2,
+   "mania": 0.1,
+   "w": 0.5,
+   "tags": [],
+   "color": "#5a6a4a",
+   "line": "ws",
+   "omiyage": true,
+   "note": "おみやげの台にも並べる"
+  },
+  {
+   "id": "hot_shiromi",
+   "genre": "hot",
+   "name": "白身魚の一口揚げ",
+   "short": "一口揚げ",
+   "price": 280,
+   "cost": 126,
+   "temp": "hot",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    3.5,
+    3.5
+   ],
+   "photo": 0.4,
+   "regular": 0.3,
+   "mania": 0.05,
+   "w": 0.8,
+   "tags": [],
+   "color": "#e0b060",
+   "line": "ws",
+   "note": "姉妹港の屋台の味。冷凍で届く"
+  },
+  {
+   "id": "dr_ors",
+   "genre": "colddrink",
+   "name": "経口補水液",
+   "short": "補水液",
+   "price": 220,
+   "cost": 88,
+   "temp": "cold",
+   "ease": 5,
+   "health": 4,
+   "sudden": 1,
+   "taste": [
+    0.5,
+    1.5,
+    2
+   ],
+   "photo": 0.0,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 0.6,
+   "tags": [],
+   "color": "#d8eef8"
+  },
+  {
+   "id": "dr_mugi1l",
+   "genre": "colddrink",
+   "name": "麦茶 1L",
+   "short": "麦茶1L",
+   "price": 250,
+   "cost": 90,
+   "temp": "cold",
+   "ease": 4,
+   "health": 4,
+   "sudden": 0,
+   "taste": [
+    0,
+    1,
+    4.5
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.7,
+   "tags": [],
+   "color": "#b88a3e"
+  },
+  {
+   "id": "al_long",
+   "genre": "alcohol",
+   "name": "缶ビール ロング缶",
+   "short": "ロング缶",
+   "price": 330,
+   "cost": 231,
+   "temp": "cold",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    3,
+    4.5
+   ],
+   "photo": 0.1,
+   "regular": 0.5,
+   "mania": 0,
+   "w": 1.0,
+   "tags": [],
+   "color": "#c8a22a"
+  },
+  {
+   "id": "al_cup",
+   "genre": "alcohol",
+   "name": "ワンカップ（日本酒）",
+   "short": "ワンカップ",
+   "price": 280,
+   "cost": 174,
+   "temp": "cold",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    1,
+    3,
+    3
+   ],
+   "photo": 0.0,
+   "regular": 0.4,
+   "mania": 0,
+   "w": 0.6,
+   "tags": [],
+   "color": "#e8e8d8"
+  },
+  {
+   "id": "al_craft",
+   "genre": "alcohol",
+   "name": "赤レンガのクラフトビール「レンガ色エール」",
+   "short": "レンガ色",
+   "price": 450,
+   "cost": 270,
+   "temp": "cold",
+   "ease": 4,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    1,
+    3.5,
+    3
+   ],
+   "photo": 0.6,
+   "regular": 0.2,
+   "mania": 0.3,
+   "w": 0.6,
+   "tags": [],
+   "color": "#a0482a",
+   "omiyage": true,
+   "note": "赤レンガ倉庫の醸造所（架空）。おみやげの台にも並べる"
+  },
+  {
+   "id": "sn_hesiko",
+   "genre": "snack",
+   "name": "あぶりへしこスライス",
+   "short": "あぶりへしこ",
+   "price": 380,
+   "cost": 228,
+   "temp": "room",
+   "ease": 4,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    0,
+    4.5,
+    2
+   ],
+   "photo": 0.2,
+   "regular": 0.3,
+   "mania": 0.1,
+   "w": 0.6,
+   "tags": [],
+   "color": "#8a6a4a",
+   "line": "local",
+   "shop": "shiomi"
+  },
+  {
+   "id": "sn_cheka",
+   "genre": "snack",
+   "name": "チーズかまぼこ",
+   "short": "チーかま",
+   "price": 180,
+   "cost": 99,
+   "temp": "room",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    0.5,
+    3,
+    2.5
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#f0d080"
+  },
+  {
+   "id": "gm_shio",
+   "genre": "gummy",
+   "name": "塩あめ",
+   "short": "塩あめ",
+   "price": 180,
+   "cost": 81,
+   "temp": "room",
+   "ease": 5,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    3,
+    3,
+    1
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#e0e8f0"
+  },
+  {
+   "id": "dl_gunte",
+   "genre": "daily",
+   "name": "軍手",
+   "short": "軍手",
+   "price": 220,
+   "cost": 99,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 0.6,
+   "tags": [],
+   "color": "#f0eee0"
+  },
+  {
+   "id": "dl_socks",
+   "genre": "daily",
+   "name": "作業用靴下",
+   "short": "靴下",
+   "price": 380,
+   "cost": 171,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.1,
+   "mania": 0,
+   "w": 0.4,
+   "tags": [],
+   "color": "#555555"
+  },
+  {
+   "id": "dl_sweat",
+   "genre": "daily",
+   "name": "汗ふきシート",
+   "short": "汗ふき",
+   "price": 300,
+   "cost": 135,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.2,
+   "mania": 0,
+   "w": 0.6,
+   "tags": [],
+   "color": "#bfe0f0"
+  },
+  {
+   "id": "dl_towel",
+   "genre": "daily",
+   "name": "フェイスタオル",
+   "short": "タオル",
+   "price": 450,
+   "cost": 202,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.1,
+   "mania": 0,
+   "w": 0.4,
+   "tags": [],
+   "color": "#f8f8f8"
+  },
+  {
+   "id": "dl_kairo",
+   "genre": "daily",
+   "name": "使い捨てカイロ",
+   "short": "カイロ",
+   "price": 150,
+   "cost": 75,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.3,
+   "mania": 0,
+   "w": 0.8,
+   "tags": [],
+   "color": "#e85a3a",
+   "season": "win"
+  },
+  {
+   "id": "dl_sunscreen",
+   "genre": "daily",
+   "name": "日焼け止め",
+   "short": "日焼け止め",
+   "price": 880,
+   "cost": 440,
+   "temp": "room",
+   "ease": 4,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.1,
+   "mania": 0,
+   "w": 0.5,
+   "tags": [],
+   "color": "#f8d040",
+   "season": "sum"
+  },
+  {
+   "id": "um_rain",
+   "genre": "umbrella",
+   "name": "レインコート",
+   "short": "レインコート",
+   "price": 500,
+   "cost": 225,
+   "temp": "room",
+   "ease": 5,
+   "health": 0,
+   "sudden": 1,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.0,
+   "regular": 0.0,
+   "mania": 0,
+   "w": 0.5,
+   "tags": [],
+   "color": "#f0e040"
+  },
+  {
+   "id": "om_waffle2",
+   "genre": "omiyage",
+   "name": "ブローク・ワッフル（2枚）",
+   "short": "ワッフル2",
+   "price": 350,
+   "cost": 210,
+   "temp": "room",
+   "ease": 4,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    4.5,
+    2,
+    3
+   ],
+   "photo": 0.7,
+   "regular": 0.2,
+   "mania": 0.2,
+   "w": 1.0,
+   "tags": [],
+   "color": "#c88a3a",
+   "line": "local",
+   "shop": "hafen",
+   "life": 4
+  },
+  {
+   "id": "om_waffle6",
+   "genre": "omiyage",
+   "name": "ブローク・ワッフル（6枚・箱）",
+   "short": "ワッフル箱",
+   "price": 1200,
+   "cost": 720,
+   "temp": "room",
+   "ease": 3,
+   "health": 1,
+   "sudden": 0,
+   "taste": [
+    4.5,
+    2,
+    3
+   ],
+   "photo": 0.7,
+   "regular": 0.0,
+   "mania": 0.2,
+   "w": 0.7,
+   "tags": [],
+   "color": "#a86a2a",
+   "line": "local",
+   "shop": "hafen",
+   "life": 4
+  },
+  {
+   "id": "om_hesiko",
+   "genre": "omiyage",
+   "name": "鯖へしこ（真空パック）",
+   "short": "へしこ",
+   "price": 900,
+   "cost": 540,
+   "temp": "chill",
+   "ease": 3,
+   "health": 2,
+   "sudden": 0,
+   "taste": [
+    0,
+    5,
+    2.5
+   ],
+   "photo": 0.4,
+   "regular": 0.1,
+   "mania": 0.3,
+   "w": 0.6,
+   "tags": [],
+   "color": "#6a5a3a",
+   "line": "local",
+   "shop": "shiomi",
+   "life": 60
+  },
+  {
+   "id": "om_rice",
+   "genre": "omiyage",
+   "name": "にったの雫（2合）",
+   "short": "雫2合",
+   "price": 600,
+   "cost": 330,
+   "temp": "room",
+   "ease": 3,
+   "health": 3,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    3
+   ],
+   "photo": 0.3,
+   "regular": 0.0,
+   "mania": 0.1,
+   "w": 0.5,
+   "tags": [],
+   "color": "#0F6E56",
+   "brand": "nitta",
+   "line": "ws"
+  },
+  {
+   "id": "om_card",
+   "genre": "omiyage",
+   "name": "赤レンガ倉庫の絵はがき（3枚）",
+   "short": "絵はがき",
+   "price": 300,
+   "cost": 120,
+   "temp": "room",
+   "ease": 4,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.4,
+   "regular": 0.0,
+   "mania": 0.1,
+   "w": 0.4,
+   "tags": [],
+   "color": "#b0503a",
+   "line": "ws"
+  },
+  {
+   "id": "om_tram",
+   "genre": "omiyage",
+   "name": "海岸通りの古い市電のキーホルダー",
+   "short": "市電キーホルダー",
+   "price": 600,
+   "cost": 240,
+   "temp": "room",
+   "ease": 4,
+   "health": 0,
+   "sudden": 0,
+   "taste": [
+    0,
+    0,
+    0
+   ],
+   "photo": 0.5,
+   "regular": 0.0,
+   "mania": 0.4,
+   "w": 0.4,
+   "tags": [],
+   "color": "#2f6a4a",
+   "line": "ws"
+  }
+ ],
+ "count": {
+  "kiosk": 74,
+  "keep": 73,
+  "new": 35,
+  "total": 108
+ },
+ "localShops": [
+  {
+   "id": "hafen",
+   "name": "ハーフェン堂",
+   "kind": "ワッフルの店",
+   "where": "赤レンガ倉庫のいちばん手前の棟",
+   "person": "柳井 ミナ（2代目の店主）",
+   "items": [
+    "om_waffle2",
+    "om_waffle6"
+   ],
+   "say": "蜜は、その朝に煮たものだけ",
+   "note": "届く時刻・数・仕入れ値・作れる数の上限・休みの日は4回目で決める"
+  },
+  {
+   "id": "shiomi",
+   "name": "汐見屋",
+   "kind": "へしこの店",
+   "where": "魚市場の通り",
+   "person": "汐見 一郎（3代目）",
+   "items": [
+    "om_hesiko",
+    "sn_hesiko"
+   ],
+   "say": "へしこは1年待って、やっと一人前",
+   "note": "同上"
+  }
+ ],
+ "lines": {
+  "factory": "港浜フーズの夜の工場（今のライン）",
+  "bento": "港浜フーズの夜の工場・5本目のお弁当のライン（5回目）",
+  "local": "地元のお店から直接（4回目）",
+  "ws": "問屋（みなと卸）からセンター経由"
+ }
+}
