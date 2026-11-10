@@ -100,6 +100,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   let expressFee=0;for(const x of (cfg.express.off?[]:(ctx.express||[]))){const items=x.items||(x.pid?{[x.pid]:x.q}:{});if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:{items}});expressFee+=cfg.express.fee;}   // 1便に何品でものせられる。料金は便ごと
   // 当日の追加：日持ちする品だけ、その日の定期便といっしょに届く（料金なし）。定期便が目標まで足したあとに上乗せする
   for(const x of (ctx.addOn||[])){const items=x.items||{};if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:Math.max(x.at,O0-1),name:x.name||'当日の追加',express:{items},fee:0,addOn:true});}
+  // 地元のお店（港駅の売店の4回目・2026-11-10）：ctx.local（橋 js/links/local-to-kiosk.js の plan）があれば、その品はセンターの便では届かず、お店が自分で届ける（料金なし・仕入れ値だけ）。ないときは前と同じ
+  const LC=ctx.local||null;if(LC)for(const x of LC.runs||[])deliveries.push({t:Math.max(x.t,O0-1),name:x.name,express:{items:x.items},fee:0,local:x.shop});
   deliveries.sort((a,b)=>a.t-b.t);
   // 工場の品の上限（発注と配送 第3回）：ctx.supply＝その日センターがこの店に回せる数（納品書の出荷数）。ないときは今までどおり（上限なし）。
   // 便ごとの数は今までどおりに決め、上限に届いたらそこで止める。工場が足りなかった品（上限＜その日の発注）だけ、止めた数を cut に記録する
@@ -112,8 +114,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const capC=(pid,q,dd)=>{if(!cLeft||cLeft[pid]==null||q<=0)return q;const lf=Math.max(0,cLeft[pid]);if(q>lf){ccut[pid]=(ccut[pid]||0)+q-lf;(dd._ccut||(dd._ccut={}))[pid]=(dd._ccut[pid]||0)+q-lf;q=lf;}cLeft[pid]=lf-q;return q;};
   const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;const its={};
     if(d.express){let n2=0,c2=0;const names=[];for(const pid in d.express.items){const it=P[pid];if(!it)continue;const q=d.addOn?capC(pid,d.express.items[pid],d):d.express.items[pid];if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n2+=q;c2+=q*it.cost;names.push(it.short);its[pid]=q;}
-      deliveredCost+=c2;ev.push({t,k:'delivery',n:n2,cost:c2+(d.fee!=null?d.fee:cfg.express.fee),name:(d.addOn?d.name+'に追加（':'臨時便（')+names.join('・')+'）',items:its,express:!d.addOn,addOn:!!d.addOn});return;}
-    for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;
+      deliveredCost+=c2;if(d.local){ev.push({t,k:'delivery',n:n2,cost:c2,name:d.name,items:its,local:d.local});return;}ev.push({t,k:'delivery',n:n2,cost:c2+(d.fee!=null?d.fee:cfg.express.fee),name:(d.addOn?d.name+'に追加（':'臨時便（')+names.join('・')+'）',items:its,express:!d.addOn,addOn:!!d.addOn});return;}
+    for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;if(LC&&LC.pids&&LC.pids[pid])continue;
       let q;if(CT&&CT.pids[pid]){q=((CT.runs[d.name]||{})[pid])||0;if(d.all&&CT.cut[pid]){cutBy[pid]=CT.cut[pid];(d._cut||(d._cut={}))[pid]=CT.cut[pid];}if(d.all&&CT.ccut&&CT.ccut[pid]){ccut[pid]=(ccut[pid]||0)+CT.ccut[pid];(d._ccut||(d._ccut={}))[pid]=(d._ccut[pid]||0)+CT.ccut[pid];}if(q>0&&cLeft&&cLeft[pid]!=null)cLeft[pid]=Math.max(0,cLeft[pid]-q);if(q>0){(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}continue;}
       if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
       else{const share=d.all?0.5:0.25;q=Math.round((dayOrder[pid]||0)*share);}                                  // その日のうちに売る物は、朝5割・昼前と午後に2割5分ずつ
@@ -258,7 +260,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const carry={};
   for(const pid in lots){const it=P[pid],g=ix.G[it.genre];const L=lots[pid].filter(x=>x.q>0);
     if(g.returnable&&(g.life===0||L.some(x=>ctx.day-x.d>=g.life))){for(const x of L){if(g.life===0||ctx.day-x.d>=g.life){returned+=x.q*x.c;x.q=0;}}}
-    else for(const x of L){if(g.life<99&&ctx.day-x.d>=g.life){waste+=x.q*x.c;add(wasteBy,pid,x.q);ev.push({t:O1,k:'waste',pid,n:x.q,why:'期限'});x.q=0;}}
+    else{const lf=(LC&&LC.life&&LC.life[pid]!=null)?LC.life[pid]:g.life;for(const x of L){if(lf<99&&ctx.day-x.d>=lf){waste+=x.q*x.c;add(wasteBy,pid,x.q);ev.push({t:O1,k:'waste',pid,n:x.q,why:'期限'});x.q=0;}}}   // 地元のお店の品は、品ごとの日持ち（ctx.local.life）
     const keep=L.filter(x=>x.q>0);if(keep.length)carry[pid]=keep;}
   for(const pid in hotQ){for(const x of hotQ[pid]){waste+=x.c;add(wasteBy,pid,1);}if(hotQ[pid].length)ev.push({t:O1,k:'waste',pid,n:hotQ[pid].length,why:'閉店'});}
   ev.sort((a,b)=>a.t-b.t);

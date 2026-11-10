@@ -31,7 +31,7 @@ addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=
 /* ---------- 読み込み・保存 ---------- */
 // 橋の一覧とアンケート（読めなくても売店はいつもどおり。アンケート→売店の橋が「未接続」になるだけ）。売店の最初の計算より前にそろえる（途中で効き目が入って結果が変わらないように）
 const optJson=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
-Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();}),optJson('data/links.json?v=20261109a'),window.SurveyToKiosk?optJson('data/survey.json'):null])
+Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();}),optJson('data/links.json?v=20261110d'),window.SurveyToKiosk?optJson('data/survey.json'):null])
   .then(([c,rc,lk,sv])=>{V.cfg=c;V.rcfg=rc;V.links=lk;V.survey=sv;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）

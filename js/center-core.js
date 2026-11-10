@@ -219,7 +219,7 @@ function csOpen(kcfg,ccfg,cs,day,o){const W=ccfg.ws||{},stores=o.stores||[],pids
   if(did.in.length||did.po.length)did.changed=true;if(cs.po.length>12)cs.po=cs.po.filter(p=>p.st!=='in').concat(cs.po.filter(p=>p.st==='in').slice(-8)).sort((a,b)=>a.day-b.day);
   return did;}
 /* その日に店へ出したセンター在庫の品（便と当日の追加） */
-function centerOut(kcfg,ccfg,res){const out={};for(const e of res.ev||[]){if(e.k!=='delivery'||(e.express&&!e.addOn))continue;for(const pid in e.items||{}){const g=genreOf(kcfg,pid);if(g&&routeOf(ccfg,g)==='center')out[pid]=(out[pid]||0)+e.items[pid];}}return out;}
+function centerOut(kcfg,ccfg,res){const out={};for(const e of res.ev||[]){if(e.k!=='delivery'||e.local||(e.express&&!e.addOn))continue;for(const pid in e.items||{}){const g=genreOf(kcfg,pid);if(g&&routeOf(ccfg,g)==='center')out[pid]=(out[pid]||0)+e.items[pid];}}return out;}
 /* 運行日の締め：店へ出した数を引く（同じ日を2回引かない） */
 //   res は1店の結果、または店が2つ以上のときは同じ日の結果の配列（2026-11-10。港駅の店。1店なら前と同じ）
 function csClose(kcfg,ccfg,cs,res){const L=Array.isArray(res)?res:[res];if(!L.length)return false;const day=L[0].day;if(cs.closed!=null&&day<=cs.closed)return false;
@@ -254,7 +254,7 @@ function flowOf(ccfg,key){const F=ccfg.flow;if(!F)return null;const tr=truckFor(
    工場の不足で届かなかった数（cut）、納品書の出荷数のうち届かずにセンターに残った数（left：取引先へ回す分） */
 function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!slip.err&&slip.stores&&slip.stores[key],fItems=m?m.items:{},runs=[],got={};
   const binOf=t=>{const R=(ccfg.flow&&ccfg.flow.runs)||[];let best=null;for(const r of R)if(Math.abs(r.t-t)<=60&&(!best||Math.abs(r.t-t)<Math.abs(best.t-t)))best=r;return best;};
-  for(const e of res.ev||[]){if(e.k!=='delivery'||e.express||e.addOn)continue;const f={},n={c:0,d:0};
+  for(const e of res.ev||[]){if(e.k!=='delivery'||e.express||e.addOn||e.local)continue;const f={},n={c:0,d:0};
     for(const pid in e.items||{}){const q=e.items[pid],r=routeOf(ccfg,genreOf(kcfg,pid));if(r==='factory'){f[pid]=q;got[pid]=(got[pid]||0)+q;}else n[r==='direct'?'d':'c']+=q;}
     const b=binOf(e.t);runs.push({t:e.t,bin:b?b.bin:e.name,f,c:n.c,d:n.d,cut:e.cut||null});}
   const left={};for(const pid in fItems){const l=fItems[pid][1]+(fItems[pid][2]||0)-(got[pid]||0);if(l>0)left[pid]=l;}   // 追いかけ便の分（[2]）も出荷に入れる

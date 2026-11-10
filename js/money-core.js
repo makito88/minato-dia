@@ -12,16 +12,17 @@ const R=Math.round;
 function centerCost(M,pieces,n){const O=M.centerOps;if(!O)return null;const soc=1+(O.social||0);n=n>1?n:1;   // n：店の数（2026-11-10。決まった費用と仕分けの最低の時間を店の数で分ける。1なら前と同じ）
   const ops=R(O.staff.reduce((t,x)=>t+x.n*x.h*x.wage,0)*soc/n),S=O.sort,sort=S.shifts.map(sh=>{const h=Math.max((sh.minH||0)/n,pieces*(sh.share||0)/(S.perHour||450));return {label:sh.label,h:+h.toFixed(1),yen:R(h*S.wage*(1+(sh.night?(O.nightPremium||0):0))*soc)};});
   return {ops,facility:R((O.facility||0)/n),sort,sortH:+sort.reduce((t,x)=>t+x.h,0).toFixed(1),total:ops+(O.facility||0)+sort.reduce((t,x)=>t+x.yen,0)};}
-/* o＝{day, sales, pl:売店の収支, delivered:{品:数}（その日に店に届いた品。臨時便は入れない）, route:pid→'factory'|'center'|'direct', cost:pid→仕入れ値,
+/* o＝{day, sales, pl:売店の収支, delivered:{品:数}（その日に店に届いた品。臨時便は入れない）, route:pid→'factory'|'center'|'direct'|'local', cost:pid→仕入れ値,
        haiso:{runs}（HaisoCore.dayPlan の結果。なければ配送は0）, take, live:きょうの見込みなら true}
    返すもの：{v:1, day, live, inv:[{from,to,what,yen}], co:{会社:{in,out,net}}, ext:{in,out}} */
 function dayLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if(yen>0)inv.push({from,to,what,yen});};
-  const take=o.take!=null?o.take:(M.take??0.15);let bF=0,bC=0,bD=0;
-  for(const pid in o.delivered||{}){const v=(o.delivered[pid]||0)*(o.cost(pid)||0),r=o.route(pid);if(r==='factory')bF+=v;else if(r==='center')bC+=v;else bD+=v;}
+  const take=o.take!=null?o.take:(M.take??0.15);let bF=0,bC=0,bD=0,bL=0;
+  for(const pid in o.delivered||{}){const v=(o.delivered[pid]||0)*(o.cost(pid)||0),r=o.route(pid);if(r==='factory')bF+=v;else if(r==='center')bC+=v;else if(r==='local')bL+=v;else bD+=v;}
   const pl=o.pl||{};
   add('ext','kiosk','お客さんの買い物',o.sales||0);
   add('kiosk','center','仕入れ（工場の品）',bF);add('kiosk','center','仕入れ（センターの品）',bC);
   add('kiosk','ext','新聞・雑誌・たばこ（卸へ）',bD);
+  add('kiosk','ext','地元のお店へ（ワッフル・へしこ）',bL);   // route が 'local' の品（橋 local-to-kiosk・2026-11-10）。0のときは行が出ない（前と同じ）
   add('kiosk','ext','店員の給料・交通費・保険',(pl.staff||0)+(pl.commute||0)+(pl.social||0)+(pl.recruit||0));
   add('kiosk','ext','家賃・電気・手数料など',(pl.rent||0)+(pl.util||0)+(pl.fee||0)+(pl.guard||0)+(pl.express||0));
   add('center','factory','工場の品の代金',bF*(1-take));
