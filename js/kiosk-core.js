@@ -71,6 +71,9 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // SNSを見て来る人：話題になっている品を目当てに、昼から夜に来る
   if(M.snsSeek)for(const pid in si0){const b=state.buzz[pid]||0;if(b<=0.03)continue;const n=poisson(dayFoot*b*M.snsSeek,r);
     for(let i=0;i<n;i++){const t=Math.max(O0,600+r()*660);if(t>=O1)continue;const ps=pickO({jk:3,salF:2,tou:2,stu:1},r);visitors.push({t,p:ps==='tou'?2:3,a:ps==='jk'?0:1,ps,em:true,dw:DW[Math.floor(t/60)]||1.5,sns:pid});}}
+  // 中に入って歩く店（設定に walk があるときだけ。js/kiosk-walk.js）：交代で働く人・客船の客を足す（自分の乱数を使うので、walk のない店は今までと同じ）
+  const WK=cfg.walk&&root.KioskWalk?root.KioskWalk.begin(cfg,state,ctx,{hash,rng,poisson,pickW},{R,DW,O0,O1}):null;
+  if(WK)for(const v of WK.visitors())visitors.push(v);
   visitors.sort((a,b)=>a.t-b.t);
 
   // 在庫：棚と裏（ロットごとに入った日を持つ）。ホットスナックは調理した時刻を持つ
@@ -135,6 +138,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const anyOn=t=>W.some(w=>KS.onAt(w,t));
   const eff=(k,t)=>KS.nextStart(W[k],Math.max(t,free[k]));                    // その人が次に会計を始められる時刻
   const pickS=t=>{let b=-1,bt=Infinity;for(let k=0;k<W.length;k++){const x=eff(k,t);if(x<bt){bt=x;b=k;}}return [b,bt];};
+  if(WK)WK.bind({ix,W,free,pickS,onAt:KS.onAt,speed:k=>k<0?1:KS.speed(cfg,W[k].p,'reg')});   // 歩く店：有人レジ1台・セルフ1台の会計は WK が決める
   const closedSp=[];{let a=O0;const cov=W.flatMap(w=>w.spans).sort((x,y)=>x[0]-y[0]);for(const [s0,e0] of cov){if(s0>a&&a<O1)closedSp.push([a,Math.min(s0,O1)]);a=Math.max(a,e0);}if(a<O1)closedSp.push([a,O1]);}
   for(const [a,b] of closedSp)ev.push({t:a,k:'closed',to:b});
   let closedN=0;
@@ -175,12 +179,16 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     if(v.imp){   // なんとなく：棚全体から目に入った物（安い・手軽・映える・いま売れている物ほど）を手に取る
       const all=Object.keys(SI).map(k=>P[k]).filter(c=>stockOf(c.id)>0&&!ix.G[c.genre].age&&!(M.fixed||[]).includes(c.genre));if(!all.length)continue;
       const ws=all.map(c=>c.w*SI[c.id].vis*(1+c.photo)*(priceOf(c.id)<=200?1.4:0.8)*(c.ease/5)*herdF(c.id,v.t)*(moodG[c.genre]||1)*buzzF(c.id)*trendOn(c)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(priceOf(c.id)/c.price-1)));
-      const c=all[pickW(ws,r)];const [k2,st2]=pickS(v.t),qd=st2>v.t+0.2;   // 会計に人が並んでいると気になる
+      const c=all[pickW(ws,r)],S2=cfg.service,WP=WK?WK.plan(v,[[c.id,1]],S2.base+(v.em?S2.emoney:S2.cash)+(c.genre==='hot'?S2.hot:0)):null;
+      const [k2,st2]=WP?[WP.k,WP.start]:pickS(v.t),qd=st2>(WP?WP.t:v.t)+0.2;   // 会計に人が並んでいると気になる
       if(r()>(M.impulseBuy||0.5)*(qd?(M.queueLure||1):1))continue;
-      const S2=cfg.service,svc2=(S2.base+(v.em?S2.emoney:S2.cash)+(c.genre==='hot'?S2.hot:0))/KS.speed(cfg,W[k2].p,'reg');
-      if(st2-v.t>ps.patience*1.2)continue;free[k2]=st2+svc2/60;served[k2]++;const g2=takeShelf(c.id,1);if(!g2.got)continue;
+      if(WP){if(WP.full||WP.wait>ps.patience*1.2){if(WP.full)WK.left();continue;}WK.commit(WP,ev);if(WP.lane==='f')served[k2]++;}
+      else{const svc2=(S2.base+(v.em?S2.emoney:S2.cash)+(c.genre==='hot'?S2.hot:0))/KS.speed(cfg,W[k2].p,'reg');
+        if(st2-v.t>ps.patience*1.2)continue;free[k2]=st2+svc2/60;served[k2]++;}
+      const g2=takeShelf(c.id,1);if(!g2.got)continue;
       const y2=g2.got*priceOf(c.id);add(sold,c.id,g2.got);add(gross,c.id,y2);add(cogs,c.id,g2.cost);hourly[h]+=y2;hourlyN[h]++;add(byPs,v.ps,1);
-      const mot=qd?'queue':'impulse';add(motives,mot,1);ev.push({t:st2,k:'buy',ps:v.ps,items:[[c.id,g2.got]],yen:y2,em:v.em,wait:st2-v.t,mot,by:hasCrew?W[k2].p.id:undefined});recent.push({t:st2,pid:c.id});
+      const mot=qd?'queue':'impulse';add(motives,mot,1);ev.push({t:st2,k:'buy',ps:v.ps,items:[[c.id,g2.got]],yen:y2,em:v.em,wait:st2-v.t,mot,by:hasCrew&&!(WP&&WP.lane==='s')?W[k2].p.id:undefined});recent.push({t:st2,pid:c.id});
+      if(WP){Object.assign(ev[ev.length-1],{wait:+WP.wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2)});WK.after(WP,[[c.id,g2.got]],ev);}
       if(r()<ps.sns*c.photo*0.35){const p2={t:st2+2,pid:c.id,ps:v.ps,good:true};posts.push(p2);ev.push({t:p2.t,k:'sns',pid:c.id,ps:v.ps,good:true});}
       continue;}
     const minor=v.a===0;
@@ -209,7 +217,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     // 列：電車の時間までに買えるか
     const items=[[it.id,v.mania?(1+Math.floor(r()*3)):1]];
     // かご：最初の品との相性で、もう1品・2品…と足す（関係のない品を手に取る人も、同じ品を2つの人もいる）
-    const BK=cfg.basket;if(BK&&!v.mania){const bh=hm(BK.hours,h),bp=BK.ps[v.ps]??1;let pr=BK.add*bp*bh*(v.reg?0.5:1)*fBk;
+    const BK=cfg.basket;if(BK&&!v.mania){const bh=hm(BK.hours,h),bp=BK.ps[v.ps]??1;let pr=BK.add*bp*bh*(v.reg?0.5:1)*fBk*(WK?WK.basketMul(v):1);
       const have=new Set(items.map(x=>x[0])),ok=c=>SI[c.id]&&stockOf(c.id)>0&&!have.has(c.id)&&!(ix.G[c.genre].age&&minor)&&c.genre!=='tobacco'&&(c.genre!=='hot'||hotStock(c.id)>0);
       if(rB()<BK.double*bp&&['colddrink','onigiri','gummy','coffee','bread'].includes(it.genre))items[0][1]=2;
       for(let n=1;n<BK.max&&rB()<pr;n++){const base=P[items[0][0]].genre,PR=BK.pairs[base]||{};let pick=null,kind;
@@ -217,10 +225,11 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
         else{const gs=Object.keys(PR).filter(g=>ix.byG[g]&&ix.byG[g].some(ok));if(gs.length){const g=gs[pickW(gs.map(g=>PR[g]*((cfg.genres.find(x=>x.id===g)||{}).season?.[ctx.cond.season]||1)),rB)];const cs=ix.byG[g].filter(ok);pick=cs[pickW(cs.map(c=>c.w*SI[c.id].vis*repF(c.id)),rB)];kind='p';}}
         if(!pick)break;items.push([pick.id,1,kind]);have.add(pick.id);pr*=BK.decay;}}
     const S=cfg.service;let svc=S.base+S.perItem*(items.length-1)+(v.em?S.emoney:S.cash);for(const [pid] of items){if(P[pid].genre==='hot')svc+=S.hot;if(ix.G[P[pid].genre].age)svc+=S.age;}
-    const [k0,start]=pickS(v.t),wait=start-v.t;svc/=KS.speed(cfg,W[k0].p,'reg');
+    const WP=WK?WK.plan(v,items,svc):null;   // 歩く店：店の中を回ってからレジへ（有人かセルフか）
+    const [k0,start]=WP?[WP.k,WP.start]:pickS(v.t),wait=WP?WP.wait:start-v.t;if(!WP)svc/=KS.speed(cfg,W[k0].p,'reg');
     const patience=ps.patience*(state.place==='home'?clamp(v.dw*0.7,0.6,3):3);
-    if(wait>patience){logLook(it.id,'列が長い');if(v.reg)regEvents.push({g:v.reg,ok:false,why:'列が長い'});continue;}
-    free[k0]=start+svc/60;served[k0]++;
+    if(wait>patience||(WP&&WP.full)){logLook(it.id,'列が長い');if(WP){Object.assign(ev[ev.length-1],{t:WP.t,q:WP.qn,lane:WP.lane});if(WP.full)WK.left();}if(v.reg)regEvents.push({g:v.reg,ok:false,why:'列が長い'});continue;}
+    if(WP){WK.commit(WP,ev);if(WP.lane==='f')served[k0]++;}else{free[k0]=start+svc/60;served[k0]++;}
     // 売る
     let yen=0,bought=[];
     for(const [pid,q,kd] of items){const g2=takeShelf(pid,q);if(!g2.got)continue;const y=g2.got*priceOf(pid);yen+=y;add(sold,pid,g2.got);add(gross,pid,y);add(cogs,pid,g2.cost);bought.push(kd?[pid,g2.got,kd]:[pid,g2.got]);}
@@ -231,11 +240,12 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     if(!mot){const mp=P[bought[0][0]],fx={herd:herdF(mp.id,v.t)-1,sns:buzzF(mp.id)-1,trend:trendOn(mp)-1,new:newF(mp.id)-1};let best=null;for(const k in fx)if(fx[k]>0.25&&(!best||fx[k]>fx[best]))best=k;
       mot=best&&r()<fx[best]/(1+fx[best])?best:(mp.genre==='umbrella'&&(ctx.cond.wx==='rain'||ctx.cond.wx==='snow'))?'rain':'plan';}
     add(motives,mot,1);recent.push({t:start,pid:bought[0][0]});if(recent.length>60)recent.splice(0,20);
-    const e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1,by:hasCrew?W[k0].p.id:undefined};ev.push(e);
+    const selfL=!!(WP&&WP.lane==='s'),e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1,by:hasCrew&&!selfL?W[k0].p.id:undefined};ev.push(e);
+    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2)});WK.after(WP,bought,ev);}
     if(v.reg)regEvents.push({g:v.reg,ok:true});
     // 評価
     const main=P[bought[0][0]];
-    if(main.taste[0]+main.taste[1]>0&&r()<ps.review){const rv=review(cfg,ps,main,priceOf(main.id)/main.price,r,hasCrew?(KS.careOf(cfg,W[k0].p)-1)*((cfg.crew.care||{}).stars||2.5):0);rv.t=start+3;rv.pid=main.id;rv.ps=v.ps;reviews.push(rv);ev.push({t:rv.t,k:'review',pid:main.id,ps:v.ps,stars:rv.stars,text:rv.text});}
+    if(main.taste[0]+main.taste[1]>0&&r()<ps.review){const rv=review(cfg,ps,main,priceOf(main.id)/main.price,r,hasCrew&&!selfL?(KS.careOf(cfg,W[k0].p)-1)*((cfg.crew.care||{}).stars||2.5):0);rv.t=start+3;rv.pid=main.id;rv.ps=v.ps;reviews.push(rv);ev.push({t:rv.t,k:'review',pid:main.id,ps:v.ps,stars:rv.stars,text:rv.text});}
     // SNS
     if(r()<ps.sns*main.photo*0.35){const p2={t:start+2,pid:main.id,ps:v.ps,good:true};posts.push(p2);ev.push({t:p2.t,k:'sns',pid:main.id,ps:v.ps,good:true});}
     // 常連になる
@@ -263,7 +273,9 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const recruit=hasCrew?(state.crew.ads||[]).filter(a=>a.day===ctx.day).length*cfg.crew.ad.fee:0;
   const pl={sales,cogs:cg,waste,returned,express:expressFee,staff:crewRes.reduce((s,x)=>s+x.yen,0),recruit,shrink:shrinkCost,guard:guardFee,commute,social,rent:Math.max(sales*place.rentRate,place.rentMinSqm*cfg.area/30),fee:em*cfg.emoneyFee,util:cfg.utilityPerDay};
   pl.cost=pl.cogs+pl.waste+(pl.shrink||0)+(pl.guard||0)+pl.express+pl.staff+pl.commute+pl.social+pl.recruit+pl.rent+pl.fee+pl.util;pl.profit=pl.sales-pl.cost;
-  return {day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,shrinkBy,shrinkN,closed:closedSp,closedN,cut:cutBy,supplyLeft:supLeft,ccut,cstockLeft:cLeft};}
+  const out={day:ctx.day,cond:ctx.cond,motives,moodG,ev,snap,sold,lostSO,looked,gross,cogs,hourly:Array.from(hourly),hourlyN:Array.from(hourlyN),byPs,miss,reasons,reviews,posts,regEvents,wasteBy,pl,carry,visitors:visitors.length,F,crew:crewRes,shrinkBy,shrinkN,closed:closedSp,closedN,cut:cutBy,supplyLeft:supLeft,ccut,cstockLeft:cLeft};
+  if(WK)out.walk=WK.stats();   // 歩く店だけ：セルフの割合・セルフで呼ばれた回数・列で帰った人・イートインなど
+  return out;}
 
 /* 評価：客層の好み（甘さ・味の濃さ・量）と商品の味のずれ、値段 */
 function review(cfg,ps,it,ratio,r,care){care=care||0;const [s,k,v]=it.taste,[ps1,pk,pv]=ps.taste,T=cfg.reviews;let stars=4.3+(r()-0.5)*0.8;const bad=[];

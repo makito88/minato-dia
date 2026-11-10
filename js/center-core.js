@@ -221,9 +221,11 @@ function csOpen(kcfg,ccfg,cs,day,o){const W=ccfg.ws||{},stores=o.stores||[],pids
 /* その日に店へ出したセンター在庫の品（便と当日の追加） */
 function centerOut(kcfg,ccfg,res){const out={};for(const e of res.ev||[]){if(e.k!=='delivery'||(e.express&&!e.addOn))continue;for(const pid in e.items||{}){const g=genreOf(kcfg,pid);if(g&&routeOf(ccfg,g)==='center')out[pid]=(out[pid]||0)+e.items[pid];}}return out;}
 /* 運行日の締め：店へ出した数を引く（同じ日を2回引かない） */
-function csClose(kcfg,ccfg,cs,res){if(cs.closed!=null&&res.day<=cs.closed)return false;const out=centerOut(kcfg,ccfg,res);
+//   res は1店の結果、または店が2つ以上のときは同じ日の結果の配列（2026-11-10。港駅の店。1店なら前と同じ）
+function csClose(kcfg,ccfg,cs,res){const L=Array.isArray(res)?res:[res];if(!L.length)return false;const day=L[0].day;if(cs.closed!=null&&day<=cs.closed)return false;
+  const out={},sh={};for(const x of L){const o=centerOut(kcfg,ccfg,x);for(const pid in o)out[pid]=(out[pid]||0)+o[pid];for(const pid in x.ccut||{})sh[pid]=(sh[pid]||0)+x.ccut[pid];}
   for(const pid in out)cs.stock[pid]=Math.max(0,(cs.stock[pid]||0)-out[pid]);
-  cs.log.push({day:res.day,out,...(cs.log.length?{}:{fill:true}),short:res.ccut&&Object.keys(res.ccut).length?res.ccut:null});if(cs.log.length>21)cs.log=cs.log.slice(-21);cs.closed=res.day;return true;}
+  cs.log.push({day,out,...(cs.log.length?{}:{fill:true}),short:Object.keys(sh).length?sh:null});if(cs.log.length>21)cs.log=cs.log.slice(-21);cs.closed=day;return true;}
 /* 在庫の見通し（画面用）：次に着く日までに出ていく見込みと、足りなくなるおそれ。
    返すもの：{pid:{stock, mu, cover:何日分, next:次に着く日, nextQ:その数, until:それまでに出る見込み, after:着く前の見込みの残り, st:'ok'|'thin'|'short'}} */
 function csOutlook(kcfg,ccfg,cs,day,o){const W=ccfg.ws||{},stores=o.stores||[],out={},T=o.today||null;   // today：{done:きょうもう出した, todo:きょうこれから出す, cut:きょう足りずに出せなかった}（画面から）

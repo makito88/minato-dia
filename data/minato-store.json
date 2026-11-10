@@ -1,6 +1,6 @@
 {
  "v": 1,
- "about": "港駅の売店（2つ目の店・みなとスタンド 港駅改札前店）の設定。2026-11-10 の1回目では設定を書いただけで、まだどの計算も読まない（緑ヶ丘の店の棚にも出ない）。2回目から KioskCore が読む。名前はすべて架空。値段・原価・好みの数字はすべて仮（assume）。物語は docs/minato-store-story.md、案は docs/ideas.md の 20.",
+ "about": "港駅の売店（2つ目の店・みなとスタンド 港駅改札前店）の設定。1回目（2026-11-10）で設定を書き、2回目（同じ日）から js/minato-store-core.js がこれと data/kiosk.json を合わせて「港駅の店の設定」を作り、KioskCore が読む（緑ヶ丘の店の設定 data/kiosk.json は変えない。緑ヶ丘の棚にも出ない）。名前はすべて架空。値段・原価・好みの数字はすべて仮（assume）。物語は docs/minato-store-story.md、案は docs/ideas.md の 20.",
  "src": {
   "price": "assume",
   "pref": "assume",
@@ -15,7 +15,7 @@
   "station": "P",
   "place": "gate",
   "form": "walk",
-  "formNote": "walk＝お客さんが中に入って歩く店（入口と出口が別）。緑ヶ丘の店は front（正面から買う形）。2回目で計算に入れる",
+  "formNote": "walk＝お客さんが中に入って歩く店（入口と出口が別）。緑ヶ丘の店は front（正面から買う形）。2回目から計算に入れた（下の walk）",
   "registers": {
    "staffed": 1,
    "self": 1
@@ -42,6 +42,489 @@
    "exit"
   ],
   "pathNote": "入口 → 冷蔵ケース → おにぎり・パン・ドーナツの低い棚 → 並ぶ場所（床の印）→ レジ → 出口。おみやげは奥の角、レジ前の低い棚に小物"
+ },
+ "walk": {
+  "v": 1,
+  "note": "中に入って歩く店の計算（2回目・2026-11-10）。js/kiosk-walk.js が読む。数字はすべて仮（assume）。緑ヶ丘の店（front）には効かない",
+  "visitMul": 1.5,
+  "visitMulNote": "中に入れる店なので、通る人のうち寄る人の割合を緑ヶ丘の売店の1.5倍に（仮）",
+  "area": 30,
+  "areaNote": "店の広さ（㎡）。改札口の前に出せる広さの上限（research.json の gate の maxArea）。家賃の下限に効く",
+  "utilityMul": 2.5,
+  "utilityMulNote": "電気など：冷蔵ケース・レンジ・お湯・セルフレジで、緑ヶ丘の売店の2.5倍（仮）",
+  "stay": {
+   "salM": 2.5,
+   "salF": 3,
+   "jk": 4.5,
+   "stu": 3.5,
+   "sen": 5,
+   "tou": 8,
+   "hou": 6,
+   "shf": 3,
+   "cru": 10,
+   "sd": 0.35,
+   "note": "店の中にいる分（真ん中の値）。急ぐ人は短く、観光客は長い。人ごとに sd のぶれ（対数）"
+  },
+  "stayBasket": {
+   "ref": 3.5,
+   "pow": 0.6,
+   "min": 0.6,
+   "max": 2.2,
+   "note": "かごに足す確かさ＝(いる分÷ref)^pow（min〜max）。長くいるほど買う品が増える"
+  },
+  "basketPs": {
+   "shf": 1.1,
+   "cru": 1.5
+  },
+  "basketPairs": {
+   "bento": {
+    "colddrink": 2.2,
+    "hotdrink": 1.4,
+    "cupmen": 0.5,
+    "alcohol": 1.0
+   },
+   "cupmen": {
+    "onigiri": 1.8,
+    "colddrink": 1.2,
+    "hot": 0.6
+   },
+   "omiyage": {
+    "omiyage": 1.5,
+    "colddrink": 0.8,
+    "donut": 0.5
+   }
+  },
+  "basketNote": "新しい客層のかごの多さと、新しいジャンルの「いっしょに買う物」（data/kiosk.json の basket と同じ形）",
+  "registers": {
+   "staffed": 1,
+   "self": 1,
+   "note": "有人レジ1台＋セルフ1台。有人レジは店にいる店員のうち1人（ほかの人は品出しとセルフの手伝い）"
+  },
+  "self": {
+   "svcMul": 1.35,
+   "noSelf": [
+    "hot",
+    "tobacco",
+    "alcohol"
+   ],
+   "noSelfNote": "ホットスナック・たばこ・お酒（年齢の確認）は有人レジ",
+   "pick": {
+    "salM": 0.7,
+    "salF": 0.7,
+    "jk": 0.65,
+    "stu": 0.7,
+    "sen": 0.15,
+    "tou": 0.35,
+    "hou": 0.4,
+    "shf": 0.55,
+    "cru": 0.3
+   },
+   "confuse": {
+    "salM": 0.03,
+    "salF": 0.03,
+    "jk": 0.03,
+    "stu": 0.04,
+    "sen": 0.3,
+    "tou": 0.15,
+    "hou": 0.08,
+    "shf": 0.04,
+    "cru": 0.18
+   },
+   "help": [
+    1.5,
+    3.5
+   ],
+   "helpNote": "セルフで迷うと店員が呼ばれ、そのあいだ（分・幅）有人レジが止まる",
+   "switch": 3,
+   "switchNote": "好きなレジの列が、もう一方より switch 分以上長いと、もう一方へ"
+  },
+  "queueMark": 5,
+  "queueMarkNote": "床の印（並べる人数）。レジの列がこれより長いと、最後尾に来た人は帰る",
+  "eatIn": {
+   "seats": 8,
+   "p": {
+    "bento": 0.3,
+    "cupmen": 0.55,
+    "hot": 0.08,
+    "onigiri": 0.06,
+    "sand": 0.06,
+    "bread": 0.04
+   },
+   "ps": {
+    "shf": 1.7,
+    "salM": 1.0,
+    "salF": 0.8,
+    "jk": 0.7,
+    "stu": 1.2,
+    "sen": 0.7,
+    "tou": 0.9,
+    "hou": 0.5,
+    "cru": 0.6
+   },
+   "eat": {
+    "bento": 14,
+    "cupmen": 11,
+    "hot": 5,
+    "onigiri": 6,
+    "sand": 7,
+    "bread": 6
+   },
+   "range": {
+    "n": 1,
+    "min": 1.5,
+    "p": 0.85,
+    "takeP": 0.4
+   },
+   "water": {
+    "min": 0.5,
+    "wait": 3
+   },
+   "note": "買った品を店の中で食べる。席がうまっていると持ち帰る。お弁当はレンジ（1台・1.5分）、カップ麺はお湯＋3分待つ。あとでカフェにできる形（席の数・時間だけを持つ）"
+  },
+  "zones": {
+   "fridge": {
+    "name": "冷蔵ケース（壁ぞい）",
+    "rows": 5,
+    "cols": 10,
+    "depth": 6,
+    "eye": [
+     1.0,
+     1.2,
+     1.15,
+     0.95,
+     0.8
+    ],
+    "power": 1500
+   },
+   "shelf": {
+    "name": "低い棚（入口からレジへの道）",
+    "rows": 4,
+    "cols": 14,
+    "depth": 4,
+    "eye": [
+     1.15,
+     1.25,
+     1.0,
+     0.75
+    ]
+   },
+   "hook": {
+    "name": "壁のフック（日用品）",
+    "rows": 4,
+    "cols": 5,
+    "depth": 5,
+    "eye": [
+     0.9,
+     1.1,
+     1.1,
+     0.8
+    ]
+   },
+   "tobacco": {
+    "name": "レジの後ろのたばこ棚",
+    "rows": 1,
+    "cols": 8,
+    "depth": 10,
+    "eye": [
+     1.0
+    ]
+   },
+   "hot": {
+    "name": "ホットケース（レジの横）",
+    "rows": 2,
+    "cols": 4,
+    "depth": 4,
+    "eye": [
+     1.2,
+     1.1
+    ],
+    "power": 350
+   },
+   "warmer": {
+    "name": "ホット飲料",
+    "rows": 1,
+    "cols": 5,
+    "depth": 6,
+    "eye": [
+     1.0
+    ],
+    "power": 150
+   },
+   "umbrella": {
+    "name": "傘立て（入口）",
+    "rows": 1,
+    "cols": 3,
+    "depth": 12,
+    "eye": [
+     1.0
+    ]
+   },
+   "rack": {
+    "name": "新聞・雑誌ラック（入口の横）",
+    "rows": 7,
+    "cols": 1,
+    "depth": 10,
+    "eye": [
+     1.1,
+     1.1,
+     1.0,
+     0.9,
+     0.8
+    ]
+   },
+   "omiyage": {
+    "name": "おみやげの台（奥の角）",
+    "rows": 2,
+    "cols": 5,
+    "depth": 6,
+    "eye": [
+     1.1,
+     1.0
+    ],
+    "new": true
+   },
+   "regfront": {
+    "name": "レジ前の低い棚",
+    "rows": 2,
+    "cols": 6,
+    "depth": 5,
+    "eye": [
+     1.35,
+     1.15
+    ],
+    "new": true
+   }
+  },
+  "layout": {
+   "fridge": [
+    "bt_karaage",
+    "bt_karaage",
+    "bt_saba",
+    "bt_saba",
+    "bt_nori",
+    "bt_nori",
+    "bt_egg",
+    "bt_egg",
+    "cf_bitou",
+    "cf_bitou",
+    "cf_black",
+    "cf_black",
+    "cf_aulait",
+    "cf_bottle",
+    "en_energy",
+    "en_energy",
+    "en_eiyou",
+    "en_eiyou",
+    "en_jelly",
+    "en_jelly",
+    "dr_tea",
+    "dr_hoji",
+    "dr_water",
+    "dr_mugi",
+    "dr_cola",
+    "dr_sports",
+    "dr_veg",
+    "dr_lact",
+    "dr_ors",
+    "dr_mugi1l",
+    "al_beer",
+    "al_high",
+    "al_sour",
+    "al_long",
+    "al_cup",
+    "al_craft",
+    "dr_tea",
+    "dr_water",
+    "dr_tea",
+    "dr_mugi",
+    "dr_cola",
+    "dr_sports",
+    "al_beer",
+    "al_high",
+    "bt_karaage",
+    "bt_nori",
+    "dr_ors",
+    "dr_mugi1l",
+    "al_long",
+    "cf_black"
+   ],
+   "shelf": [
+    "oni_sake",
+    "oni_tuna",
+    "oni_ume",
+    "oni_konbu",
+    "oni_mentai",
+    "oni_shio_n",
+    "oni_shio_n",
+    "oni_hesiko_n",
+    "oni_hesiko_n",
+    "oni_yakisaba",
+    "oni_big",
+    "san_egg",
+    "san_mix",
+    "san_ham",
+    "san_katsu",
+    "san_katsu",
+    "san_fruit",
+    "san_saba",
+    "pan_melon",
+    "pan_an",
+    "pan_cream",
+    "pan_curry",
+    "pan_shio",
+    "pan_kroket",
+    "don_sugar",
+    "don_choco",
+    "don_nama",
+    "don_olie",
+    "cm_shoyu",
+    "cm_kitsune",
+    "cm_seafood",
+    "cm_hesiko",
+    "sn_chips",
+    "sn_nori",
+    "sn_stick",
+    "sn_choco",
+    "sn_nuts",
+    "sn_hesiko",
+    "sn_cheka",
+    "oni_sake",
+    "oni_tuna",
+    "oni_yakisaba",
+    "oni_big",
+    "oni_mentai",
+    "san_egg",
+    "san_mix",
+    "pan_melon",
+    "pan_kroket",
+    "don_olie",
+    "cm_shoyu",
+    "cm_seafood",
+    "sn_chips",
+    "sn_cheka",
+    "sn_hesiko",
+    null,
+    null
+   ],
+   "hook": [
+    "dl_mask",
+    "dl_tissue",
+    "dl_brush",
+    "dl_gunte",
+    "dl_socks",
+    "dl_sweat",
+    "dl_towel",
+    "dl_sunscreen",
+    "dl_mask",
+    "dl_tissue",
+    "dl_gunte",
+    "dl_sweat",
+    "dl_tissue",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "tobacco": [
+    "tb_a",
+    "tb_a",
+    "tb_a",
+    "tb_b",
+    "tb_b",
+    "tb_b",
+    "tb_c",
+    "tb_c"
+   ],
+   "hot": [
+    "hot_karaage",
+    "hot_niku",
+    "hot_an",
+    "hot_dog",
+    "hot_potato",
+    "hot_shiromi",
+    null,
+    null
+   ],
+   "warmer": [
+    "hd_bitou",
+    "hd_bitou",
+    "hd_tea",
+    "hd_soup",
+    "hd_lemon"
+   ],
+   "umbrella": [
+    "um_vinyl",
+    "um_fold",
+    "um_rain"
+   ],
+   "rack": [
+    "pp_daily",
+    "pp_sports",
+    "pp_sports",
+    "pp_evening",
+    "mg_weekly",
+    "mg_manga",
+    "mg_travel"
+   ],
+   "omiyage": [
+    "om_waffle2",
+    "om_waffle6",
+    "om_hesiko",
+    "om_rice",
+    "om_card",
+    "om_tram",
+    "om_waffle2",
+    "om_waffle6",
+    "om_hesiko",
+    null
+   ],
+   "regfront": [
+    "dl_kairo",
+    "dl_bandage",
+    "dl_charger",
+    "gm_mint",
+    "gm_nodo",
+    "gm_shio",
+    "gm_limited",
+    "gm_grape",
+    "gm_peach",
+    "en_jelly",
+    "en_jelly",
+    null
+   ]
+  },
+  "shrinkZone": {
+   "omiyage": 0.8,
+   "regfront": 0.4,
+   "note": "盗まれやすさ（data/kiosk.json の shrink.zone と同じ考え）。おみやげの台は奥の角でミラーとカメラ、レジ前の棚は店員の目の前"
+  },
+  "genreZones": {
+   "gummy": [
+    "regfront"
+   ],
+   "daily": [
+    "regfront"
+   ],
+   "energy": [
+    "regfront"
+   ],
+   "omiyage": [
+    "omiyage"
+   ],
+   "note": "新しい場所に置けるジャンル（今のジャンルの zones に足す）"
+  },
+  "deliveries": {
+   "bento": [
+    "昼前の便",
+    "午後の便"
+   ],
+   "cupmen": [],
+   "omiyage": [],
+   "note": "お弁当は昼前と午後の便にも（チルド）。日持ちする品は朝の便"
+  }
  },
  "genres": [
   {
@@ -168,7 +651,20 @@
     "before": 40,
     "after": 30,
     "src": "assume",
-    "note": "交代の前に来る人と、終わってから来る人。時刻は街のカルテのみなと川化成の3交代（6・14・22時）。夜勤明け（6時）の人はお弁当とロング缶が多い"
+    "note": "交代の前に来る人と、終わってから来る人。時刻は街のカルテのみなと川化成の3交代（6・14・22時）。夜勤明け（6時）の人はお弁当とロング缶が多い",
+    "emp": 1250,
+    "empSrc": "docs/town.json のみなと川化成（社員1250人・3交代）",
+    "shiftShare": 0.6,
+    "railShare": 0.3,
+    "visit": 0.25,
+    "age": [
+     0,
+     0.35,
+     0.45,
+     0.2
+    ],
+    "em": 0.6,
+    "calc": "1回の交代で店に寄る人＝emp×shiftShare÷3×railShare×visit（来る人と帰る人それぞれ）。来る人は交代の before 分前から、帰る人は after 分のあいだ。毎日（土日も）。数字は emp のほかは仮。いまの乗降の通勤客と一部重なる（仮）"
    }
   },
   {
@@ -201,7 +697,9 @@
    "male": 0.5,
    "strength": 0,
    "when": {
-    "note": "客船が寄る日だけ（8回目の客船の日まで来ない。strength 0）"
+    "note": "客船が寄る日だけ（8回目の客船の日まで来ない。strength 0）",
+    "calc": "ctx.cruise＝{pax:その日の客船の客の数, from, to（分）} があり、strength＞0 のときだけ来る（8回目で入れる）。来る人＝pax×visit×strength",
+    "visit": 0.12
    }
   }
  ],

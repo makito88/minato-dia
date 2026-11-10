@@ -9,9 +9,9 @@
 'use strict';
 const R=Math.round;
 /* センターの人と建物（A）：pieces＝その日にセンターで扱う個数。返すもの：{ops:運営の人, facility:建物, sort:[{label,h,yen}], sortH, total} */
-function centerCost(M,pieces){const O=M.centerOps;if(!O)return null;const soc=1+(O.social||0);
-  const ops=R(O.staff.reduce((t,x)=>t+x.n*x.h*x.wage,0)*soc),S=O.sort,sort=S.shifts.map(sh=>{const h=Math.max(sh.minH||0,pieces*(sh.share||0)/(S.perHour||450));return {label:sh.label,h:+h.toFixed(1),yen:R(h*S.wage*(1+(sh.night?(O.nightPremium||0):0))*soc)};});
-  return {ops,facility:O.facility||0,sort,sortH:+sort.reduce((t,x)=>t+x.h,0).toFixed(1),total:ops+(O.facility||0)+sort.reduce((t,x)=>t+x.yen,0)};}
+function centerCost(M,pieces,n){const O=M.centerOps;if(!O)return null;const soc=1+(O.social||0);n=n>1?n:1;   // n：店の数（2026-11-10。決まった費用と仕分けの最低の時間を店の数で分ける。1なら前と同じ）
+  const ops=R(O.staff.reduce((t,x)=>t+x.n*x.h*x.wage,0)*soc/n),S=O.sort,sort=S.shifts.map(sh=>{const h=Math.max((sh.minH||0)/n,pieces*(sh.share||0)/(S.perHour||450));return {label:sh.label,h:+h.toFixed(1),yen:R(h*S.wage*(1+(sh.night?(O.nightPremium||0):0))*soc)};});
+  return {ops,facility:R((O.facility||0)/n),sort,sortH:+sort.reduce((t,x)=>t+x.h,0).toFixed(1),total:ops+(O.facility||0)+sort.reduce((t,x)=>t+x.yen,0)};}
 /* o＝{day, sales, pl:売店の収支, delivered:{品:数}（その日に店に届いた品。臨時便は入れない）, route:pid→'factory'|'center'|'direct', cost:pid→仕入れ値,
        haiso:{runs}（HaisoCore.dayPlan の結果。なければ配送は0）, take, live:きょうの見込みなら true}
    返すもの：{v:1, day, live, inv:[{from,to,what,yen}], co:{会社:{in,out,net}}, ext:{in,out}} */
@@ -26,10 +26,10 @@ function dayLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if(y
   add('kiosk','ext','家賃・電気・手数料など',(pl.rent||0)+(pl.util||0)+(pl.fee||0)+(pl.guard||0)+(pl.express||0));
   add('center','factory','工場の品の代金',bF*(1-take));
   add('center','ext','問屋の品の代金（店へ出した分）',bC*(M.wsRate??0.75));
-  // A：センター全体の決まった費用を、店の数で分ける（o.nStores。いまは1店）。B：売店→センターのセンターフィー（品が届いた便ごと）
-  {let pcs=0;for(const pid in o.delivered||{}){const r=o.route(pid);if(r==='factory'||r==='center')pcs+=o.delivered[pid]||0;}const CCo=centerCost(M,pcs);
+  // A：センター全体の決まった費用を、店の数で分ける（o.nStores。なければ1店＝前と同じ。2026-11-10 に港駅の店のために入れた）。B：売店→センターのセンターフィー（品が届いた便ごと）
+  {let pcs=0;for(const pid in o.delivered||{}){const r=o.route(pid);if(r==='factory'||r==='center')pcs+=o.delivered[pid]||0;}const CCo=centerCost(M,pcs,o.nStores);
     if(CCo){add('center','ext','センターの運営の人（センター長・事務・検品）',CCo.ops);add('center','ext','倉庫の家賃・電気・機械',CCo.facility);for(const x of CCo.sort)add('center','ext',`仕分けの人（${x.label}・${x.h}時間）`,x.yen);}
-    else add('center','ext','倉庫と仕分け（センター全体の決まった費用）',M.centerFixedDay||M.centerFixed||0);}
+    else add('center','ext','倉庫と仕分け（センター全体の決まった費用）',(M.centerFixedDay||M.centerFixed||0)/(o.nStores>1?o.nStores:1));}
   add('kiosk','center','センターフィー（配送料・'+(o.runs||0)+'便）',((M.centerFee&&M.centerFee.perRun)||0)*(o.runs||0));
   add('factory','ext','材料・人件費・電気など',bF*(1-take)*(M.factoryCost??0.7));
   const runs=(o.haiso&&o.haiso.runs)||[];let fC=0,fF=0,xC=0,xF=0,hc=0;

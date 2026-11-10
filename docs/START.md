@@ -23,7 +23,7 @@
 
 ## ファイルの地図（おもなもの）
 - `index.html`：路線図とダイヤ・乗客の計算・地図の描画・沿線暦（本体）。`js/top.js` トップページ。`js/away.js` 留守のあいだ（運行日は本当の暦の朝4:30で進む）。`js/save.js` 保存と引き継ぎコード（dia- で始まるものが入る）。`js/perf-meter.js` 負荷メーター。
-- 売店：`js/kiosk-core.js`（1日の出来事の列を決まった乱数で作る）・`js/kiosk-staff.js`（店員・シフト・社会保険）・`js/kiosk-view.js`・`data/kiosk.json`。川辺の配送センター（おまかせ発注・売上の記録と発注を `dia-orders` に）：`js/center-core.js`・`data/center.json`。工場の夜とセンターの発注のつなぎ・納品書：`js/factory-night.js`（2026-11-07）。工場→センター→売店の流れの時刻は `data/center.json` の `flow`。工場の時間帯・人員の検討資料：`docs/factory-discussion.md`。リサーチ：`js/research-*.js`。
+- 売店：`js/kiosk-core.js`（1日の出来事の列を決まった乱数で作る）・`js/kiosk-staff.js`（店員・シフト・社会保険）・`js/kiosk-view.js`・`data/kiosk.json`。川辺の配送センター（おまかせ発注・売上の記録と発注を `dia-orders` に）：`js/center-core.js`・`data/center.json`。工場の夜とセンターの発注のつなぎ・納品書：`js/factory-night.js`（2026-11-07）。工場→センター→売店の流れの時刻は `data/center.json` の `flow`。工場の時間帯・人員の検討資料：`docs/factory-discussion.md`。港駅の売店（つくっている途中・`docs/minato-store-rounds.md`）：歩く店の計算 `js/kiosk-walk.js`・設定を合わせる `js/minato-store-core.js`・`data/minato-store.json`。リサーチ：`js/research-*.js`。
 - 工場：`factory.html`・`js/factory-*.js`（米）・`js/bread-*.js`・`js/sand-*.js`・`js/donut-*.js`・`js/factory-pl.js`（収支）・`data/factory.json`。
 - 沿線くらしアンケート：`survey.html`・`js/survey-*.js`・`data/survey.json`。路線のお絵かき帖：`route-editor.html`・`js/route-*.js`・`data/routes.json`。街のカルテ：`docs/machi-karte.html`・`docs/town.json`。
 - 会社（2026-11-09）：売店＝みなとスタンド、センター＝川辺ロジスティクス、工場＝港浜フーズ、配送会社＝みなと川運輸（グループの別々の会社）、他社の運送＝港浜急送、問屋＝みなと卸（`data/companies.json`）。センターの倉庫：`js/center-view.js`（計算は center-core の cs*）。配送会社：`js/haiso-core.js`・`js/haiso-view.js`・`data/haiso.json`。

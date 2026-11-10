@@ -1,12 +1,14 @@
 // 港駅の売店（data/minato-store.json）。港駅の売店をつくる回の1回目（2026-11-10）から
 //  ・設定の形がそろっている（新しい品は data/kiosk.json の品と同じ欄・id が重ならない・ジャンルと客層の名前がある）
 //  ・品の数は約110（置ける今の品＋新しい品）
-//  ・緑ヶ丘の店は変わらない：kiosk.json に港駅の品・ジャンル・客層が入っていない、計算（js/）がまだ minato-store.json を読まない、
+//  ・緑ヶ丘の店は変わらない：kiosk.json に港駅の品・ジャンル・客層が入っていない、
+//    minato-store.json を読むのは js/minato-store-core.js だけ（2回目から。KioskCore は設定の walk を見るだけ）、
+//    歩く店の計算（js/kiosk-walk.js）を読みこんでも、
 //    いつもの条件の3日分の出来事の列・収支が、決めておいた指紋（GREEN）と同じ
 //    （港駅の売店の回では、この指紋を変えてはいけない。ほかの仕事で売店の計算を変えたときだけ、わけを書いて指紋を作り直す：
 //     MINATO_PRINT=1 node tests/minato-store.test.cjs で新しい指紋を表示）
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-for(const f of ['research-core','kiosk-staff','kiosk-core'])require('../js/'+f+'.js');
+for(const f of ['research-core','kiosk-staff','kiosk-walk','kiosk-core','minato-store-core'])require('../js/'+f+'.js');
 const K=require('../data/kiosk.json'),R=require('../data/research.json'),M=require('../data/minato-store.json'),L=require('../data/links.json');
 const KC=globalThis.KioskCore;
 
@@ -40,8 +42,10 @@ console.log('  港駅の売店の設定：品',total,'（新しい品',M.product
 const kjs=JSON.stringify(K);
 for(const id of [...nIds,...mGen,...M.personas.map(p=>p.id)])assert.ok(!kjs.includes('"'+id+'"'),'kiosk.json に港駅の設定が入った '+id);
 const js=fs.readdirSync(path.join(__dirname,'../js'),{recursive:true}).filter(f=>f.endsWith('.js'));
-// 2回目から KioskCore が読む。そのときは下の行を「読んでも、港駅の設定がないときは前と同じ」の確かめに置きかえる
-for(const f of js)assert.ok(!fs.readFileSync(path.join(__dirname,'../js',f),'utf8').includes('minato-store'),'まだ計算が読まない（1回目） '+f);
+// 2回目（2026-11-10）から：minato-store.json を読むのは minato-store-core.js だけ。港駅の店の設定を作っても kiosk.json は変わらない
+for(const f of js)if(f!=='minato-store-core.js')assert.ok(!fs.readFileSync(path.join(__dirname,'../js',f),'utf8').includes('minato-store.json'),'minato-store.json を読むのは minato-store-core.js だけ '+f);
+globalThis.MinatoStore.cfg(K,M);assert.equal(JSON.stringify(K),kjs,'港駅の店の設定を作っても kiosk.json の中身は同じ');
+assert.ok(!K.walk,'緑ヶ丘の設定に walk がない（歩く店の計算は通らない）');
 const H=KC.H,a=new Array(H).fill(0).map((_,h)=>h>=5&&h<24?150:0),fl=[a,a,a,a];
 const st=KC.create(K,{st:'M',place:'home',seed:3});
 const out=[5,6,9].map(day=>KC.simulate(K,st,{day,dow:day%7,cond:{day:'wd',wx:'sun',season:'aut'},flows:{hb:fl,ha:fl},stops:new Array(H).fill(4),plats:2,rcfg:R,order:st.order,express:[],addOn:[],edits:[],startT:0}));
