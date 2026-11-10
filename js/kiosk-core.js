@@ -228,7 +228,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     const WP=WK?WK.plan(v,items,svc):null;   // 歩く店：店の中を回ってからレジへ（有人かセルフか）
     const [k0,start]=WP?[WP.k,WP.start]:pickS(v.t),wait=WP?WP.wait:start-v.t;if(!WP)svc/=KS.speed(cfg,W[k0].p,'reg');
     const patience=ps.patience*(state.place==='home'?clamp(v.dw*0.7,0.6,3):3);
-    if(wait>patience||(WP&&WP.full)){logLook(it.id,'列が長い');if(WP){Object.assign(ev[ev.length-1],{t:WP.t,q:WP.qn,lane:WP.lane});if(WP.full)WK.left();}if(v.reg)regEvents.push({g:v.reg,ok:false,why:'列が長い'});continue;}
+    if(wait>patience||(WP&&WP.full)){logLook(it.id,'列が長い');if(WP){Object.assign(ev[ev.length-1],{t:WP.t,q:WP.qn,lane:WP.lane,stay:v.stay});if(WP.full)WK.left();}if(v.reg)regEvents.push({g:v.reg,ok:false,why:'列が長い'});continue;}
     if(WP){WK.commit(WP,ev);if(WP.lane==='f')served[k0]++;}else{free[k0]=start+svc/60;served[k0]++;}
     // 売る
     let yen=0,bought=[];

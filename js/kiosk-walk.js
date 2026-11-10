@@ -4,6 +4,7 @@
    ・ここで決めること：交代で働く人・客船の客が来る時刻／店にいる時間（長いほどかごの品が増える）／
      有人レジ1台とセルフ1台（セルフで迷うと店員が呼ばれ、有人レジが止まる）／列が床の印をこえると最後尾が帰る／
      イートイン（席・レンジ・お湯。席がうまっていると持ち帰る）。
+   ・イートインの出来事（range・eatin・eatfull）の from は、その人の会計が終わった時刻（買った出来事の end と同じ。3回目の絵で人をつなぐため。計算は変えない）。
    ・乱数は自分の種（'walk'）だけを使う。設定は港駅の店の設定ファイルの walk（js/minato-store-core.js が合わせて cfg.walk にする）。数字はすべて仮。
    ・DOM もゲーム本体の変数も使わない。
    ===================================================================== */
@@ -58,13 +59,13 @@ function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx
     if(!g)return;const t0=p.end,pid=bought.find(([x])=>I.P[x].genre===g)[0];
     const eat=r()<best*((E.ps||{})[p.v.ps]??1);
     let tSit=t0;
-    if(g==='bento'&&E.range&&(eat?r()<E.range.p:r()<E.range.takeP)){const rs=Math.max(t0,rangeFree);rangeFree=rs+E.range.min;ev.push({t:rs,k:'range',ps:p.v.ps,pid,wait:+(rs-t0).toFixed(1),eat});S.range++;tSit=rs+E.range.min;}
+    if(g==='bento'&&E.range&&(eat?r()<E.range.p:r()<E.range.takeP)){const rs=Math.max(t0,rangeFree);rangeFree=rs+E.range.min;ev.push({t:rs,k:'range',ps:p.v.ps,pid,wait:+(rs-t0).toFixed(1),eat,from:+t0.toFixed(2)});S.range++;tSit=rs+E.range.min;}
     if(!eat)return;
     if(g==='cupmen'&&E.water)tSit=t0+E.water.min;
     let si=-1;for(let i=0;i<seats.length;i++)if(seats[i]<=tSit&&(si<0||seats[i]<seats[si]))si=i;
-    if(si<0){ev.push({t:tSit,k:'eatfull',ps:p.v.ps,pid});S.eatFull++;return;}
+    if(si<0){ev.push({t:tSit,k:'eatfull',ps:p.v.ps,pid,from:+t0.toFixed(2)});S.eatFull++;return;}
     const to=tSit+((E.eat||{})[g]||8)+(g==='cupmen'&&E.water?E.water.wait:0);seats[si]=to;
-    ev.push({t:tSit,k:'eatin',ps:p.v.ps,pid,seat:si,to:+to.toFixed(1)});S.eatIn++;}
+    ev.push({t:tSit,k:'eatin',ps:p.v.ps,pid,seat:si,to:+to.toFixed(1),from:+t0.toFixed(2)});S.eatIn++;}
   /* KioskCore の店員の道具をつなぐ（simulate の中で、店員が決まってから） */
   const bind=b=>{B=b;};
   const stats=()=>({shift:S.shift,cruise:S.cruise,self:S.self,staffed:S.staffed,selfShare:S.self+S.staffed?+(S.self/(S.self+S.staffed)).toFixed(3):0,selfHelp:S.selfHelp,queueLeft:S.queueLeft,

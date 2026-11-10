@@ -22,9 +22,11 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const DAYN={wd:'平日',sat:'土曜',hol:'日曜・祝日'},WXN={sun:'晴れ',cld:'くもり',rain:'雨',snow:'大雪'},SEAN={spr:'春',sum:'夏',aut:'秋',win:'冬'};
 
 const V={cfg:null,rcfg:null,err:null,st:null,open:false,res:null,resKey:'',lastDay:null,tab:'log',form:{st:'C',place:'home'},
-  cv:null,cx:null,raf:0,lastTs:0,people:[],bubbles:[],evI:0,lastT:null,slotAt:null,pend:null,showAll:false,panelT:0,heavyT:0};
+  which:(()=>{try{return localStorage.getItem('minato-kiosk-which')==='minato'?'minato':'home';}catch(e){return 'home';}})(),cv:null,cx:null,raf:0,lastTs:0,people:[],bubbles:[],evI:0,lastT:null,slotAt:null,pend:null,showAll:false,panelT:0,heavyT:0};
 
 const narrow=()=>window.innerWidth<760;
+/* 港駅の店（js/minato-store-view.js）を見ているか。港駅の店の画面がないときは、いつもの店だけ */
+const MSV=()=>window.MinatoStoreView||null,isMinato=()=>V.which==='minato'&&!!MSV();
 addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=n;if(V.open)render(true);}});
 /* ---------- 読み込み・保存 ---------- */
 // 橋の一覧とアンケート（読めなくても売店はいつもどおり。アンケート→売店の橋が「未接続」になるだけ）。売店の最初の計算より前にそろえる（途中で効き目が入って結果が変わらないように）
@@ -311,7 +313,7 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   const mb=document.querySelector('.minibar-in');if(mb){const b=document.createElement('button');b.id='mks';b.type='button';b.className='mspeed tayorimini';b.innerHTML='売店<span class="dot" hidden></span>';mb.appendChild(b);b.onclick=openFromBadge;}
   const p=document.createElement('section');p.id='ksv';p.className='ksv';p.hidden=true;p.setAttribute('aria-label','売店の運営');
   p.innerHTML=`<div class="ks-in"><div class="ks-hd"><h2 id="ksTitle">売店の運営</h2><small id="ksSub"></small><span class="ks-sp"></span><span id="ksSpd"></span><button type="button" class="ks-btn" id="ksClose">閉じる</button></div>
-    <div id="ksTop"></div><div class="ks-stage"><canvas id="ksCanvas" width="1000" height="600" aria-label="売店の正面のようす（棚を押すと、その商品のカードが出ます）"></canvas></div><div id="ksAlert" class="ks-alert" aria-live="polite"></div><div id="ksKpi" class="ks-kpi"></div>
+    <div id="ksWhich" class="ks-which" hidden></div><div id="ksTop"></div><div class="ks-stage"><canvas id="ksCanvas" width="1000" height="600" aria-label="売店の正面のようす（棚を押すと、その商品のカードが出ます）"></canvas></div><div id="ksAlert" class="ks-alert" aria-live="polite"></div><div id="ksKpi" class="ks-kpi"></div>
     <div class="ks-tabs" role="tablist" id="ksTabs"></div><div id="ksBody"></div></div>`;
   document.body.appendChild(p);const sh=document.createElement('aside');sh.id='ksSheet';sh.className='ks-sheet';sh.hidden=true;sh.setAttribute('aria-label','商品カード');p.appendChild(sh);
   $('ksClose').onclick=()=>setOpen(false);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open){if(V.sheet){closeSheet();return;}setOpen(false);}});
@@ -400,6 +402,8 @@ function updateSheet(){const pid=V.sheet,res=V.res;if(!pid||!res||!$('shNow'))re
 /* ---------- 画面全体 ---------- */
 function render(full){if(!V.open)return;
   if(!V.cfg){$('ksTop').innerHTML=`<div class="ks-card"><p>${V.err?'設定を読み込めませんでした（'+esc(V.err)+'）。パソコンで index.html を直接開いた場合は読み込めません。':'準備しています…'}</p></div>`;return;}
+  renderWhich();
+  if(isMinato()){['ksAlert','ksBody'].forEach(id=>$(id).innerHTML='');$('ksTabs').hidden=true;$('ksTop').dataset.k='';if(V.sheet)closeSheet();MSV().render({top:$('ksTop'),kpi:$('ksKpi'),title:$('ksTitle'),sub:$('ksSub')});return;}
   if(!V.st){$('ksTitle').textContent='売店を出す';$('ksSub').textContent='';renderSetup();$('ksKpi').innerHTML='';$('ksBody').innerHTML='';$('ksTabs').hidden=true;return;}
   $('ksTabs').hidden=false;const S=V.st,c=gCond();{const h=lifeLine(S.st,c),t=$('ksTop');if(t.dataset.k!==h||!t.querySelector('.ks-life')){t.innerHTML=h;t.dataset.k=h;}}
   $('ksTitle').textContent=`みなとスタンド ${stName(S.st)}駅${V.rcfg.places[S.place].name}店`;
@@ -407,6 +411,11 @@ function render(full){if(!V.open)return;
   $('ksSub').textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]}・${WXN[c.wx]}・${SEAN[c.season]}${tr?'・世の中は'+tr.name:''}・常連 ${S.regulars.length}人${S.moveNext?`・第${S.moveNext.day}運行日から${stName(S.moveNext.st)}駅へ移転`:''}`;
   $('ksTabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===V.tab)));
   renderKpi();renderAlert(true);if(V.sheet)renderSheet();if(full||V.tab==='log')renderBody(full);}
+/* どの店を見るか（港駅の店の画面があるときだけ出す） */
+function renderWhich(){const w=$('ksWhich');if(!w)return;if(!MSV()){w.hidden=true;return;}w.hidden=false;
+  const one=V.st?`${stName(V.st.st)}駅${V.rcfg.places[V.st.place].name}店`:'売店（1つ目）',ms=MSV().state;
+  const h=`<button type="button" class="ks-chip" data-w="home" aria-pressed="${!isMinato()}">${esc(one)}</button><button type="button" class="ks-chip" data-w="minato" aria-pressed="${isMinato()}">港駅改札前店${ms?'':'（まだ出していない）'}</button>`;
+  if(w.dataset.k===h)return;w.innerHTML=h;w.dataset.k=h;w.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{V.which=b.dataset.w;try{localStorage.setItem('minato-kiosk-which',V.which);}catch(e){}$('ksTop').dataset.k='';render(true);});}
 /* この駅のくらし（アンケート）：1行と、アンケートのページへの行き先 */
 function lifeLine(st,c){const L=linkNow(st,c);if(!L)return '<p class="ks-life">この駅のくらし（アンケート）：<span class="ks-lst">未接続</span>（設定を読めませんでした）</p>';
   const v=n=>(L.values.find(x=>x.name===n)||{}).value,f=x=>x.toFixed(2).replace(/0$/,''),fx=L.fx,lk=V.links.links.find(x=>x.id===SurveyToKiosk.ID)||{},stN=(V.links.states||{})[lk.state]||'';
@@ -930,6 +939,7 @@ function drawPerson(c,p){const s=p.kid?0.85:1;c.save();c.translate(p.x,p.y);c.sc
   c.fillStyle='#f0c9a0';c.beginPath();c.arc(0,-74,10,0,7);c.fill();c.fillStyle=p.ps==='sen'?'#bdbdbd':'#2b2016';c.beginPath();c.arc(0,-77,10,Math.PI*1.05,Math.PI*1.95);c.fill();
   if(p.ps==='jk'){c.fillRect(-10,-78,4,16);c.fillRect(6,-78,4,16);}c.restore();}
 function draw(dt,time){const c=V.cx,Tn=gT();if(!c)return;c.clearRect(0,0,1000,600);
+  if(isMinato()){MSV().draw(c,dt);return;}   // 港駅の店：斜め上から見た店の中（js/minato-store-view.js）
   if(!V.st){c.fillStyle='#2a2f33';c.fillRect(0,0,1000,600);c.fillStyle='#fff';c.font='16px sans-serif';c.textAlign='center';c.fillText('売店を出す場所を選んでください',500,300);return;}
   const res=ensureRes();drawKiosk(c,res,Tn);
   const mult=1,mv=Math.min(6,Math.max(1,mult));
@@ -949,17 +959,17 @@ function draw(dt,time){const c=V.cx,Tn=gT();if(!c)return;c.clearRect(0,0,1000,60
   // 時計
   c.fillStyle='rgba(15,20,24,.82)';rr(c,10,8,96,26,5);c.fill();c.fillStyle='#ffb347';c.font='700 18px "DotGothic16",monospace';c.textAlign='left';c.fillText(fmtT(Tn),20,28);
   const O0=V.cfg.open[0]*60,O1=V.cfg.open[1]*60;if(Tn<O0||Tn>=O1){c.fillStyle='rgba(20,24,28,.55)';c.fillRect(124,104,746,402);c.fillStyle='#fff';c.font='700 22px sans-serif';c.textAlign='center';c.fillText(Tn<O0?'開店前（6:00から）':'本日の営業は終わりました',497,300);}}
-function onCanvasClick(ev){if(!V.st)return;const r=V.cv.getBoundingClientRect(),x=(ev.clientX-r.left)*1000/r.width,y=(ev.clientY-r.top)*600/r.height;
+function onCanvasClick(ev){if(isMinato()){MSV().click();return;}if(!V.st)return;const r=V.cv.getBoundingClientRect(),x=(ev.clientX-r.left)*1000/r.width,y=(ev.clientY-r.top)*600/r.height;
   for(const zk in BOX){const sl=zoneSlots(zk);for(let i=0;i<sl.length;i++){const [sx,sy,sw,sh]=sl[i];if(x>=sx&&x<=sx+sw&&y>=sy&&y<=sy+sh){const pid=(curSet().layout[zk]||[])[i];
       if(pid){openSheet(pid);return;}V.tab='layout';V.slotSel={z:zk,i};render(true);$('ksBody').scrollIntoView({behavior:'smooth',block:'start'});return;}}}}   // 品のある枠は商品カード、空き枠は棚割り
 function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=ts;if(!V.open)return;
-  V.drawAcc=(V.drawAcc||0)+dt;const fps=V.fps||(V.fps=(()=>{try{return localStorage.getItem('minato-quality')==='full'?30:20;}catch(e){return 20;}})());/* 人の動きの絵は1秒20回（?quality=full で30回）。売店の計算は本当の時刻で別に進む */if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
-  V.heavyT+=dt;if(V.heavyT>1){V.heavyT=0;if(V.st){renderAlert(false);updateSheet();updateItems();V.slowT=(V.slowT||0)+1;if(V.slowT>=5&&(V.tab==='people')){V.slowT=0;renderBody(true);}if(V.tab==='track'&&V.slowT%30===0&&!V.trkHold)renderBody(true);}}
+  V.drawAcc=(V.drawAcc||0)+dt;const fps=V.fps||(V.fps=(()=>{try{return localStorage.getItem('minato-quality')==='full'?30:20;}catch(e){return 20;}})());/* 人の動きの絵は1秒20回（?quality=full で30回）。売店の計算は本当の時刻で別に進む */if(V.cfg&&V.drawAcc>=1/fps-0.002){draw(V.drawAcc,ts/1000);V.drawAcc=0;}V.panelT+=dt;if(V.panelT>0.6){V.panelT=0;if(isMinato())MSV().panel();else if(V.st){renderKpi();if(V.tab==='log')renderBody(false);}}
+  V.heavyT+=dt;if(V.heavyT>1){V.heavyT=0;if(V.st&&!isMinato()){renderAlert(false);updateSheet();updateItems();V.slowT=(V.slowT||0)+1;if(V.slowT>=5&&(V.tab==='people')){V.slowT=0;renderBody(true);}if(V.tab==='track'&&V.slowT%30===0&&!V.trkHold)renderBody(true);}}
   V.raf=requestAnimationFrame(loop);}
 
 /* ---------- 起動 ---------- */
 mount();setInterval(tick,1000);
-window.minatoKiosk={get state(){return V.st;},get today(){return V.res;},open:()=>setOpen(true),
+window.minatoKiosk={get state(){return V.st;},refresh(){if(V.open)render(true);},get today(){return V.res;},open:()=>setOpen(true),
   openTab:t=>{if(['log','items','layout','people','crew','money','track','news'].includes(t))V.tab=t;if(V.tab==='news')readNews();setOpen(true);if(V.st)render(true);},   // トップから：タブを選んで開く
   // リサーチから：その駅・場所を選んだ状態で売店の画面を開く（まだ出していないとき）
   openAt:(st,place)=>{if(!V.st&&PLACES.includes(place))V.form={st,place};setOpen(true);},places:PLACES,sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},

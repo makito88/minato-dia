@@ -9,7 +9,7 @@
    ===================================================================== */
 (function(root){
 'use strict';
-const KEY='dia-kiosk-minato';
+const KEY='dia-kiosk-minato',URL='data/minato-store.json';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
 const cache=new WeakMap();
 /* 港駅の店の設定（同じ K・M なら同じものを返す） */
 function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
@@ -31,5 +31,5 @@ function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
 /* 港駅の店を出す（運行日 day から）。KioskCore.create と同じ形（st:'P', place:'gate'）に、店の名前を足す */
 function create(K,M,KC,opts){opts=opts||{};const c=cfg(K,M),st=KC.create(c,{seed:opts.seed||1,st:M.store.station,place:M.store.place,day:opts.day||1});
   st.store=M.store.id;st.staff=opts.staff||1;return st;}
-root.MinatoStore={KEY,cfg,create};
+root.MinatoStore={KEY,URL,cfg,create};
 })(typeof window!=='undefined'?window:globalThis);
