@@ -24,7 +24,8 @@ function storeKey(state){return state.st+'-'+state.place;}
 function orderNo(forDay,key){return 'O'+String(forDay).padStart(4,'0')+'-'+key;}
 function genreOf(kcfg,pid){const p=kcfg._cix||(kcfg._cix=Object.fromEntries(kcfg.products.map(x=>[x.id,x])));return p[pid]&&p[pid].genre;}
 function genreCfg(kcfg,gid){return kcfg.genres.find(g=>g.id===gid)||{};}
-function routeOf(ccfg,gid){const R=ccfg.routes||{};if((R.factory||[]).includes(gid))return 'factory';if((R.direct||[]).includes(gid))return 'direct';return 'center';}
+function routeOf(ccfg,gid,pid){const R=ccfg.routes||{};if(pid!=null&&ccfg.routePid&&ccfg.routePid[pid])return ccfg.routePid[pid];   // 品ごとの例外（2026-11-10：ゆでたまごはお弁当のジャンルでも問屋の品）
+  if((R.factory||[]).includes(gid))return 'factory';if((R.direct||[]).includes(gid))return 'direct';return 'center';}
 
 /* 売上の記録：その運行日の結果（kiosk-core の simulate の戻り値）から、品ごとに
    [売れた数, 売り切れで逃した数, 廃棄, 閉店のあとの残り]（その日の仕入れ数は、前の日の発注 orders に入っている） */
@@ -77,7 +78,7 @@ function plan(kcfg,ccfg,state,recs,next,opts){opts=opts||{};const A=(ccfg.aims||
   const prev=fd!=null?all.find(r=>r.day===fd-1&&r.pre):null,mine=fd!=null?all.filter(r=>r.day<=fd-2):all;
   const same=mine.filter(r=>r.cond&&r.cond.day===ty).slice(-(ccfg.lookback||4)),any=mine.slice(-(ccfg.lookback||4)*2);
   const items={},by={factory:{},center:{},direct:{}},why={},cur=opts.cur||state.order||{},shelf=opts.shelf||{};
-  for(const pid in shelf){const gid=genreOf(kcfg,pid);if(!gid)continue;const route=routeOf(ccfg,gid),g=genreCfg(kcfg,gid),cap=shelf[pid].cap||0;
+  for(const pid in shelf){const gid=genreOf(kcfg,pid);if(!gid)continue;const route=routeOf(ccfg,gid,pid),g=genreCfg(kcfg,gid),cap=shelf[pid].cap||0;
     if(route==='direct'){items[pid]=cur[pid]||0;by.direct[pid]=items[pid];why[pid]={from:'direct'};continue;}
     // 同じ型の日がなければ、型をまたいで（店全体の型の差は custH の合計の比で直す）
     let use=same,from='same';if(!use.length){use=any;from='any';}
@@ -108,7 +109,7 @@ function plan(kcfg,ccfg,state,recs,next,opts){opts=opts||{};const A=(ccfg.aims||
    目標との差（＝届ける数）だけを頼む。残りの見込み：19:00 にあった、その日に届いた分（古い分から先に売れる）から、19:00 より後に売れる見込みを引く。
    前の日の記録がなければ、目標のまま。返すのは、その品の頼む数だけ {pid:数} */
 function factoryQty(kcfg,ccfg,state,recs,forDay,items){const key=storeKey(state),prev=(recs||[]).find(r=>r.store===key&&r.day===forDay-1&&r.pre),out={};
-  for(const pid in items){const gid=genreOf(kcfg,pid);if(!gid||routeOf(ccfg,gid)!=='factory')continue;const life=genreCfg(kcfg,gid).life||0;if(life<2)continue;
+  for(const pid in items){const gid=genreOf(kcfg,pid);if(!gid||routeOf(ccfg,gid,pid)!=='factory')continue;const life=genreCfg(kcfg,gid).life||0;if(life<2)continue;
     const target=items[pid]||0;if(!prev){out[pid]=target;continue;}
     const x=prev.pre.items[pid]||[],sold=x[0]||0,lost=x[1]||0,stock=x[2]||0,fresh=x[3]||0,ty=(prev.cond&&prev.cond.day)||'wd',sh=shareBefore(kcfg,state,gid,ty,prev.pre.at);
     const after=sh>=0.05?(sold+lost*(ccfg.lostW??0.7))/sh*(1-sh):0,old=Math.max(0,stock-fresh),carry=Math.max(0,fresh-Math.max(0,after-old));
@@ -121,7 +122,7 @@ function dayOf(log,day){let d=log.days.find(x=>x.day===day);if(!d){d={day,recs:{
 function putRecord(log,rec,keep){const d=dayOf(log,rec.day);d.recs[rec.store]=rec;trim(log,keep);return log;}
 /* 発注：店ごとの数（自分で決めた店も、おまかせの店も）。工場で作る品は全店の合計を工場への発注に */
 function putOrder(kcfg,ccfg,log,forDay,key,o,keep){const d=dayOf(log,forDay),f={},c={},dr={};
-  for(const pid in o.items){const q=o.items[pid];if(!q)continue;const r=routeOf(ccfg,genreOf(kcfg,pid));(r==='factory'?f:r==='direct'?dr:c)[pid]=q;}
+  for(const pid in o.items){const q=o.items[pid];if(!q)continue;const r=routeOf(ccfg,genreOf(kcfg,pid),pid);(r==='factory'?f:r==='direct'?dr:c)[pid]=q;}
   if(o.fq)for(const pid in o.fq){if(o.fq[pid]>0)f[pid]=o.fq[pid];else delete f[pid];}   // 工場に頼む数（日持ちする工場の品は「届ける数」。factoryQty）
   d.orders[key]={no:orderNo(forDay,key),mode:o.mode||'self',aim:o.aim||null,factory:f,center:c,direct:dr,ask:o.ask||null};
   const tot={};for(const k in d.orders)for(const pid in d.orders[k].factory)tot[pid]=(tot[pid]||0)+d.orders[k].factory[pid];
@@ -134,7 +135,7 @@ function recsOf(log,key){return (log&&log.days||[]).map(d=>d.recs&&d.recs[key]).
 function supplyFor(slip,key,kcfg,ccfg,shelf){const m=slip&&!slip.err&&slip.stores&&slip.stores[key];if(!m)return null;const o={};
   for(const pid in m.items)o[pid]=m.items[pid][1];
   // 工場の品で、この店が頼まなかった品（届ける数が0）は、店に届かない（2026-11-09。shelf を渡したときだけ）
-  if(kcfg&&ccfg&&shelf)for(const pid in shelf)if(o[pid]==null&&routeOf(ccfg,genreOf(kcfg,pid))==='factory')o[pid]=0;
+  if(kcfg&&ccfg&&shelf)for(const pid in shelf)if(o[pid]==null&&routeOf(ccfg,genreOf(kcfg,pid),pid)==='factory')o[pid]=0;
   return Object.keys(o).length?o:null;}
 /* かご車（2026-11-09）：センターが、工場から届いた品（納品書の出荷数）を、便ごとに店へ分ける。
    その日のうちに売る品（おにぎり・サンド・ドーナッツ）は、その品のジャンルが載っている便に、朝5・昼前2.5・午後2.5 の重みで分ける（端数は合計が出荷数とちょうど同じになるように）。
@@ -161,7 +162,7 @@ function cart(kcfg,ccfg,slip,key,shelf,co){const sup=slip&&!slip.err?supplyFor(s
    ・昼前・午後の便：前の便からその便までに売れる見込み（1日の見込み×その時間帯の割合）を足す
    ・1日の見込みは plan と同じ数（why.mu）。返すもの：{bin:{pid:数}}（センターの品だけ） */
 function runOrder(kcfg,ccfg,state,recs,forDay,next,items,why){const key=storeKey(state),prev=(recs||[]).find(r=>r.store===key&&r.day===forDay-1&&r.pre),ty=(next&&next.day)||'wd',DL=kcfg.deliveries||[],out={};for(const d of DL)out[d.name]={};
-  for(const pid in items){const gid=genreOf(kcfg,pid);if(!gid||routeOf(ccfg,gid)!=='center')continue;const target=items[pid]||0,mu=(why&&why[pid]&&why[pid].mu)||0;
+  for(const pid in items){const gid=genreOf(kcfg,pid);if(!gid||routeOf(ccfg,gid,pid)!=='center')continue;const target=items[pid]||0,mu=(why&&why[pid]&&why[pid].mu)||0;
     let carry;if(prev){const x=prev.pre.items[pid]||[],sh=shareBefore(kcfg,state,gid,(prev.cond&&prev.cond.day)||ty,prev.pre.at);carry=Math.max(0,(x[2]||0)-((x[0]||0)+(x[1]||0)*(ccfg.lostW??0.7))/Math.max(0.05,sh)*(1-sh));}
     else carry=(state.lots&&state.lots[pid]||[]).reduce((t,l)=>t+(l.q||0),0);
     const on=DL.filter(d=>d.all||(d.genres||[]).includes(gid)).sort((a,b)=>a.t-b.t);if(!on.length)continue;
@@ -190,7 +191,7 @@ function truckFor(ccfg,key){const st=String(key).split('-')[0],T=(ccfg.slip&&ccf
    ・時刻の順：発注は運行日の始め（前の日の締めのあと）なので、前の日までの1日の記録を使ってよい
    ===================================================================== */
 function csNew(){return {v:1,day:null,closed:null,stock:{},po:[],log:[]};}
-function centerPids(kcfg,ccfg,shelf){return Object.keys(shelf||{}).filter(pid=>{const g=genreOf(kcfg,pid);return g&&routeOf(ccfg,g)==='center';});}
+function centerPids(kcfg,ccfg,shelf){return Object.keys(shelf||{}).filter(pid=>{const g=genreOf(kcfg,pid);return g&&routeOf(ccfg,g,pid)==='center';});}
 /* 1日の出る数の見込み（全店の合計）：最近の記録の「売れた数＋売り切れで逃した数×lostW」。記録がなければ 店の仕入れ数×guess */
 function csDemand(kcfg,ccfg,recs,stores,pid,upto,cs){const W=ccfg.ws||{},lw=ccfg.lostW??0.7,by={};
   // センター自身の記録（店へ出した数＋足りなくて出せなかった数）が3日以上あれば、それを使う（店は便ごとに目標まで足すので、売れ方よりまとまって出る）
@@ -219,7 +220,7 @@ function csOpen(kcfg,ccfg,cs,day,o){const W=ccfg.ws||{},stores=o.stores||[],pids
   if(did.in.length||did.po.length)did.changed=true;if(cs.po.length>12)cs.po=cs.po.filter(p=>p.st!=='in').concat(cs.po.filter(p=>p.st==='in').slice(-8)).sort((a,b)=>a.day-b.day);
   return did;}
 /* その日に店へ出したセンター在庫の品（便と当日の追加） */
-function centerOut(kcfg,ccfg,res){const out={};for(const e of res.ev||[]){if(e.k!=='delivery'||e.local||(e.express&&!e.addOn))continue;for(const pid in e.items||{}){const g=genreOf(kcfg,pid);if(g&&routeOf(ccfg,g)==='center')out[pid]=(out[pid]||0)+e.items[pid];}}return out;}
+function centerOut(kcfg,ccfg,res){const out={};for(const e of res.ev||[]){if(e.k!=='delivery'||e.local||(e.express&&!e.addOn))continue;for(const pid in e.items||{}){const g=genreOf(kcfg,pid);if(g&&routeOf(ccfg,g,pid)==='center')out[pid]=(out[pid]||0)+e.items[pid];}}return out;}
 /* 運行日の締め：店へ出した数を引く（同じ日を2回引かない） */
 //   res は1店の結果、または店が2つ以上のときは同じ日の結果の配列（2026-11-10。港駅の店。1店なら前と同じ）
 function csClose(kcfg,ccfg,cs,res){const L=Array.isArray(res)?res:[res];if(!L.length)return false;const day=L[0].day;if(cs.closed!=null&&day<=cs.closed)return false;
@@ -255,7 +256,7 @@ function flowOf(ccfg,key){const F=ccfg.flow;if(!F)return null;const tr=truckFor(
 function arrival(kcfg,ccfg,state,res,slip){const key=storeKey(state),m=slip&&!slip.err&&slip.stores&&slip.stores[key],fItems=m?m.items:{},runs=[],got={};
   const binOf=t=>{const R=(ccfg.flow&&ccfg.flow.runs)||[];let best=null;for(const r of R)if(Math.abs(r.t-t)<=60&&(!best||Math.abs(r.t-t)<Math.abs(best.t-t)))best=r;return best;};
   for(const e of res.ev||[]){if(e.k!=='delivery'||e.express||e.addOn||e.local)continue;const f={},n={c:0,d:0};
-    for(const pid in e.items||{}){const q=e.items[pid],r=routeOf(ccfg,genreOf(kcfg,pid));if(r==='factory'){f[pid]=q;got[pid]=(got[pid]||0)+q;}else n[r==='direct'?'d':'c']+=q;}
+    for(const pid in e.items||{}){const q=e.items[pid],r=routeOf(ccfg,genreOf(kcfg,pid),pid);if(r==='factory'){f[pid]=q;got[pid]=(got[pid]||0)+q;}else n[r==='direct'?'d':'c']+=q;}
     const b=binOf(e.t);runs.push({t:e.t,bin:b?b.bin:e.name,f,c:n.c,d:n.d,cut:e.cut||null});}
   const left={};for(const pid in fItems){const l=fItems[pid][1]+(fItems[pid][2]||0)-(got[pid]||0);if(l>0)left[pid]=l;}   // 追いかけ便の分（[2]）も出荷に入れる
   const tr=truckFor(ccfg,key);return {day:res.day,store:key,no:m?m.no:null,slip:slip&&slip.no||null,truck:tr?tr.id:null,runs,cut:res.cut&&Object.keys(res.cut).length?res.cut:null,left};}
