@@ -46,8 +46,8 @@ const L=[
   items:[['路線図とダイヤ（列車を走らせる）','play'],['沿線だより','tayori'],['駅ナカ リサーチ','research'],['街のカルテ（駅・市町村・名所・歴史）','karte:station','lab'],['路線を描く（バス・配送・船・空のお絵かき帖）','page:route-editor.html','lab'],['沿線くらしアンケート（駅ごとの暮らしのうつりかわり）','page:survey.html','lab']]},
  {id:'shop',name:'店舗',sub:'商品・在庫・売上・客の行動',img:'docs/img/top-kiosk.jpg',state:'遊べる',
   items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money'],['センターの倉庫（在庫・問屋への発注・足りなくなるおそれ）','center'],['配送会社（トラックの1日・自社便と他社便）','haiso'],['お金の流れ（4つの会社の入り・出・もうけ）','money'],['荷物の行方（注文した品はいまどこ・何時に並ぶ）','kiosk:track','lab']]},
- {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチ・ドーナッツの一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',note:'AIで描いたイメージです（架空の工場）。',
-  items:[['おにぎり（米のライン・機械2本）','factory:rice'],['パン（発酵の時計・オーブン）','factory:bread'],['サンドイッチ（機械のライン・自社の食パン）','factory:sand'],['ドーナッツ（油の時計・仕上げ）','factory:donut']]},
+ {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチ・ドーナッツ・お弁当の一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',note:'AIで描いたイメージです（架空の工場）。',
+  items:[['おにぎり（米のライン・機械2本）','factory:rice'],['パン（発酵の時計・オーブン）','factory:bread'],['サンドイッチ（機械のライン・自社の食パン）','factory:sand'],['ドーナッツ（油の時計・仕上げ）','factory:donut'],['お弁当（急速冷却・チルド）','factory:bento']]},
  {id:'crew',name:'従業員',sub:'シフト・時給・やる気・暮らし',art:SVG_CREW,state:'遊べる',
   items:[['店員・シフト・時給','kiosk:crew'],['店員の1か月の暮らしとお金の流れ','karte:clerk','lab']]}];
 
@@ -66,7 +66,7 @@ const stN=id=>g(()=>ST[id].name,id);
 const coN=id=>g(()=>T.co.companies.find(x=>x.id===id).name,'');
 function loadToday(){if(T.loading||T.links)return;T.loading=true;
   const j=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
-  Promise.all([j('data/links.json?v=20261110d'),window.SurveyCore?j('data/survey.json'):null,j('data/companies.json?v=20261109g')]).then(([l,s,co])=>{T.links=l;T.survey=s;T.co=co;T.loading=false;
+  Promise.all([j('data/links.json?v=20261110e'),window.SurveyCore?j('data/survey.json'):null,j('data/companies.json?v=20261109g')]).then(([l,s,co])=>{T.links=l;T.survey=s;T.co=co;T.loading=false;
     const later=window.requestIdleCallback||(f=>setTimeout(f,200));later(()=>{svChange();paintToday();});paintToday();});}
 // アンケートのいちばん新しい年と前の年で、いちばん大きく動いた駅・質問
 function svChange(){const D=T.survey,SC=window.SurveyCore;if(!D||!SC)return null;const ys=SC.years(D,opNoon());if(ys.length<2)return null;const y=ys[ys.length-1];

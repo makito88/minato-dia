@@ -30,7 +30,8 @@ function compute(D0,K,s){const P=D0.pl;s=s||settings(D0);const cost=id=>{const p
   const rcfg=Object.assign({},cfgOf('dia-factory'));rcfg.batches=Math.max(rcfg.batches||0,suggestBatches(D));
   const bcfg=cfgOf('dia-factory-bread'),scfg=cfgOf('dia-factory-sand'),dcfg=cfgOf('dia-factory-donut');
   const L={rice:{n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0},bread:{n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0},sand:{n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0}};
-  L.donut={n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0};
+  L.donut={n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0};L.bento={n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0};
+  const ecfg=cfgOf('dia-factory-bento');
   const add=(x,o)=>{for(const k in o)x[k]+=o[k]/n;};
   for(let seed=1;seed<=n;seed++){
     {const S=root.FactoryCore.simulate(D,Object.assign({},rcfg,{seed})).summary,y=S.yen;let rev=0;
@@ -46,13 +47,17 @@ function compute(D0,K,s){const P=D0.pl;s=s||settings(D0);const cost=id=>{const p
       add(L.sand,{n:S.shipped,order:S.order,short:S.short,rev,labor:lab,mat,mach:y.total-lab-mat,cost:y.total});}
     {const S=root.DonutCore.simulate(D,Object.assign({},dcfg,{seed})).summary,y=S.yen;
       const rev=S.prods.reduce((n,p)=>n+p.shipped*cost(p.kiosk)*keep,0);
-      add(L.donut,{n:S.shipped,order:S.order,short:S.short,rev,labor:y.labor,mat:y.material+y.oil,mach:y.machine,cost:y.total});}}
+      add(L.donut,{n:S.shipped,order:S.order,short:S.short,rev,labor:y.labor,mat:y.material+y.oil,mach:y.machine,cost:y.total});}
+    // お弁当（2026-11-10）：売上は港駅の店の仕入れ値（data/factory.json の bento.products[].sell。kiosk.json にはない品）
+    if(D.bento&&root.BentoCore){const S=root.BentoCore.simulate(D,Object.assign({},ecfg,{seed})).summary,y=S.yen;
+      const rev=S.prods.reduce((n,p)=>{const bp=D.bento.products.find(x=>x.id===p.id);return n+p.shipped*((bp&&bp.sell)||0)*keep;},0);
+      add(L.bento,{n:S.shipped,order:S.order,short:S.short,rev,labor:y.labor,mat:y.material,mach:y.chill+y.machine,cost:y.total});}}
 
-  const F=P.fixed,labor=L.rice.labor+L.bread.labor+L.sand.labor+L.donut.labor;
+  const F=P.fixed,labor=L.rice.labor+L.bread.labor+L.sand.labor+L.donut.labor+L.bento.labor;
   const over=[['社会保険など（人件費の'+Math.round(F.socialRate*1000)/10+'%）',labor*F.socialRate],['工場長・事務・検査の人',F.admin],[`建物と設備（月${(s.building/10000).toLocaleString()}万円）`,s.building/P.days],
     ['水道・電気・ガスの基本分',F.utility],['工場→センターのトラック',F.truck],['洗浄・衛生用品・ごみ',F.clean]];
   if(s.equip)over.push([`足した設備（${P.equip.name}）`,P.equip.yen]);
-  const rev=L.rice.rev+L.bread.rev+L.sand.rev+L.donut.rev,lineCost=L.rice.cost+L.bread.cost+L.sand.cost+L.donut.cost,overSum=over.reduce((a,x)=>a+x[1],0);
+  const rev=L.rice.rev+L.bread.rev+L.sand.rev+L.donut.rev+L.bento.rev,lineCost=L.rice.cost+L.bread.cost+L.sand.cost+L.donut.cost+L.bento.cost,overSum=over.reduce((a,x)=>a+x[1],0);
   return {L,over,rev,lineCost,overSum,profit:rev-lineCost-overSum,days:P.days,s,extra:extraUnits(D,s),forecast:D.forecast,batches:rcfg.batches,fan:rcfg.fan||D.defaults.fan,ownBread:(Object.assign({},D.sand.defaults,scfg).bread)==='own'};}
 
 /* ---------------- 画面 ---------------- */
@@ -69,7 +74,7 @@ function build(){const box=$('plBox');if(!box||!D.pl)return;const P=D.pl,s=setti
     <div><label>おにぎりを増やす設備</label>${seg('plEq',[[0,'足さない'],[1,'足す']],s.equip?1:0)}<div class="hint">${P.equip.name}・1晩${yen(P.equip.yen)}。3,000個増やすなら、設備を足して冷却を「強」にすると間に合う</div></div>
   </div>
   <div class="row" style="margin-top:10px"><button class="primary" id="plRun">見積もる（${P.nights}夜の平均）</button><span class="small muted" id="plInfo"></span></div>
-  <div id="plOut" class="small muted" style="margin-top:8px">「見積もる」を押すと、4つのラインをいま保存してある夕方の条件で${P.nights}夜回して、平均の収支を出します。</div>`;
+  <div id="plOut" class="small muted" style="margin-top:8px">「見積もる」を押すと、5つのライン（お弁当は2026-11-10から）をいま保存してある夕方の条件で${P.nights}夜回して、平均の収支を出します。</div>`;
   const set=(k,v)=>{const x=settings(D);x[k]=v;save(x);build();changed(k);};
   for(const b of $('plTake').children)b.onclick=()=>set('take',+b.dataset.v);
   for(const b of $('plBld').children)b.onclick=()=>set('building',+b.dataset.v);
@@ -84,8 +89,8 @@ function show(r){const L=r.L,P=D.pl,dd=r.days;
   $('plOut').innerHTML=`
    <p class="big">1晩のもうけ <b class="num ${r.profit>=0?'up':'down'}">${yen(r.profit)}</b>　1か月（${dd}晩）<b class="num ${r.profit>=0?'up':'down'}">${man(r.profit*dd)}</b></p>
    <div class="tw"><table><thead><tr><th>ライン</th><th class="r">出荷</th><th class="r">売上（手取り）</th><th class="r">人件費</th><th class="r">材料・包材</th><th class="r">機械・電気・ガス</th><th class="r">ラインの費用</th><th class="r">ラインのもうけ</th><th class="r">1個の費用</th></tr></thead><tbody>
-    ${line('おにぎり',L.rice,'個')}${line('パン',L.bread,'個')}${line('サンド',L.sand,'パック')}${line('ドーナッツ',L.donut,'個')}
-    <tr><th>合計</th><td></td><td class="r num"><b>${yen(r.rev)}</b></td><td class="r num">${yen(L.rice.labor+L.bread.labor+L.sand.labor+L.donut.labor)}</td><td class="r num">${yen(L.rice.mat+L.bread.mat+L.sand.mat+L.donut.mat)}</td><td class="r num">${yen(L.rice.mach+L.bread.mach+L.sand.mach+L.donut.mach)}</td><td class="r num"><b>${yen(r.lineCost)}</b></td><td class="r num ${r.rev-r.lineCost>=0?'up':'down'}"><b>${yen(r.rev-r.lineCost)}</b></td><td></td></tr>
+    ${line('おにぎり',L.rice,'個')}${line('パン',L.bread,'個')}${line('サンド',L.sand,'パック')}${line('ドーナッツ',L.donut,'個')}${L.bento.n||L.bento.cost?line('お弁当',L.bento,'個'):''}
+    <tr><th>合計</th><td></td><td class="r num"><b>${yen(r.rev)}</b></td><td class="r num">${yen(L.rice.labor+L.bread.labor+L.sand.labor+L.donut.labor+L.bento.labor)}</td><td class="r num">${yen(L.rice.mat+L.bread.mat+L.sand.mat+L.donut.mat+L.bento.mat)}</td><td class="r num">${yen(L.rice.mach+L.bread.mach+L.sand.mach+L.donut.mach+L.bento.mach)}</td><td class="r num"><b>${yen(r.lineCost)}</b></td><td class="r num ${r.rev-r.lineCost>=0?'up':'down'}"><b>${yen(r.rev-r.lineCost)}</b></td><td></td></tr>
    </tbody></table></div>
    <div class="tw"><table class="fills"><thead><tr><th>ラインの外の費用（1晩・仮）</th><th class="r"></th></tr></thead><tbody>
     ${r.over.map(([k,v])=>`<tr><th>${k}</th><td class="r num">${yen(v)}</td></tr>`).join('')}<tr><th>合計</th><td class="r num"><b>${yen(r.overSum)}</b></td></tr></tbody></table></div>

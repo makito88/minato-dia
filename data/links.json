@@ -552,7 +552,7 @@
       "name": "工場 → 配送センター（お弁当のライン）",
       "from": "factory",
       "to": "center",
-      "state": "none",
+      "state": "retired",
       "strength": 0,
       "values": [
         {
@@ -569,9 +569,10 @@
       "read": {
         "when": "after",
         "at": null,
-        "note": "工場の夜が終わったあと（予定）。今の center-to-factory と factory-to-kiosk-slip の流れに乗る"
+        "note": "使わない（廃止）。お弁当は、今の center-to-factory（19:30 の注文・20:00 確定）と factory-to-kiosk-slip（前の夜の納品書・運行日の始め）にのる"
       },
-      "desc": "まだつないでいない（下書き・港駅の売店の5回目）。工場の5本目のラインで作ったお弁当を、納品書とかご車（チルド）に乗せる。今の橋に品を足すだけで足りるとわかったら、この橋は「廃止」にする。",
+      "desc": "廃止（港駅の売店の5回目・2026-11-10）。お弁当のライン（js/bento-core.js）は工場の5本目のラインとして、今の橋 center-to-factory と factory-to-kiosk-slip に品を足すだけで流れに乗った（センターの注文 → 工場 → 納品書 → かご車（チルド・朝／昼前／午後の便））。新しい数字は渡さないので、下書きのとおり廃止にした（消さずに残す）。消費期限は工場の島の中の数字（data/factory.json の bento.expiry・仮）で、売店はジャンルの日持ち（その日のうち）で扱う。",
+      "retired": "2026-11-10",
       "since": "2026-11-10"
     },
     {

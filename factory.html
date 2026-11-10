@@ -73,7 +73,7 @@ select,input[type=number]{background:var(--sheet);border:1px solid var(--line);b
 #bstage{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px;touch-action:manipulation;cursor:pointer}
 #bgantt{display:block;width:100%;height:auto;cursor:pointer}
 #bbatchCard canvas{width:100%;height:auto;display:block;margin-top:6px}
-#bresult[hidden],#breadView[hidden],#riceView[hidden],#sandView[hidden],#donutView[hidden],#dresult[hidden],#sresult[hidden]{display:none}
+#bresult[hidden],#breadView[hidden],#riceView[hidden],#sandView[hidden],#donutView[hidden],#bentoView[hidden],#btresult[hidden],#dresult[hidden],#sresult[hidden]{display:none}
 .stagecv{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px}
 .chartcv{display:block;width:100%;height:auto;margin-top:6px}
 #events{max-height:260px;overflow:auto;margin:0;padding:0;list-style:none}
@@ -113,6 +113,7 @@ table.fills{max-width:460px}
   <button role="tab" data-v="bread" aria-selected="false">🍞 パンのライン</button>
   <button role="tab" data-v="sand" aria-selected="false">🥪 サンドイッチのライン</button>
   <button role="tab" data-v="donut" aria-selected="false">🍩 ドーナッツのライン</button>
+  <button role="tab" data-v="bento" aria-selected="false">🍱 お弁当のライン</button>
 </div>
 
 <div id="riceView" role="tabpanel">
@@ -280,24 +281,42 @@ table.fills{max-width:460px}
 <p class="note">油の温度・劣化、発酵待ち、冷ます時間、仕上げの速さ、費用はゲームのための仮の数字です。食品衛生や製造の基準ではありません。冷却棚は十分ある扱い。売店の注文・在庫とはまだ連動せず、工場の他のラインと同じ独立した試作です。設定は data/factory.json の donut。</p>
 </div>
 
+<div id="bentoView" role="tabpanel" hidden>
+<section class="card"><h2>夕方に決める（お弁当）</h2>
+<p id="btproducts"></p><div class="plan" id="btplan"></div>
+<p class="small muted">港駅の売店（みなとスタンド 港駅改札前店）のために作った5本目のライン。唐揚げ弁当・焼き鯖弁当・のり弁の3品を、チルド（5℃）で出荷します。ゆでたまごは問屋の品で、このラインでは作りません。</p>
+<div class="row"><button class="primary" id="btrun">この条件で夜を回す</button><button id="btnewNight">別の夜にする（注文が変わる）</button><span class="small muted" id="btnightInfo"></span></div></section>
+<section class="card"><h2>お弁当の作り方</h2><p class="small muted">40個のひと組が各工程にかかる時間です。季節と詰める人の数を変えると、時間も変わります。</p><div id="btrecipes"></div>
+<h3 style="margin-top:14px">どこが機械で、どこが人か</h3><div id="btstations"></div></section>
+<section class="card"><h2>夜のお弁当のライン</h2>
+<div class="play"><span class="clock" id="btclock"></span><button id="btplay">▶ 再生</button><select id="btspeed" aria-label="再生速度"><option value="live" selected>いま（×1）</option><option value="60">×60</option><option value="300">×300</option><option value="900">×900</option></select><input type="range" id="btscrub" aria-label="お弁当の時刻" step="1"></div>
+<div class="small muted" id="btliveNote" style="margin:4px 0 6px"></div>
+<div class="clocks" id="btclocks"></div><div style="overflow-x:auto"><canvas id="btstage" class="stagecv" style="width:1000px;max-width:none;height:300px" aria-label="お弁当のライン：おかず・ご飯・詰める・急速冷却・ふたと包装・チルドの部屋"></canvas></div><p class="small muted">横に動かしてライン全体を見られます。黒い容器がひと組（白がご飯、色がおかず）。動きは製造の計算時刻に合わせています。</p></section>
+<div class="two"><section class="card"><h2>ひと組ごとの工程と予定</h2><p class="small muted">押すと工程の予定時刻を見られます。</p><div id="btbatches"></div></section><section class="card"><h2>お弁当のラインの記録</h2><ul class="evlist" id="btevents"></ul></section></div>
+<section class="card"><h2>朝の答え合わせ（お弁当）</h2><div id="btresultWait">夜の終わりまで進むと出ます。<button id="btpeek">先に見る</button></div><div id="btresult" hidden></div></section>
+<p class="note">おかずを作る時間・ご飯の速さ・詰める速さ・急速冷却の時間と「詰めてから30分」の線・消費期限・費用は、ゲームのための仮の数字です。食品衛生や製造の基準ではありません。ほかのラインとの取り合い（ご飯・人・チルドの部屋）は、まだ計算に入れていません（作り方の欄に書いただけ）。設定は data/factory.json の bento。</p>
+</div>
+
 <section class="card" aria-labelledby="h-pl">
-  <h2 id="h-pl">工場の収支（4つのライン・1晩と1か月）</h2>
+  <h2 id="h-pl">工場の収支（5つのライン・1晩と1か月）</h2>
   <div id="plBox"></div>
 </section>
 
 <p class="note">名前・会社・数字はすべて架空のゲームの目安です。吸水・冷え方・菌の増え方と、成形・包装の機械のライン2本（機械の速さ・フィルムの枚数・具の掃除・詰まり・はじく割合・消費期限・機械の費用）は、現実の性質（水温で吸水が変わる、ニュートンの冷却、菌は10〜50℃台で増えやすい）の形だけを借りた仮の数字で、実際の食品衛生の基準や、実在の工場の数字ではありません。設定は <code>data/factory.json</code>。</p>
 </div>
 <script src="js/factory-live.js?v=20261107b"></script>
-<script src="js/factory-night.js?v=20261109d"></script>
+<script src="js/factory-night.js?v=20261110a"></script>
 <script src="js/factory-core.js?v=20261107a"></script>
 <script src="js/factory-view.js?v=20261107b"></script>
 <script src="js/bread-core.js?v=20261107a"></script>
-<script src="js/bread-view.js?v=20261107b"></script>
+<script src="js/bread-view.js?v=20261110a"></script>
 <script src="js/sand-loaf.js"></script>
 <script src="js/sand-core.js?v=20261107a"></script>
 <script src="js/sand-view.js?v=20261107b"></script>
 <script src="js/donut-core.js?v=20261107a"></script>
 <script src="js/donut-view.js?v=20261107b"></script>
-<script src="js/factory-pl.js"></script>
+<script src="js/bento-core.js?v=20261110a"></script>
+<script src="js/bento-view.js?v=20261110a"></script>
+<script src="js/factory-pl.js?v=20261110a"></script>
 </body>
 </html>
