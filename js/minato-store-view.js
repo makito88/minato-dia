@@ -24,7 +24,7 @@ const V={K:null,M:null,R:null,cfg:null,st:null,err:null,res:null,resKey:'',resD:
 {const st=document.createElement('style');st.textContent='.ms-leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--muted)}.ms-leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}.ms-half{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.ms-half[hidden]{display:none}.ks-which{display:flex;flex-wrap:wrap;gap:6px}.ks-which[hidden]{display:none}';document.head.appendChild(st);}
 /* ---------- 読み込み・保存 ---------- */
 const getJ=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.json();});
-Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110f').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null)]).then(([K,M,R,L,FJ,HJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.cfg=MS.cfg(K,M);
+Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110g').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null)]).then(([K,M,R,L,FJ,HJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.cfg=MS.cfg(K,M);
   try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
 function persist(){try{localStorage.setItem(MS.KEY,JSON.stringify(V.st));}catch(e){}}
 const refresh=()=>g(()=>window.minatoKiosk&&minatoKiosk.refresh&&minatoKiosk.refresh());
@@ -34,7 +34,7 @@ function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.si
   let stops;if(V.stopsD===d)stops=V.stops;else{stops=new Array(KC.H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(KC.H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;}
   const c=gCond(),day=gDay(),ge=g(()=>seasKioskGenre(S.st),null);
   return {day,dow:day%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.R,order:S.order,express:[],addOn:[],edits:[],startT:S.openedDay===day?S.openedT:0,
-    fx:ge?SeasonCore.mergeFx(undefined,ge):undefined,local:localNow(S,day),sameday:samedayNow(S,day,c)};}
+    fx:ge?SeasonCore.mergeFx(undefined,ge):undefined,local:localNow(S,day),sameday:samedayNow(S,day,c),cruise:g(()=>SEAS.portPlan?SEAS.portPlan.cruise:undefined,undefined)};}
 /* 橋：工場 → 売店（できたての便・js/links/factory-to-kiosk-sameday.js）。前の夜の発注と、運行日の始めの天気だけから決まる（同じ日なら同じ） */
 function samedayNow(S,day,c){if(!window.FactoryToKioskSameday||!V.L||!V.FJ||!V.HJ)return undefined;const k=day+'|'+c.wx;if(V.sdK===S&&V.sdKey===k)return V.sd;
   V.sd=g(()=>FactoryToKioskSameday.plan(V.L,{F:V.FJ,H:V.HJ,M:V.M},S,{day,cond:{wx:c.wx}}),null)||undefined;V.sdK=S;V.sdKey=k;return V.sd;}
@@ -45,7 +45,7 @@ function checkDay(){const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（緑ヶ丘の店と同じ）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
 function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();const c=ctxNow();if(!c)return V.res;
-  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'');
+  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'')+'|'+(c.cruise?c.cruise.pax:'');
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();return V.res;}
 function closeToday(res){const r=KC.closeDay(V.cfg,V.st,res,{});const lc=V.localDay===res.day?V.local:null;V.st=r.state;
@@ -80,7 +80,7 @@ function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.n
   if(top.dataset.k!==h){top.innerHTML=h;top.dataset.k=h;top.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{V.half=b.dataset.h;render(o);});}
   panel(kpi);}
 function panel(kpi){kpi=kpi||document.getElementById('ksKpi');const res=ensureRes();if(!kpi||!res)return;
-  {const el=document.getElementById('msLocal');if(el){const h=localLine()+samedayLine();if(el.dataset.k!==h){el.innerHTML=h;el.dataset.k=h;}}}   /* 地元のお店の欄は時刻で変わるので、数字の欄といっしょに */
+  {const el=document.getElementById('msLocal');if(el){const h=cruiseLine()+localLine()+samedayLine();if(el.dataset.k!==h){el.innerHTML=h;el.dataset.k=h;}}}   /* 地元のお店の欄は時刻で変わるので、数字の欄といっしょに */
   const Tn=gT(),o=KC.soFar(V.cfg,res,Tn),k=KC.idxAt(res,Tn);
   let f=0,s=0,help=0,left=0,eat=0,sit=0,loc=0,sdf=0;for(let i=0;i<k;i++){const e=res.ev[i];if(e.k==='delivery'&&e.local)loc+=e.cost||0;if(e.k==='delivery'&&e.sameday)sdf+=e.fee||0;if(e.k==='buy'){if(e.lane==='s')s++;else f++;}else if(e.k==='selfhelp')help++;else if(e.k==='look'&&e.why==='列が長い')left++;else if(e.k==='eatin'){eat++;if(e.sit)sit++;}}
   const on=(res.crew||[]).filter(w=>(w.spans||[]).some(([a,b])=>Tn>=a&&Tn<b)).map(w=>esc(w.name));
@@ -94,6 +94,10 @@ function localLine(){const S=V.st,lc=S&&localNow(S,gDay());if(!lc)return '';cons
     const what=lc.closed.includes(sh.id)?'きょうは休み':r?(Tn>=r.t?fmtT(r.t)+'に届いた：':fmtT(r.t)+'に届く予定：')+Object.entries(r.items).map(([p,q])=>esc(P[p]?P[p].short:p)+' '+q).join('・'):'きょうは足りている（届けない）';
     return `<li><b>${esc(sh.name)}</b>（${esc(sh.kind)}）${what}${sy?`<br><span style="color:var(--muted)">${esc(sh.person)}「${esc(sy.text)}」</span>`:''}</li>`;}).join('');
   return `<div class="ks-note" style="margin:6px 0 0"><span class="ks-lst">仮の数値</span> 地元のお店から直接（センターを通らない）<ul style="margin:4px 0 0;padding-left:18px">${rows}</ul></div>`;}
+
+/* 客船の日（橋 port-to-all）：その日の朝に決まっている分だけ（先の予定は出さない） */
+function cruiseLine(){const pp=g(()=>SEAS.portPlan,null);if(!pp)return '';const c=pp.call;
+  return `<div class="ks-note" style="margin:6px 0 0"><span class="ks-lst">仮の数値</span> 🚢 きょうは客船の日：${esc(c.ship.name)}（${esc(c.ship.from)}・約${num(c.pax)}人）が港浜ふ頭に。${fmtT(c.arr)}に着いて${fmtT(c.dep)}に出る。客船の客は${fmtT(pp.cruise.from)}〜${fmtT(pp.cruise.to)}ごろに来る（おみやげ・水・サンドが売れやすい）</div>`;}
 
 /* できたての便（橋 factory-to-kiosk-sameday）：工場の出荷 → みなと川運輸 → 店に着く、と「できたて」の札の時間 */
 function samedayLine(){const S=V.st,sd=S&&samedayNow(S,gDay(),gCond());if(!sd)return '';const P={};for(const p of V.cfg.products)P[p.id]=p;const Tn=gT();

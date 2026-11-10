@@ -657,6 +657,8 @@ canvas{display:block;touch-action:manipulation}
 </div>
 
 <script src="js/season-core.js?v=20261110a"></script>
+<script src="js/port-core.js?v=20261110a"></script>
+<script src="js/links/port-to-all.js?v=20261110a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -911,11 +913,13 @@ function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):n
 /* ---- 季節のできごと（計算は js/season-core.js、設定は data/seasonal.json と data/seasonal-extra.json） ----
    いつ・どこで起きるかは「保存の種＋暦の日付」だけで決まる。景気が固定でも起きる（暦の行事なので）。
    その日のイベント（プレイヤーが選ぶもの）と同じ駅なら止める（二重に数えない）。効き目は保存しない */
-const SEAS={cfg:null,dateI:null,list:[],T:null,hold:true};   // dateI：留守の日をまとめて進めるとき、js/away.js がその日の番号を入れる。hold：留守の分を進め終わるまで、きょうの便りを待つ（順番が逆にならないように）
+const SEAS={cfg:null,dateI:null,list:[],T:null,hold:true,port:null,L:null,portPlan:null};   // port・L・portPlan：港（客船の日）の島の設定・橋の一覧・きょうの橋の結果（港駅の売店の8回目）   // dateI：留守の日をまとめて進めるとき、js/away.js がその日の番号を入れる。hold：留守の分を進め終わるまで、きょうの便りを待つ（順番が逆にならないように）
 function seasDayI(){return SEAS.dateI!=null?SEAS.dateI:SeasonCore.opIndex(Date.now());}
 function seasRefresh(){SEAS.list=[];SEAS.T=null;if(!SEAS.cfg||typeof SeasonCore==='undefined')return;
   const evPlaces=new Set((ACTIVE_EV||[]).map(e=>e.place));
   SEAS.list=SeasonCore.today(SEAS.cfg,ENS.seed,seasDayI()).filter(o=>!(o.st&&evPlaces.has(o.st)));
+  // 客船の日（橋 port-to-all）：保存の種と暦の日付だけで決まる。季節のできごとと同じ形の1件として足す（鉄道の倍率・売店のジャンル・沿線だよりは同じ道）
+  SEAS.portPlan=null;if(SEAS.port&&typeof PortToAll!=='undefined'){try{SEAS.portPlan=PortToAll.plan(SEAS.L,SEAS.port,ENS.seed,seasDayI());}catch(e){SEAS.portPlan=null;}if(SEAS.portPlan)SEAS.list.push(SEAS.portPlan.item);}
   if(SEAS.list.length){const R=SeasonCore.railRules(SEAS.cfg,SEAS.list),N=NSt,T=new Float32Array(N*N*30*4).fill(1);
     for(let si=0;si<N;si++)for(let di=0;di<N;di++){if(si===di)continue;for(let h=4;h<30;h++)for(let p=0;p<4;p++)T[((si*N+di)*30+h)*4+p]=Math.max(0.4,Math.min(2.5,SeasonCore.railFactor(R,ALL[si],ALL[di],h,p)));}
     SEAS.T=T;}
@@ -3270,7 +3274,8 @@ const ENSEN_UI=(()=>{
   function persist(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
   async function init(){const first=load();
     try{const r=await fetch('data/ensen.json');if(!r.ok)throw new Error('HTTP '+r.status);ENS.cfg=await r.json();}catch(e){ENS.cfg=null;renderAll();return;}
-    try{const [a,b]=await Promise.all(['data/seasonal.json?v=20261110a','data/seasonal-extra.json'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.cfg=a&&typeof SeasonCore!=='undefined'?SeasonCore.merge(a,b):null;}catch(e){SEAS.cfg=null;}   // 季節のできごと（読めなくても、ほかはいつもどおり）
+    try{const [a,b]=await Promise.all(['data/seasonal.json?v=20261110a','data/seasonal-extra.json'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.cfg=a&&typeof SeasonCore!=='undefined'?SeasonCore.merge(a,b):null;}catch(e){SEAS.cfg=null;}
+    try{const [pj,lj]=await Promise.all(['data/port.json?v=20261110a','data/links.json?v=20261110g'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.port=pj;SEAS.L=lj;}catch(e){SEAS.port=null;}   // 港（客船の日）（読めなくても、ほかはいつもどおり）   // 季節のできごと（読めなくても、ほかはいつもどおり）
     ensReset(st.seed);ENS.day=st.day;NEWD={...st.newd};
     if(first&&COND.econ!=='auto'&&COND.econ==='mid')COND.econ='auto';   // はじめて使うときは景気を「自動」に
     setTimeout(()=>{if(SEAS.hold){SEAS.hold=false;seasLetters();}},25000);   // js/away.js が動かなかったときの予備
@@ -3468,11 +3473,11 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <!-- 荷物の行方（注文を追いかける。アイデア帳 6.）の計算 -->
 <script src="js/track-core.js?v=20261109d"></script>
 <!-- 港駅の売店（2つ目の店・歩く店）：設定 js/minato-store-core.js・人の動きの段取り js/minato-store-anim.js・絵 js/minato-store-view.js（売店の画面の「港駅改札前店」） -->
-<script src="js/minato-store-core.js?v=20261110g"></script>
+<script src="js/minato-store-core.js?v=20261110h"></script>
 <script src="js/minato-store-anim.js?v=20261110f"></script>
 <script src="js/links/local-to-kiosk.js?v=20261110d"></script>
 <script src="js/links/factory-to-kiosk-sameday.js?v=20261110a"></script>
-<script src="js/minato-store-view.js?v=20261110h"></script>
+<script src="js/minato-store-view.js?v=20261110i"></script>
 <script src="js/kiosk-view.js?v=20261110e"></script>
 <script src="js/center-view.js?v=20261109o"></script>
 <script src="js/haiso-core.js?v=20261109n"></script>

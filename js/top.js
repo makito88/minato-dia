@@ -66,7 +66,7 @@ const stN=id=>g(()=>ST[id].name,id);
 const coN=id=>g(()=>T.co.companies.find(x=>x.id===id).name,'');
 function loadToday(){if(T.loading||T.links)return;T.loading=true;
   const j=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
-  Promise.all([j('data/links.json?v=20261110f'),window.SurveyCore?j('data/survey.json'):null,j('data/companies.json?v=20261109g')]).then(([l,s,co])=>{T.links=l;T.survey=s;T.co=co;T.loading=false;
+  Promise.all([j('data/links.json?v=20261110g'),window.SurveyCore?j('data/survey.json'):null,j('data/companies.json?v=20261109g')]).then(([l,s,co])=>{T.links=l;T.survey=s;T.co=co;T.loading=false;
     const later=window.requestIdleCallback||(f=>setTimeout(f,200));later(()=>{svChange();paintToday();});paintToday();});}
 // アンケートのいちばん新しい年と前の年で、いちばん大きく動いた駅・質問
 function svChange(){const D=T.survey,SC=window.SurveyCore;if(!D||!SC)return null;const ys=SC.years(D,opNoon());if(ys.length<2)return null;const y=ys[ys.length-1];

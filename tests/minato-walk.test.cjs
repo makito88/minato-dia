@@ -48,9 +48,10 @@ console.log(`  港駅の店 14日：売上${Math.round(sum.sales/14).toLocaleStr
   const long=e.filter(x=>x.stay>=6),short=e.filter(x=>x.stay<2.5),n=L=>L.reduce((t,x)=>t+x.items.length,0)/L.length;assert.ok(n(long)>n(short),'長くいるほど品が増える');}
 
 // 3) 客船の客：強さ0なら ctx.cruise があっても来ない。強さを上げると来る（8回目の入口）
-{const cr={cruise:{pax:1500,from:600,to:900}};const st=MS.create(K,M,KC,{seed:3,day:1});
-  const r0=KC.simulate(c,st,ctxOf(st,3,cr)),r00=KC.simulate(c,st,ctxOf(st,3));assert.equal(JSON.stringify(r0.pl),JSON.stringify(r00.pl),'強さ0なら同じ');
-  const M2=JSON.parse(JSON.stringify(M));M2.personas.find(p=>p.id==='cru').strength=1;const c2=MS.cfg(K,M2),st2=MS.create(K,M2,KC,{seed:3,day:1}),r1=KC.simulate(c2,st2,ctxOf(st2,3,cr));
+//    （8回目から設定の強さは1。強さ0の設定を作って「来ない」ことを確かめる）
+{const cr={cruise:{pax:1500,from:600,to:900}};const M0=JSON.parse(JSON.stringify(M));M0.personas.find(p=>p.id==='cru').strength=0;const c0=MS.cfg(K,M0),st=MS.create(K,M0,KC,{seed:3,day:1});
+  const r0=KC.simulate(c0,st,ctxOf(st,3,cr)),r00=KC.simulate(c0,st,ctxOf(st,3));assert.equal(JSON.stringify(r0.pl),JSON.stringify(r00.pl),'強さ0なら同じ');
+  const c2=c,st2=MS.create(K,M,KC,{seed:3,day:1}),r1=KC.simulate(c2,st2,ctxOf(st2,3,cr));
   assert.ok(r1.walk.cruise>0&&r1.byPs.cru>0,'強さ1なら客船の客が来る');}
 
 // 4) 店が2つ：センター・配送会社・お金の流れ

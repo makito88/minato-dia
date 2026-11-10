@@ -28,7 +28,7 @@ const kPer=new Set(K.personas.map(p=>p.id));
 for(const p of M.personas){assert.ok(!kPer.has(p.id),'客層が重なっている '+p.id);
   for(const k of ['id','name','short','icon','pref','priceSens','patience','sns','review','taste','male'])assert.ok(p[k]!=null,p.id+' '+k);
   for(const g in p.pref)assert.ok(kGen.has(g)||mGen.has(g),p.id+' pref '+g);}
-assert.equal(M.personas.find(p=>p.id==='cru').strength,0,'客船の客は8回目まで来ない');
+assert.equal(M.personas.find(p=>p.id==='cru').strength,1,'客船の客は8回目から（客船の日に ctx.cruise があるときだけ来る）');
 for(const k of ['drop','more','less'])for(const id of M.range[k])assert.ok(kIds.has(id),'range.'+k+' '+id);
 for(const s of M.localShops)for(const id of s.items){const p=M.products.find(x=>x.id===id);assert.ok(p&&p.shop===s.id,s.id+' の品 '+id);}
 const total=K.products.length-M.range.drop.length+M.products.length;

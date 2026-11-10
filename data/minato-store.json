@@ -826,9 +826,9 @@
     3
    ],
    "male": 0.5,
-   "strength": 0,
+   "strength": 1,
    "when": {
-    "note": "客船が寄る日だけ（8回目の客船の日まで来ない。strength 0）",
+    "note": "客船が寄る日だけ（8回目・2026-11-10 から。寄る日は港の島 js/port-core.js が保存の種と暦で決め、橋 port-to-all が ctx.cruise を渡す）",
     "calc": "ctx.cruise＝{pax:その日の客船の客の数, from, to（分）} があり、strength＞0 のときだけ来る（8回目で入れる）。来る人＝pax×visit×strength",
     "visit": 0.12
    }
