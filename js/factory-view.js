@@ -59,9 +59,10 @@ function buildPlan(){
     const bs=SF.break.at[cfg.breakAt],be=bs+SF.break.min*F.ROLES.length;
     $('breakHint').textContent=`${hm(bs)}〜${hm(be)}に、ラインの係・包装の係・検品の係・品質管理の順に休む。${cfg.relief?'交代の人が入るので穴はあかない（そのぶんの時給）':`そのあいだ休んでいる人の仕事はほかの係が見るので、詰まりを直すのに${SF.wrap.jamAway.join('〜')}分（いれば${SF.wrap.jam.join('〜')}分）、フィルムを足すのが遅れ、重さのずれに気づくのに${SF.drift.detectAway}分、品質管理の抜き取りは見送り`}`;
     $('labelHint').textContent=cfg.labelCheck?`切り替えのたびに品質管理が${SF.label.check}分かけて品名・期限・原材料を確かめる`:`切り替えが${SF.label.check}分ずつ早い。ただし${Math.round(SF.label.miss*100)}%の確率でラベルが前の具のまま→見つかるまでの分を貼り直す（卵が表示にないときは捨てる）`;
-    const seq=F.fillOrder(D,cfg.order).map(id=>D.packLine.fillings.find(f=>f.id===id));
+    const only=D.packLine.fillings.filter(f=>!(f.share>0));   // 港駅の店だけの具（2026-11-10）：センターの発注がある夜だけ
+    const seq=F.fillOrder(D,cfg.order).map(id=>D.packLine.fillings.find(f=>f.id===id)).filter(f=>f.share>0);
     let ws=0,wl=0;for(let k=1;k<seq.length;k++){const m=F.washMin(D,seq[k-1].id,seq[k].id);m===D.packLine.wash.up?ws++:wl++;}
-    $('orderHint').textContent=`${seq.map(f=>f.name+(f.brand?'〔'+f.brand+'〕':'')).join('→')}。掃除は短い${ws}回・長い${wl}回（注文が増えた具は最後にもう一度）`;
+    $('orderHint').textContent=`${seq.map(f=>f.name+(f.brand?'〔'+f.brand+'〕':'')).join('→')}。掃除は短い${ws}回・長い${wl}回（注文が増えた具は最後にもう一度）${only.length?`。港駅の店だけの具（${only.map(f=>f.name).join('・')}）は、センターから頼まれた夜だけ、味の濃さの順に入る（そのぶん切り替えが増える）`:''}`;
   };
   $('season').onchange=e=>{cfg.season=e.target.value;sync();};
   $('batches').onchange=e=>{cfg.batches=clampInt(e.target.value,g.batches);sync();};
@@ -259,7 +260,7 @@ function drawHold(c,[x,y,w,h],i){
   txt(c,inH.length?`${inH.length}釜が待っている（部屋${R.season.room}℃）`:'待っている米はない',x+8,y+h-10,{size:11,color:inH.length>2?css('--warn'):css('--muted')});
 }
 /* 成形・包装のライン：7つの持ち場を1本のベルトでつなぐ（スマホは2段で折り返す） */
-const FILL_COLOR={shio:'#d9d3c1',konbu:'#3f4b2c',ume:'#c2445e',sake:'#e8835a',tuna:'#d4b26f',mentai:'#cf4a3f',hesiko:'#7c6a4e'};
+const FILL_COLOR={shio:'#d9d3c1',konbu:'#3f4b2c',ume:'#c2445e',sake:'#e8835a',tuna:'#d4b26f',mentai:'#cf4a3f',hesiko:'#7c6a4e',soboro:'#e2b84a',yakisaba:'#9a8a72'};
 const STATIONS=['シート成形','巻き成形','塩振り','包装機','ラベル','検品','急冷','段積み'];
 const ST_OF={sheet:0,roll:1,salt:2,wrap:3,label:4,relabel:4,insp:5,chill:6,crate:7};
 function nittaTag(c,x,y){c.fillStyle=(D.packLine&&'#0F6E56');c.fillRect(x,y,11,11);txt(c,'雫',x+5.5,y+9.5,{align:'center',size:8.5,bold:true,color:'#fff'});}
