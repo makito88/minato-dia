@@ -27,7 +27,7 @@ const MAP={
   seat:i=>i<6?[905,128+i*40]:[[708,130],[776,130],[798,130],[866,130]][Math.min(3,i-6)],   // 0〜5 立ち席（壁ぞい）・6〜9 座る席（小さなテーブル2つ）
   corr:[110,340,540,885]                      // 縦の通路（棚を突っ切らないように、ここを通る）
 };
-const SPEED={shf:7000,salM:6000,salF:5600,stu:6000,jk:5000,sen:3200,tou:4000,hou:4200,cru:3800};   // 歩く速さ（座標/分）。絵だけの数字
+const SPEED={shf:7000,salM:6000,salF:5600,stu:6000,jk:5000,sen:3200,tou:4000,hou:4200,cru:3800,fam:3400,cpl:4400,frd:4800};   // 歩く速さ（座標/分）。絵だけの数字
 const STOP_ORDER=['umbrella','rack','hook','fridge','shelf','dry','omiyage','regfront'];
 /* その品が置いてある場所と、その前に立つ点 */
 function standOf(zk,i,Z){const z=Z[zk];if(!z)return null;const c=i%z.cols,r=Math.floor(i/z.cols);

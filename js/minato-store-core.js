@@ -9,7 +9,7 @@
    ===================================================================== */
 (function(root){
 'use strict';
-const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261110e';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
+const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261110f';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
 const cache=new WeakMap();
 /* 港駅の店の設定（同じ K・M なら同じものを返す） */
 function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
@@ -19,6 +19,7 @@ function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
   c.genres=c.genres.concat(JSON.parse(JSON.stringify(M.genres)));
   for(const g of c.genres){const add=W.genreZones&&W.genreZones[g.id];if(Array.isArray(add))g.zones=[...new Set([...(g.zones||[]),...add])];}
   c.personas=c.personas.concat(JSON.parse(JSON.stringify(M.personas)));
+  if(W.personaMap)for(const pk in W.personaMap){if(!c.personaMap[pk]||typeof W.personaMap[pk]!=='object')continue;for(const ak in W.personaMap[pk])c.personaMap[pk][+ak]={...W.personaMap[pk][ak]};}   // グループの客層（家族連れ・カップル・友人同士）は、観光と私用の目的のところだけ置きかえる（2026-11-10）
   c.zones=JSON.parse(JSON.stringify(W.zones));c.layout=JSON.parse(JSON.stringify(W.layout));
   c.open=M.store.open.slice();c.area=W.area||c.area;c.utilityPerDay=Math.round(c.utilityPerDay*(W.utilityMul||1));
   c.visit={...c.visit,cap:c.visit.cap.map(x=>x*(W.visitMul||1))};

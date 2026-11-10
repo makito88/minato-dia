@@ -69,7 +69,7 @@ function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.n
       <button type="button" class="ks-btn pri" id="msOpen">港駅・改札口の前に「港の店」を出す</button></div>`;
     top.querySelector('#msOpen').onclick=openStore;return;}
   const S=V.st,c=gCond();sub.textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]||''}・${WXN[c.wx]||''}・歩く店・有人1＋セルフ1`;
-  const P=PSN(),ps=['shf','salM','salF','stu','jk','sen','tou','hou'].filter(k=>P[k]);
+  const P=PSN(),ps=['shf','salM','salF','stu','jk','sen','tou','hou','fam','cpl','frd'].filter(k=>P[k]);
   const h=`<div class="ks-card ms-top"><p class="ks-note" style="margin:0">斜め上から見た店の中です。人は、売店の計算で起きた出来事（買った・見て帰った・列で帰った・セルフで迷った・イートイン）を時刻の順に描いたものです。
     <span class="ks-lst">未接続</span> センターのおまかせ・配送会社の便・お金の流れ（発注は、はじめの数のまま）</p><div id="msLocal"></div>
     <div class="ms-leg">${ps.map(k=>`<span><i style="background:${P[k].icon}"></i>${esc(P[k].short)}</span>`).join('')}</div>
@@ -97,9 +97,9 @@ const SC=2;
 function mk(w,h,f){const c=document.createElement('canvas');c.width=w*SC;c.height=h*SC;const x=c.getContext('2d');x.scale(SC,SC);f(x);return c;}
 const LOOK={salM:{body:'#3a4a6a',hair:'#2b2016',acc:'tie'},salF:{body:'#8a5b7a',hair:'#3a2618'},jk:{body:'#f2f2f2',skirt:'#24345a',hair:'#2b2016',acc:'ribbon'},stu:{body:'#1f2630',hair:'#1a1410'},
   sen:{body:'#7a6a5a',hair:'#c9c9c9',acc:'cane'},tou:{body:'#d9822b',hair:'#5a3a20',acc:'flag'},hou:{body:'#5b8a3a',hair:'#3a2618',acc:'bag'},shf:{body:'#7d7a4a',hair:'#2b2016',acc:'vest',cap:'#3c4a2a'},
-  cru:{body:'#f4f0e6',hair:'#b08a5a',acc:'hat'},clerk:{body:'#2f8a6e',hair:'#2b2016',acc:'apron',cap:'#2f8a6e'}};
-function sprite(ps,fr){const k=ps+fr;if(V.spr[k])return V.spr[k];const L=LOOK[ps]||{body:'#555',hair:'#222'};
-  return V.spr[k]=mk(28,44,c=>{const cx=14,st=fr?2.5:-2.5;c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(cx,40,8,3,0,0,7);c.fill();
+  cru:{body:'#f4f0e6',hair:'#b08a5a',acc:'hat'},fam:{body:'#e07a5f',hair:'#3a2618',acc:'bag',with:{body:'#f2c14e',hair:'#3a2618',kid:true}},
+  cpl:{body:'#c9578a',hair:'#2b2016',with:{body:'#4a6a8a',hair:'#2b2016'}},frd:{body:'#8a6ad0',hair:'#1a1410',with:{body:'#3aa38a',hair:'#5a3a20'}},clerk:{body:'#2f8a6e',hair:'#2b2016',acc:'apron',cap:'#2f8a6e'}};
+function fig(c,cx,L,st){c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(cx,40,8,3,0,0,7);c.fill();
     c.strokeStyle='#2a2a30';c.lineWidth=3;c.lineCap='round';c.beginPath();c.moveTo(cx-3,30);c.lineTo(cx-3+st,39);c.moveTo(cx+3,30);c.lineTo(cx+3-st,39);c.stroke();
     if(L.skirt){c.fillStyle=L.skirt;c.beginPath();c.moveTo(cx-7,26);c.lineTo(cx+7,26);c.lineTo(cx+8,32);c.lineTo(cx-8,32);c.closePath();c.fill();}
     c.fillStyle=L.body;c.beginPath();c.roundRect(cx-7,14,14,15,4);c.fill();
@@ -113,7 +113,10 @@ function sprite(ps,fr){const k=ps+fr;if(V.spr[k])return V.spr[k];const L=LOOK[ps
     c.fillStyle='#f0c9a0';c.beginPath();c.arc(cx,9,5.5,0,7);c.fill();
     c.fillStyle=L.hair;c.beginPath();c.arc(cx,7.5,5.6,Math.PI*1.05,Math.PI*1.95);c.fill();
     if(L.cap){c.fillStyle=L.cap;c.beginPath();c.arc(cx,7,5.8,Math.PI,0);c.fill();c.fillRect(cx-1,6,8,1.8);}
-    if(L.acc==='hat'){c.fillStyle='#e9dcb5';c.beginPath();c.ellipse(cx,6,9,2.5,0,0,7);c.fill();c.beginPath();c.arc(cx,5,4.5,Math.PI,0);c.fill();}});}
+    if(L.acc==='hat'){c.fillStyle='#e9dcb5';c.beginPath();c.ellipse(cx,6,9,2.5,0,0,7);c.fill();c.beginPath();c.arc(cx,5,4.5,Math.PI,0);c.fill();}}
+/* 人の小さな絵。グループ（家族連れ・カップル・友人同士）は、となりにもう1人（子どもは小さく）を描いた横長の絵 */
+function sprite(ps,fr){const k=ps+fr;if(V.spr[k])return V.spr[k];const L=LOOK[ps]||{body:'#555',hair:'#222'},st=fr?2.5:-2.5,W2=L.with?46:28;
+  return V.spr[k]=mk(W2,44,c=>{if(L.with){const w=L.with,sc=w.kid?0.7:1;c.save();c.translate(32,44*(1-sc));c.scale(sc,sc);fig(c,0,w,-st);c.restore();}fig(c,14,L,st);});}
 /* 店の床・壁・棚（1回だけ描く） */
 function box(c,[x,y,w,d,h],top,front){c.fillStyle=front;c.fillRect(x,y+d-h,w,h);c.fillStyle=top;c.fillRect(x,y-h,w,d);c.strokeStyle='rgba(0,0,0,.18)';c.lineWidth=1;c.strokeRect(x+.5,y-h+.5,w-1,d+h-1);}
 function label(c,t,x,y,col,size){c.fillStyle=col||'#55504a';c.font=`${size||11}px "Zen Kaku Gothic New",sans-serif`;c.textAlign='center';c.fillText(t,x,y);}
@@ -189,7 +192,7 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
     if(K.stop){c.fillStyle='#e0a21b';c.beginPath();c.roundRect(566,300,68,16,4);c.fill();c.fillStyle='#fff';c.font='700 10px sans-serif';c.textAlign='center';c.fillText('しばらくお待ちを',600,312);}
     const L=A.at(V.acts,Tn,V.cap),wk=Math.floor(Date.now()/220)%2;
     for(const o of L){if(o.dot){c.fillStyle=(V.cfg.personas.find(p=>p.id===o.a.ps)||{}).icon||'#555';c.beginPath();c.arc(o.x,o.y-4,3.5,0,7);c.fill();continue;}
-      const sp=sprite(o.a.ps,o.mv?wk:0);c.drawImage(sp,o.x-14,o.y-38,28,44);
+      const sp=sprite(o.a.ps,o.mv?wk:0),sw=sp.width/SC;c.drawImage(sp,o.x-14,o.y-38,sw,44);
       if(o.ph==='pay'&&o.a.lane==='s'){c.fillStyle='rgba(159,211,199,.7)';c.fillRect(o.x-6,o.y-46,12,4);}
       if(o.ph==='eat'){c.fillStyle='#fff';c.beginPath();c.ellipse(o.x+14,o.y-16,5,3,0,0,7);c.fill();}}
     for(const b of A.bubbles(res,Tn))bubble(c,b.x,b.y,b.text,b.kind==='help'?'#ffe7a3':b.kind==='left'?'#ffd3c9':b.kind==='range'?'#fff2c2':b.kind==='full'?'#ffe0e0':'#e6e6e6');}

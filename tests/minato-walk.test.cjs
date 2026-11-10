@@ -89,3 +89,15 @@ console.log('minato-walk ok');
   // 乾物・おやつの棚：カップ麺とスナックはそこに置く
   for(const pid of c.layout.dry)if(pid)assert.ok(['cupmen','snack'].includes(I.P[pid].genre),'乾物・おやつの棚 '+pid);
   console.log(`  イートイン 14日：座る席 ${sit}人・立ち席 ${stand}人`);}
+
+// 6) グループの客層（2026-11-10 ユーザーの頼み）：家族連れ・カップル（夫婦も）・友人同士。観光と私用の目的のところに来る。まとめて座る
+{const E=c.walk.eatIn,G={fam:0,cpl:0,frd:0},y={fam:0,cpl:0,frd:0};let gEat=0;
+  for(const id of Object.keys(G))assert.ok(I.PS?I.PS[id]:c.personas.find(p=>p.id===id),'客層 '+id);
+  assert.ok(Object.values(c.personaMap['2']).some(m=>m.fam||m.cpl||m.frd)&&Object.values(c.personaMap['3']).some(m=>m.fam||m.cpl||m.frd),'観光と私用に来る');
+  assert.ok(!Object.values(K.personaMap['3']).some(m=>m.fam),'kiosk.json の personaMap は変わらない');
+  for(const r of A.out)for(const e of r.ev){if(e.k==='buy'&&G[e.ps]!=null){G[e.ps]++;y[e.ps]+=e.yen;}
+    if(e.k==='eatin'&&E.groups[e.ps]){gEat++;const g=E.groups[e.ps];assert.ok(e.seats&&e.n>=g.size[0]&&e.n<=g.size[1]&&e.seats.length===e.n,'人数ぶんの席');
+      assert.ok(new Set(e.seats).size===e.n,'席が重ならない');if(g.sitOnly)assert.ok(e.sit,'家族連れは座れる席だけ');
+      if(e.sit&&e.n===2)assert.ok(e.seats[1]===e.seats[0]+1&&(e.seats[0]-E.stand)%2===0,'2人は同じテーブル');}}
+  assert.ok(G.fam>0&&G.cpl>0&&G.frd>0&&gEat>0,'グループが来て、座る '+JSON.stringify(G));
+  console.log(`  グループ 14日：家族連れ${G.fam}組・カップル${G.cpl}組・友人${G.frd}組（イートイン${gEat}組）`);}

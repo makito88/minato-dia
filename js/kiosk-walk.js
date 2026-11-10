@@ -64,11 +64,17 @@ function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx
     if(g==='cupmen'&&E.water)tSit=t0+E.water.min;
     // 席の種類（2026-11-10）：E.stand があれば 0〜stand-1 が立ち席、そのあとが座る席。座りたい客層（sitPs）は座る席から、年配の人（sitOnly）は座る席だけ。ないときは前と同じ（どの席でも）
     const nSt=E.stand!=null?E.stand:seats.length,free=(a,b)=>{let k=-1;for(let i=a;i<b;i++)if(seats[i]<=tSit&&(k<0||seats[i]<seats[k]))k=i;return k;};
-    const wantSit=E.sitPs&&r()<(E.sitPs[p.v.ps]||0),only=(E.sitOnly||[]).includes(p.v.ps);
-    let si=only?free(nSt,seats.length):wantSit?free(nSt,seats.length):free(0,nSt);if(si<0&&!only)si=wantSit?free(0,nSt):free(nSt,seats.length);
+    // グループ（家族連れ・カップル・友人同士・2026-11-10）：何人かを決め、まとめて座る。座れる席は2席のテーブルごと（2人ならテーブル1つ、3〜4人ならテーブル2つ）。立ち席はあいている席を人数ぶん
+    const GR=E.groups&&E.groups[p.v.ps];let si=-1,many=null;
+    if(GR&&E.stand!=null){const sz=GR.size[0]+Math.floor(r()*(GR.size[1]-GR.size[0]+1)),wantS=GR.sitOnly||r()<(GR.sit||0);
+      const sitSet=()=>{const T=[];for(let i=nSt;i+1<seats.length;i+=2)if(seats[i]<=tSit&&seats[i+1]<=tSit)T.push([i,i+1]);if(sz<=2)return T.length?T[0].slice(0,sz):null;const all=T.flat();return all.length>=sz?all.slice(0,sz):null;};
+      const standSet=()=>{const F=[];for(let i=0;i<nSt;i++)if(seats[i]<=tSit)F.push(i);return F.length>=sz?F.slice(0,sz):null;};
+      many=wantS?(sitSet()||(GR.sitOnly?null:standSet())):(standSet()||sitSet());if(many)si=many[0];}
+    else{const wantSit=E.sitPs&&r()<(E.sitPs[p.v.ps]||0),only=(E.sitOnly||[]).includes(p.v.ps);
+      si=only?free(nSt,seats.length):wantSit?free(nSt,seats.length):free(0,nSt);if(si<0&&!only)si=wantSit?free(0,nSt):free(nSt,seats.length);}
     if(si<0){ev.push({t:tSit,k:'eatfull',ps:p.v.ps,pid,from:+t0.toFixed(2)});S.eatFull++;return;}
-    const sit=si>=nSt&&E.stand!=null,to=tSit+((E.eat||{})[g]||8)*(sit?(E.sitMul||1):1)+(g==='cupmen'&&E.water?E.water.wait:0);seats[si]=to;
-    ev.push({t:tSit,k:'eatin',ps:p.v.ps,pid,seat:si,sit:sit,to:+to.toFixed(1),from:+t0.toFixed(2)});S.eatIn++;if(sit)S.eatSit=(S.eatSit||0)+1;}
+    const sit=si>=nSt&&E.stand!=null,to=tSit+((E.eat||{})[g]||8)*(sit?(E.sitMul||1):1)+(g==='cupmen'&&E.water?E.water.wait:0);for(const i of many||[si])seats[i]=to;
+    ev.push(Object.assign({t:tSit,k:'eatin',ps:p.v.ps,pid,seat:si,sit:sit,to:+to.toFixed(1),from:+t0.toFixed(2)},many?{seats:many,n:many.length}:{}));S.eatIn++;if(sit)S.eatSit=(S.eatSit||0)+1;}
   /* KioskCore の店員の道具をつなぐ（simulate の中で、店員が決まってから） */
   const bind=b=>{B=b;};
   const stats=()=>({shift:S.shift,cruise:S.cruise,self:S.self,staffed:S.staffed,selfShare:S.self+S.staffed?+(S.self/(S.self+S.staffed)).toFixed(3):0,selfHelp:S.selfHelp,queueLeft:S.queueLeft,
