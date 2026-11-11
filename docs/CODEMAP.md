@@ -70,9 +70,9 @@ dayPlan() …15・公開 HaisoCore …60
 
 CSS …17・render() …44・bindDays() …68・open() …69・close() …70・summary() …72・公開 minatoHaiso …76
 
-## js/kiosk-core.js（383行）
+## js/kiosk-core.js（384行）
 
-hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() …24・shelfInfo() …26・defaultOrder() …31・■ 状態 …32・create() …33・■ 1日を動かす …39・simulate() …42・review() …289・■ 運行日を締める：評判・SNSの話題・常連・ブーム・在庫の持ちこし・知らせ …299・closeDay() …300・■ 移転：別の駅・場所へ移す（次の運行日から） …350・relocate() …355・migratePrices() …368・backAt() …373・stockAt() …374・idxAt() …375・soFar() …377・公開 KioskCore …381
+hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() …24・shelfInfo() …26・defaultOrder() …31・■ 状態 …32・create() …33・■ 1日を動かす …39・simulate() …42・review() …290・■ 運行日を締める：評判・SNSの話題・常連・ブーム・在庫の持ちこし・知らせ …300・closeDay() …301・■ 移転：別の駅・場所へ移す（次の運行日から） …351・relocate() …356・migratePrices() …369・backAt() …374・stockAt() …375・idxAt() …376・soFar() …378・公開 KioskCore …382
 
 ## js/kiosk-staff.js（140行）
 
@@ -102,9 +102,9 @@ ZONES …11・NAME …13・zoneMap() …15・soFar() …20・dayRec() …25・ba
 
 RAMP …13・DARK …15・■ 1日の記録 …22・load() …23・days() …25・record() …26・■ 見た目 …28・CSS …29・KINDN …58・■ 地図 …59・mapSvg() …60・■ 描く（時刻の「分」が変わったとき・タブを変えたときだけ書きかえる） …71・render() …72・公開 MinatoSalesView …127
 
-## js/minato-store-anim.js（184行）
+## js/minato-store-anim.js（297行）
 
-■ 見取り図（キャンバスの座標） …10・MAP …12・AN0 …31・STOP_ORDER …35・standOf() …37・placeIndex() …48・route() …50・legs() …56・mark() …69・DOOR_IN …74・build() …79・EASE …120・along() …121・qSlot() …127・at() …129・clerks() …146・bubbles() …154・■ 地元のお店の人（A1・2026-11-11） …163・LOCAL_DROP …167・locals() …168・localAt() …180・公開 MinatoAnim …182
+■ 見取り図（キャンバスの座標） …10・MAP …12・AN0 …31・STOP_ORDER …35・standOf() …37・placeIndex() …48・route() …50・legs() …56・mark() …69・TRASH …74・DOOR_IN …75・■ A2（2026-11-11）：店の中の台本 …79・DW0 …84・ST0 …86・LOOP_Z …87・stockAt() …89・pickStyle() …90・script() …96・build() …169・EASE …214・along() …215・qSlot() …221・PICK …223・doing() …224・SLOT …230・avoid() …231・at() …241・clerks() …259・bubbles() …267・■ 地元のお店の人（A1・2026-11-11） …276・LOCAL_DROP …280・locals() …281・localAt() …293・公開 MinatoAnim …295
 
 ## js/minato-store-core.js（54行）
 
@@ -114,9 +114,9 @@ KEY …12・cfg() …15・create() …33・■ おまかせ発注（港駅の売
 
 pill() …17・■ 荷物が届く：台車（センターの便）・できたての便（札つき）・地元のお店の人（手で） …20・deliveries() …21・DUR …22・cart() …23・localsOf() …28・LEAVE …29・boxes() …30・sayOf() …32・drawLocals() …33・drawDeli() …49・slotRect() …54・drawTag() …56・■ 天気：濡れた床・雪の入口・海風 …63・drawFloor() …64・drawWeather() …71・■ イートイン：カップ麺の3分・湯気 …80・eats() …81・drawEat() …82・■ 防犯：見える範囲（扇形）。ミラー2つ・カメラ2台・レジの店員 …88・fan() …89・drawFan() …90・■ 客船の日：旗と汽笛 …97・drawFlags() …98・drawHorn() …101・■ 1日の足あと（閉店のあと） …105・footprints() …106・closed() …110・公開 MinatoFx …114
 
-## js/minato-store-view.js（249行）
+## js/minato-store-view.js（261行）
 
-DAYN …22・■ 読み込み・保存 …26・omStart() …31・omToday() …34・persist() …36・■ その日の計算 …39・ctxNow() …40・samedayNow() …46・localNow() …49・checkDay() …51・ensureRes() …54・closeToday() …58・tick() …62・■ 店を出す …65・openStore() …66・■ 売店の画面の上の欄 …71・PSN …72・render() …73・panel() …91・omCard() …102・localLine() …113・cruiseLine() …120・samedayLine() …124・■ 絵：小さな絵を作っておく …130・mk() …132・LOOK …133・fig() …137・sprite() …153・box() …156・label() …157・bg() …158・DISP …201・shelfLayer() …202・■ 絵：毎コマ …216・bubble() …217・view() …218・draw() …219・fxCtx() …242・click() …243・公開 MinatoStoreView …245
+DAYN …22・■ 読み込み・保存 …26・omStart() …31・omToday() …34・persist() …36・■ その日の計算 …39・ctxNow() …40・samedayNow() …46・localNow() …49・checkDay() …51・ensureRes() …54・closeToday() …58・tick() …62・■ 店を出す …65・openStore() …66・■ 売店の画面の上の欄 …71・PSN …72・render() …73・panel() …91・omCard() …102・localLine() …113・cruiseLine() …120・samedayLine() …124・■ 絵：小さな絵を作っておく …130・mk() …132・LOOK …133・fig() …137・sprite() …153・basket() …156・handOf() …159・box() …167・label() …168・bg() …169・DISP …212・shelfLayer() …213・■ 絵：毎コマ …227・bubble() …228・view() …229・draw() …230・fxCtx() …254・click() …255・公開 MinatoStoreView …257
 
 ## js/money-core.js（66行）
 

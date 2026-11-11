@@ -134,7 +134,7 @@ const LOOK={salM:{body:'#3a4a6a',hair:'#2b2016',acc:'tie'},salF:{body:'#8a5b7a',
   sen:{body:'#7a6a5a',hair:'#c9c9c9',acc:'cane'},tou:{body:'#d9822b',hair:'#5a3a20',acc:'flag'},hou:{body:'#5b8a3a',hair:'#3a2618',acc:'bag'},shf:{body:'#7d7a4a',hair:'#2b2016',acc:'vest',cap:'#3c4a2a'},
   cru:{body:'#f4f0e6',hair:'#b08a5a',acc:'hat'},fam:{body:'#e07a5f',hair:'#3a2618',acc:'bag',with:{body:'#f2c14e',hair:'#3a2618',kid:true}},
   cpl:{body:'#c9578a',hair:'#2b2016',with:{body:'#4a6a8a',hair:'#2b2016'}},frd:{body:'#8a6ad0',hair:'#1a1410',with:{body:'#3aa38a',hair:'#5a3a20'}},clerk:{body:'#2f8a6e',hair:'#2b2016',acc:'apron',cap:'#2f8a6e'}};
-function fig(c,cx,L,st){c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(cx,40,8,3,0,0,7);c.fill();
+function fig(c,cx,L,st,back){c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(cx,40,8,3,0,0,7);c.fill();
     c.strokeStyle='#2a2a30';c.lineWidth=3;c.lineCap='round';c.beginPath();c.moveTo(cx-3,30);c.lineTo(cx-3+st,39);c.moveTo(cx+3,30);c.lineTo(cx+3-st,39);c.stroke();
     if(L.skirt){c.fillStyle=L.skirt;c.beginPath();c.moveTo(cx-7,26);c.lineTo(cx+7,26);c.lineTo(cx+8,32);c.lineTo(cx-8,32);c.closePath();c.fill();}
     c.fillStyle=L.body;c.beginPath();c.roundRect(cx-7,14,14,15,4);c.fill();
@@ -146,12 +146,23 @@ function fig(c,cx,L,st){c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(cx,
     if(L.acc==='cane'){c.strokeStyle='#5a4030';c.lineWidth=1.5;c.beginPath();c.moveTo(cx+9,22);c.lineTo(cx+10,40);c.stroke();}
     if(L.acc==='flag'){c.strokeStyle='#555';c.lineWidth=1.2;c.beginPath();c.moveTo(cx+8,24);c.lineTo(cx+8,2);c.stroke();c.fillStyle='#e8433a';c.beginPath();c.moveTo(cx+8,2);c.lineTo(cx+16,5);c.lineTo(cx+8,8);c.closePath();c.fill();}
     c.fillStyle='#f0c9a0';c.beginPath();c.arc(cx,9,5.5,0,7);c.fill();
-    c.fillStyle=L.hair;c.beginPath();c.arc(cx,7.5,5.6,Math.PI*1.05,Math.PI*1.95);c.fill();
+    c.fillStyle=L.hair;c.beginPath();if(back)c.arc(cx,8.5,5.8,0,7);else c.arc(cx,7.5,5.6,Math.PI*1.05,Math.PI*1.95);c.fill();   // 列の人はレジのほうを向く（こちらに背中・A2）
     if(L.cap){c.fillStyle=L.cap;c.beginPath();c.arc(cx,7,5.8,Math.PI,0);c.fill();c.fillRect(cx-1,6,8,1.8);}
     if(L.acc==='hat'){c.fillStyle='#e9dcb5';c.beginPath();c.ellipse(cx,6,9,2.5,0,0,7);c.fill();c.beginPath();c.arc(cx,5,4.5,Math.PI,0);c.fill();}}
 /* 人の小さな絵。グループ（家族連れ・カップル・友人同士）は、となりにもう1人（子どもは小さく）を描いた横長の絵 */
-function sprite(ps,fr){const k=ps+fr;if(V.spr[k])return V.spr[k];const L=LOOK[ps]||{body:'#555',hair:'#222'},st=fr?2.5:-2.5,W2=L.with?46:28;
-  return V.spr[k]=mk(W2,44,c=>{if(L.with){const w=L.with,sc=w.kid?0.7:1;c.save();c.translate(32,44*(1-sc));c.scale(sc,sc);fig(c,0,w,-st);c.restore();}fig(c,14,L,st);});}
+function sprite(ps,fr,back){const k=ps+fr+(back?'b':'');if(V.spr[k])return V.spr[k];const L=LOOK[ps]||{body:'#555',hair:'#222'},st=fr?2.5:-2.5,W2=L.with?46:28;
+  return V.spr[k]=mk(W2,44,c=>{if(L.with){const w=L.with,sc=w.kid?0.7:1;c.save();c.translate(32,44*(1-sc));c.scale(sc,sc);fig(c,0,w,-st,back);c.restore();}fig(c,14,L,st,back);});}
+/* A2：かご（入口の横に重ねて置く・持って歩く） */
+function basket(c,x,y,low){c.fillStyle='#d8433a';c.fillRect(x-5,y-4,10,6);c.strokeStyle='#a52c25';c.lineWidth=1;c.strokeRect(x-4.5,y-3.5,9,5);
+  if(!low){c.beginPath();c.moveTo(x-4,y-4);c.lineTo(x-2,y-9);c.lineTo(x+2,y-9);c.lineTo(x+4,y-4);c.stroke();}}
+/* A2：手に持っている品・しているしぐさ */
+function handOf(c,o,Tn){const I=V.ixC===V.cfg?V.ix:(V.ixC=V.cfg,V.ix=KC.index(V.cfg)),x=o.x,y=o.y;
+  if(o.hand){const p=I.P[o.hand];c.fillStyle=(p&&p.color)||'#ccc';c.fillRect(x+6,y-24,6,7);c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=0.8;c.strokeRect(x+6.5,y-23.5,5,6);}
+  if(o.act==='photo'){c.fillStyle='#222';c.fillRect(x+5,y-31,5,8);if(Math.floor(Tn*240)%5===0){c.fillStyle='rgba(255,255,255,.9)';c.beginPath();c.arc(x+7,y-31,4,0,7);c.fill();}}
+  else if(o.act==='read'&&o.zk==='rack'){c.fillStyle='#f4f1e8';c.fillRect(x+3,y-26,12,9);c.fillStyle='#9a958a';c.fillRect(x+5,y-24,8,1);c.fillRect(x+5,y-21,8,1);}   // 新聞・雑誌を広げて読む
+  else if(o.act==='read'){c.fillStyle='rgba(255,255,255,.9)';c.beginPath();c.arc(x+9,y-40,5,0,7);c.fill();c.fillStyle='#55504a';c.font='700 8px sans-serif';c.textAlign='center';c.fillText('…',x+9,y-38);}
+  if(o.bk)basket(c,x+(o.bk==='low'?3:9),y-(o.bk==='low'?10:16),o.bk==='low');
+  else if(o.hold>0&&!o.hand){c.fillStyle='rgba(255,255,255,.85)';c.fillRect(x+6,y-21,5,6);}}
 /* 店の床・壁・棚（1回だけ描く） */
 function box(c,[x,y,w,d,h],top,front){c.fillStyle=front;c.fillRect(x,y+d-h,w,h);c.fillStyle=top;c.fillRect(x,y-h,w,d);c.strokeStyle='rgba(0,0,0,.18)';c.lineWidth=1;c.strokeRect(x+.5,y-h+.5,w-1,d+h-1);}
 function label(c,t,x,y,col,size){c.fillStyle=col||'#55504a';c.font=`${size||11}px "Zen Kaku Gothic New",sans-serif`;c.textAlign='center';c.fillText(t,x,y);}
@@ -227,9 +238,10 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
     for(const k of K.list){const sp=sprite('clerk',0);c.drawImage(sp,k.x-14,k.y-38,28,44);}
     if(!K.list.length){c.fillStyle='#7a2e2e';c.beginPath();c.roundRect(560,240,150,28,6);c.fill();c.fillStyle='#fff';c.font='700 13px sans-serif';c.textAlign='center';c.fillText('ただいま休止中',635,259);}
     if(K.stop){c.fillStyle='#e0a21b';c.beginPath();c.roundRect(566,300,68,16,4);c.fill();c.fillStyle='#fff';c.font='700 10px sans-serif';c.textAlign='center';c.fillText('しばらくお待ちを',600,312);}
-    const L=A.at(V.acts,Tn,V.cap),wk=Math.floor(Date.now()/220)%2;
+    const L=A.at(V.acts,Tn,V.cap),wk=Math.floor(Date.now()/220)%2,BK=(V.cfg.walk&&V.cfg.walk.anim&&V.cfg.walk.anim.basket||{}).at||[212,428];
+    for(let i=0;i<4;i++)basket(c,BK[0],BK[1]-i*2.5,true);   // 入口の横のかご
     for(const o of L){if(o.dot){c.fillStyle=(V.cfg.personas.find(p=>p.id===o.a.ps)||{}).icon||'#555';c.beginPath();c.arc(o.x,o.y-4,3.5,0,7);c.fill();continue;}
-      const sp=sprite(o.a.ps,o.mv?wk:0),sw=sp.width/SC;c.drawImage(sp,o.x-14,o.y-38,sw,44);
+      const sp=sprite(o.a.ps,o.mv?wk:0,o.back),sw=sp.width/SC;c.drawImage(sp,o.x-14,o.y-38,sw,44);if(o.a.kind==='buy')handOf(c,o,Tn);
       if(o.ph==='pay'&&o.a.lane==='s'){c.fillStyle='rgba(159,211,199,.7)';c.fillRect(o.x-6,o.y-46,12,4);}
       if(o.ph==='pack'){c.fillStyle='#e8e2d4';c.fillRect(o.x+6,o.y-20+Math.sin(Tn*700)*1.5,7,9);}   // 会計のあと：袋を持ち直す（A1）
       if(o.ph==='eat'){c.fillStyle='#fff';c.beginPath();c.ellipse(o.x+14,o.y-16,5,3,0,0,7);c.fill();}}

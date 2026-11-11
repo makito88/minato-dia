@@ -248,7 +248,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       mot=best&&r()<fx[best]/(1+fx[best])?best:(mp.genre==='umbrella'&&(ctx.cond.wx==='rain'||ctx.cond.wx==='snow'))?'rain':'plan';}
     add(motives,mot,1);recent.push({t:start,pid:bought[0][0]});if(recent.length>60)recent.splice(0,20);
     const selfL=!!(WP&&WP.lane==='s'),e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1,by:hasCrew&&!selfL?W[k0].p.id:undefined};ev.push(e);
-    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2)});WK.after(WP,bought,ev);}
+    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2),dw:+(v.dw||1.5).toFixed(1)});   // dw：その時台の電車までの分のめやす（絵の「急いでいる人」用・A2。結果は変えない）
+     WK.after(WP,bought,ev);}
     if(v.reg)regEvents.push({g:v.reg,ok:true});
     // 評価
     const main=P[bought[0][0]];

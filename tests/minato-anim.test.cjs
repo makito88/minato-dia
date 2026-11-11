@@ -62,5 +62,31 @@ assert.ok(qSeen>0&&eatSeen>0&&payF>0&&payS>0,'列・イートイン・有人と�
     for(const k of ['in','unload','sign','out'])assert.ok(seen.has(k),k);}
   assert.ok(V[0].cart&&!V[1].cart,'汐見屋は台車・ハーフェン堂はかご');
   console.log(`  A1：早足でない人は一定の速さ（区間${segs}）・会計のあと袋を持ち直す${nPack}人・地元のお店の人 ${V.map(v=>v.name+' '+(v.t1-v.t0).toFixed(1)+'分').join('・')}`);}
+// A2（2026-11-11）：動き方の型・品ごとに立ち止まる秒数・手に取って戻す・かご・よけ方・列は背中・ごみ箱
+{const AN=c.walk.anim,D=AN.dwell,B=acts.filter(x=>x.kind==='buy'),sty={};let over=0,gum=0,gumMax=0,cmp=0,bk3=0,n3=0,bk1=0,trash=0,ext=0;
+  const I=KC.index(c);
+  for(const x of B){sty[x.style]=(sty[x.style]||0)+1;if(x.hurry)assert.ok(x.style==='st'||x.style==='rush','急いでいる人はまっすぐ');
+    for(const r of x.stops){const d=(r.t1-r.t0)*60;if(r.kind==='wait'){assert.ok(d<20,'列の手前で待つのは少しだけ '+d);continue;}
+      if(d>r.hi+0.01)over++;if(r.kind!=='pick'&&r.kind!=='read'&&r.kind!=='photo'&&r.kind!=='basket')ext++;
+      // どの棚の前でも、その品のジャンルの幅（年配1.4倍・おみやげ1.5倍・夜1.3倍・表示を読む＋6秒）をこえない
+      const g=r.g,cap=(D[g]||D.browse)[1]*1.4*1.5*1.3+6;assert.ok(d<=cap+0.01,g+' '+d.toFixed(1)+'秒');
+      if(g==='gummy'){gum++;gumMax=Math.max(gumMax,d);}
+      if(r.kind==='cmp'){cmp++;const p=I.P[r.pid],e=res.ev.find(v=>v.k==='buy'&&Math.abs(v.end-x.te)<1e-6&&v.ps===x.ps);assert.ok(p,'戻す品がある');
+        assert.ok(!e.items.some(([pid])=>pid===r.pid),'戻す品は買った品とちがう');assert.ok((KC.stockAt(res,x.ta+(x.tq-x.ta)*0.3)[r.pid]||0)>0,'戻す品はその時刻に棚にある');}}
+    const nI=res.ev.find(v=>v.k==='buy'&&Math.abs(v.end-x.te)<1e-6&&v.ps===x.ps).items.reduce((s,[,q])=>s+q,0);if(nI>=3){n3++;if(x.bk)bk3++;}if(nI===1&&x.bk)bk1++;
+    if(x.trash)trash++;}
+  assert.equal(over,0,'立ち止まる秒数は幅の中');assert.ok(gumMax<=6*1.4+6+0.01,'グミの棚で長く悩まない');
+  assert.ok(Object.keys(sty).length>=4,'いろいろな動き方 '+JSON.stringify(sty));assert.ok(cmp>0,'手に取って戻す人がいる');assert.ok(ext>B.length,'余った時間はほかの棚をのぞく・回る');
+  assert.ok(n3>0&&bk3/n3>0.6,'3点以上の人はたいていかご');assert.equal(bk1,0,'1点の人はかごを持たない');assert.ok(trash>0,'ごみ箱に寄る人がいる');
+  // よけ方：棚の前で止まっている人どうしは重ならない（待っている人のほか）・列の人は背中
+  let near=0,back=0,qn=0,bkSeen=0;
+  for(let t=6*60;t<22*60;t+=0.2){const L=A.at(acts,t,40),S=L.filter(o=>o.ph==='shop'&&!o.mv&&!o.wait&&!o.dot);
+    for(let i=0;i<S.length;i++)for(let j=0;j<i;j++)if(Math.abs(S[i].x-S[j].x)<c.walk.anim.slot.gap-0.01&&Math.abs(S[i].y-S[j].y)<c.walk.anim.slot.gap*0.6-0.01)near++;
+    for(const o of L){if(o.ph==='queue'){qn++;if(o.back)back++;}if(o.bk)bkSeen++;}}
+  assert.equal(near,0,'棚の前で重ならない');assert.ok(qn>0&&back===qn,'列の人はレジのほうを向く');assert.ok(bkSeen>0,'かごを持って歩く人が見える');
+  // 連れについていく（客船の日）
+  const ctx2={...ctx,day:3,cruise:{pax:600,from:9*60,to:15*60}},res2=KC.simulate(c,st,ctx2),acts3=A.build(res2,c,st.layout),nf=acts3.filter(x=>x.style==='fol').length;
+  assert.ok(nf>0,'客船の客は連れについていく');
+  console.log(`  A2：動き方 ${Object.entries(sty).map(([k,v])=>k+v).join('・')}・手に取って戻す${cmp}回・グミの前は最長${gumMax.toFixed(1)}秒・3点以上でかご ${bk3}/${n3}・ごみ箱に寄る${trash}人・客船の日に連れについていく${nf}人`);}
 console.log(`  港駅の店の絵：人${acts.length}（買った${nBuy}・見て帰った${nLook}）・同時に最大${maxN}人・イートイン${nEat}人がつながる`);
 console.log('minato-anim ok');
