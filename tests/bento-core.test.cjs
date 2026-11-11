@@ -37,7 +37,9 @@ console.log('  お弁当のライン：3季節×12夜×3条件で、数のつじ
 const out=[];
 for(const c of ['FactoryCore','BreadCore','SandCore','DonutCore'])for(const season of ['winter','mid','summer'])for(const seed of [1,7,42])out.push(JSON.stringify(G[c].simulate(D,{seed,season}).summary));
 const items={oni_sake:40,oni_tuna:30,san_mix:12,pan_melon:9,don_sugar:8,dr_tea:20};
-for(const day of [3,4])out.push(JSON.stringify(FN.runNight(D,{rice:{},bread:{},sand:{},donut:{}},{day,no:'F1',items,season:'aut'})));
+// 原材料（第5回）で足した欄（品ごとに作った数 mk・米の釜 pots・はじいた数 rej・自社の食パン own）は、結果を写しただけなので、くらべる前に外す
+const noMat=n=>{for(const L in n.lines){const x=n.lines[L];delete x.mk;delete x.pots;delete x.rej;delete x.own;}return n;};
+for(const day of [3,4])out.push(JSON.stringify(noMat(FN.runNight(D,{rice:{},bread:{},sand:{},donut:{}},{day,no:'F1',items,season:'aut'}))));
 const OTHERS='0ee9457f54c551a8',fp=crypto.createHash('sha256').update(out.join('|')).digest('hex').slice(0,16);
 assert.equal(fp,OTHERS,'ほかの4ラインの結果が変わった');
 console.log('  ほかの4ライン：結果と、緑ヶ丘の品だけの夜の納品の計算が前と同じ（指紋 '+fp+'）');

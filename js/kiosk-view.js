@@ -36,7 +36,7 @@ Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.j
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
 // 工場の設定（納品書を作るのに使う。読めなくても売店はいつもどおり）
-if(window.FactoryNight)fetch('data/factory.json').then(r=>r.ok?r.json():null).then(d=>{V.fD=d;setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
+if(window.FactoryNight)fetch('data/factory.json').then(r=>r.ok?r.json():null).then(d=>{V.fD=d;setTimeout(()=>{try{queueSlips();}catch(e){}try{if(!V.slipBusy)matSync();}catch(e){}},500);}).catch(()=>{});
 if(CC)fetch('data/center.json?v=20261109f').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
@@ -133,7 +133,7 @@ function dailyOrder(){if(!CC||!V.ccfg||!V.st)return;const S=V.st,day=gDay(),C=ce
       if(CC.runOrder&&dd.orders[key]){const pv=planFor(cond);dd.orders[key].crun=CC.runOrder(V.cfg,V.ccfg,S,recs,day,cond,items,pv&&pv.why);}
       for(const x of lg.days)if(x.day<day-3)for(const k in x.orders||{})delete x.orders[k].crun;}}   // 古い日の便ごとの注文は消す（保存を大きくしない）
     saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
-  C.ordDay=day;persist();slipNow(day);}
+  C.ordDay=day;persist();slipNow(day);matSync();}
 /* 納品書（発注と配送 第2回・第3回）：運行日が変わったら、その夜の工場の結果から納品書を作って dia-orders に残す（計算は js/factory-night.js）。
    第3回から、売店にはその出荷数までしか届かない（ctxNow の supply）。そのため納品書は、その日の売店の計算より先に「同じ流れの中で」作る
    （工場の計算は index.html で読み、data/factory.json は売店の設定といっしょに読む）。読めなかった日は納品書なし＝上限なし（今までどおり） */
@@ -142,7 +142,11 @@ function slipTodo(){const lg=loadOrders(),day=gDay(),back=(V.ccfg.slip&&V.ccfg.s
 // その日の分はすぐ（同じ流れで）。残っている前の日の分（設定がまだ読めていなかった日）は、あとで1夜ずつ
 function slipNow(day){if(!CC||!V.ccfg||!V.ccfg.slip||!factoryReady())return false;try{makeSlip(window.FactoryNight,V.fD,day);return true;}catch(e){console.warn('納品書を作れませんでした',e);const lg=loadOrders(),d=lg.days.find(x=>x.day===day);if(d&&!d.slip){d.slip={no:'N'+String(d.day).padStart(4,'0'),err:1};saveOrders(lg);}return false;}}
 function queueSlips(){if(!CC||!V.ccfg||!V.ccfg.slip||V.slipBusy||!factoryReady()||!slipTodo().length)return;V.slipBusy=true;
-  const step=()=>{const days=slipTodo();if(!days.length){V.slipBusy=false;return;}slipNow(days[0]);setTimeout(step,0);};step();}
+  const step=()=>{const days=slipTodo();if(!days.length){V.slipBusy=false;matSync();return;}slipNow(days[0]);setTimeout(step,0);};step();}
+/* 工場の原材料（第5回・表示と記録だけ）：納品書ができた夜まで、入荷と使った量を dia-materials に進める（計算は js/material-core.js）。
+   工場の画面を開いていなくても、運行日の締めで進む。同じ夜は2回数えない。納品書がまだの夜は待つ */
+function matSync(){const MC=window.MaterialCore;if(!MC||!V.fD||!V.fD.materials)return;
+  try{let raw=null;try{raw=localStorage.getItem(MC.KEY);}catch(e){}const prev=MC.parse(raw),r=MC.catchUp(V.fD,prev,loadOrders(),gDay());if(r.done||!prev)localStorage.setItem(MC.KEY,JSON.stringify(r.state));}catch(e){console.warn('原材料の記録を進められませんでした',e);}}
 function makeSlip(FN,D0,day){const lg=loadOrders(),d=lg.days.find(x=>x.day===day);if(!d||d.slip)return;
   const D=JSON.parse(JSON.stringify(D0)),get=k=>{try{return localStorage.getItem(k);}catch(e){return null;}},cfgs=FN.cfgsFrom(get);
   if(window.FactoryPL){FactoryPL.apply(D,FactoryPL.settings(D));cfgs.rice.batches=Math.max(cfgs.rice.batches||D.defaults.batches,FactoryPL.suggestBatches(D));}   // 取引先と設備（工場の収支で選んだもの）

@@ -30,6 +30,8 @@ function splitItems(D,items){const m=kioskMap(D),made={},stock={};for(const pid 
 /* 保存してある工場の条件（getItem：localStorage.getItem など）。米の釜は見込みに足りるだけ（工場の収支の見積もりと同じ） */
 function cfgsFrom(getItem){const out={};for(const L of LINES){let c={};try{c=(JSON.parse(getItem(L.key)||'null')||{}).cfg||{};}catch(e){}out[L.id]=Object.assign({},c);}return out;}
 
+/* 品ごとに作った数＝出荷＋余り＋遅れ＋だめになった数（原材料の使う量に使う。js/material-core.js） */
+function madeOf(rows){const o={};for(const r of rows||[]){const n=(r.shipped||0)+(r.surplus||0)+(r.late||0)+(r.bad||0);if(n>0)o[r.id]=Math.round(n);}return o;}
 /* その夜をラインごとに回す（お弁当は頼まれた夜だけ）。o={day,no,items,season}。D は（取引先などを入れた）写し。返すもの：ラインごとと品ごとの結果 */
 function runNight(D,cfgs,o){const sp=splitItems(D,o.items),m=kioskMap(D),seed=seedOf(o.day),season=seasonOf(o.season);
   const lines={},rows={};
@@ -38,6 +40,8 @@ function runNight(D,cfgs,o){const sp=splitItems(D,o.items),m=kioskMap(D),seed=se
     const cfg=Object.assign({},cfgs&&cfgs[L.id]||{},{seed,season,center:mine,centerNo:o.no||null});
     const S=C.simulate(D,cfg).summary;lines[L.id]={order:S.order,shipped:S.shipped,short:S.short,lastDone:S.lastDone!=null?S.lastDone:S.lastPack!=null?S.lastPack:null};
     const byId={};for(const r of L.rows(S)||[])byId[r.id]=r;
+    lines[L.id].mk=madeOf(L.rows(S));   // 原材料（第5回）：品ごとに作った数。米は炊いた釜の数とはじいた数も。計算は変えず、結果を写すだけ
+    if(L.id==='rice'){lines.rice.pots=S.batches|0;lines.rice.rej=(S.rej&&S.rej.all)|0;}if(L.id==='sand')lines.sand.own=(cfg.bread||(D.sand&&D.sand.defaults||{}).bread)==='own'?1:0;
     for(const pid in mine){const r=byId[m[pid].id];if(!r)continue;rows[pid]={line:L.id,order:r.order,shipped:r.shipped,late:Math.max(0,Math.min((r.order||0)-(r.shipped||0),r.late||0)),c:mine[pid]};}}   // late：締め切りのあとにできた数（足りない分まで）
   return {seed,season,lines,rows,stock:sp.stock};}
 
@@ -80,6 +84,6 @@ function withCenter(cfg,log){const d=latest(log);if(!d)return cfg;return Object.
 function centerNote(D,log,lineId,unit){const d=latest(log);if(!d)return '';const m=kioskMap(D);let n=0;for(const pid in d.factory.items)if(m[pid]&&m[pid].line===lineId)n+=d.factory.items[pid];
   if(!n)return `センターの発注 ${d.factory.no}（第${d.day}運行日）には、このラインの品はありません。`;
   return `センターの発注 ${d.factory.no}（第${d.day}運行日）の${n}${unit||'個'}を、20:00の注文に足しています（ほかの店・取引先の分は夜の番号どおり）。${d.slip&&!d.slip.err?`納品書 ${d.slip.no} は夜の番号 ${d.slip.seed} の夜で作りました。`:''}`;}
-root.FactoryNight={lateRule,readLog,withCenter,centerNote,LINES,kioskMap,seasonOf,seedOf,latest,splitItems,cfgsFrom,runNight,centerShip,share,truckOf,slip};
+root.FactoryNight={madeOf,lateRule,readLog,withCenter,centerNote,LINES,kioskMap,seasonOf,seedOf,latest,splitItems,cfgsFrom,runNight,centerShip,share,truckOf,slip};
 if(typeof module!=='undefined')module.exports=root.FactoryNight;
 })(typeof window!=='undefined'?window:globalThis);

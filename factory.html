@@ -73,7 +73,7 @@ select,input[type=number]{background:var(--sheet);border:1px solid var(--line);b
 #bstage{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px;touch-action:manipulation;cursor:pointer}
 #bgantt{display:block;width:100%;height:auto;cursor:pointer}
 #bbatchCard canvas{width:100%;height:auto;display:block;margin-top:6px}
-#bresult[hidden],#breadView[hidden],#riceView[hidden],#sandView[hidden],#donutView[hidden],#bentoView[hidden],#btresult[hidden],#dresult[hidden],#sresult[hidden]{display:none}
+#materialView[hidden],#bresult[hidden],#breadView[hidden],#riceView[hidden],#sandView[hidden],#donutView[hidden],#bentoView[hidden],#btresult[hidden],#dresult[hidden],#sresult[hidden]{display:none}
 .stagecv{display:block;width:100%;height:auto;background:var(--sheet);border:1px solid var(--line);border-radius:10px;margin-top:12px}
 .chartcv{display:block;width:100%;height:auto;margin-top:6px}
 #events{max-height:260px;overflow:auto;margin:0;padding:0;list-style:none}
@@ -100,6 +100,22 @@ table.fills{max-width:460px}
 .steps{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px}
 .steps .num{color:var(--muted)}
 #result[hidden]{display:none}
+/* 原材料（第5回） */
+.mt-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px 16px}
+.mt-row{border:1px solid var(--line2);border-radius:8px;padding:6px 10px;background:var(--paper)}
+.mt-row.low{border-color:var(--bad)}.mt-row.warn{border-color:var(--warn)}
+.mt-h{font-size:13px}.mt-w{font-size:12px;font-weight:700}.mt-row.low .mt-w,.bad{color:var(--bad)}.mt-row.warn .mt-w,.warnc{color:var(--warn)}.mt-row.idle{opacity:.7}
+.mt-bar{position:relative;height:10px;border-radius:5px;background:var(--line2);margin:5px 0 3px;overflow:hidden}
+.mt-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ok);border-radius:5px}
+.mt-row.warn .mt-bar i{background:var(--warn)}.mt-row.low .mt-bar i{background:var(--bad)}
+.mt-bar b{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);opacity:.55}
+.mt-n{color:var(--muted)}.mt-n b{color:var(--ink)}
+.tag.st-chill{border-color:#5b8db8;color:#2f6a9a}.tag.st-frozen{border-color:#6a6fc0;color:#4b50a8}
+.mt-tb td.nw,.mt-tb th{white-space:nowrap}
+.mt-tr{margin:0;padding-left:18px;font-size:13px}.mt-tr li{margin:3px 0}
+#materialBox h3{font-size:13px;margin:10px 0 6px}
+#mtNight{max-width:100%;min-width:0;flex:1 1 220px}
+#materialBox details summary{cursor:pointer;font-weight:700;font-size:14px}
 </style>
 </head>
 <body>
@@ -114,6 +130,7 @@ table.fills{max-width:460px}
   <button role="tab" data-v="sand" aria-selected="false">🥪 サンドイッチのライン</button>
   <button role="tab" data-v="donut" aria-selected="false">🍩 ドーナッツのライン</button>
   <button role="tab" data-v="bento" aria-selected="false">🍱 お弁当のライン</button>
+  <button role="tab" data-v="material" aria-selected="false">🚚 原材料</button>
 </div>
 
 <div id="riceView" role="tabpanel">
@@ -297,6 +314,11 @@ table.fills{max-width:460px}
 <p class="note">おかずを作る時間・ご飯の速さ・詰める速さ・急速冷却の時間と「詰めてから30分」の線・消費期限・費用は、ゲームのための仮の数字です。食品衛生や製造の基準ではありません。ほかのラインとの取り合い（ご飯・人・チルドの部屋）は、まだ計算に入れていません（作り方の欄に書いただけ）。設定は data/factory.json の bento。</p>
 </div>
 
+<div id="materialView" role="tabpanel" hidden>
+<div id="materialBox"><p class="small muted">原材料の記録を読みこんでいます…</p></div>
+<p class="note">原材料の品・仕入れ先・届く単位・日持ち・保管・置ける量・入荷の日と時刻・1個あたり使う量は、すべて架空のゲームのための仮の数字です（実在の仕入れ先・商品・レシピではありません）。第1段は表示と記録だけで、足りなくても製造の計算は変えません。設定は data/factory.json の materials と、各ラインの mat。計算は js/material-core.js、画面は js/material-view.js。</p>
+</div>
+
 <section class="card" aria-labelledby="h-pl">
   <h2 id="h-pl">工場の収支（5つのライン・1晩と1か月）</h2>
   <div id="plBox"></div>
@@ -305,11 +327,11 @@ table.fills{max-width:460px}
 <p class="note">名前・会社・数字はすべて架空のゲームの目安です。吸水・冷え方・菌の増え方と、成形・包装の機械のライン2本（機械の速さ・フィルムの枚数・具の掃除・詰まり・はじく割合・消費期限・機械の費用）は、現実の性質（水温で吸水が変わる、ニュートンの冷却、菌は10〜50℃台で増えやすい）の形だけを借りた仮の数字で、実際の食品衛生の基準や、実在の工場の数字ではありません。設定は <code>data/factory.json</code>。</p>
 </div>
 <script src="js/factory-live.js?v=20261107b"></script>
-<script src="js/factory-night.js?v=20261110a"></script>
+<script src="js/factory-night.js?v=20261111a"></script>
 <script src="js/factory-core.js?v=20261110a"></script>
 <script src="js/factory-view.js?v=20261110a"></script>
 <script src="js/bread-core.js?v=20261107a"></script>
-<script src="js/bread-view.js?v=20261110a"></script>
+<script src="js/bread-view.js?v=20261111a"></script>
 <script src="js/sand-loaf.js"></script>
 <script src="js/sand-core.js?v=20261107a"></script>
 <script src="js/sand-view.js?v=20261107b"></script>
@@ -317,6 +339,8 @@ table.fills{max-width:460px}
 <script src="js/donut-view.js?v=20261107b"></script>
 <script src="js/bento-core.js?v=20261110a"></script>
 <script src="js/bento-view.js?v=20261110a"></script>
+<script src="js/material-core.js?v=20261111a"></script>
+<script src="js/material-view.js?v=20261111a"></script>
 <script src="js/factory-pl.js?v=20261110a"></script>
 </body>
 </html>

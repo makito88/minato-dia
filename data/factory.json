@@ -142,6 +142,7 @@
   "k": 0.08
  },
  "packLine": {
+  "mat": {"_note": "原材料の使う量（第5回・第1段は表示と記録だけ。製造の計算は変えない）。数字はすべて仮。米は炊いた釜の数×1釜の米（riceKg）。ほかは作った数（出荷・余り・遅れ・はじいた分）あたり", "perPot": {"rice": 10}, "perUnit": {"nori": 1, "salt": 0.0006, "label": 1, "crate": 0.0001}, "perProduct": {"sake": {"sake": 0.015}, "tuna": {"tuna": 0.018}, "ume": {"ume": 0.008}, "konbu": {"gu": 0.01}, "mentai": {"gu": 0.012}, "hesiko": {"gu": 0.01}, "yakisaba": {"gu": 0.015}, "soboro": {"gu": 0.03}}},
   "_note": "成形・包装は機械のライン2本（A・B）。ご飯を板（飯シート）にして具を包み、三角にして、両面に塩を振り、海苔のフィルムで包む。2本とも同じ具を作る。数字はすべてゲームのための仮の目安",
   "lines": 2,
   "lineRate": 60,
@@ -477,6 +478,7 @@
   ]
  },
  "bread": {
+  "mat": {"_note": "パン1個あたり（仮）。こしあん・カスタード・カレーなどの中身は、まだ原材料の一覧に入れていない", "perUnit": {"flour": 0.05, "yeast": 0.001, "butter": 0.004, "bag": 1, "label": 1, "crate": 0.0001}},
   "_note": "パンのライン（試作）。米のラインの隣。仕込み（こねる）→ 一次発酵 → 分割・丸め → ベンチタイム → 成形（人の手）→ ホイロ（二次発酵）→ 焼成（オーブン。カレーパンはフライヤー）→ 粗熱取り → 包装。数字はすべてゲームのための仮の目安で、実在の工場やレシピの数字ではありません",
   "line": "パンのライン（菓子パン・惣菜パン）",
   "forecast": 1800,
@@ -742,6 +744,7 @@
   }
  },
  "sand": {
+  "mat": {"_note": "1パックあたりと、1切れ（products の pieces）あたり（仮）。自社で食パンを焼く夜（defaults の bread が own）は、仕入れの食パンのかわりに、パンの粉を1切れ 0.025kg 使う。豚カツ・ソース・マヨネーズなどは、まだ一覧に入れていない", "perUnit": {"bag": 1, "label": 1, "crate": 0.0001}, "perPiece": {"sbread": 1}, "own": {"sbread": 0, "flour": 0.025}, "perKind": {"egg": {"egg": 1}, "tuna": {"stuna": 0.025}, "ham": {"ham": 2, "lettuce": 0.015}, "fruit": {"fruit": 0.035, "cream": 0.025}}},
   "_note": "サンドイッチのライン（試作・チルド・機械のライン）。具材の仕込み（卵＝スチーマー→冷水→殻むき機→人の確認→和える／レタス＝人が選ぶ→洗い槽・殺菌→脱水機／カツ／フルーツ）→ 冷蔵庫 → 組み立てのベルト（食パンの供給機・たまごサラダとクリームの盛り付け機・人がのせる持ち場）→ 締め → カット（機械）→ 三角パックに詰める（人）→ 2:30。数字はすべてゲームのための仮の目安で、実際の食品衛生の基準や実在の工場・機械の数字ではありません",
   "line": "サンドイッチのライン（チルド・機械）",
   "forecast": 1200,
@@ -1503,6 +1506,7 @@
   }
  },
  "donut": {
+  "mat": {"_note": "生地は1個 55g（仮）。粉と砂糖は、各品の配合（recipe の ratio・粉を100とした割合）から出す。シュガーは仕上げの砂糖、チョコはかけるチョコを足す。揚げ油は1個あたり吸う量（仮）", "doughG": 55, "recipe": {"強力粉": "dflour", "薄力粉": "dflour", "砂糖": "sugar"}, "perUnit": {"oil": 0.008, "bag": 1, "label": 1, "crate": 0.0001}, "perProduct": {"sugar": {"sugar": 0.006}, "choco": {"choco": 0.012}}},
   "line": "ドーナッツのライン",
   "note": "3品ともイースト生地。生ドーナツはクリームなしの柔らかい生地で、十分に揚げる。数字と品質の線はゲームの仮定。冷却棚はこの段階では十分ある扱い。",
   "defaults": {
@@ -1633,6 +1637,7 @@
   ]
 },
  "bento": {
+  "mat": {"_note": "お弁当1個あたり（仮）。おかずの材料は、まだ一覧に入れていない", "perUnit": {"rice": 0.2, "label": 1, "crate": 0.0001}},
   "line": "お弁当のライン",
   "since": "2026-11-10",
   "note": "港駅の売店（みなとスタンド 港駅改札前店）のために作った5本目のライン（港駅の売店をつくる回の5回目）。おかずを作る → ご飯を詰める・おかずを詰める → 急速冷却 → ふたと包装。チルド（5℃）で出荷する。数字と品質の線はすべてゲームの仮定で、実際の食品衛生の基準ではありません。",
@@ -1839,5 +1844,30 @@
   },
   "share": "港駅の店の設定（data/minato-store.json の sameday）が、どの品を・昼前の便の何割をこの便にするかを決める。工場はその数を、cap までの範囲で作る",
   "src": "assume"
- }
+ },
+ "materials": {"_note": "工場の原材料（第5回・第1段：表示と記録だけ。足りなくなりそうでも、製造の計算は変えない）。仕入れ先・数字はすべて架空・仮。入荷の日 days は、運行日の番号を7で割った余り（センターの問屋の発注と同じ数え方）。t は届く時刻（0時からの分）。qty は1回に届く量（届く単位 packQty の倍数）。置ける量 cap をこえる分は、仕入れ先がその回の量を減らす（仮）。life は届いてからの日持ち（日）。使う量は各ラインの mat（packLine・bread・sand・donut・bento）", "src": "assume", "keepDays": 30, "maxNights": 30, "initNights": 3, "lowNights": 2, "warnNights": 4, "store": {"room": "常温", "chill": "冷蔵", "frozen": "冷凍"}, "lines": {"rice": "🍙 米", "bread": "🍞 パン", "sand": "🥪 サンド", "donut": "🍩 ドーナッツ", "pack": "📦 包材"}, "suppliers": {"kome": "浜手米穀", "hozai": "みお包材", "suisan": "港浜水産", "oroshi": "川辺食品卸", "tsuke": "北河原漬物", "shio": "浜手製塩", "seifun": "港浜製粉", "nyugyo": "白波乳業", "pan": "ひばりベーカリー卸", "yokei": "ひばり養鶏", "seika": "みどり青果", "yushi": "みなと油脂", "shizai": "港浜物流資材"}, "items": [
+  {"id": "rice", "name": "米（精米）", "line": "rice", "sup": "kome", "unit": "kg", "pack": "30kg袋", "packQty": 30, "life": 30, "store": "room", "cap": 3600, "days": [1, 4], "t": 600, "qty": 1500, "code": "KM"},
+  {"id": "nori", "name": "海苔フィルム", "line": "rice", "sup": "hozai", "unit": "枚", "pack": "1箱 2,000枚", "packQty": 2000, "life": 90, "store": "room", "cap": 60000, "days": [2, 5], "t": 600, "qty": 26000, "code": "NF"},
+  {"id": "sake", "name": "具の鮭（ほぐし）", "line": "rice", "sup": "suisan", "unit": "kg", "pack": "10kg箱", "packQty": 10, "life": 60, "store": "frozen", "cap": 300, "days": [1, 4], "t": 600, "qty": 90, "code": "SK"},
+  {"id": "tuna", "name": "具のツナ（マヨあえ用）", "line": "rice", "sup": "oroshi", "unit": "kg", "pack": "5kg缶", "packQty": 5, "life": 365, "store": "room", "cap": 200, "days": [1, 4], "t": 600, "qty": 90, "code": "TN"},
+  {"id": "ume", "name": "具の梅（ねり梅）", "line": "rice", "sup": "tsuke", "unit": "kg", "pack": "5kg樽", "packQty": 5, "life": 180, "store": "chill", "cap": 120, "days": [3], "t": 600, "qty": 60, "code": "UM"},
+  {"id": "gu", "name": "具（昆布・明太子・へしこ ほか）", "line": "rice", "sup": "oroshi", "unit": "kg", "pack": "5kg箱", "packQty": 5, "life": 7, "store": "chill", "cap": 120, "days": [0, 2, 4], "t": 1020, "qty": 55, "code": "GU"},
+  {"id": "salt", "name": "塩", "line": "rice", "sup": "shio", "unit": "kg", "pack": "25kg袋", "packQty": 25, "life": 365, "store": "room", "cap": 150, "days": [6], "t": 600, "qty": 50, "code": "SO"},
+  {"id": "flour", "name": "粉（パン用の強力粉）", "line": "bread", "sup": "seifun", "unit": "kg", "pack": "25kg袋", "packQty": 25, "life": 90, "store": "room", "cap": 1200, "days": [1, 4], "t": 600, "qty": 625, "code": "FL"},
+  {"id": "yeast", "name": "イースト", "line": "bread", "sup": "seifun", "unit": "kg", "pack": "500g×24", "packQty": 12, "life": 30, "store": "chill", "cap": 36, "days": [2], "t": 600, "qty": 24, "code": "YS"},
+  {"id": "butter", "name": "バター", "line": "bread", "sup": "nyugyo", "unit": "kg", "pack": "10kg箱", "packQty": 10, "life": 60, "store": "chill", "cap": 60, "days": [1, 4], "t": 1020, "qty": 30, "code": "BT"},
+  {"id": "sbread", "name": "食パン（サンド用・仕入れ）", "line": "sand", "sup": "pan", "unit": "枚", "pack": "1本 24枚", "packQty": 24, "life": 3, "store": "room", "cap": 7000, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 2880, "code": "SB", "onlyBuy": true},
+  {"id": "egg", "name": "卵", "line": "sand", "sup": "yokei", "unit": "個", "pack": "1箱 180個", "packQty": 180, "life": 14, "store": "chill", "cap": 3000, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 1080, "code": "EG"},
+  {"id": "lettuce", "name": "レタス", "line": "sand", "sup": "seika", "unit": "kg", "pack": "4kg箱", "packQty": 4, "life": 3, "store": "chill", "cap": 30, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 12, "code": "LT"},
+  {"id": "stuna", "name": "ツナ（サンド用）", "line": "sand", "sup": "oroshi", "unit": "kg", "pack": "5kg缶", "packQty": 5, "life": 365, "store": "room", "cap": 80, "days": [1, 4], "t": 600, "qty": 30, "code": "ST"},
+  {"id": "ham", "name": "ハム（スライス）", "line": "sand", "sup": "oroshi", "unit": "枚", "pack": "1パック 100枚", "packQty": 100, "life": 10, "store": "chill", "cap": 10000, "days": [1, 4], "t": 1020, "qty": 5400, "code": "HM"},
+  {"id": "fruit", "name": "フルーツ（いちご・キウイ・みかん）", "line": "sand", "sup": "seika", "unit": "kg", "pack": "1kg×13", "packQty": 13, "life": 3, "store": "chill", "cap": 30, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 13, "code": "FR"},
+  {"id": "cream", "name": "生クリーム", "line": "sand", "sup": "nyugyo", "unit": "L", "pack": "1L×9", "packQty": 9, "life": 5, "store": "chill", "cap": 30, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 9, "code": "CR"},
+  {"id": "dflour", "name": "粉（ドーナッツ用 強力粉・薄力粉）", "line": "donut", "sup": "seifun", "unit": "kg", "pack": "25kg袋", "packQty": 25, "life": 90, "store": "room", "cap": 400, "days": [1, 4], "t": 600, "qty": 150, "code": "DF"},
+  {"id": "sugar", "name": "砂糖", "line": "donut", "sup": "oroshi", "unit": "kg", "pack": "30kg袋", "packQty": 30, "life": 365, "store": "room", "cap": 180, "days": [3], "t": 600, "qty": 90, "code": "SG"},
+  {"id": "choco", "name": "チョコ（かける用）", "line": "donut", "sup": "oroshi", "unit": "kg", "pack": "5kg箱", "packQty": 5, "life": 180, "store": "room", "cap": 60, "days": [1, 4], "t": 600, "qty": 25, "code": "CH"},
+  {"id": "oil", "name": "揚げ油", "line": "donut", "sup": "yushi", "unit": "L", "pack": "18L缶", "packQty": 18, "life": 120, "store": "room", "cap": 180, "days": [5], "t": 840, "qty": 90, "code": "OL"},
+  {"id": "bag", "name": "袋（パン・サンド・ドーナッツ）", "line": "pack", "sup": "hozai", "unit": "枚", "pack": "1箱 1,000枚", "packQty": 1000, "life": 365, "store": "room", "cap": 40000, "days": [2, 5], "t": 600, "qty": 18000, "code": "BG"},
+  {"id": "label", "name": "ラベル", "line": "pack", "sup": "hozai", "unit": "枚", "pack": "1巻 1,000枚", "packQty": 1000, "life": 365, "store": "room", "cap": 100000, "days": [2, 5], "t": 600, "qty": 45000, "code": "LB"},
+  {"id": "crate", "name": "番重（こわれた分の入れかえ）", "line": "pack", "sup": "shizai", "unit": "個", "pack": "1個", "packQty": 1, "life": 3650, "store": "room", "cap": 60, "days": [0], "t": 600, "qty": 10, "code": "BJ"}]}
 }
