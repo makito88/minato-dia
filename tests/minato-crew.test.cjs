@@ -30,7 +30,11 @@ assert.ok(nGap/nDay<=0.05,'だれもいない時間がある日 '+nGap+'/'+nDay)
   for(const t of KS.TYPES)for(const id in st.crew.shift[t])assert.ok(!KS.dayPlan(c,st.crew.shift[t][id],st.crew.people.find(p=>p.id===id)).over);}
 // 1日まわして、開店のあいだ閉まっている時間がない
 {const st=MS.create(K,M,KC,{seed:3,day:1,staff:2});KS.migrate(c,st);const res=KC.simulate(c,st,{day:1,dow:1,cond:{day:'wd',wx:'sun',season:'aut'},flows:{hb:fl,ha:fl},stops:new Array(H).fill(4),plats:2,rcfg:R,order:st.order,express:[],addOn:[],edits:[],startT:0});
-  assert.equal(res.closedN,0,'閉まっている時間がない');assert.ok(res.crew.every(x=>x.yen/x.h>=1280-1e-6),'時給は1,280円から');}
+  assert.equal(res.closedN,0,'閉まっている時間がない');
+  // 朝の便は開店前（4:40）に着き、5:00 の開店のときには、おにぎりも棚に並んでいる（ユーザー・2026-11-11「5時過ぎに商品が並んでいない」）
+  const dv=res.ev.find(e=>e.k==='delivery'&&e.name==='朝の便');assert.ok(dv&&dv.t<300,'朝の便は開店前 '+(dv&&dv.t));
+  const I=KC.index(c),s5=KC.stockAt(res,300),oni=Object.keys(s5).filter(p=>I.P[p].genre==='onigiri').reduce((x,p)=>x+s5[p],0);assert.ok(oni>20,'5:00 におにぎりが並んでいる '+oni);
+  const s0=KC.stockAt(res,271),o0=Object.keys(s0).filter(p=>I.P[p].genre==='onigiri').reduce((x,p)=>x+s0[p],0);assert.ok(o0<oni,'届く前（4:31）はまだ少ない '+o0);assert.ok(res.crew.every(x=>x.yen/x.h>=1280-1e-6),'時給は1,280円から');}
 console.log(`  店員の日 ${nW}（休憩あり ${nBrk}・18歳未満 ${nMinor}・4:30から ${nEarly}）・だれもいない時間がある日 ${nGap}/${nDay}`);
 console.log('minato-crew ok');
 // 足りない店員の自動の募集（crew.autoHire・2026-11-11）：20日まわして、自動の募集がないときより閉まる日が少ない・募集の費用がかかる・採用した人は足りない区切りに入れる人

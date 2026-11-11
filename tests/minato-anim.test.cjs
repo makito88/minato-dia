@@ -110,7 +110,9 @@ assert.ok(qSeen>0&&eatSeen>0&&payF>0&&payS>0,'列・イートイン・有人と�
     // 地元のお店の箱は、サインのあと店員が取りに来て棚へ
     for(const v of P.locals){assert.ok(v.pick!=null&&v.pick>=v.s1-1e-9,'店員が箱を取りに来る');}
     // 便が届いたら品出し（台車は品出しが終わるまで）
-    for(const q of P.carts){assert.ok(q.cart.length>0&&q.done>q.e.t,'品出しをする '+q.e.name);}}
+    // 開店前に届いた便（港駅の店の朝の便・2026-11-11）は、開店前の準備の品出しで並べる（台車は出さない）。開店前にいる店員の台本に「品出し」がある
+    for(const q of P.carts){if(q.e.t<c.open[0]*60&&r.crew.some(w=>w.spans.some(([a,b])=>q.e.t>=a&&q.e.t<b))){assert.ok(P.clerks.some(k=>k.rec.some(x=>x.kind==='stock'&&x.t0>=q.e.t-30&&x.t1<=c.open[0]*60+1e-6)),'開店前に品出しをする '+q.e.name);continue;}
+      assert.ok(q.cart.length>0&&q.done>q.e.t,'品出しをする '+q.e.name);}}
   assert.ok(payOK/payN>0.97,'有人レジの会計中は店員がレジ '+payOK+'/'+payN);
   assert.ok(two.P.clerks.length===2&&cover>0,'2人のときは、レジの人がセルフに呼ばれたら、もう1人がレジに入る');
   for(const k of ['stock','front','order','cook','waste','wipe','mop','carry'])assert.ok(stat[k]>0,'店員の仕事 '+k);

@@ -96,7 +96,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 納品
   const dayOrder=ctx.order||state.order;   // その日の便で届く数は、締め切りまでに出した発注で決まっている（途中で変えても、きょうの便は変わらない）
   // トラック（2026-11-09）：ctx.truck＝{便の名前: 店に着く時刻}。便の時刻より遅く着いたら、着いた時刻に並べる（late＝遅れた分）
-  const deliveries=cfg.deliveries.map(d=>{const a=ctx.truck&&ctx.truck[d.name],t=Math.max(d.t,a||0,O0-1);return a>d.t?{...d,t,late:Math.round(a-d.t)}:{...d,t};});
+  const PRE=cfg.crew&&cfg.crew.work&&state.crew&&O0===cfg.open[0]*60?cfg.crew.work.from*60:null;   // 開店前に店員がいる店（港駅の店・2026-11-11）：開店前に届いた便は、届いた時刻に受け取って並べる（開店のときには棚に並んでいる）
+  const deliveries=cfg.deliveries.map(d=>{const a=ctx.truck&&ctx.truck[d.name],t=Math.max(d.t,a||0,PRE!=null?PRE:O0-1);return a>d.t?{...d,t,late:Math.round(a-d.t)}:{...d,t};});
   // 臨時便：頼んだ時刻から lead 分後に、その品だけ届く
   let expressFee=0;for(const x of (cfg.express.off?[]:(ctx.express||[]))){const items=x.items||(x.pid?{[x.pid]:x.q}:{});if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:{items}});expressFee+=cfg.express.fee;}   // 1便に何品でものせられる。料金は便ごと
   // 当日の追加：日持ちする品だけ、その日の定期便といっしょに届く（料金なし）。定期便が目標まで足したあとに上乗せする
@@ -160,18 +161,19 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const stockOf=pid=>P[pid].genre==='hot'?hotStock(pid):(shelf[pid]||0);
   const takeShelf=(pid,q)=>{if(P[pid].genre==='hot'){expire(pid,nowT);const Q=hotQ[pid]||[];let c=0,k=0;while(k<q&&Q.length&&Q[0].t<=nowT){c+=Q.shift().c;k++;}if(k&&!Q.length)cookOne(pid,nowT);return {got:k,cost:c};}   // ケースが空になったら、すぐ温める
     const k=Math.min(q,shelf[pid]||0);shelf[pid]-=k;const g2=take(pid,k);return g2;};
-  let nowT=O0,di=0,nextRestock=O0,nextSnap=Math.floor(O0/SNAP)*SNAP,ei=1;
+  let nowT=O0,di=0,nextRestock=O0,nextSnap=Math.floor((PRE!=null?PRE:O0)/SNAP)*SNAP,ei=1;
   const applyEdit=t=>{while(ei<edits.length&&edits[ei].t<=t){const e=setAt(edits[ei].t);const old=SI;SI=shelfInfo(cfg,e.layout);cur=e;
       for(const pid in shelf)if(!SI[pid]){shelf[pid]=0;}                      // 棚から外した物は裏へ
       for(const pid in SI)if(shelf[pid]>SI[pid].cap)shelf[pid]=SI[pid].cap;
       ev.push({t:edits[ei].t,k:'edit'});shelfFill(edits[ei].t,'変えた棚に並べる');ei++;}};
   const takeSnap=t=>{while(nextSnap<=t){const o={},b={};for(const pid in SI){o[pid]=stockOf(pid);b[pid]=P[pid].genre==='hot'?backQ(pid):Math.max(0,backQ(pid)-(shelf[pid]||0));}snap.push({t:nextSnap,s:o,b});nextSnap+=SNAP;}};
   const tick=t=>{applyEdit(t);
-    while(di<deliveries.length&&deliveries[di].t<=t){nowT=deliveries[di].t;const dd=deliveries[di];if(dd.shelve){for(const pid in dd.items)if(held[pid]){held[pid].q-=dd.items[pid];if(held[pid].q<=0)delete held[pid];}ev.push({t:dd.t,k:'shelve',name:dd.name,items:dd.items,by:dd.by,from:+dd.from.toFixed(2),local:dd.local});shelfFill(dd.t);di++;continue;}deliver(deliveries[di],deliveries[di].t);shelfFill(deliveries[di].t,'納品のあと品出し');cook(deliveries[di].t);di++;}
+    while(di<deliveries.length&&deliveries[di].t<=t){if(nextSnap<O0)takeSnap(deliveries[di].t-1e-6);/* 開店前（港駅の店）：届く前の棚も残す */nowT=deliveries[di].t;const dd=deliveries[di];if(dd.shelve){for(const pid in dd.items)if(held[pid]){held[pid].q-=dd.items[pid];if(held[pid].q<=0)delete held[pid];}ev.push({t:dd.t,k:'shelve',name:dd.name,items:dd.items,by:dd.by,from:+dd.from.toFixed(2),local:dd.local});shelfFill(dd.t);di++;continue;}deliver(deliveries[di],deliveries[di].t);shelfFill(deliveries[di].t,'納品のあと品出し');cook(deliveries[di].t);di++;}
     while(nextRestock<=t){nowT=nextRestock;let s0=-1;for(let k=0;k<W.length;k++)if(KS.onAt(W[k],nextRestock)&&free[k]<=nextRestock+5&&(s0<0||free[k]<free[s0]))s0=k;
       if(s0>=0){const moved=shelfFill(nextRestock,'品出し');if(moved)free[s0]=Math.max(free[s0],nextRestock)+cfg.restockMin/KS.speed(cfg,W[s0].p,'stock');}
       cook(nextRestock);nextRestock+=cfg.restockEvery;}
     takeSnap(t);};
+  if(PRE!=null)shelfFill(PRE);   // 開店前（港駅の店）：前の日から残った物は、棚に並んだまま（出来事は出さない）
   tick(O0);
   const priceOf=pid=>cur.price[pid]??P[pid].price;
   const recent=[],motives={};   // recent：直前に売れた品（前の人につられる）

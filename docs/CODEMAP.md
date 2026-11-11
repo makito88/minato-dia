@@ -70,9 +70,9 @@ dayPlan() …15・公開 HaisoCore …60
 
 CSS …17・render() …44・bindDays() …68・open() …69・close() …70・summary() …72・公開 minatoHaiso …76
 
-## js/kiosk-core.js（395行）
+## js/kiosk-core.js（397行）
 
-hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() …24・shelfInfo() …26・defaultOrder() …31・■ 状態 …32・create() …33・■ 1日を動かす …39・simulate() …42・review() …301・■ 運行日を締める：評判・SNSの話題・常連・ブーム・在庫の持ちこし・知らせ …311・closeDay() …312・■ 移転：別の駅・場所へ移す（次の運行日から） …362・relocate() …367・migratePrices() …380・backAt() …385・stockAt() …386・idxAt() …387・soFar() …389・公開 KioskCore …393
+hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() …24・shelfInfo() …26・defaultOrder() …31・■ 状態 …32・create() …33・■ 1日を動かす …39・simulate() …42・review() …303・■ 運行日を締める：評判・SNSの話題・常連・ブーム・在庫の持ちこし・知らせ …313・closeDay() …314・■ 移転：別の駅・場所へ移す（次の運行日から） …364・relocate() …369・migratePrices() …382・backAt() …387・stockAt() …388・idxAt() …389・soFar() …391・公開 KioskCore …395
 
 ## js/kiosk-staff.js（198行）
 
@@ -106,9 +106,9 @@ RAMP …13・DARK …15・■ 1日の記録 …22・load() …23・days() …25�
 
 ■ 見取り図（キャンバスの座標） …10・MAP …12・AN0 …32・STOP_ORDER …36・standOf() …38・placeIndex() …49・CORR …51・route() …52・legs() …58・mark() …71・TRASH …76・DOOR_IN …77・■ A6（2026-11-11）：持ち物の絵・どこから来てどこへ行くか …81・PR0 …87・PARK …89・propsOf() …90・inPath() …100・OUT_MID …106・outAt() …107・■ A2（2026-11-11）：店の中の台本 …109・DW0 …114・ST0 …116・LOOP_Z …117・stockAt() …119・pickStyle() …120・script() …126・build() …203・EASE …253・along() …254・qSlot() …260・PICK …262・doing() …263・SLOT …269・avoid() …270・at() …280・clerks() …303・YEN …314・buyText() …315・bubbles() …318・■ 地元のお店の人（A1・2026-11-11） …333・LOCAL_DROP …337・locals() …338・localAt() …350・■ A3（2026-11-11）：店員の台本 …352・CK0 …360・BEHIND …362・croute() …363・CPOS …367・NAMES …368・plan() …369・公開 MinatoAnim …484
 
-## js/minato-store-core.js（60行）
+## js/minato-store-core.js（61行）
 
-KEY …12・cfg() …15・crewFix() …35・create() …39・■ おまかせ発注（港駅の売店アニメの S1・2026-11-11） …41・OM_KEEP …46・omInit() …47・omRecord() …49・omOrder() …55・公開 MinatoStore …58
+KEY …12・cfg() …15・crewFix() …36・create() …40・■ おまかせ発注（港駅の売店アニメの S1・2026-11-11） …42・OM_KEEP …47・omInit() …48・omRecord() …50・omOrder() …56・公開 MinatoStore …59
 
 ## js/minato-store-fx.js（122行）
 

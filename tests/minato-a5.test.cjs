@@ -47,7 +47,8 @@ const one=buys.filter(e=>e.items.length===1&&e.items[0][1]===1&&G(e.items[0][0])
 for(const r of A)for(const e of r.ev)if(e.k==='selfhelp')help.add(r.day+':'+e.t.toFixed(3));
 const noHelp=one.filter(e=>!(e.lane==='s'&&A.some(r=>r.day===e.day&&r.ev.some(x=>x.k==='selfhelp'&&x.t>=e.t&&x.t<=e.end))));
 const S=(f)=>med(noHelp.filter(f).map(sec));
-const senS=S(e=>e.lane==='s'&&e.ps==='sen'&&!e.rush),salS=S(e=>e.lane==='s'&&e.ps==='salM'&&!e.rush&&!has(e,'phone'));
+// 払い方をそろえて比べる（年配の人のセルフは数が少なく、現金と電子マネーで会計の秒数がちがうため。2026-11-11 に、そろえる形にした）
+const senS=S(e=>e.lane==='s'&&e.ps==='sen'&&!e.rush&&!e.em),salS=S(e=>e.lane==='s'&&e.ps==='salM'&&!e.rush&&!has(e,'phone')&&!e.em);
 assert.ok(senS>salS*1.4,'年配の人はセルフが遅い（'+senS.toFixed(1)+'秒・会社員 '+salS.toFixed(1)+'秒）');
 const fR=S(e=>e.lane==='f'&&e.rush&&e.em),fN=S(e=>e.lane==='f'&&!e.rush&&e.em);assert.ok(fR<fN,'急いでいる人は有人レジでも速い');
 const fast=noHelp.filter(e=>e.lane==='s'&&e.rush&&e.em&&has(e,'phone')&&['salM','salF','stu','jk','shf'].includes(e.ps)).map(sec);

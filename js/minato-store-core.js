@@ -9,7 +9,7 @@
    ===================================================================== */
 (function(root){
 'use strict';
-const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261111w3';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
+const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261111w4';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
 const cache=new WeakMap();
 /* 港駅の店の設定（同じ K・M なら同じものを返す） */
 function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
@@ -25,6 +25,7 @@ function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
   c.visit={...c.visit,cap:c.visit.cap.map(x=>x*(W.visitMul||1))};
   if(c.shrink){c.shrink={...c.shrink,zone:{...c.shrink.zone}};for(const z in W.shrinkZone)if(typeof W.shrinkZone[z]==='number')c.shrink.zone[z]=W.shrinkZone[z];}
   if(c.basket){c.basket={...c.basket,ps:{...c.basket.ps,...(W.basketPs||{})},pairs:{...c.basket.pairs,...(W.basketPairs||{})}};}
+  const DT=W.deliveryT||{};if(Object.keys(DT).length)c.deliveries=c.deliveries.map(d=>DT[d.name]!=null?{...d,t:DT[d.name]}:d);   // 港駅の店に便が着く時刻（2026-11-11：朝の便は開店前）
   const DV=W.deliveries||{};c.deliveries=c.deliveries.map(d=>{if(d.all)return d;const add=Object.keys(DV).filter(g=>Array.isArray(DV[g])&&DV[g].includes(d.name));return add.length?{...d,genres:[...d.genres,...add]}:d;});
   if(W.trash&&W.trash.label&&c.mood&&c.mood.labels)c.mood.labels.trash=W.trash.label;   // きっかけ「ごみのついでに」（A4）
   if(M.crew){c.crew={...c.crew};for(const k in M.crew){if(/Note$|^note$/.test(k))continue;c.crew[k]=JSON.parse(JSON.stringify(M.crew[k]));}}   // 店員の区切り・開店前と閉店後の作業・1日の長さと休憩・割増・最低賃金・18歳未満（2026-11-11）。書いた項目だけ置きかえる

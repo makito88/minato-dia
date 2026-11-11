@@ -377,7 +377,7 @@ function plan(res,cfg,acts,layout){if(!res)return null;const C=cache.get(res);if
     if(e.k==='cook')add({kind:'cook',pr:0,ready:e.t,until:e.t+2,dur:CK.cook,spots:[CPOS.hot],any:1});
     else if(e.k==='delivery'&&!e.local&&e.n>0){const zs=[],seen=new Set();for(const pid in (e.items||{})){const w=pi[pid];if(!w||seen.has(w[0]))continue;const s=standOf(w[0],w[1],Z);if(!s)continue;seen.add(w[0]);zs.push([w[0],[s[0],s[1]+10]]);}
       zs.sort((a,b)=>STOP_ORDER.indexOf(a[0])-STOP_ORDER.indexOf(b[0]));if(!zs.length)zs.push(['shelf',[230,272]]);
-      add({kind:'stock',pr:1,ready:e.t,until:O1,dur:Math.min(CK.stockMax,Math.max(CK.stockMin,e.n*CK.stockPer)),spots:zs.map(z=>z[1]),deli:e,cart:[]});}
+      add({kind:'stock',pr:1,ready:e.t,until:O1,dur:Math.min(CK.stockMax,Math.max(CK.stockMin,e.n*CK.stockPer)),spots:zs.map(z=>z[1]),deli:e,cart:[]});if(e.t<O0&&crew.some(w=>on(w,e.t)))tasks[tasks.length-1].left=0;}   // 開店前に届いた便は、開店前の準備（品出し）で並べ終える
     else if(e.k==='waste'&&e.pid){const s=spotOf(e.pid);if(s)add({kind:'waste',pr:2,ready:e.t,until:e.t+60,dur:CK.waste,spots:[s],any:s===CPOS.hot});}}
   // 地元のお店の箱：サインのあと、レジの横から棚へ運んで並べる
   const LV=locals(res,cfg);for(const v of LV){const pid=Object.keys(v.e.items||{})[0],s=(pid&&spotOf(pid))||[470,172];add({kind:'carry',pr:1,ready:v.s1,until:O1,dur:0.06+0.3*v.box,spots:[v.drop,s],v});}
