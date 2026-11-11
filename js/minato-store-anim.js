@@ -25,7 +25,8 @@ const MAP={
   q:{f:{x:600,y:382,dx:-30,dy:0},s:{x:822,y:384,dx:0,dy:20}},   // 列の並び方（先頭のうしろから）
   rangeAt:[642,150],
   seat:i=>i<6?[905,128+i*40]:[[708,130],[776,130],[798,130],[866,130]][Math.min(3,i-6)],   // 0〜5 立ち席（壁ぞい）・6〜9 座る席（小さなテーブル2つ）
-  corr:[110,340,540,885]                      // 縦の通路（棚を突っ切らないように、ここを通る）
+  corr:[110,340,540,885],                     // 縦の通路（棚を突っ切らないように、ここを通る）
+  corrWide:[110,540,885]                      // 広い通路だけ（A6：キャリーケース・シルバーカー・ベビーカーの人。低い棚と乾物の棚のあいだは通らない）
 };
 /* 歩く速さ（A1・2026-11-11）：港駅の店の設定の walk.anim（m/秒・絵の1 ≒ 0.9cm）から「座標/分」に。なければ下の値（同じ数字） */
 const AN0={unitM:0.009,mps:{shf:1.3,salM:1.2,salF:1.1,stu:1.2,jk:1.0,sen:0.75,tou:0.9,hou:0.95,cru:0.85,fam:0.8,cpl:1.0,frd:1.0},mpsDefault:1.0,ease:0.5,hurry:0.85,pack:0.08,shuffle:0.25,
@@ -47,7 +48,8 @@ function standOf(zk,i,Z){const z=Z[zk];if(!z)return null;const c=i%z.cols,r=Math
     default:return null;}}   // たばこ・ホット・ホット飲料はレジで受け取る
 function placeIndex(cfg,layout){const out={};for(const zk in layout){(layout[zk]||[]).forEach((pid,i)=>{if(pid&&!out[pid])out[pid]=[zk,i];});}return out;}
 /* 道のり：同じ横の通りなら真っすぐ、ちがえば近い縦の通路を通る */
-function route(a,b){if(Math.abs(a[1]-b[1])<6)return [b];let best=MAP.corr[0],bd=Infinity;for(const c of MAP.corr){const d=Math.abs(a[0]-c)+Math.abs(b[0]-c);if(d<bd){bd=d;best=c;}}
+let CORR=MAP.corr;   // いま道を作っている人が通れる縦の通路（A6。ふだんは全部）
+function route(a,b){if(Math.abs(a[1]-b[1])<6)return [b];let best=CORR[0],bd=Infinity;for(const c of CORR){const d=Math.abs(a[0]-c)+Math.abs(b[0]-c);if(d<bd){bd=d;best=c;}}
   return [[best,a[1]],[best,b[1]],b];}
 const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 /* 道のりの点の列に時刻を割り当てる（A1 で見直し）：歩くのはいつも「その人の速さ」で、のこりは「立ち止まる点」で見る時間。
@@ -75,6 +77,34 @@ const TRASH=[912,420];
 const DOOR_IN=[(MAP.door.inX[0]+MAP.door.inX[1])/2,MAP.ent[1]];
 /* 改札口 ↔ 店は、距離 ÷ その人の速さ（A1。前は決まった 0.12分・0.18分で、遠い人ほど速く見えた） */
 const preOf=(g,sp)=>Math.max(0.01,dist(g,DOOR_IN)/sp),postOf=(g,from,sp)=>Math.max(0.01,dist(g,from)/sp);
+
+/* ---------- A6（2026-11-11）：持ち物の絵・どこから来てどこへ行くか ----------
+   ・計算の持ち物（e.carry：スマホだけ・小銭入れ・空き缶・マイボトル・濡れた傘・荷物・シルバーカー・子ども・エコバッグ・乗船券）はそのまま描く。
+   ・絵だけの持ち物（walk.anim.props）は、人の番号のハッシュで客層ごとに引く（手鏡・ラケット・イヤホン・社員証・一眼レフ・長靴など）。買い物や帰る理由は足さない。
+   ・キャリーケース・シルバーカー・ベビーカーの人は広い通路だけ。キャリーケースの人の一部は入口の近くに置いて見て回り、列の前に取りに戻る。
+   ・空き缶の人は、まずごみ箱へ（計算の A5：ごみのたまる早さに足した分）。長靴・濡れたタオルの人は床にしずく → 店員のモップ（plan）。
+   ・計算の道（walk.trip）で「電車」ではない所から来た・行く人は、改札口ではなくコンコースの端（駅の外）から出入りする。 */
+const PR0={max:2,ps:{},summer:{},prep:{mirror:0.12,parasol:0.07,fan:0.04},prepP:{mirror:0.6},wide:['suitcase','cart','stroller'],park:0.4,stroller:0.5,drip:{from:['boots','towel'],every:0.05,life:25,mop:0.35},town:[36,504],clock:{show:4}};
+const propCfg=AN=>Object.assign({},PR0,AN.props||{});
+const PARK=[124,432],PREP_AT=[150,476];
+function propsOf(e,id,AN,cond){const PR=propCfg(AN),seed='p'+id,L=[];
+  for(const [k,p] of (PR.ps[e.ps]||[])){if(L.length>=PR.max)break;if(hsh(seed,k)<p)L.push(k);}
+  if(cond&&cond.season==='sum')for(const k in PR.summer){const s=PR.summer[k];if(L.length>=PR.max+1)break;if(s.ps&&!s.ps.includes(e.ps))continue;if(s.wx&&!s.wx.includes(cond.wx))continue;if(hsh(seed,'su',k)<s.p)L.push(k);}
+  const C=e.carry||[],has=k=>L.includes(k)||C.includes(k),bigLoad=C.includes('load')&&['tou','cru','fer'].includes(e.ps);
+  if(bigLoad&&!L.includes('suitcase'))L.push('suitcase');   // 観光・客船・船の人の「両手がふさがる荷物」はキャリーケース
+  const stroller=C.includes('kid')&&hsh(seed,'sl')<(PR.stroller??0.5);
+  const W=PR.wide||[],wide=has('suitcase')&&W.includes('suitcase')||C.includes('cart')&&W.includes('cart')||stroller&&W.includes('stroller');
+  let prep=null;for(const k of ['mirror','parasol','fan'])if(L.includes(k)&&hsh(seed,'pp',k)<((PR.prepP||{})[k]??1)){prep={kind:k,min:(PR.prep||{})[k]||0.05};break;}
+  return {L,stroller,wide,park:has('suitcase')&&hsh(seed,'pk')<(PR.park??0.4),prep,drip:(PR.drip&&PR.drip.from||[]).some(has)};}
+/* 入るまでの道（駅の外から来た人・入口の外で立ち止まる人だけ。ほかの人は前と同じ直線）。入る時刻 ta は計算のまま、その前に足す */
+function inPath(a,sp){const P=a.pr&&a.pr.prep,town=a.gate[0]<200;if(!P&&!town)return;
+  const pts=[a.gate];if(P)pts.push(PREP_AT);pts.push(DOOR_IN);let D=0;for(let i=1;i<pts.length;i++)D+=dist(pts[i-1],pts[i]);
+  const last=P?dist(PREP_AT,DOOR_IN)/sp:0,first=(D/sp)-last,L=[];let t=a.ta-last-(P?P.min:0)-first;
+  L.push({t,x:pts[0][0],y:pts[0][1]});if(P){t+=first;L.push({t,x:PREP_AT[0],y:PREP_AT[1]});a.prepT=t;t+=P.min;L.push({t,x:PREP_AT[0],y:PREP_AT[1]});}
+  L.push({t:a.ta,x:DOOR_IN[0],y:DOOR_IN[1]});a.inL=mark(L);a.pre=a.ta-L[0].t;a.t0=L[0].t;}
+/* 出口 → 駅の外：店の前の床（壁の外）を通ってからコンコースの端へ */
+const OUT_MID=[MAP.exit[0]-20,492],outLen=g=>dist(MAP.exit,OUT_MID)+dist(OUT_MID,g);
+function outAt(g,f){const a=dist(MAP.exit,OUT_MID),L=a+dist(OUT_MID,g),d=Math.max(0,Math.min(1,f))*L;return d<a?lerp(MAP.exit,OUT_MID,d/a):lerp(OUT_MID,g,(d-a)/Math.max(1e-9,L-a));}
 
 /* ---------- A2（2026-11-11）：店の中の台本 ----------
    計算が決めた「何を買ったか・何分いたか」の中で、その何分をどう過ごしたかを、人の番号のハッシュで決める（途中から見ても同じ）。
@@ -131,10 +161,13 @@ function script(e,a,X){const {AN,pi,Z,P,res,lay}=X,id=a.id,sp=a.sp,span=Math.max
   const B=AN.basket||{p3:0.85,p2:0.25,late:0.35,at:[212,428]},nI=e.items.reduce((s,[,q])=>s+q,0),bk=hsh(seed,'bk')<(nI>=3?B.p3:nI===2?B.p2:0);
   if(bk){const picks=stops.map((q,k)=>q.kind==='pick'||q.kind==='read'||q.kind==='photo'?k:-1).filter(k=>k>=0);
     if(picks.length>=3&&hsh(seed,'bl')<B.late)stops.splice(picks[1]+1,0,{zk:'basket',x:B.at[0],y:B.at[1]+4,g:'basket',pids:[],kind:'basket',d:2,hi:3});else a.bkAt=a.ta;}
+  // A6：空き缶の人は、まずごみ箱へ。キャリーケースを入口の近くに置く人は、置いてから回り、列の前に取りに戻る（どちらも絵だけ。時間は店にいた時間の中）
+  if(a.pr){if((e.carry||[]).includes('can'))stops.unshift({zk:'trash',x:TRASH[0],y:TRASH[1],g:'trash',pids:[],kind:'trash',d:2,hi:3});
+    if(a.pr.park){stops.unshift({zk:'park',x:PARK[0]+8,y:PARK[1]-6,g:'park',pids:[],kind:'drop',d:2,hi:3});stops.push({zk:'park',x:PARK[0]+8,y:PARK[1]-6,g:'park',pids:[],kind:'pickup',d:2,hi:3});}}
   // 時間の合わせ方：歩く分 + 立ち止まる分 と「店にいた時間」
   const qIn=X.qIn,walkOf=L=>pl(pathOf(MAP.ent,[...L.map(q=>[q.x,q.y]),qIn]))/sp,sumD=L=>L.reduce((s,q)=>s+q.d,0)/60;
   let W=walkOf(stops);
-  if(W>span*(AN.hurry||0.85)){stops=stops.filter(q=>q.kind==='pick'||q.kind==='read'||q.kind==='photo'||q.kind==='basket');W=walkOf(stops);}
+  if(W>span*(AN.hurry||0.85)){stops=stops.filter(q=>q.kind==='pick'||q.kind==='read'||q.kind==='photo'||q.kind==='basket'||q.kind==='drop'||q.kind==='pickup');W=walkOf(stops);}
   if(W>span*(AN.hurry||0.85)){a.style='rush';a.stops=[];a.walk=legs(pathOf(MAP.ent,[...S.map(q=>[q.x,q.y,1]),qIn]),a.ta,a.tq,S.length,sp,AN,id);if(bk&&!a.bkAt)a.bkAt=a.ta;return;}
   let Dd=sumD(stops);
   if(W+Dd>span){const f=Math.max(0,(span-W)/Math.max(1e-9,Dd));for(const q of stops)q.d*=f;}
@@ -163,20 +196,25 @@ function script(e,a,X){const {AN,pi,Z,P,res,lay}=X,id=a.id,sp=a.sp,span=Math.max
   if(out.at(-1).t<a.tq)out.push({t:a.tq,x:cur[0],y:cur[1]});
   // 計算の時刻（列に入る時刻）より遅れたら、少し速めて合わせる（めったにない。丸めの分）
   const T=out.at(-1).t;if(T>a.tq+1e-9){const f=(a.tq-a.ta)/(T-a.ta);for(const p of out)p.t=a.ta+(p.t-a.ta)*f;for(const r of rec){r.t0=a.ta+(r.t0-a.ta)*f;r.t1=a.ta+(r.t1-a.ta)*f;}}
-  a.walk=out;a.stops=rec;a.bk=bk;}
+  a.walk=out;a.stops=rec;a.bk=bk;
+  const dr=rec.find(r=>r.kind==='drop'),pu=rec.find(r=>r.kind==='pickup'),tr=rec.find(r=>r.kind==='trash');if(dr&&pu)a.park=[dr.t1,pu.t0];if(tr)a.canT=tr.t0+(tr.t1-tr.t0)*0.5;}
 
 /* 出来事の列 → 店の中の人（actor）の列。res が同じなら同じ */
-function build(res,cfg,layout){const AN=animOf(cfg);EASE=AN.ease??AN0.ease;SLOT=Object.assign({gap:16,step:18,keep:4},AN.slot||{});const pi=placeIndex(cfg,layout),Z=cfg.zones,G={};for(const g of cfg.genres)G[g.id]=g;const P={};for(const p of cfg.products)P[p.id]=p;
+function build(res,cfg,layout){const AN=animOf(cfg);EASE=AN.ease??AN0.ease;CLK=(propCfg(AN).clock||{}).show??4;SLOT=Object.assign({gap:16,step:18,keep:4},AN.slot||{});const pi=placeIndex(cfg,layout),Z=cfg.zones,G={};for(const g of cfg.genres)G[g.id]=g;const P={};for(const p of cfg.products)P[p.id]=p;
   const out=[],byEnd={},lead={};let n=0;
+  const TRIP={};for(const r of (cfg.walk&&cfg.walk.trip&&cfg.walk.trip.routes)||[])TRIP[r.id]=r;const TW=propCfg(AN).town||PR0.town,townOf=s=>[TW[0],TW[1]+(hsh(s,'tw')-0.5)*14];
   const stopsOf=(items,seed)=>{const seen=new Set(),st=[];for(const [pid] of items){const w=pi[pid];if(!w)continue;const s=standOf(w[0],w[1],Z);if(!s||seen.has(w[0]))continue;seen.add(w[0]);st.push([w[0],s]);}
     st.sort((a,b)=>STOP_ORDER.indexOf(a[0])-STOP_ORDER.indexOf(b[0]));return st.slice(0,3).map(([,s])=>[s[0]+(hsh(seed,s[0])-0.5)*10,s[1],1]);};
   const gate=seed=>[380+hsh(seed,'g')*260,585];
   for(const e of res.ev){
     if(e.k==='buy'&&e.lane){const id=n++,ta=e.t-(e.wait||0)-(e.stay||0),tq=e.t-(e.wait||0),sp=speedOf(AN,e.ps),g=gate(id),pre=preOf(g,sp);
       const qp=MAP.q[e.lane];const qIn=[qp.x+qp.dx*1.5,qp.y+qp.dy*1.5];
-      const a={id,kind:'buy',ps:e.ps,lane:e.lane,ta,tq,ts:e.t,te:e.end,t0:ta-pre,t1:e.end,pre,gate:g,items:e.items.length,yen:e.yen,sp,mot:e.mot};
+      const a={id,kind:'buy',ps:e.ps,lane:e.lane,ta,tq,ts:e.t,te:e.end,t0:ta-pre,t1:e.end,pre,gate:g,items:e.items.length,yen:e.yen,sp,mot:e.mot,em:!!e.em};
+      // A6：持ち物（計算の carry と絵だけの持ち物）・どこから来たか（駅の外からの人はコンコースの端から）・入る前のしぐさ
+      a.pr=propsOf(e,id,AN,res.cond);a.carry=e.carry||null;const tr=e.trip&&TRIP[e.trip];if(tr&&tr.from!=='電車')a.gate=townOf(id);if(tr)a.gout=tr.to!=='電車'?townOf(id+'o'):g;inPath(a,sp);
+      CORR=a.pr.wide?MAP.corrWide:MAP.corr;
       // A2：店の中の台本（動き方の型・品ごとの秒数・手に取って戻す・かご）。連れについていくのは、少し前に入った同じ客層の人
-      const ld=lead[e.ps],lp=AN.styles&&AN.styles.follow||0.6;script(e,a,{AN,pi,Z,P,res,lay:layout||{},qIn,lead:ld&&Math.abs(ld.ta-ta)<lp&&ld.style!=='fol'?ld:null});lead[e.ps]=a;
+      const ld=lead[e.ps],lp=AN.styles&&AN.styles.follow||0.6;script(e,a,{AN,pi,Z,P,res,lay:layout||{},qIn,lead:ld&&Math.abs(ld.ta-ta)<lp&&ld.style!=='fol'?ld:null});lead[e.ps]=a;CORR=MAP.corr;
       out.push(a);byEnd[e.ps+'|'+(+e.end).toFixed(2)]=a;continue;}
     if(e.k==='look'&&e.lane&&e.why==='列が長い'){const id=n++,stay=e.stay||2,ta=e.t-stay,sp=speedOf(AN,e.ps),qp=MAP.q[e.lane],g=gate(id),pre=preOf(g,sp);
       const tail=[qp.x+qp.dx*Math.min(9,(e.q||0)+1),qp.y+qp.dy*Math.min(5,(e.q||0)+1)];   // 列のいちばんうしろ（セルフの列は短く描く）
@@ -198,7 +236,7 @@ function build(res,cfg,layout){const AN=animOf(cfg);EASE=AN.ease??AN0.ease;SLOT=
     else a.full={t:e.t};}
   // 会計のあと：出口へ（レンジ・席に寄る人はそこへ）
   // 会計のあと（A1）：まっすぐ帰る人は、レジの横に半歩よけて、財布をしまう・袋を持ち直す（pack 分）
-  for(const a of out){if(a.kind!=='buy')continue;const sp=a.sp,R=MAP.reg[a.lane],seq=[];let t=a.te,cur=R;
+  for(const a of out){if(a.kind!=='buy')continue;const sp=a.sp,R=MAP.reg[a.lane],seq=[];let t=a.te,cur=R;CORR=a.pr&&a.pr.wide?MAP.corrWide:MAP.corr;
     const go=(p,t0,t1)=>{const P=pathOf(cur,[p]),L=legs(P,t0,Math.max(t1,t0+pl(P)/sp),0,sp,AN,a.id);seq.push(...L);cur=p;};   // 間に合わなくても、自分の速さより速くは歩かない
     if(!a.range&&!a.seat&&!a.full){const P=a.lane==='s'?[R[0]-26,R[1]+14]:[R[0]+30,R[1]+12],w=dist(R,P)/sp,pk=AN.pack||0.08;
       seq.push({t,x:R[0],y:R[1]},{t:t+w,x:P[0],y:P[1]},{t:t+w+pk,x:P[0],y:P[1]});a.pack={t0:t+w,t1:t+w+pk};t+=w+pk;cur=P;}
@@ -206,12 +244,13 @@ function build(res,cfg,layout){const AN=animOf(cfg);EASE=AN.ease??AN0.ease;SLOT=
     if(a.seat){const s=MAP.seat(a.seat.i);go(s,t,Math.max(t+0.05,a.seat.t));t=Math.max(seq.at(-1).t,a.seat.to);seq.push({t,x:s[0],y:s[1]});
       if(hsh(a.id,'trash')<(AN.trashP??0.5)){go(TRASH,t,t);t=seq.at(-1).t;a.trash={t0:t,t1:t+0.05};t+=0.05;seq.push({t,x:cur[0],y:cur[1]});}}   // 食べ終わった人の半分くらいは、ごみ箱に寄ってから出る（A2）
     else if(a.full){go([MAP.seat(3)[0]-30,MAP.seat(3)[1]],t,Math.max(t+0.05,a.full.t));t=Math.max(seq.at(-1).t,a.full.t+0.08);seq.push({t,x:cur[0],y:cur[1]});}
-    go(MAP.exit,t,t+Math.max(0.02,pl(pathOf(cur,[MAP.exit]))/sp));a.after=mark(seq);a.post=postOf(a.gate,MAP.exit,sp);a.t1=seq.at(-1).t+a.post;mark(a.walk);}
+    go(MAP.exit,t,t+Math.max(0.02,pl(pathOf(cur,[MAP.exit]))/sp));a.after=mark(seq);a.post=a.gout&&a.gout[0]<200?outLen(a.gout)/sp:postOf(a.gout||a.gate,MAP.exit,sp);a.t1=seq.at(-1).t+a.post;mark(a.walk);}
+  CORR=MAP.corr;
   out.sort((x,y)=>x.t0-y.t0);
   let mx=0;for(const a of out){mx=Math.max(mx,a.t1);a.maxT1=mx;}   // 二分探索のため（ここまでで、いちばん遅く消える時刻）
   return out;}
 /* 時刻の列の中の場所（直線でつなぐ） */
-let EASE=AN0.ease;
+let EASE=AN0.ease,CLK=4;
 function along(L,t){if(!L.length)return null;if(t<=L[0].t)return [L[0].x,L[0].y,0];for(let i=1;i<L.length;i++){if(t<=L[i].t){const a=L[i-1],b=L[i];let f=b.t>a.t?(t-a.t)/(b.t-a.t):1;
   if(EASE>0&&(a.r||b.r)){const g=a.r&&b.r?f*f*(3-2*f):a.r?f*f:1-(1-f)*(1-f);f=(1-EASE)*f+EASE*g;}   // 歩き出し・止まる前は少しゆるめる（平均の速さは同じ）
   return [a.x+(b.x-a.x)*f,a.y+(b.y-a.y)*f,b.x!==a.x||b.y!==a.y?1:0];}}const z=L.at(-1);return [z.x,z.y,0];}
@@ -241,16 +280,20 @@ function avoid(L,t){const G=SLOT.gap,ST=SLOT.step,stand=[];
 function at(actors,t,cap){cap=cap||40;let lo=0,hi=actors.length;while(lo<hi){const m=(lo+hi)>>1;if(actors[m].maxT1<t)lo=m+1;else hi=m;}
   const act=[];for(let i=lo;i<actors.length&&actors[i].t0<=t;i++){const a=actors[i];if(a.t1>=t)act.push(a);}
   const out=[];for(const a of act){let p=null,ph='';
-    if(t<a.ta){p=lerp(a.gate,DOOR_IN,(t-a.t0)/a.pre);p.push(1);ph='in';}
+    if(t<a.ta){if(a.inL){p=along(a.inL,t);ph='in';}else{p=lerp(a.gate,DOOR_IN,(t-a.t0)/a.pre);p.push(1);ph='in';}}
     else if(a.kind==='buy'){
       if(t<a.tq){p=along(a.walk,t);ph='shop';}
       else if(t<a.ts){const Q=MAP.q[a.lane],k=qSlot(act,a,t),kk=a.lane==='s'?Math.min(k,4):k;const end=[Q.x+Q.dx*(kk+1),Q.y+Q.dy*(kk+1)],wk=a.walk.at(-1);
         const f=Math.min(1,(t-a.tq)/0.03);p=[wk.x+(end[0]-wk.x)*f,wk.y+(end[1]-wk.y)*f,f<1?1:0];ph='queue';a._k=k;}
       else if(t<a.te){const R=MAP.reg[a.lane];p=[R[0],R[1],0];ph='pay';}
       else{const last=a.after.at(-1);if(t<=last.t){p=along(a.after,t);ph=a.seat&&t>=a.seat.t&&t<a.seat.to?'eat':a.range&&t>=a.range.t&&t<a.range.t+a.range.min?'range':a.pack&&t>=a.pack.t0&&t<a.pack.t1?'pack':'out';}
-        else{p=lerp([MAP.exit[0],MAP.exit[1]],a.gate,(t-last.t)/a.post);p.push(1);ph='gone';}}}
+        else{const f=(t-last.t)/a.post;p=a.gout&&a.gout[0]<200?outAt(a.gout,f):lerp([MAP.exit[0],MAP.exit[1]],a.gout||a.gate,f);p.push(1);ph='gone';}}}
     else{const last=a.walk.at(-1);if(t<=last.t){p=along(a.walk,t);ph=a.kind;}else{p=lerp([MAP.ent[0],MAP.ent[1]],a.gate,(t-last.t)/a.post);p.push(1);ph='gone';}}
-    if(p){const o={a,x:p[0],y:p[1],mv:p[2],ph};if(a.kind==='buy')doing(o,a,t);if(ph==='queue')o.back=true;out.push(o);}}
+    if(p){const o={a,x:p[0],y:p[1],mv:p[2],ph};if(a.kind==='buy')doing(o,a,t);if(ph==='queue')o.back=true;
+      if(a.inL&&a.pr&&a.pr.prep&&ph==='in'){const P=a.pr.prep;o.prep=t>=a.prepT&&t<a.prepT+P.min?P.kind:null;o.prepF=o.prep?Math.min(1,(t-a.prepT)/P.min):0;o.preB=t<a.prepT;}   // 入口の外で前髪を直す・日傘をたたむ・ファンを止める（A6）
+      if(a.hurry&&a.train!=null&&(ph==='in'||ph==='shop'||ph==='queue'||ph==='pay')){const left=a.train-(t-a.ta);if(left<(CLK||4))o.clock=Math.max(0,left);}   // 電車まであと何分（A6）
+      if(a.park&&t>=a.park[0]&&t<a.park[1])o.parked=true;
+      out.push(o);}}
   avoid(out,t);
   out.sort((u,v)=>u.y-v.y);
   if(out.length>cap){const keep=new Set(out.slice().sort((u,v)=>(v.ph==='pay'||v.ph==='queue')-(u.ph==='pay'||u.ph==='queue')).slice(0,cap));for(const o of out)if(!keep.has(o))o.dot=true;}
@@ -343,6 +386,13 @@ function plan(res,cfg,acts,layout){if(!res)return null;const C=cache.get(res);if
   // テーブル拭き（ごみ箱に寄らなかった人の席）・かごを入口へ（有人レジで受け取ったかごが basketN 個たまったら）
   let nb=0;for(const a of acts||[]){if(a.kind!=='buy')continue;if(a.seat&&!a.trash){const s=MAP.seat(a.seat.i);add({kind:'wipe',pr:4,ready:a.seat.to+0.1,until:a.seat.to+20,dur:CK.wipe,spots:[[s[0]-(a.seat.i<6?14:0),s[1]+(a.seat.i<6?0:10)]]});}
     if(a.bk&&a.lane==='f'&&++nb%CK.basketN===0)add({kind:'basket',pr:4,ready:a.te,until:a.te+30,dur:CK.basket,spots:[CPOS.reg,CPOS.bk]});}
+  // A6：長靴・濡れたタオルの人（市場帰り）の床のしずく。出ていったあと、店員がモップで拭く（拭き終わるか、乾いたら消える）
+  const DR=propCfg(AN).drip,drips=[];
+  if(DR&&DR.every>0)for(const a of acts||[]){if(a.kind!=='buy'||!a.pr||!a.pr.drip||!a.after)continue;const pts=[],end=a.after.at(-1).t;
+    for(let t=a.ta;t<=end;t+=DR.every){const p=t<a.tq?along(a.walk,t):t<a.ts?null:t<a.te?MAP.reg[a.lane]:along(a.after,t);if(!p||p[1]>452)continue;const z=pts.at(-1);if(z&&Math.hypot(z.x-p[0],z.y-p[1])<5)continue;
+      pts.push({t:+t.toFixed(3),x:p[0]+(hsh(a.id,'dx',pts.length)-0.5)*6,y:p[1]+2+(hsh(a.id,'dy',pts.length)-0.5)*3});}
+    if(!pts.length)continue;const d={a:a.id,pts,t1:end+DR.life,dry:end+DR.life};drips.push(d);const m=pts[Math.floor(pts.length/2)];
+    add({kind:'mop',pr:4,ready:end+0.2,until:end+DR.life-1,dur:DR.mop,spots:[[m.x,Math.min(440,m.y+6)]],drip:d});}
   tasks.sort((x,y)=>x.ready-y.ready||x.pr-y.pr);
   // すいている時台（買った人が quiet 人より少ない時台）と閉店前30分は、モップも
   const perH={};for(const e of res.ev)if(e.k==='buy'){const h=Math.floor(e.t/60);perH[h]=(perH[h]||0)+1;}
@@ -384,7 +434,7 @@ function plan(res,cfg,acts,layout){if(!res)return null;const C=cache.get(res);if
         if(pick){const k=pick;walkTo(spot);
           if(k.kind==='carry'){if(k.v.pick==null)k.v.pick=t;const c0=t,d0=0.05;stay(t+d0,null);walkTo(k.spots[1]);rec.push({t0:c0,t1:t,kind:'carry',v:k.v});const d1=Math.max(0.02,chunk-d0);stay(t+d1,'stock',{v:k.v,zk:'omiyage'});k.left=0;k.taken=w.id;continue;}
           if(k.kind==='basket'){stay(t+0.02,'basket');walkTo(k.spots[1]);stay(t+k.dur,'basket',{put:1});k.left=0;continue;}
-          const t0=t;stay(t+chunk,k.kind,{deli:k.deli});if(k.kind==='stock'){k.cart.push({t0,t1:t,x:cur[0]+22,y:cur[1]});k.si++;k.taken=w.id;}
+          const t0=t;stay(t+chunk,k.kind,{deli:k.deli});if(k.drip&&k.left-chunk<=1e-6)k.drip.t1=Math.min(k.drip.t1,t);if(k.kind==='stock'){k.cart.push({t0,t1:t,x:cur[0]+22,y:cur[1]});k.si++;k.taken=w.id;}
           k.left-=chunk;continue;}
         // 何もなければ：整理・前出し・モップ（レジの人はレジのまわりで整理）
         if(role==='reg'){const p=home(t),go=cpl(cur,p)/sp;if(free-go-back(p)<0.05)break;walkTo(p);const rem=g1-t-back(p);if(rem<0.02)break;stay(t+Math.min(rem,0.5),'tidy');continue;}
@@ -408,8 +458,8 @@ function plan(res,cfg,acts,layout){if(!res)return null;const C=cache.get(res);if
   const carts=tasks.filter(k=>k.kind==='stock').map(k=>({e:k.deli,cart:k.cart,done:k.left<=1e-6?(k.cart.at(-1)||{t1:k.ready}).t1:O1}));
   // いらっしゃいませ：お客さんが入ってきたとき（greet 分に1回まで）
   const greet=[];let lastG=-9;for(const a of (acts||[]).slice().sort((x,y)=>x.ta-y.ta)){if(a.ta-lastG<CK.greet)continue;lastG=a.ta;greet.push(a.ta);}
-  const p={clerks:out,carts,greet,locals:LV};cache.set(res,{acts,p});return p;}
+  const p={clerks:out,carts,greet,locals:LV,drips};cache.set(res,{acts,p});return p;}
 const cache=new WeakMap();
 const recAt=(R,t)=>{let lo=0,hi=R.length-1,f=null;while(lo<=hi){const m=(lo+hi)>>1;if(R[m].t0<=t){f=m;lo=m+1;}else hi=m-1;}return f!=null&&R[f].t1>t?R[f]:null;};
-root.MinatoAnim={MAP,build,at,clerks,bubbles,standOf,placeIndex,along,locals,localAt,plan,NAMES};
+root.MinatoAnim={MAP,build,at,clerks,bubbles,standOf,placeIndex,along,locals,localAt,plan,NAMES,PARK};
 })(typeof window!=='undefined'?window:globalThis);

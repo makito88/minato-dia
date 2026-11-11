@@ -988,6 +988,40 @@
      "hafen": false
     },
     "note": "地元のお店の人：お客さんと同じくらいの速さ（台車のときは少し遅く）。荷物を下ろす（箱1つ 約15秒）→ レジの横で店員と検品・受け取りのサイン（約40秒）→ 帰る。下ろした箱を棚に並べるのは店員（A3・A4）"
+   },
+   "props": {
+    "max": 2,
+    "ps": {
+     "jk": [["mirror", 0.45], ["racket", 0.2], ["instr", 0.12]],
+     "stu": [["earbud", 0.5], ["tablet", 0.15], ["racket", 0.1]],
+     "salM": [["badge", 0.55], ["brief", 0.6], ["jacket", 0.2]],
+     "salF": [["badge", 0.5], ["brief", 0.35], ["jacket", 0.1]],
+     "smn": [["badge", 0.9], ["brief", 0.6], ["docs", 0.4]],
+     "shf": [["helmet", 0.3], ["earbud", 0.15]],
+     "tou": [["camera", 0.4], ["map", 0.3], ["suitcase", 0.3]],
+     "cru": [["camera", 0.5], ["map", 0.15]],
+     "fer": [["backpack", 0.5], ["suitcase", 0.2]],
+     "mkt": [["boots", 0.8], ["towel", 0.65]],
+     "sen": [["medcase", 0.3]],
+     "fam": [["toy", 0.5]],
+     "evt": [["fanTowel", 0.55], ["penlight", 0.45]],
+     "frd": [["earbud", 0.2], ["camera", 0.1]],
+     "cpl": [["camera", 0.1]]
+    },
+    "summer": {
+     "parasol": {"ps": ["salF", "sen", "tou", "hou", "jk", "cru"], "p": 0.3, "wx": ["sun"]},
+     "fan": {"ps": ["jk", "stu", "salF", "tou", "frd", "cpl", "fam"], "p": 0.25}
+    },
+    "prep": {"mirror": 0.12, "parasol": 0.07, "fan": 0.04},
+    "prepP": {"mirror": 0.6},
+    "wide": ["suitcase", "load:tou", "load:cru", "load:fer", "cart", "stroller"],
+    "park": 0.4,
+    "stroller": 0.5,
+    "drip": {"from": ["boots", "towel"], "every": 0.05, "life": 25, "mop": 0.35},
+    "town": [36, 504],
+    "townLabel": "← 駅の外（市場・港・ホール）",
+    "clock": {"show": 4},
+    "note": "持ち物の絵（港駅の売店アニメ A6・2026-11-11・すべて仮・計算には効かない）。ps：客層ごとの絵だけの持ち物と確かさ（人の番号のハッシュで引き、max 個まで）。summer：夏（季節 sum）だけの日傘（晴れの日）・ハンディファン。prep：店に入る前に入口の外で立ち止まる分（手鏡で前髪を直す・日傘をたたむ・ファンを止める）。prepP：手鏡を持つ人のうち、入る前に直す人。wide：広い通路だけを通る人（キャリーケース・両手の荷物〔観光・客船・船の人はキャリーケースに描く〕・シルバーカー・ベビーカー）。park：キャリーケースの人のうち、入口の近くに置いて見て回る人。stroller：子どもの手の家族のうち、ベビーカーの人。drip：長靴・濡れたタオルの人（市場帰り）は床にしずく（every 分ごと・life 分で乾く）。そのあと店員がモップ（mop 分）。town：計算の道（walk.trip）で、電車ではないところから来た人・行く人の出入りする点（コンコースの端）。clock：急いでいる人の頭の上に「電車まであと何分」の時計（show 分より短いとき）"
    }
   },
   "trip": {

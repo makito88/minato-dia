@@ -134,13 +134,16 @@ const LOOK={salM:{body:'#3a4a6a',hair:'#2b2016',acc:'tie'},salF:{body:'#8a5b7a',
   sen:{body:'#7a6a5a',hair:'#c9c9c9',acc:'cane'},tou:{body:'#d9822b',hair:'#5a3a20',acc:'flag'},hou:{body:'#5b8a3a',hair:'#3a2618',acc:'bag'},shf:{body:'#7d7a4a',hair:'#2b2016',acc:'vest',cap:'#3c4a2a'},
   cru:{body:'#f4f0e6',hair:'#b08a5a',acc:'hat'},fam:{body:'#e07a5f',hair:'#3a2618',acc:'bag',with:{body:'#f2c14e',hair:'#3a2618',kid:true}},
   cpl:{body:'#c9578a',hair:'#2b2016',with:{body:'#4a6a8a',hair:'#2b2016'}},frd:{body:'#8a6ad0',hair:'#1a1410',with:{body:'#3aa38a',hair:'#5a3a20'}},clerk:{body:'#2f8a6e',hair:'#2b2016',acc:'apron',cap:'#2f8a6e'},
-  // A5 の新しい客層（色だけ。持ち物と姿は A6）
-  mkt:{body:'#3a7a8a',hair:'#2b2016',acc:'vest',cap:'#e8e8e0'},fer:{body:'#2a8ab0',hair:'#5a3a20',acc:'bag'},evt:{body:'#d0a020',hair:'#1a1410',with:{body:'#4a4a6a',hair:'#3a2618'}},smn:{body:'#5a5a8a',hair:'#2b2016',acc:'tie'}};
+  // A5 の新しい客層（A6：姿。持ち物は propsDraw）。市場帰り＝ゴム引きの前かけと白い帽子／船に乗る人＝ウインドブレーカー／イベント帰り＝おそろいのTシャツの2人／セミナー＝スーツ
+  mkt:{body:'#3a7a8a',hair:'#2b2016',acc:'rubber',cap:'#e8e8e0'},fer:{body:'#2a8ab0',hair:'#5a3a20',acc:'zip'},evt:{body:'#d0a020',hair:'#1a1410',acc:'tee',with:{body:'#d0a020',hair:'#3a2618',acc:'tee'}},smn:{body:'#3a3f4a',hair:'#2b2016',acc:'tie'}};
 function fig(c,cx,L,st,back){c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(cx,40,8,3,0,0,7);c.fill();
     c.strokeStyle='#2a2a30';c.lineWidth=3;c.lineCap='round';c.beginPath();c.moveTo(cx-3,30);c.lineTo(cx-3+st,39);c.moveTo(cx+3,30);c.lineTo(cx+3-st,39);c.stroke();
     if(L.skirt){c.fillStyle=L.skirt;c.beginPath();c.moveTo(cx-7,26);c.lineTo(cx+7,26);c.lineTo(cx+8,32);c.lineTo(cx-8,32);c.closePath();c.fill();}
     c.fillStyle=L.body;c.beginPath();c.roundRect(cx-7,14,14,15,4);c.fill();
     if(L.acc==='vest'){c.fillStyle='#e8d23a';c.fillRect(cx-7,20,14,2.5);}
+    if(L.acc==='rubber'){c.fillStyle='#2f3a3a';c.beginPath();c.roundRect(cx-6,18,12,13,2);c.fill();}   // 市場の前かけ（A6）
+    if(L.acc==='zip'){c.fillStyle='rgba(255,255,255,.7)';c.fillRect(cx-0.5,15,1,13);c.fillStyle='#1f5a7a';c.fillRect(cx-7,14,14,3);}
+    if(L.acc==='tee'){c.fillStyle='#1a1410';c.font='700 6px sans-serif';c.textAlign='center';c.fillText('★',cx,24);}
     if(L.acc==='apron'){c.fillStyle='#f4f4ee';c.fillRect(cx-4,17,8,12);}
     if(L.acc==='tie'){c.fillStyle='#c4302b';c.fillRect(cx-1,15,2,7);}
     if(L.acc==='ribbon'){c.fillStyle='#c4302b';c.fillRect(cx-2,15,4,3);}
@@ -165,6 +168,59 @@ function handOf(c,o,Tn){const I=V.ixC===V.cfg?V.ix:(V.ixC=V.cfg,V.ix=KC.index(V.
   else if(o.act==='read'){c.fillStyle='rgba(255,255,255,.9)';c.beginPath();c.arc(x+9,y-40,5,0,7);c.fill();c.fillStyle='#55504a';c.font='700 8px sans-serif';c.textAlign='center';c.fillText('…',x+9,y-38);}
   if(o.bk)basket(c,x+(o.bk==='low'?3:9),y-(o.bk==='low'?10:16),o.bk==='low');
   else if(o.hold>0&&!o.hand){c.fillStyle='rgba(255,255,255,.85)';c.fillRect(x+6,y-21,5,6);}}
+/* A6：持ち物（計算の carry と、絵だけの持ち物）。back：体のうしろに描くもの（先に）／前に描くもの（あと）。どれも小さな四角と線だけ（毎コマ軽い） */
+const BAGC=['#c94f4f','#3a6ab0','#5b8a3a','#7a5aa0','#d08a2a'];
+function suitcase(c,x,y,col){c.fillStyle=col;c.beginPath();c.roundRect(x,y-15,10,15,2);c.fill();c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1;c.beginPath();c.moveTo(x+3,y-15);c.lineTo(x+3,y-21);c.lineTo(x+7,y-21);c.lineTo(x+7,y-15);c.stroke();c.fillStyle='#222';c.fillRect(x+1,y,2,2);c.fillRect(x+7,y,2,2);}
+function propsDraw(c,o,Tn,back){const a=o.a,pr=a.pr;if(!pr)return;const L=pr.L,C=a.carry||[],x=o.x,y=o.y,ph=o.ph,has=k=>L.includes(k),col=BAGC[a.id%BAGC.length];
+  if(back){
+    if(has('racket')){c.fillStyle='#24345a';c.save();c.translate(x-6,y-26);c.rotate(-0.35);c.beginPath();c.roundRect(-3,-14,6,22,3);c.fill();c.beginPath();c.ellipse(0,-14,5,6,0,0,7);c.fill();c.restore();}
+    if(has('instr')){c.fillStyle='#4a3a2a';c.save();c.translate(x-7,y-24);c.rotate(-0.3);c.beginPath();c.roundRect(-2,-20,4,14,2);c.fill();c.beginPath();c.ellipse(0,0,6,8,0,0,7);c.fill();c.restore();}
+    if(has('backpack')){c.fillStyle=col;c.beginPath();c.roundRect(x-9,y-26,18,15,4);c.fill();}
+    if(pr.stroller&&ph!=='gone'){c.fillStyle='#5a6a7a';c.beginPath();c.roundRect(x-24,y-14,12,10,3);c.fill();c.fillStyle='#8aa0b5';c.beginPath();c.arc(x-18,y-14,6,Math.PI,0);c.fill();c.fillStyle='#222';c.fillRect(x-23,y-3,2,3);c.fillRect(x-15,y-3,2,3);c.strokeStyle='#333';c.lineWidth=1;c.beginPath();c.moveTo(x-12,y-12);c.lineTo(x-7,y-18);c.stroke();}
+    return;}
+  // 外で：日傘（開いて歩く → 入口の外でたたむ）・ハンディファン・手鏡
+  if(has('parasol')){if(ph==='in'&&(o.preB||!o.prep&&!pr.prep)){c.fillStyle='rgba(240,180,200,.9)';c.beginPath();c.arc(x,y-36,13,Math.PI,0);c.fill();c.strokeStyle='#7a5a6a';c.lineWidth=1;c.beginPath();c.moveTo(x,y-36);c.lineTo(x+2,y-18);c.stroke();}
+    else if(o.prep==='parasol'){const w=13*(1-o.prepF)+2;c.fillStyle='rgba(240,180,200,.9)';c.beginPath();c.ellipse(x,y-34,w,4+6*(1-o.prepF),0,Math.PI,0);c.fill();}
+    else{c.strokeStyle='#d88aa8';c.lineWidth=2.2;c.beginPath();c.moveTo(x-9,y-20);c.lineTo(x-10,y-2);c.stroke();}}
+  if(has('fan')&&ph!=='pay'){const on=ph==='in'&&o.prep!=='fan'&&(o.preB||!pr.prep||pr.prep.kind!=='fan');c.fillStyle='#f2c14e';c.fillRect(x+7,y-27,2,6);c.fillStyle=on?'rgba(160,220,240,.75)':'#9fd3e6';
+    if(on){const r=Tn*900;c.beginPath();c.ellipse(x+8,y-30,4,1.5,r,0,7);c.fill();c.beginPath();c.ellipse(x+8,y-30,4,1.5,r+1.57,0,7);c.fill();}else{c.beginPath();c.arc(x+8,y-29,2.5,0,7);c.fill();}}
+  if(o.prep==='mirror'){c.fillStyle='#f4c0d0';c.fillRect(x+4,y-27,2,5);c.fillStyle='#e6f2f6';c.beginPath();c.arc(x+5,y-30,3,0,7);c.fill();c.strokeStyle='#c98aa0';c.lineWidth=1;c.stroke();
+    c.fillStyle='#f0c9a0';c.fillRect(x-3+Math.sin(Tn*1500)*1.5,y-35,3,2);}   // 前髪を直す指
+  // 体につけているもの
+  if(has('towel')){c.fillStyle='#f4f4ee';c.fillRect(x-6,y-25,12,3);c.fillRect(x+2,y-24,3,8);c.fillStyle='rgba(120,170,200,.6)';c.fillRect(x+2,y-17,3,1);}
+  if(has('fanTowel')){c.fillStyle=['#e84a8a','#4ab0e8','#f2a03a'][a.id%3];c.fillRect(x-7,y-25,14,3);c.fillRect(x-6,y-24,3,9);c.fillRect(x+3,y-24,3,9);}
+  if(has('boots')){c.fillStyle='#2f4a3a';c.fillRect(x-6,y-5,5,7);c.fillRect(x+1,y-5,5,7);}
+  if(has('badge')){c.strokeStyle=a.ps==='smn'?'#3a6ab0':'#c4302b';c.lineWidth=0.8;c.beginPath();c.moveTo(x-4,y-24);c.lineTo(x-1,y-18);c.lineTo(x+2,y-24);c.stroke();c.fillStyle='#fff';c.fillRect(x-3,y-18,4,5);}
+  if(has('earbud')){c.fillStyle='#fff';c.fillRect(x-6,y-30,2,2);if(ph!=='pay')c.fillRect(x+4,y-30,2,2);else c.fillRect(x+8,y-21,2,2);}   // 会計のときは片耳だけ外す
+  if(has('helmet')){c.fillStyle='#f4f4ee';c.beginPath();c.arc(x-10,y-12,4,Math.PI,0);c.fill();c.fillRect(x-14,y-12,8,1.5);}
+  if(has('camera')){const up=o.act==='photo'||(o.act==='look'||o.act==='pick')&&o.zk==='omiyage';c.fillStyle='#222';if(up){c.fillRect(x-4,y-32,8,5);c.fillStyle='#556';c.beginPath();c.arc(x,y-29.5,1.8,0,7);c.fill();}else{c.fillRect(x-3,y-19,6,4);c.strokeStyle='#222';c.lineWidth=0.6;c.beginPath();c.moveTo(x-4,y-24);c.lineTo(x-3,y-19);c.moveTo(x+4,y-24);c.lineTo(x+3,y-19);c.stroke();}}
+  if(has('map')&&!o.hand){if(o.act==='look'||o.act==='wait'){c.fillStyle='#e8f0d8';c.fillRect(x+2,y-27,12,8);c.strokeStyle='#8aa070';c.lineWidth=0.7;c.beginPath();c.moveTo(x+6,y-27);c.lineTo(x+6,y-19);c.moveTo(x+10,y-27);c.lineTo(x+10,y-19);c.stroke();}else{c.fillStyle='#e8f0d8';c.fillRect(x-10,y-18,3,6);}}
+  if(has('brief')){c.fillStyle='#2a2a30';c.fillRect(x-14,y-16,8,7);c.strokeStyle='#2a2a30';c.lineWidth=0.8;c.strokeRect(x-12,y-18,4,2);}
+  if(has('jacket')){c.fillStyle='#4a4f58';c.beginPath();c.roundRect(x+6,y-22,5,12,2);c.fill();}
+  if(has('tablet')){c.fillStyle='#30343a';c.fillRect(x-11,y-21,3,9);}
+  if(has('docs')&&!o.hand&&!o.ready){c.fillStyle='#f4ecd0';c.fillRect(x+6,y-21,5,7);c.fillStyle='#3a6ab0';c.fillRect(x+6,y-21,5,1.5);}
+  if(has('penlight')&&(ph==='in'||ph==='out'||ph==='gone')){c.fillStyle=['#ff6ab0','#6ad0ff','#ffe060'][a.id%3];c.globalAlpha=0.45;c.fillRect(x+6,y-33,5,12);c.globalAlpha=1;c.fillRect(x+7.5,y-32,2,9);}
+  if(has('toy')&&a.ps==='fam'){c.fillStyle='#e8433a';c.beginPath();c.arc(x+25,y-12,2.5,0,7);c.fill();c.fillStyle='#3a6ab0';c.fillRect(x+24,y-10,2,4);}
+  if(has('medcase')&&(ph==='pay'||ph==='queue')){c.fillStyle='#8a6ab0';c.fillRect(x+6,y-21,6,5);}
+  // 計算の持ち物
+  if(C.includes('bottle')){c.fillStyle='#3aa3a3';c.beginPath();c.roundRect(x-11,y-20,3,8,1);c.fill();}
+  if(C.includes('umb')){c.strokeStyle='#3a5a8a';c.lineWidth=2.4;c.beginPath();c.moveTo(x-9,y-19);c.lineTo(x-10,y);c.stroke();if(o.mv&&Math.floor(Tn*400+a.id)%3===0){c.fillStyle='rgba(120,170,220,.7)';c.fillRect(x-11,y+2,1.5,1.5);}}
+  if(C.includes('eco')&&ph!=='pack'&&ph!=='out'&&ph!=='eat'){c.fillStyle='#6a9a4a';c.fillRect(x-12,y-14,4,5);}
+  if(C.includes('ticket')&&(ph==='in'||ph==='shop')&&!o.hand){c.fillStyle='#9fd3e6';c.fillRect(x+7,y-22,6,3);c.fillStyle='#3a6ab0';c.fillRect(x+7,y-22,1.5,3);}
+  if(C.includes('can')&&a.canT!=null&&o.T<a.canT&&(ph==='in'||ph==='shop')){c.fillStyle='#c9ced4';c.fillRect(x+7,y-21,3,5);c.fillStyle='#d8382e';c.fillRect(x+7,y-19,3,1.5);}
+  if(C.includes('cart')){c.fillStyle='#8a3a4a';c.beginPath();c.roundRect(x+10,y-15,10,12,2);c.fill();c.strokeStyle='#555';c.lineWidth=1;c.beginPath();c.moveTo(x+6,y-18);c.lineTo(x+11,y-15);c.stroke();c.fillStyle='#222';c.fillRect(x+11,y-3,2,3);c.fillRect(x+17,y-3,2,3);}
+  if(C.includes('load')&&!has('suitcase')){if(a.ps==='mkt'){c.fillStyle='#f4f4f0';c.fillRect(x-9,y-20,18,9);c.strokeStyle='#9fb3bb';c.lineWidth=1;c.strokeRect(x-8.5,y-19.5,17,8);c.fillStyle='#3a6ab0';c.fillRect(x-9,y-16,18,1.5);}
+    else{c.fillStyle='#d9c9a0';c.beginPath();c.roundRect(x+6,y-21,10,12,2);c.fill();}}
+  if(has('suitcase')&&!o.parked)suitcase(c,x+10,y+1,col);
+  // 急いでいる人は、列の前からスマホや財布を手に（A2 の ready）
+  if(o.ready&&!o.hand&&ph!=='pay'){if(C.includes('coin')){c.fillStyle='#8a5a3a';c.fillRect(x+7,y-21,6,4);}else if(a.em||C.includes('phone')){c.fillStyle='#1c1c22';c.fillRect(x+7,y-25,4,7);c.fillStyle='#9fd3e6';c.fillRect(x+7.6,y-24.3,2.8,4.5);}else{c.fillStyle='#4a3a2a';c.fillRect(x+7,y-21,7,4);}}}
+/* A6：電車まであと何分（急いでいる人の頭の上） */
+function clockDraw(c,o){const x=o.x,y=o.y-52,m=o.clock,t=m<1?'1分ない':'あと'+Math.ceil(m)+'分';c.font='700 9px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(t).width+20;
+  c.fillStyle=m<1.5?'rgba(216,56,46,.92)':'rgba(30,40,46,.85)';c.beginPath();c.roundRect(x-w/2,y-7,w,13,6);c.fill();
+  c.fillStyle='#fff';c.beginPath();c.arc(x-w/2+7,y-0.5,4,0,7);c.fill();c.strokeStyle='#222';c.lineWidth=1;c.beginPath();c.moveTo(x-w/2+7,y-0.5);c.lineTo(x-w/2+7,y-3.5);c.moveTo(x-w/2+7,y-0.5);c.lineTo(x-w/2+9.5,y+0.5);c.stroke();
+  c.fillStyle='#fff';c.textAlign='left';c.fillText(t,x-w/2+13,y+3);}
+/* A6：床のしずく（市場帰りの人の長靴・タオル）。店員がモップで拭くか、乾くまで */
+function dripsDraw(c,D,Tn){for(const d of D){if(Tn<d.pts[0].t||Tn>=d.t1)continue;for(const p of d.pts){if(p.t>Tn)break;const f=1-(Tn-p.t)/Math.max(1,d.dry-p.t);c.fillStyle=`rgba(110,150,175,${(0.45*f).toFixed(2)})`;c.beginPath();c.ellipse(p.x,p.y,3,1.4,0,0,7);c.fill();}}}
 /* 店の床・壁・棚（1回だけ描く） */
 function box(c,[x,y,w,d,h],top,front){c.fillStyle=front;c.fillRect(x,y+d-h,w,h);c.fillStyle=top;c.fillRect(x,y-h,w,d);c.strokeStyle='rgba(0,0,0,.18)';c.lineWidth=1;c.strokeRect(x+.5,y-h+.5,w-1,d+h-1);}
 function label(c,t,x,y,col,size){c.fillStyle=col||'#55504a';c.font=`${size||11}px "Zen Kaku Gothic New",sans-serif`;c.textAlign='center';c.fillText(t,x,y);}
@@ -174,6 +230,7 @@ function bg(){if(V.bg)return V.bg;return V.bg=mk(1000,600,c=>{const F=MAP.fx,WY=
   c.fillStyle='#e2c84a';for(let x=310;x<700;x+=6)c.fillRect(x,548,3,3);
   for(let i=0;i<6;i++){const x=320+i*64;c.fillStyle='#8e959b';c.fillRect(x,560,14,36);c.fillStyle='#5d6469';c.fillRect(x,560,14,6);c.fillStyle=i%2?'#2f8a6e':'#3a6ab0';c.fillRect(x+3,568,8,4);}
   label(c,'港駅 改札口',505,540,'#3a3f44',12);label(c,'コンコース',120,540,'#5a5f64',12);
+  {const PR=V.cfg&&V.cfg.walk&&V.cfg.walk.anim&&V.cfg.walk.anim.props;if(PR&&PR.townLabel){c.textAlign='left';c.fillStyle='#5a5f64';c.font='10px "Zen Kaku Gothic New",sans-serif';c.fillText(PR.townLabel,8,584);}}   // 駅の外へ（A6）
   // 看板と壁
   c.fillStyle='#22313a';c.fillRect(0,0,1000,40);c.fillStyle='#d33a3a';c.fillRect(20,12,46,5);c.fillRect(20,22,46,5);
   c.fillStyle='#fff';c.font='700 20px "Zen Kaku Gothic New",sans-serif';c.textAlign='left';c.fillText('みなとスタンド 港駅改札前店',80,28);c.fillStyle='#9fd3c7';c.font='12px sans-serif';c.fillText('Haven Stand',398,28);
@@ -251,17 +308,21 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
   if(FF){if(V.actsRes!==res){V.acts=A.build(res,V.cfg,V.st.layout);V.actsRes=res;}FF.acts=V.acts;FX.under(c,FF);}
   if(res){if(V.actsRes!==res){V.acts=A.build(res,V.cfg,V.st.layout);V.actsRes=res;}
     const PL=V.plan=A.plan(res,V.cfg,V.acts,V.st.layout),K=A.clerks(res,Tn,PL),wk0=Math.floor(Date.now()/220)%2;   // A3：店員の台本
+    if(PL&&PL.drips&&PL.drips.length)dripsDraw(c,PL.drips,Tn);   // A6：床のしずく
     for(const k of K.list){const sp=sprite('clerk',k.mv?wk0:0);c.drawImage(sp,k.x-14,k.y-38,28,44);clerkDo(c,k,Tn);}
     if(!K.list.length){c.fillStyle='#7a2e2e';c.beginPath();c.roundRect(560,240,150,28,6);c.fill();c.fillStyle='#fff';c.font='700 13px sans-serif';c.textAlign='center';c.fillText('ただいま休止中',635,259);}
     if(K.stop){c.fillStyle='#e0a21b';c.beginPath();c.roundRect(566,300,68,16,4);c.fill();c.fillStyle='#fff';c.font='700 10px sans-serif';c.textAlign='center';c.fillText('しばらくお待ちを',600,312);}
     const L=A.at(V.acts,Tn,V.cap),wk=Math.floor(Date.now()/220)%2,BK=(V.cfg.walk&&V.cfg.walk.anim&&V.cfg.walk.anim.basket||{}).at||[212,428];
     for(let i=0;i<4;i++)basket(c,BK[0],BK[1]-i*2.5,true);   // 入口の横のかご
+    let pk=0;for(const o of L)if(o.parked&&!o.dot){suitcase(c,A.PARK[0]-4+pk*12,A.PARK[1]+6,BAGC[o.a.id%BAGC.length]);pk++;}   // 入口の近くに置いたキャリーケース（A6）
+    const CL=[];
     for(const o of L){if(o.dot){c.fillStyle=(V.cfg.personas.find(p=>p.id===o.a.ps)||{}).icon||'#555';c.beginPath();c.arc(o.x,o.y-4,3.5,0,7);c.fill();continue;}
-      const sp=sprite(o.a.ps,o.mv?wk:0,o.back),sw=sp.width/SC;c.drawImage(sp,o.x-14,o.y-38,sw,44);if(o.a.kind==='buy')handOf(c,o,Tn);
+      o.T=Tn;propsDraw(c,o,Tn,true);const sp=sprite(o.a.ps,o.mv?wk:0,o.back),sw=sp.width/SC;c.drawImage(sp,o.x-14,o.y-38,sw,44);if(o.a.kind==='buy')handOf(c,o,Tn);propsDraw(c,o,Tn,false);if(o.clock!=null)CL.push(o);
       if(o.ph==='pay'&&o.a.lane==='s'){c.fillStyle='rgba(159,211,199,.7)';c.fillRect(o.x-6,o.y-46,12,4);}
       if(o.ph==='pack'){c.fillStyle='#e8e2d4';c.fillRect(o.x+6,o.y-20+Math.sin(Tn*700)*1.5,7,9);}   // 会計のあと：袋を持ち直す（A1）
       if(o.ph==='eat'){c.fillStyle='#fff';c.beginPath();c.ellipse(o.x+14,o.y-16,5,3,0,0,7);c.fill();}}
     if(FF)FX.over(c,FF);
+    for(const o of CL)clockDraw(c,o);   // 電車まであと何分（A6・いちばん上に）
     for(const b of A.bubbles(res,Tn,0.07,V.cfg,PL))bubble(c,b.x,b.y,b.text,b.kind==='help'?'#ffe7a3':b.kind==='left'?'#ffd3c9':b.kind==='range'?'#fff2c2':b.kind==='full'?'#ffe0e0':b.kind==='buy'?'#bff0c8':b.kind==='greet'?'#ffffff':'#e6e6e6',b.sub);}
   c.restore();
   // 時計と、開店前・閉店後

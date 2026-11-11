@@ -42,7 +42,9 @@ assert.ok(qSeen>0&&eatSeen>0&&payF>0&&payS>0,'列・イートイン・有人と�
 {const AN=c.walk.anim;assert.ok(AN&&AN.mps.shf>AN.mps.sen,'速さの設定（data/minato-store.json の walk.anim）');
   let fast=0,segs=0,stuck=0,packSeen=0,nPack=0;
   for(const x of acts){const sp=AN.mps[x.ps]*60/AN.unitM;
-    assert.ok(Math.abs(x.pre-Math.hypot(x.gate[0]-150,x.gate[1]-440)/sp)<1e-9,'改札口から入口までは距離 ÷ 速さ');
+    if(x.inL){let D0=0;for(let i=1;i<x.inL.length;i++)D0+=Math.hypot(x.inL[i].x-x.inL[i-1].x,x.inL[i].y-x.inL[i-1].y);   // A6：駅の外から来た人・入口の外で立ち止まる人
+      assert.ok(Math.abs(x.pre-D0/sp-(x.pr.prep?x.pr.prep.min:0))<1e-9,'外から入口までは距離 ÷ 速さ（＋入る前のしぐさ）');}
+    else assert.ok(Math.abs(x.pre-Math.hypot(x.gate[0]-150,x.gate[1]-440)/sp)<1e-9,'改札口から入口までは距離 ÷ 速さ');
     const span=x.kind==='buy'?x.tq-x.ta:0,L=x.kind==='buy'?x.walk:[];let D=0;for(let i=1;i<L.length;i++)D+=Math.hypot(L[i].x-L[i-1].x,L[i].y-L[i-1].y);
     const hurry=x.kind==='buy'&&D/sp>span*AN.hurry;
     for(const W of [x.walk,x.after||[]])for(let i=1;i<W.length;i++){const d=Math.hypot(W[i].x-W[i-1].x,W[i].y-W[i-1].y),dt=W[i].t-W[i-1].t;if(d<1)continue;segs++;
