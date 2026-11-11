@@ -98,17 +98,17 @@ q() …17・today() …20・sync() …21・segs() …30・meter() …31・meters
 
 ■ 見取り図（キャンバスの座標） …10・MAP …12・AN0 …31・STOP_ORDER …35・standOf() …37・placeIndex() …48・route() …50・legs() …56・mark() …69・DOOR_IN …74・build() …79・EASE …120・along() …121・qSlot() …127・at() …129・clerks() …146・bubbles() …154・■ 地元のお店の人（A1・2026-11-11） …163・LOCAL_DROP …167・locals() …168・localAt() …180・公開 MinatoAnim …182
 
-## js/minato-store-core.js（37行）
+## js/minato-store-core.js（54行）
 
-KEY …12・cfg() …15・create() …33・公開 MinatoStore …35
+KEY …12・cfg() …15・create() …33・■ おまかせ発注（港駅の売店アニメの S1・2026-11-11） …35・OM_KEEP …40・omInit() …41・omRecord() …43・omOrder() …49・公開 MinatoStore …52
 
 ## js/minato-store-fx.js（119行）
 
 pill() …17・■ 荷物が届く：台車（センターの便）・できたての便（札つき）・地元のお店の人（手で） …20・deliveries() …21・DUR …22・cart() …23・localsOf() …28・LEAVE …29・boxes() …30・sayOf() …32・drawLocals() …33・drawDeli() …49・slotRect() …54・drawTag() …56・■ 天気：濡れた床・雪の入口・海風 …63・drawFloor() …64・drawWeather() …71・■ イートイン：カップ麺の3分・湯気 …80・eats() …81・drawEat() …82・■ 防犯：見える範囲（扇形）。ミラー2つ・カメラ2台・レジの店員 …88・fan() …89・drawFan() …90・■ 客船の日：旗と汽笛 …97・drawFlags() …98・drawHorn() …101・■ 1日の足あと（閉店のあと） …105・footprints() …106・closed() …110・公開 MinatoFx …114
 
-## js/minato-store-view.js（228行）
+## js/minato-store-view.js（247行）
 
-DAYN …21・■ 読み込み・保存 …25・persist() …29・■ その日の計算 …32・ctxNow() …33・samedayNow() …39・localNow() …42・checkDay() …44・ensureRes() …47・closeToday() …51・tick() …54・■ 店を出す …57・openStore() …58・■ 売店の画面の上の欄 …63・PSN …64・render() …65・panel() …82・localLine() …92・cruiseLine() …99・samedayLine() …103・■ 絵：小さな絵を作っておく …109・mk() …111・LOOK …112・fig() …116・sprite() …132・box() …135・label() …136・bg() …137・DISP …180・shelfLayer() …181・■ 絵：毎コマ …195・bubble() …196・view() …197・draw() …198・fxCtx() …221・click() …222・公開 MinatoStoreView …224
+DAYN …22・■ 読み込み・保存 …26・omStart() …31・omToday() …34・persist() …36・■ その日の計算 …39・ctxNow() …40・samedayNow() …46・localNow() …49・checkDay() …51・ensureRes() …54・closeToday() …58・tick() …61・■ 店を出す …64・openStore() …65・■ 売店の画面の上の欄 …70・PSN …71・render() …72・panel() …90・omCard() …100・localLine() …111・cruiseLine() …118・samedayLine() …122・■ 絵：小さな絵を作っておく …128・mk() …130・LOOK …131・fig() …135・sprite() …151・box() …154・label() …155・bg() …156・DISP …199・shelfLayer() …200・■ 絵：毎コマ …214・bubble() …215・view() …216・draw() …217・fxCtx() …240・click() …241・公開 MinatoStoreView …243
 
 ## js/money-core.js（66行）
 

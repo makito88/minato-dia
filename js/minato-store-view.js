@@ -4,7 +4,8 @@
    ・計算は KioskCore.simulate（歩く店は js/kiosk-walk.js）。設定は js/minato-store-core.js が作る。人の動きの段取りは js/minato-store-anim.js。
      ここは「店を出す・その日の計算を受け取る・運行日の終わりに締める・描く」だけ。描くために出来事を足さない。
    ・保存のキーは 'dia-kiosk-minato'（{v:1,...}。緑ヶ丘の店の 'dia-kiosk' とは別）。
-   ・まだつないでいないもの（未接続）：センターのおまかせ発注・配送会社の便・お金の流れ・アンケートの橋。発注は店の数（はじめの数）のまま。
+   ・まだつないでいないもの（未接続）：センターへの記録（dia-orders）・センターからの配送会社の便・お金の流れ・アンケートの橋。
+   ・発注（S1・2026-11-11）：おまかせ（MinatoStore.omOrder＝緑ヶ丘のおまかせと同じ CenterCore.plan）。記録は店の状態の om（締めで omRecord）。data/center.json を読むのは画面だけ。
    ・軽さ：店の床と棚は1回だけ描いて使い回す（品の量の層は10秒に1回）。人の絵は客層ごとに作っておいた小さな絵。
      同時に描く人は40人まで（こえた分は点）。売店の画面を閉じているときは描かない（計算と締めは1秒に1回の見回りで続く）。
    ===================================================================== */
@@ -24,8 +25,14 @@ const V={K:null,M:null,R:null,cfg:null,st:null,err:null,res:null,resKey:'',resD:
 {const st=document.createElement('style');st.textContent='.ms-leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--muted)}.ms-leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}.ms-half{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.ms-half[hidden]{display:none}.ks-which{display:flex;flex-wrap:wrap;gap:6px}.ks-which[hidden]{display:none}';document.head.appendChild(st);}
 /* ---------- 読み込み・保存 ---------- */
 const getJ=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.json();});
-Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110g').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null)]).then(([K,M,R,L,FJ,HJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.cfg=MS.cfg(K,M);
-  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
+Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110g').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null),getJ('data/center.json?v=20261109f').catch(()=>null)]).then(([K,M,R,L,FJ,HJ,CJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.C=CJ;V.cfg=MS.cfg(K,M);
+  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;omStart();}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
+/* おまかせ発注（S1）：前からある店にも om を足す（最初からおまかせ・記録がないうちは今の数のまま）。足したら便りで知らせる */
+function omStart(){const S=V.st;if(!S||S.om)return;MS.omInit(S,V.C,'auto');
+  S.news.push({day:gDay(),kind:'center',title:'港の店の発注を「おまかせ」にした',text:'締めのたびに、品ごとの売れた数・売り切れで逃した数・廃棄を記録し、運行日の始めに、緑ヶ丘のおまかせと同じ決め方（同じ型の日・天気と季節・ねらい「その間」）でその日の数を決めます。記録が少ないうちは今の数と混ぜて少しずつ変えます。新聞・雑誌・たばこは店の数のままです。'});S.unread=(S.unread||0)+1;persist();}
+/* 運行日の始めに1回：おまかせなら、その日の仕入れ数を決める（計算は MinatoStore.omOrder）。その日の計算（ensureRes）より先に */
+function omToday(){const S=V.st;if(!S||!S.om||!V.C||!window.CenterCore)return;const day=gDay();if(S.om.day===day)return;const c=gCond();
+  g(()=>MS.omOrder(V.cfg,CenterCore,KC,V.C,S,day,{day:c.day,wx:c.wx,season:c.season}),null);if(S.om.day===day){persist();setTimeout(refresh,0);}}
 function persist(){try{localStorage.setItem(MS.KEY,JSON.stringify(V.st));}catch(e){}}
 const refresh=()=>g(()=>window.minatoKiosk&&minatoKiosk.refresh&&minatoKiosk.refresh());
 
@@ -44,11 +51,11 @@ function localNow(S,day){if(!window.LocalToKiosk||!V.L)return undefined;if(V.loc
 function checkDay(){const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（緑ヶ丘の店と同じ）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
-function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();const c=ctxNow();if(!c)return V.res;
+function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();omToday();const c=ctxNow();if(!c)return V.res;
   const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'')+'|'+(c.cruise?c.cruise.pax:'');
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();return V.res;}
-function closeToday(res){const r=KC.closeDay(V.cfg,V.st,res,{});const lc=V.localDay===res.day?V.local:null;V.st=r.state;
+function closeToday(res){if(V.st.om&&window.CenterCore)g(()=>MS.omRecord(V.cfg,CenterCore,V.st,res),null);const r=KC.closeDay(V.cfg,V.st,res,{});const lc=V.localDay===res.day?V.local:null;V.st=r.state;
   if(lc)for(const x of lc.say)V.st.news.push({day:res.day,kind:'local',title:x.name+'（'+x.person+'）',text:'「'+x.text+'」'});   /* 便り：地元のお店の人のひとこと */
   V.st.today=null;V.st.unread=(V.st.unread||0)+r.news.length;persist();}
 function tick(){if(V.cfg&&V.st)ensureRes();}
@@ -56,8 +63,8 @@ setInterval(tick,1000);
 
 /* ---------- 店を出す ---------- */
 function openStore(){const day=gDay(),st=MS.create(V.K,V.M,KC,{seed:(Date.now()%100000)+1,day,staff:2});
-  if(KS)KS.migrate(V.cfg,st);st.openedT=gT();st.openedDay=day;st.unread=0;
-  st.news.push({day,kind:'open',title:'港駅・改札口の前に「港の店」を開いた',text:'中に入って歩く店です。レジは有人1台とセルフ1台、イートインは立ち席6と座れる席4。発注は、はじめの数のままです（センターのおまかせ・配送会社の便・お金の流れには、まだつないでいません）。ワッフルとへしこは、地元のお店（ハーフェン堂・汐見屋）が自分で届けます。'});
+  if(KS)KS.migrate(V.cfg,st);st.openedT=gT();st.openedDay=day;st.unread=0;MS.omInit(st,V.C,'auto');
+  st.news.push({day,kind:'open',title:'港駅・改札口の前に「港の店」を開いた',text:'中に入って歩く店です。レジは有人1台とセルフ1台、イートインは立ち席6と座れる席4。発注は「おまかせ」です（緑ヶ丘の店と同じ決め方で、この店の売れ方から毎日決めます。センターへの記録・配送会社の便・お金の流れには、まだつないでいません）。ワッフルとへしこは、地元のお店（ハーフェン堂・汐見屋）が自分で届けます。'});
   V.st=st;V.res=null;V.lastDay=day;persist();refresh();}
 
 /* ---------- 売店の画面の上の欄 ---------- */
@@ -68,16 +75,17 @@ function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.n
   if(!V.st){sub.textContent='まだ出していません';kpi.innerHTML='';
     top.innerHTML=`<div class="ks-card"><h3><span>港駅・改札口の前に、2つ目の店を出す</span><small>みなとスタンド（緑ヶ丘の店とは別の店）</small></h3>
       <p class="ks-note">お客さんが<b>中に入って歩く店</b>です。入口 → 冷蔵ケース → おにぎりの低い棚 → 床の印のところで並ぶ → レジ（有人1台＋セルフ1台）→ 出口。おみやげは奥の角、乾物・おやつは低い棚のとなり、イートインは立ち席${W.eatIn.stand??W.eatIn.seats}${W.eatIn.sit?'＋座れる席'+W.eatIn.sit:''}（レンジ・お湯）。品は${V.cfg.products.length}品。開店は${M.store.open[0]}時〜${Math.floor(M.store.open[1])}時半（仮）。</p>
-      <p class="ks-note">港で働く人の交代（6・14・22時）の前後に、作業着の人が早足で来ます。発注は、はじめの数のままです。<b>センターのおまかせ・配送会社の便・お金の流れには、まだつないでいません</b>（あとの回で）。</p>
+      <p class="ks-note">港で働く人の交代（6・14・22時）の前後に、作業着の人が早足で来ます。発注は<b>おまかせ</b>（この店の売れ方から毎日決める）。<b>センターへの記録・配送会社の便・お金の流れには、まだつないでいません</b>（あとの回で）。</p>
       <button type="button" class="ks-btn pri" id="msOpen">港駅・改札口の前に「港の店」を出す</button></div>`;
     top.querySelector('#msOpen').onclick=openStore;return;}
   const S=V.st,c=gCond();sub.textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]||''}・${WXN[c.wx]||''}・歩く店・有人1＋セルフ1`;
   const P=PSN(),ps=['shf','salM','salF','stu','jk','sen','tou','hou','fam','cpl','frd'].filter(k=>P[k]);
   const h=`<div class="ks-card ms-top"><p class="ks-note" style="margin:0">斜め上から見た店の中です。人は、売店の計算で起きた出来事（買った・見て帰った・列で帰った・セルフで迷った・イートイン）を時刻の順に描いたものです。
-    <span class="ks-lst">未接続</span> センターのおまかせ・センターからの配送会社の便・お金の流れ（発注は、はじめの数のまま）</p><div id="msLocal"></div>
+    <span class="ks-lst">未接続</span> センターへの記録・センターからの配送会社の便・お金の流れ</p>${omCard()}<div id="msLocal"></div>
     <div class="ms-leg">${ps.map(k=>`<span><i style="background:${P[k].icon}"></i>${esc(P[k].short)}</span>`).join('')}</div>
     <div class="ms-half"><button type="button" class="ks-chip" data-fan="1" aria-pressed="${!!V.fan}">見える範囲（防犯）</button></div><div class="ms-half" ${innerWidth<760?'':'hidden'}><button type="button" class="ks-chip" data-h="reg" aria-pressed="${V.half==='reg'}">レジ側を大きく</button><button type="button" class="ks-chip" data-h="ent" aria-pressed="${V.half==='ent'}">入口側を大きく</button><button type="button" class="ks-chip" data-h="all" aria-pressed="${V.half==='all'}">店ぜんぶ</button></div></div>`;
-  if(top.dataset.k!==h){top.innerHTML=h;top.dataset.k=h;top.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{V.half=b.dataset.h;render(o);});const fb=top.querySelector('[data-fan]');if(fb)fb.onclick=()=>{V.fan=!V.fan;render(o);};}
+  if(top.dataset.k!==h){top.innerHTML=h;top.dataset.k=h;top.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{V.half=b.dataset.h;render(o);});const fb=top.querySelector('[data-fan]');if(fb)fb.onclick=()=>{V.fan=!V.fan;render(o);};
+    top.querySelectorAll('[data-om]').forEach(b=>b.onclick=()=>{const O=V.st&&V.st.om;if(!O)return;if(b.dataset.om==='auto'||b.dataset.om==='self')O.mode=b.dataset.om;else O.aim=b.dataset.om;persist();render(o);});}
   panel(kpi);}
 function panel(kpi){kpi=kpi||document.getElementById('ksKpi');const res=ensureRes();if(!kpi||!res)return;
   {const el=document.getElementById('msLocal');if(el){const h=cruiseLine()+localLine()+samedayLine();if(el.dataset.k!==h){el.innerHTML=h;el.dataset.k=h;}}}   /* 地元のお店の欄は時刻で変わるので、数字の欄といっしょに */
@@ -88,6 +96,17 @@ function panel(kpi){kpi=kpi||document.getElementById('ksKpi');const res=ensureRe
     <div><span>セルフレジの割合</span><b>${f+s?Math.round(s/(f+s)*100):0}%</b></div><div><span>セルフで店員を呼んだ</span><b>${help}回</b></div>
     <div><span>列が長くて帰った</span><b>${left}人</b></div><div><span>イートイン（うち座った）</span><b>${eat}人（${sit}人）</b></div><div><span>地元のお店へ（仕入れ）</span><b>${yen(loc)}</b></div><div><span>できたての便（運賃）</span><b>${yen(sdf)}</b></div><div><span>いまの店員</span><b>${on.length?on.join('・'):'だれもいない'}</b></div>`;}
 
+/* 発注の欄（S1）：おまかせ／自分で決める・ねらい・きょうの数。切りかえは次の運行日の数から（きょうの数はもう決まっている） */
+function omCard(){const S=V.st,O=S&&S.om;if(!O)return '';const A=(V.C&&V.C.aims)||{},auto=O.mode==='auto',P={};for(const p of V.cfg.products)P[p.id]=p;
+  const sum={};for(const pid in S.order){const ge=P[pid]&&P[pid].genre;if(ge)sum[ge]=(sum[ge]||0)+(S.order[pid]||0);}
+  const GN={};for(const ge of V.cfg.genres)GN[ge.id]=ge.name;
+  const its=['onigiri','sand','bento','bread','donut'].filter(k=>sum[k]).map(k=>esc(GN[k]||k)+' '+num(sum[k])).join('・');
+  const L=O.last&&O.last.day===gDay()?O.last:null;
+  const how=!auto?'自分で決める：数は今のまま（数を変える画面は、まだありません）':L?(L.n?`きょうの数は、この店の記録（同じ型の日など${L.n}日分）から決めました`:'まだ記録がないので、きょうは今の数のまま（締めるたびに記録がたまり、少しずつ変わります）'):'きょうの数は、運行日の始めに決まります';
+  return `<div class="ks-note" style="margin:6px 0 0"><span class="ks-lst">仮の数値</span> 発注：${how}<br><span style="color:var(--muted)">きょうの仕入れ数：${its}（新聞・雑誌・たばこは店の数のまま）</span>
+    <div class="ms-half"><button type="button" class="ks-chip" data-om="auto" aria-pressed="${auto}">おまかせ</button><button type="button" class="ks-chip" data-om="self" aria-pressed="${!auto}">自分で決める</button>
+    ${auto?'<span style="align-self:center;font-size:12px;color:var(--muted);margin-left:6px">ねらい</span>'+Object.keys(A).map(k=>`<button type="button" class="ks-chip" data-om="${k}" aria-pressed="${O.aim===k}" title="${esc(A[k].note||'')}">${esc(A[k].name)}</button>`).join(''):''}</div>
+    <span style="color:var(--muted);font-size:12px">切りかえは次の運行日の数から</span></div>`;}
 /* 地元のお店（橋 local-to-kiosk）：きょう届く・届いた数と、お店の人のひとこと */
 function localLine(){const S=V.st,lc=S&&localNow(S,gDay());if(!lc)return '';const P={};for(const p of V.cfg.products)P[p.id]=p;const Tn=gT();
   const rows=V.M.localShops.map(sh=>{const r=lc.runs.find(x=>x.shop===sh.id),sy=lc.say.find(x=>x.shop===sh.id);
