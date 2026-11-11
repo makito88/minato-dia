@@ -47,7 +47,7 @@ const L=[
  {id:'shop',name:'店舗',sub:'商品・在庫・売上・客の行動',img:'docs/img/top-kiosk.jpg',state:'遊べる',
   items:[['売店を運営する','kiosk:log'],['商品・値段・仕入れ','kiosk:items'],['客層・客単価・買ったきっかけ','kiosk:people'],['収支と万引きの疑い','kiosk:money'],['センターの倉庫（在庫・問屋への発注・足りなくなるおそれ）','center'],['配送会社（トラックの1日・自社便と他社便）','haiso'],['お金の流れ（4つの会社の入り・出・もうけ）','money'],['荷物の行方（注文した品はいまどこ・何時に並ぶ）','kiosk:track','lab']]},
  {id:'factory',name:'工場',sub:'おにぎり・パン・サンドイッチ・ドーナッツ・お弁当の一晩（港浜工場）',img:'docs/img/factory-line.jpg',state:'遊べる',note:'AIで描いたイメージです（架空の工場）。',
-  items:[['おにぎり（米のライン・機械2本）','factory:rice'],['パン（発酵の時計・オーブン）','factory:bread'],['サンドイッチ（機械のライン・自社の食パン）','factory:sand'],['ドーナッツ（油の時計・仕上げ）','factory:donut'],['お弁当（急速冷却・チルド）','factory:bento'],['原材料（何が・いつ・どれくらい届いたか・ロットのたどり）','factory:material']]},
+  items:[['おにぎり（米のライン・機械2本）','factory:rice'],['パン（発酵の時計・オーブン）','factory:bread'],['サンドイッチ（機械のライン・自社の食パン）','factory:sand'],['ケーキドーナツ（11コマ・1個ずつ流れる・タイムライン）','factory:donut'],['お弁当（急速冷却・チルド）','factory:bento'],['原材料（何が・いつ・どれくらい届いたか・ロットのたどり）','factory:material']]},
  {id:'crew',name:'従業員',sub:'シフト・時給・やる気・暮らし',art:SVG_CREW,state:'遊べる',
   items:[['店員・シフト・時給','kiosk:crew'],['店員の1か月の暮らしとお金の流れ','karte:clerk','lab']]}];
 

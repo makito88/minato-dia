@@ -92,7 +92,7 @@
   "pan_shio": 170,
   "don_sugar": 160,
   "don_choco": 180,
-  "don_nama": 260,
+  "don_nama": 140,
   "hot_karaage": 220,
   "hot_niku": 180,
   "hot_an": 170,
@@ -999,28 +999,27 @@
   {
    "id": "don_nama",
    "genre": "donut",
-   "name": "生ドーナツ（とろける生地）",
-   "short": "生ドーナツ",
-   "price": 280,
-   "cost": 151,
+   "name": "プレーンドーナツ",
+   "short": "プレーン",
+   "price": 150,
+   "cost": 75,
    "temp": "room",
    "ease": 3,
    "health": 1,
    "sudden": 0,
    "taste": [
-    4,
+    3.5,
     2,
-    2.5
+    3
    ],
-   "photo": 0.95,
-   "regular": 0.1,
-   "mania": 0.4,
-   "w": 0.8,
+   "photo": 0.3,
+   "regular": 0.25,
+   "mania": 0,
+   "w": 1.0,
    "tags": [
-    "donut",
-    "namadonut"
+    "donut"
    ],
-   "color": "#f3e0b9"
+   "color": "#b9773c"
   },
   {
    "id": "hot_karaage",
@@ -2795,13 +2794,12 @@
   },
   {
    "id": "donut",
-   "name": "生ドーナツブーム",
+   "name": "ドーナツブーム",
    "tags": [
-    "donut",
-    "namadonut"
+    "donut"
    ],
    "amp": 1.2,
-   "text": "とろける食感の生ドーナツに行列ができています。"
+   "text": "ドーナツの食べ比べが話題で、手に取る人が増えています。"
   },
   {
    "id": "fruitsand",

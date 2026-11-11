@@ -34,13 +34,13 @@ storeKey() …23・orderNo() …24・genreOf() …25・genreCfg() …26・routeO
 
 ST_NAME …14・CSS …16・dayLabel() …51・render() …52・open() …89・close() …90・公開 minatoCenter …94
 
-## js/donut-core.js（64行）
+## js/donut-core.js（93行）
 
-rng() …5・normalize() …6・simulate() …10・stage() …61・公開 DonutCore …62
+rng() …16・normalize() …17・offsets() …22・simulate() …26・■ ①〜④：仕込みの回と、1個ずつの押し出しの時刻 …33・■ ⑤〜⑨：1個ずつ。検査で、油の温度のずれと金属検出ではじく …49・■ ⑩ 箱詰め・⑪ 出荷 …53・■ 品ごとのまとめ …62・■ 記録 …68・■ 費用 …76・upTo() …85・countsAt() …86・公開 DonutCore …90
 
-## js/donut-view.js（107行）
+## js/donut-view.js（192行）
 
-liveNote() …7・save() …9・run() …10・plan() …11・COLS …20・colOf() …21・crewText() …23・recipes() …24・stations() …33・result() …39・draw() …46・drawStage() …54・init() …99・tick() …102
+liveNote() …15・save() …16・run() …17・plan() …21・recipes() …30・stations() …39・result() …45・■ 11コマ …52・PANELS …53・buildPanels() …57・ring() …61・belt() …63・steam() …65・person() …66・inSeg() …70・batchState() …74・DRAW …78・drawPanels() …143・■ タイムライン …147・buildGantt() …149・drawGantt() …159・■ 描く …169・draw() …170・init() …177・tick() …187・公開 minatoDonut …189
 
 ## js/factory-core.js（375行）
 

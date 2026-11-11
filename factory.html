@@ -100,6 +100,19 @@ table.fills{max-width:460px}
 .steps{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:13px}
 .steps .num{color:var(--muted)}
 #result[hidden]{display:none}
+/* ケーキドーナツの11コマ（2026-11-11） */
+.dpanels{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px}
+.dp{border:1.5px solid var(--ink);border-radius:12px;padding:6px 8px 8px;background:var(--sheet)}
+.dp.opt{border-style:dashed}
+.dp h3{margin:0;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dp h3 i{font-style:normal;border:1.5px solid var(--ink);border-radius:5px;padding:0 6px;font-size:12px;background:#fbe3ea;color:#18263a}
+.dp h3 small{font-weight:400;font-size:11px;color:var(--muted)}
+.dp canvas{display:block;width:100%;height:auto;margin-top:2px}
+.dp .st{font-size:11.5px;color:var(--muted);min-height:2.8em}.dp .st b{color:var(--rail)}
+#dkpi b{font-family:var(--f-num)}
+.ddot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+@media (max-width:980px){.dpanels{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.dpanels{grid-template-columns:1fr}}
 /* 原材料（第5回） */
 .mt-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px 16px}
 .mt-row{border:1px solid var(--line2);border-radius:8px;padding:6px 10px;background:var(--paper)}
@@ -128,7 +141,7 @@ table.fills{max-width:460px}
   <button role="tab" data-v="rice" aria-selected="true">🍙 米のライン（おにぎり）</button>
   <button role="tab" data-v="bread" aria-selected="false">🍞 パンのライン</button>
   <button role="tab" data-v="sand" aria-selected="false">🥪 サンドイッチのライン</button>
-  <button role="tab" data-v="donut" aria-selected="false">🍩 ドーナッツのライン</button>
+  <button role="tab" data-v="donut" aria-selected="false">🍩 ケーキドーナツのライン</button>
   <button role="tab" data-v="bento" aria-selected="false">🍱 お弁当のライン</button>
   <button role="tab" data-v="material" aria-selected="false">🚚 原材料</button>
 </div>
@@ -283,19 +296,23 @@ table.fills{max-width:460px}
 </div>
 
 <div id="donutView" role="tabpanel" hidden>
-<section class="card"><h2>夕方に決める（ドーナッツ）</h2>
+<section class="card"><h2>夕方に決める（ケーキドーナツ）</h2>
 <p id="dproducts"></p><div class="plan" id="dplan"></div>
-<p class="small muted">シュガー・チョコ・生ドーナツの3品。生ドーナツも十分に揚げる、クリームなしの柔らかい生地です。フライヤーは専用で、パンの設備とは取り合いません。</p>
+<p class="small muted">ケーキ生地（イーストを使わない生地）をホッパーからリング状に押し出して揚げ、1個ずつ包んで箱に詰めるライン（2026-11-11 にイースト生地のラインから置きかえた）。シュガーグレーズ・チョコ・プレーンの3品。フライヤーは専用で、パンの設備とは取り合いません。</p>
 <div class="row"><button class="primary" id="drun">この条件で夜を回す</button><button id="dnewNight">別の夜にする（注文が変わる）</button><span class="small muted" id="dnightInfo"></span></div></section>
-<section class="card"><h2>ドーナッツの作り方</h2><p class="small muted">3品の生地と配合、120個のひと組が各工程にかかる時間です。季節と仕上げの人数を変えると、時間も変わります。</p><div id="drecipes"></div>
-<h3 style="margin-top:14px">どこが機械で、どこが人か</h3><div id="dstations"></div></section>
-<section class="card"><h2>夜のドーナッツのライン</h2>
+<section class="card"><h2>夜のケーキドーナツのライン</h2>
 <div class="play"><span class="clock" id="dclock"></span><button id="dplay">▶ 再生</button><select id="dspeed" aria-label="再生速度"><option value="live" selected>いま（×1）</option><option value="60">×60</option><option value="300">×300</option><option value="900">×900</option></select><input type="range" id="dscrub" aria-label="ドーナッツの時刻" step="1"></div>
 <div class="small muted" id="dliveNote" style="margin:4px 0 6px"></div>
-<div class="clocks" id="dclocks"></div><div style="overflow-x:auto"><canvas id="dstage" class="stagecv" style="width:1000px;max-width:none;height:330px" aria-label="ベルトコンベアを進むドーナッツの製造ライン"></canvas></div><p class="small muted">横に動かしてライン全体を見られます。丸い絵は生地のひと組を表し、動きは製造の計算時刻に合わせています。</p></section>
-<div class="two"><section class="card"><h2>生地ごとの工程と予定</h2><p class="small muted">押すと工程の予定時刻を見られます。計画の比較用に、この夜の予定を先に表示します。</p><div id="dbatches"></div></section><section class="card"><h2>ドーナッツのラインの記録</h2><ul class="evlist" id="devents"></ul></section></div>
+<p class="small" id="dkpi"></p>
+<div class="dpanels" id="dpanels"></div>
+<p class="small muted">計量から順に始まり、④からはドーナツが1個ずつ流れて、⑩の箱に1個ずつ並びます。どのコマの数も、同じ計算の1個ずつの時刻から数えています（コマの中は多いときは間引いて描き、数は全部）。</p></section>
+<section class="card"><h2>タイムライン（赤い線がいま）</h2><p class="small muted">横は時刻、縦は工程。①〜③は仕込みの回、④〜⑨はその回の生地のドーナツが最初の1個から最後の1個まで通っている時間（色は品）、⑩は箱ごと、⑪は積んだ箱。押すと、その時刻へ飛びます。</p>
+<div class="tw"><canvas id="dgantt" style="width:100%;min-width:760px;height:auto;display:block;cursor:pointer" aria-label="ケーキドーナツの工程のタイムライン"></canvas></div><div class="legend" id="dglegend"></div></section>
+<section class="card"><h2>ケーキドーナツの作り方</h2><div id="drecipes"></div>
+<h3 style="margin-top:14px">どこが機械で、どこが人か</h3><div id="dstations"></div></section>
+<div class="two"><section class="card"><h2>仕込みの回ごとの予定</h2><p class="small muted">押すと工程の予定時刻を見られます。</p><div id="dbatches"></div></section><section class="card"><h2>ケーキドーナツのラインの記録</h2><ul class="evlist" id="devents"></ul></section></div>
 <section class="card"><h2>朝の答え合わせ（ドーナッツ）</h2><div id="dresultWait">夜の終わりまで進むと出ます。<button id="dpeek">先に見る</button></div><div id="dresult" hidden></div></section>
-<p class="note">油の温度・劣化、発酵待ち、冷ます時間、仕上げの速さ、費用はゲームのための仮の数字です。食品衛生や製造の基準ではありません。冷却棚は十分ある扱い。売店の注文・在庫とはまだ連動せず、工場の他のラインと同じ独立した試作です。設定は data/factory.json の donut。</p>
+<p class="note">機械の形・速さ・時間・はじく割合・費用は、すべて架空のゲームのための仮の数字です。食品衛生や製造の基準、実在の工場の数字ではありません。設定は data/factory.json の donut、計算は js/donut-core.js、画面は js/donut-view.js。</p>
 </div>
 
 <div id="bentoView" role="tabpanel" hidden>
@@ -335,8 +352,8 @@ table.fills{max-width:460px}
 <script src="js/sand-loaf.js"></script>
 <script src="js/sand-core.js?v=20261107a"></script>
 <script src="js/sand-view.js?v=20261107b"></script>
-<script src="js/donut-core.js?v=20261107a"></script>
-<script src="js/donut-view.js?v=20261107b"></script>
+<script src="js/donut-core.js?v=20261111b"></script>
+<script src="js/donut-view.js?v=20261111b"></script>
 <script src="js/bento-core.js?v=20261110a"></script>
 <script src="js/bento-view.js?v=20261110a"></script>
 <script src="js/material-core.js?v=20261111a"></script>
