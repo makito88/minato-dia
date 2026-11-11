@@ -26,7 +26,7 @@ const V={K:null,M:null,R:null,cfg:null,st:null,err:null,res:null,resKey:'',resD:
 /* ---------- 読み込み・保存 ---------- */
 const getJ=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.json();});
 Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110g').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null),getJ('data/center.json?v=20261109f').catch(()=>null)]).then(([K,M,R,L,FJ,HJ,CJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.C=CJ;V.cfg=MS.cfg(K,M);
-  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;omStart();}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
+  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;if(MS.crewFix&&MS.crewFix(V.cfg,s,KS,gDay())){s.news.push({day:gDay(),kind:'crew',title:'店員のシフトを組み直した',text:'1日に働くのは3〜8時間、4時間をこえると休憩（45分・8時間働くなら1時間）、18歳未満の人は22時〜5時に入らない形にしました。時給は東京都の最低賃金（1,280円）より下げません。'});persist();}omStart();}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
 /* おまかせ発注（S1）：前からある店にも om を足す（最初からおまかせ・記録がないうちは今の数のまま）。足したら便りで知らせる */
 function omStart(){const S=V.st;if(!S||S.om)return;MS.omInit(S,V.C,'auto');
   S.news.push({day:gDay(),kind:'center',title:'港の店の発注を「おまかせ」にした',text:'締めのたびに、品ごとの売れた数・売り切れで逃した数・廃棄を記録し、運行日の始めに、緑ヶ丘のおまかせと同じ決め方（同じ型の日・天気と季節・ねらい「その間」）でその日の数を決めます。記録が少ないうちは今の数と混ぜて少しずつ変えます。新聞・雑誌・たばこは店の数のままです。'});S.unread=(S.unread||0)+1;persist();}
@@ -64,7 +64,7 @@ setInterval(tick,1000);
 
 /* ---------- 店を出す ---------- */
 function openStore(){const day=gDay(),st=MS.create(V.K,V.M,KC,{seed:(Date.now()%100000)+1,day,staff:2});
-  if(KS)KS.migrate(V.cfg,st);st.openedT=gT();st.openedDay=day;st.unread=0;MS.omInit(st,V.C,'auto');
+  if(KS){KS.migrate(V.cfg,st);if(st.crew&&V.cfg.crew.blocksVer)st.crew.blk=V.cfg.crew.blocksVer;}st.openedT=gT();st.openedDay=day;st.unread=0;MS.omInit(st,V.C,'auto');
   st.news.push({day,kind:'open',title:'港駅・改札口の前に「港の店」を開いた',text:'中に入って歩く店です。レジは有人1台とセルフ1台、イートインは立ち席6と座れる席4。発注は「おまかせ」です（緑ヶ丘の店と同じ決め方で、この店の売れ方から毎日決めます。センターへの記録・配送会社の便・お金の流れには、まだつないでいません）。ワッフルとへしこは、地元のお店（ハーフェン堂・汐見屋）が自分で届けます。'});
   V.st=st;V.res=null;V.lastDay=day;persist();refresh();}
 

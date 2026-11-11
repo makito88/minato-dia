@@ -9,7 +9,7 @@
    ===================================================================== */
 (function(root){
 'use strict';
-const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261111w1';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
+const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261111w2';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
 const cache=new WeakMap();
 /* 港駅の店の設定（同じ K・M なら同じものを返す） */
 function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
@@ -27,10 +27,14 @@ function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
   if(c.basket){c.basket={...c.basket,ps:{...c.basket.ps,...(W.basketPs||{})},pairs:{...c.basket.pairs,...(W.basketPairs||{})}};}
   const DV=W.deliveries||{};c.deliveries=c.deliveries.map(d=>{if(d.all)return d;const add=Object.keys(DV).filter(g=>Array.isArray(DV[g])&&DV[g].includes(d.name));return add.length?{...d,genres:[...d.genres,...add]}:d;});
   if(W.trash&&W.trash.label&&c.mood&&c.mood.labels)c.mood.labels.trash=W.trash.label;   // きっかけ「ごみのついでに」（A4）
-  if(M.crew)c.crew={...c.crew,...(M.crew.blocks?{blocks:JSON.parse(JSON.stringify(M.crew.blocks))}:{}),...(M.crew.work?{work:{...M.crew.work}}:{})};   // 店員の区切りと、開店前・閉店後の作業（2026-11-11）
+  if(M.crew){c.crew={...c.crew};for(const k in M.crew){if(/Note$|^note$/.test(k))continue;c.crew[k]=JSON.parse(JSON.stringify(M.crew[k]));}}   // 店員の区切り・開店前と閉店後の作業・1日の長さと休憩・割増・最低賃金・18歳未満（2026-11-11）。書いた項目だけ置きかえる
   c.walk={...W,store:M.store};c.storeId=M.store.id;c._K=K;
   Object.defineProperty(c,'_K',{enumerable:false});
   cache.set(M,c);return c;}
+/* 店員の区切りを変えたとき（crew.blocksVer がちがう保存）は、いまの区切りでシフトを組み直す（2026-11-11：1日3〜8時間・18歳未満・4時間の区切り）。組み直したら true */
+function crewFix(c,st,KS,day){const cr=st&&st.crew,ver=c.crew&&c.crew.blocksVer;if(!cr||!ver||cr.blk===ver||!KS)return false;
+  const ppl=cr.people.filter(p=>KS.active(p,day));cr.shift=KS.assign(c,ppl,()=>Math.max(1,st.staff||2),'even');for(const t of KS.TYPES)for(const p of cr.people)if(!cr.shift[t][p.id])cr.shift[t][p.id]=[];
+  delete cr.shiftNext;cr.blk=ver;return true;}
 /* 港駅の店を出す（運行日 day から）。KioskCore.create と同じ形（st:'P', place:'gate'）に、店の名前を足す */
 function create(K,M,KC,opts){opts=opts||{};const c=cfg(K,M),st=KC.create(c,{seed:opts.seed||1,st:M.store.station,place:M.store.place,day:opts.day||1});
   st.store=M.store.id;st.staff=opts.staff||1;return st;}
@@ -51,5 +55,5 @@ function omRecord(c,CC,S,res){const o=S.om;if(!o||!CC||!res)return null;const r=
 function omOrder(c,CC,KC,ccfg,S,day,cond){const o=S.om;if(!o||!CC||!ccfg||o.day===day)return null;o.day=day;if(o.mode!=='auto')return null;
   const p=CC.plan(c,ccfg,S,o.recs,cond,{forDay:day,aim:o.aim,shelf:KC.shelfInfo(c,S.layout),cur:S.order});
   S.order={...S.order,...p.items};let n=0;for(const k in p.why)n=Math.max(n,p.why[k].n||0);o.last={day,n,type:p.type,aim:p.aim};return p;}
-root.MinatoStore={KEY,URL,cfg,create,omInit,omRecord,omOrder};
+root.MinatoStore={crewFix,KEY,URL,cfg,create,omInit,omRecord,omOrder};
 })(typeof window!=='undefined'?window:globalThis);
