@@ -12,7 +12,8 @@ for(let seed=1;seed<=40;seed++){for(const staff of [2,3]){const st=MS.create(K,M
   for(const [t,day] of [['wd',1],['sat',6],['hol',7]]){const W=KS.today(c,st,t,day);
     for(const w of W){nW++;const pres=w.spans.reduce((s,[x,y])=>s+y-x,0)/60,br=w.brk?(w.brk[1]-w.brk[0]):0,T=pres+br/60,work=pres;
       assert.ok(work>=3-1e-9&&work<=8+1e-9,'1日3〜8時間 '+work);
-      const want=T<=4?0:(T-0.75>=8?60:45);assert.equal(br,want,'休憩 '+T+'時間 → '+want+'分');if(br)nBrk++;
+      let want=T<=4?0:(T-0.75>=8?60:45);const gmax=Math.max(0,...w.spans.slice(1).map((x,i)=>x[0]-w.spans[i][1]));if(!br&&want&&gmax>=want)want=0;   // 中抜けが休憩の長さ以上なら、それが休憩
+      assert.equal(br,want,'休憩 '+T+'時間 → '+want+'分');if(br)nBrk++;
       assert.ok(w.spans.every(([x,y])=>x>=270&&y<=1440),'4:30〜24:00');
       if(KS.minorOf(c,w.p)){nMinor++;assert.ok(w.spans.every(([x,y])=>x>=300&&y<=1320),'18歳未満は5時〜22時だけ');}
       if(w.spans.some(([x])=>x===270))nEarly++;}

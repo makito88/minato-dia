@@ -9,7 +9,7 @@
    ===================================================================== */
 (function(root){
 'use strict';
-const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261111w4';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
+const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261111w5';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
 const cache=new WeakMap();
 /* 港駅の店の設定（同じ K・M なら同じものを返す） */
 function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
@@ -36,6 +36,10 @@ function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
 function crewFix(c,st,KS,day){const cr=st&&st.crew,ver=c.crew&&c.crew.blocksVer;if(!cr||!ver||cr.blk===ver||!KS)return false;
   const ppl=cr.people.filter(p=>KS.active(p,day));cr.shift=KS.assign(c,ppl,()=>Math.max(1,st.staff||2),'even');for(const t of KS.TYPES)for(const p of cr.people)if(!cr.shift[t][p.id])cr.shift[t][p.id]=[];
   delete cr.shiftNext;cr.blk=ver;return true;}
+/* きょう、だれもいない時間があれば、すぐ募集を出す（2026-11-11。シフトは変えない＝きょうの結果は変えず、応募は今夜の締めから届く）。出したら true */
+function crewAdNow(c,st,KS,day){const cr=st&&st.crew,C=c.crew;if(!cr||!C||!C.autoHire||!KS||!KS.gapsOf)return false;
+  const g=KS.gapsOf(c,cr,day);if(!g.length||KS.adsOpen(c,cr,day).length||cr.people.filter(p=>p.leave==null).length>=C.max)return false;
+  const w=Math.max(C.minWage||0,C.market+(C.autoHire.plus||0));cr.ads=(cr.ads||[]).concat([{day,wage:w,auto:true}]);return {w,g};}
 /* 港駅の店を出す（運行日 day から）。KioskCore.create と同じ形（st:'P', place:'gate'）に、店の名前を足す */
 function create(K,M,KC,opts){opts=opts||{};const c=cfg(K,M),st=KC.create(c,{seed:opts.seed||1,st:M.store.station,place:M.store.place,day:opts.day||1});
   st.store=M.store.id;st.staff=opts.staff||1;return st;}
@@ -56,5 +60,5 @@ function omRecord(c,CC,S,res){const o=S.om;if(!o||!CC||!res)return null;const r=
 function omOrder(c,CC,KC,ccfg,S,day,cond){const o=S.om;if(!o||!CC||!ccfg||o.day===day)return null;o.day=day;if(o.mode!=='auto')return null;
   const p=CC.plan(c,ccfg,S,o.recs,cond,{forDay:day,aim:o.aim,shelf:KC.shelfInfo(c,S.layout),cur:S.order});
   S.order={...S.order,...p.items};let n=0;for(const k in p.why)n=Math.max(n,p.why[k].n||0);o.last={day,n,type:p.type,aim:p.aim};return p;}
-root.MinatoStore={crewFix,KEY,URL,cfg,create,omInit,omRecord,omOrder};
+root.MinatoStore={crewFix,crewAdNow,KEY,URL,cfg,create,omInit,omRecord,omOrder};
 })(typeof window!=='undefined'?window:globalThis);

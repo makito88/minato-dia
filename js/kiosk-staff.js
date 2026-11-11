@@ -24,7 +24,10 @@ function dayPlan(cfg,list,p){const H=cfg.crew.hourly||{minDay:0,maxGaps:9,breaks
   for(const h of hs){const l=spans[spans.length-1];if(l&&l[1]===h)l[1]=h+1;else spans.push([h,h+1]);}
   const total=hs.length,gaps=Math.max(0,spans.length-1),ext=!!(cfg.crew.work||cfg.crew.minor);
   // 港駅の店（2026-11-11）：実際にいる時間（開店前・閉店後の作業でのばす・18歳未満は22時〜5時を外す）で、休憩と働く時間を決める
-  const ms=ext?realSpans(cfg,spans,p):null,T=ms?ms.reduce((s,[a,b])=>s+(b-a),0)/60:total,brk=brkOf(H,T),work=T-brk/60;
+  const ms=ext?realSpans(cfg,spans,p):null,T=ms?ms.reduce((s,[a,b])=>s+(b-a),0)/60:total;let brk=brkOf(H,T);
+  // 中抜け（港駅の店・breakRule）：あいだが休憩の長さ以上あいていれば、それを休憩とみる（店を離れている・給料なし）。ほかに休憩は取らない
+  if(H.breakRule&&brk&&ms&&ms.length>1){let gmax=0;for(let i=1;i<ms.length;i++)gmax=Math.max(gmax,ms[i][0]-ms[i-1][1]);if(gmax>=brk)brk=0;}
+  const work=T-brk/60;
   const why=[];if(total&&(H.breakRule?work:total)<H.minDay)why.push(`${H.minDay}時間に足りない`);if(gaps>H.maxGaps)why.push(`中抜けが${gaps}回`);
   const over=!!(H.maxDay&&work>H.maxDay+1e-9);if(over)why.push(`${H.maxDay}時間をこえる`);
   return {hours:hs,spans,total,gaps,brk,ok:!why.length,why,over,work:why.length?0:work,ms,T};}
@@ -94,6 +97,20 @@ function assign(cfg,people,need,mode){const C=cfg.crew,sh={},hrs={},nAv=p=>TYPES
         if(cnt(b2)<2){const bb=B(cfg).find(x=>x.id===b2);rep=people.find(q=>q!==p&&can(q,t,bb)&&!sh[t][q.id].includes(b2)&&okP(q,[...sh[t][q.id],b2]));if(!rep)continue;}
         sh[t][p.id]=np;if(rep)sh[t][rep.id].push(b2);fixed=true;break done;}}
     if(!fixed)break;}
+  // さらに直す（港駅の店）：だれもいない時間（分）が減る入れかえを、決まった乱数で探す（足す・外す・ほかの人に移す）。同じなら、働く時間の合計が減るときだけ
+  if(C.hourly&&C.hourly.maxDay){const rr=rng(hash('shiftfix',people.map(p=>p.id).join(',')));
+    const gapMin=t=>{const W=dayWorkers(cfg,people,sh[t]);let n=0;for(let m=cfg.open[0]*60;m<cfg.open[1]*60;m+=5)if(!W.some(w=>onAt(w,m)))n+=5;return n;};
+    const hrsOf=t=>people.reduce((a,p)=>a+hoursOf(cfg,sh[t][p.id]).length,0);
+    for(const t of TYPES){let g=gapMin(t);if(!g)continue;let h=hrsOf(t);
+      for(let it=0;it<400&&g>0;it++){const p=people[Math.floor(rr()*people.length)],b=B(cfg)[Math.floor(rr()*B(cfg).length)],mv=rr(),old={};
+        const L=sh[t][p.id];let q=null;
+        if(L.includes(b.id)){if(mv<0.5){q=people[Math.floor(rr()*people.length)];if(q===p||!canB(cfg,q,t,b)||sh[t][q.id].includes(b.id))continue;}}
+        else if(!canB(cfg,p,t,b))continue;
+        old[p.id]=L.slice();if(q)old[q.id]=sh[t][q.id].slice();
+        if(L.includes(b.id)){sh[t][p.id]=L.filter(x=>x!==b.id);if(q)sh[t][q.id]=[...sh[t][q.id],b.id];}else sh[t][p.id]=[...L,b.id];
+        const ok=[p,q].filter(Boolean).every(x=>!sh[t][x.id].length||dayPlan(cfg,sh[t][x.id],x).ok);
+        const g2=ok?gapMin(t):Infinity,h2=ok?hrsOf(t):Infinity;
+        if(g2<g||(g2===g&&h2<h)){g=g2;h=h2;}else for(const id in old)sh[t][id]=old[id];}}}
   for(const t of TYPES)for(const id in sh[t])sh[t][id].sort((a,c)=>B(cfg).findIndex(x=>x.id===a)-B(cfg).findIndex(x=>x.id===c));
   return sh;}
 /* おまかせシフト：mode='cost' は各時間帯1人。'cover' は、1人あたり1時間の会計が busy 人を超えないように（最大3人）。
@@ -182,15 +199,19 @@ function gapsOf(cfg,crew,day){const ppl=crew.people.filter(p=>active(p,day));con
   return out;}
 function autoHire(cfg,st,crew,day,say){const C=cfg.crew,A=C.autoHire,d1=day+1,need=()=>Math.max(1,st.staff||A.staff||2);
   const reshape=()=>{const ppl=crew.people.filter(p=>active(p,d1)),sh=assign(cfg,ppl,need,'even');for(const t of TYPES)for(const p of crew.people)if(!sh[t][p.id])sh[t][p.id]=[];crew.shift=sh;delete crew.shiftNext;};   // 締めのあと（あすの分のシフト）なので、そのまま crew.shift に
-  let g=gapsOf(cfg,crew,d1);if(!g.length)return;
-  reshape();g=gapsOf(cfg,crew,d1);
+  let g=gapsOf(cfg,crew,d1);if(!g.length&&crew.people.filter(p=>p.leave==null).length>=(A.min||0))return;
+  if(g.length){reshape();g=gapsOf(cfg,crew,d1);}
   // 応募している人から採用（足りない区切りに入れる人・時給の安い人から）
   const hired=[];
   while(g.length&&crew.people.filter(p=>p.leave==null).length<C.max){const a=crew.applicants.filter(x=>g.some(o=>canB(cfg,x,o.t,o.b))).sort((x,y)=>x.wage-y.wage)[0];if(!a)break;
     crew.applicants=crew.applicants.filter(x=>x!==a);a.from=d1;delete a.until;delete a.came;crew.people.push(a);for(const t of TYPES){crew.shift[t][a.id]=[];}hired.push(a);reshape();g=gapsOf(cfg,crew,d1);}
+  // 人数が少ないとき（autoHire.min 人より少ない）は、足りない区切りに入れなくても、入れる時間の多い人から採用する（休み・辞める人が出ても回るように）
+  const nAct=()=>crew.people.filter(p=>p.leave==null).length,avN=p=>TYPES.reduce((a,t)=>a+p.avail[t].length*C.weekDays[t],0);
+  while(nAct()<(A.min||0)&&nAct()<C.max&&crew.applicants.length){const a=crew.applicants.slice().sort((x,y)=>avN(y)-avN(x)||x.wage-y.wage)[0];
+    crew.applicants=crew.applicants.filter(x=>x!==a);a.from=d1;delete a.until;delete a.came;crew.people.push(a);for(const t of TYPES)crew.shift[t][a.id]=[];hired.push(a);reshape();g=gapsOf(cfg,crew,d1);}
   if(hired.length)say('crew',`${hired.map(a=>a.name+'さん').join('・')}を採用した（おまかせ）`,`店員が足りない時間があったので、応募していた人を採用しました。あすからシフトに入ります（時給${hired.map(a=>a.wage.toLocaleString()+'円').join('・')}）。`);
-  if(g.length&&!adsOpen(cfg,crew,d1).length&&crew.people.filter(p=>p.leave==null).length<C.max){const w=Math.max(C.minWage||0,C.market+(A.plus||0));crew.ads=(crew.ads||[]).concat([{day:d1,wage:w,auto:true}]);
-    const TN=C.dayTypes||{};say('crew','店員が足りないので、募集を出した（おまかせ）',`${g.slice(0,3).map(o=>(TN[o.t]||o.t)+'の'+o.b.name).join('・')}${g.length>3?'など':''}に入れる人がいません。あすから${C.ad.days}日間、時給${w.toLocaleString()}円で募集します（${C.ad.fee.toLocaleString()}円）。だれもいない時間は、店を閉めます。`);}}
+  if((g.length||nAct()<(A.min||0))&&!adsOpen(cfg,crew,d1).length&&nAct()<C.max){const w=Math.max(C.minWage||0,C.market+(A.plus||0));crew.ads=(crew.ads||[]).concat([{day:d1,wage:w,auto:true}]);
+    const TN=C.dayTypes||{};say('crew','店員が足りないので、募集を出した（おまかせ）',g.length?`${g.slice(0,3).map(o=>(TN[o.t]||o.t)+'の'+o.b.name).join('・')}${g.length>3?'など':''}に入れる人がいません。あすから${C.ad.days}日間、時給${w.toLocaleString()}円で募集します（${C.ad.fee.toLocaleString()}円）。だれもいない時間は、店を閉めます。`:`店員が${nAct()}人に減りました（${A.min}人はほしい）。あすから${C.ad.days}日間、時給${w.toLocaleString()}円で募集します（${C.ad.fee.toLocaleString()}円）。`);}}
 
 root.KioskStaff={gapsOf,autoHire,wageFloor,canB,dayWorkers,minorOf,realSpans,brkOf,create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,hoursOf,availH,dayPlan,active,close,adsOpen,TYPES,blk};
 if(typeof module!=='undefined')module.exports=root.KioskStaff;

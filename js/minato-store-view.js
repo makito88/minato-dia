@@ -26,13 +26,16 @@ const V={K:null,M:null,R:null,cfg:null,st:null,err:null,res:null,resKey:'',resD:
 /* ---------- 読み込み・保存 ---------- */
 const getJ=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.json();});
 Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110g').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null),getJ('data/center.json?v=20261109f').catch(()=>null)]).then(([K,M,R,L,FJ,HJ,CJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.C=CJ;V.cfg=MS.cfg(K,M);
-  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;if(MS.crewFix&&MS.crewFix(V.cfg,s,KS,gDay())){s.news.push({day:gDay(),kind:'crew',title:'店員のシフトを組み直した',text:'1日に働くのは3〜8時間、4時間をこえると休憩（45分・8時間働くなら1時間）、18歳未満の人は22時〜5時に入らない形にしました。時給は東京都の最低賃金（1,280円）より下げません。'});persist();}omStart();}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
+  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;if(MS.crewFix&&MS.crewFix(V.cfg,s,KS,gDay())){s.news.push({day:gDay(),kind:'crew',title:'店員のシフトを組み直した',text:'1日に働くのは3〜8時間、4時間をこえると休憩（45分・8時間働くなら1時間）、18歳未満の人は22時〜5時に入らない形にしました。時給は東京都の最低賃金（1,280円）より下げません。'});persist();}crewAd();omStart();}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
 /* おまかせ発注（S1）：前からある店にも om を足す（最初からおまかせ・記録がないうちは今の数のまま）。足したら便りで知らせる */
 function omStart(){const S=V.st;if(!S||S.om)return;MS.omInit(S,V.C,'auto');
   S.news.push({day:gDay(),kind:'center',title:'港の店の発注を「おまかせ」にした',text:'締めのたびに、品ごとの売れた数・売り切れで逃した数・廃棄を記録し、運行日の始めに、緑ヶ丘のおまかせと同じ決め方（同じ型の日・天気と季節・ねらい「その間」）でその日の数を決めます。記録が少ないうちは今の数と混ぜて少しずつ変えます。新聞・雑誌・たばこは店の数のままです。'});S.unread=(S.unread||0)+1;persist();}
 /* 運行日の始めに1回：おまかせなら、その日の仕入れ数を決める（計算は MinatoStore.omOrder）。その日の計算（ensureRes）より先に */
 function omToday(){const S=V.st;if(!S||!S.om||!V.C||!window.CenterCore)return;const day=gDay();if(S.om.day===day)return;const c=gCond();
   g(()=>MS.omOrder(V.cfg,CenterCore,KC,V.C,S,day,{day:c.day,wx:c.wx,season:c.season}),null);if(S.om.day===day){persist();setTimeout(refresh,0);}}
+/* きょう、だれもいない時間があれば、すぐ募集を出す（便りでお知らせ・2026-11-11） */
+function crewAd(){const S=V.st;if(!S||!MS.crewAdNow)return;const day=gDay(),x=g(()=>MS.crewAdNow(V.cfg,S,KS,day),false);if(!x)return;const TN=V.cfg.crew.dayTypes||{};
+  S.news.push({day,kind:'crew',title:'店員が足りないので、募集を出した（おまかせ）',text:`${x.g.slice(0,3).map(o=>(TN[o.t]||o.t)+'の'+o.b.name+'（'+o.b.from+'〜'+o.b.to+'時）').join('・')}${x.g.length>3?'など':''}に入れる人がいません。きょうから${V.cfg.crew.ad.days}日間、時給${x.w.toLocaleString()}円で募集します。応募した人は、締めのあと採用してシフトに入れます。だれもいない時間は、店を閉めます。`});persist();}
 function persist(){try{localStorage.setItem(MS.KEY,JSON.stringify(V.st));}catch(e){}}
 const refresh=()=>g(()=>window.minatoKiosk&&minatoKiosk.refresh&&minatoKiosk.refresh());
 
@@ -50,7 +53,7 @@ function localNow(S,day){if(!window.LocalToKiosk||!V.L)return undefined;if(V.loc
   V.local=g(()=>LocalToKiosk.plan(V.L,V.M,S,{day}),null)||undefined;V.localK=S;V.localDay=day;return V.local;}
 function checkDay(){const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（緑ヶ丘の店と同じ）
-  if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
+  if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;crewAd();}
 function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();omToday();const c=ctxNow();if(!c)return V.res;
   const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'')+'|'+(c.cruise?c.cruise.pax:'');
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
@@ -312,7 +315,9 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
     const PL=V.plan=A.plan(res,V.cfg,V.acts,V.st.layout),K=A.clerks(res,Tn,PL),wk0=Math.floor(Date.now()/220)%2;   // A3：店員の台本
     if(PL&&PL.drips&&PL.drips.length)dripsDraw(c,PL.drips,Tn);   // A6：床のしずく
     for(const k of K.list){const sp=sprite('clerk',k.mv?wk0:0);c.drawImage(sp,k.x-14,k.y-38,28,44);clerkDo(c,k,Tn);}
-    if(!K.list.length){c.fillStyle='#7a2e2e';c.beginPath();c.roundRect(560,240,150,28,6);c.fill();c.fillStyle='#fff';c.font='700 13px sans-serif';c.textAlign='center';c.fillText('ただいま休止中',635,259);}
+    if(!K.list.length){const BL=(V.cfg.crew&&V.cfg.crew.blocks)||[],b=BL.find(x=>Tn>=x.from*60&&Tn<x.to*60),ad=V.st.crew&&KS&&KS.adsOpen(V.cfg,V.st.crew,gDay()).length,sub=b?`${b.name}（${b.from}〜${b.to}時）に入れる店員がいません${ad?'・募集中':''}`:'';
+      c.fillStyle='#7a2e2e';c.beginPath();c.roundRect(560,240,150,28,6);c.fill();c.fillStyle='#fff';c.font='700 13px sans-serif';c.textAlign='center';c.fillText('ただいま休止中',635,259);
+      if(sub&&Tn>=V.cfg.open[0]*60&&Tn<V.cfg.open[1]*60){c.font='700 11px sans-serif';const w=c.measureText(sub).width+14;c.fillStyle='rgba(122,46,46,.9)';c.beginPath();c.roundRect(635-w/2,272,w,20,5);c.fill();c.fillStyle='#fff';c.fillText(sub,635,286);}}   // 休止のわけ（2026-11-11）
     if(K.stop){c.fillStyle='#e0a21b';c.beginPath();c.roundRect(566,300,68,16,4);c.fill();c.fillStyle='#fff';c.font='700 10px sans-serif';c.textAlign='center';c.fillText('しばらくお待ちを',600,312);}
     const L=A.at(V.acts,Tn,V.cap),wk=Math.floor(Date.now()/220)%2,BK=(V.cfg.walk&&V.cfg.walk.anim&&V.cfg.walk.anim.basket||{}).at||[212,428];
     for(let i=0;i<4;i++)basket(c,BK[0],BK[1]-i*2.5,true);   // 入口の横のかご

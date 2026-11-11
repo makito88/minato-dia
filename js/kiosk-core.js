@@ -96,7 +96,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 納品
   const dayOrder=ctx.order||state.order;   // その日の便で届く数は、締め切りまでに出した発注で決まっている（途中で変えても、きょうの便は変わらない）
   // トラック（2026-11-09）：ctx.truck＝{便の名前: 店に着く時刻}。便の時刻より遅く着いたら、着いた時刻に並べる（late＝遅れた分）
-  const PRE=cfg.crew&&cfg.crew.work&&state.crew&&O0===cfg.open[0]*60?cfg.crew.work.from*60:null;   // 開店前に店員がいる店（港駅の店・2026-11-11）：開店前に届いた便は、届いた時刻に受け取って並べる（開店のときには棚に並んでいる）
+  const PRE=cfg.crew&&cfg.crew.work&&state.crew&&O0===cfg.open[0]*60&&root.KioskStaff&&root.KioskStaff.today(cfg,state,ctx.cond.day,ctx.day).some(w=>w.spans.some(([a])=>a<O0))?cfg.crew.work.from*60:null;   // 開店前に店員が来ている日だけ   // 開店前に店員がいる店（港駅の店・2026-11-11）：開店前に届いた便は、届いた時刻に受け取って並べる（開店のときには棚に並んでいる）
   const deliveries=cfg.deliveries.map(d=>{const a=ctx.truck&&ctx.truck[d.name],t=Math.max(d.t,a||0,PRE!=null?PRE:O0-1);return a>d.t?{...d,t,late:Math.round(a-d.t)}:{...d,t};});
   // 臨時便：頼んだ時刻から lead 分後に、その品だけ届く
   let expressFee=0;for(const x of (cfg.express.off?[]:(ctx.express||[]))){const items=x.items||(x.pid?{[x.pid]:x.q}:{});if(!Object.keys(items).some(k=>P[k]))continue;deliveries.push({t:x.t+cfg.express.lead,name:'臨時便',express:{items}});expressFee+=cfg.express.fee;}   // 1便に何品でものせられる。料金は便ごと
