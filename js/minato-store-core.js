@@ -9,7 +9,7 @@
    ===================================================================== */
 (function(root){
 'use strict';
-const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261111a7';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
+const KEY='dia-kiosk-minato',URL='data/minato-store.json?v=20261111w1';   // 設定のファイルを読むのはこのファイルの名前だけ（画面は MinatoStore.URL を使う）
 const cache=new WeakMap();
 /* 港駅の店の設定（同じ K・M なら同じものを返す） */
 function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
@@ -27,6 +27,7 @@ function cfg(K,M){let c=cache.get(M);if(c&&c._K===K)return c;
   if(c.basket){c.basket={...c.basket,ps:{...c.basket.ps,...(W.basketPs||{})},pairs:{...c.basket.pairs,...(W.basketPairs||{})}};}
   const DV=W.deliveries||{};c.deliveries=c.deliveries.map(d=>{if(d.all)return d;const add=Object.keys(DV).filter(g=>Array.isArray(DV[g])&&DV[g].includes(d.name));return add.length?{...d,genres:[...d.genres,...add]}:d;});
   if(W.trash&&W.trash.label&&c.mood&&c.mood.labels)c.mood.labels.trash=W.trash.label;   // きっかけ「ごみのついでに」（A4）
+  if(M.crew)c.crew={...c.crew,...(M.crew.blocks?{blocks:JSON.parse(JSON.stringify(M.crew.blocks))}:{}),...(M.crew.work?{work:{...M.crew.work}}:{})};   // 店員の区切りと、開店前・閉店後の作業（2026-11-11）
   c.walk={...W,store:M.store};c.storeId=M.store.id;c._K=K;
   Object.defineProperty(c,'_K',{enumerable:false});
   cache.set(M,c);return c;}

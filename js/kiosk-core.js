@@ -283,7 +283,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   // 収支
   let sales=0,em=0;for(const e of ev)if(e.k==='buy'){sales+=e.yen;if(e.em)em+=e.yen;}
   let cg=0;for(const k in cogs)cg+=cogs[k];
-  const crewRes=W.map((w,k)=>{const x=KS.payOf(cfg,w,O0,O1);return {id:w.p.id,name:w.p.name,h:x.h,yen:x.yen,served:served[k],spans:w.spans,gaps:w.gaps||0,brk:w.brk||null,commute:x.h>0?(w.p.commute||0):0,insured:KS.insuredOf(cfg,state.crew,w.p)};});
+  const WKc=cfg.crew&&cfg.crew.work,P0=WKc&&O0<=cfg.open[0]*60?Math.min(O0,WKc.from*60):O0,P1=WKc?Math.max(O1,WKc.to*60):O1;   // 開店前・閉店後の作業の分も給料（港駅の店・設定 crew.work があるときだけ。途中から開けた日は開けた時刻から）
+  const crewRes=W.map((w,k)=>{const x=KS.payOf(cfg,w,P0,P1);return {id:w.p.id,name:w.p.name,h:x.h,yen:x.yen,served:served[k],spans:w.spans,gaps:w.gaps||0,brk:w.brk||null,commute:x.h>0?(w.p.commute||0):0,insured:KS.insuredOf(cfg,state.crew,w.p)};});
   // 交通費（働いた日だけ）と社会保険のお店の負担（給料＋交通費に対する割合）
   const SO=(cfg.move&&cfg.move.social)||{employer:0};
   const commute=crewRes.reduce((s,x)=>s+x.commute,0),social=crewRes.reduce((s,x)=>s+(x.insured?(x.yen+x.commute)*(SO.employer||0):0),0);

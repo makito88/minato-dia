@@ -365,9 +365,9 @@ function croute(a,b){if(BEHIND(a)&&BEHIND(b))return [b];if(BEHIND(a)||BEHIND(b))
   return route(a,b);}
 const cpl=(a,b)=>{let d=0,cur=a;for(const q of croute(a,b)){d+=dist(cur,q);cur=q;}return d;};
 const CPOS={reg:MAP.clerk.f,hot:MAP.clerk.hot,self:MAP.clerk.self,term:[660,252],bk:[226,424]};
-const NAMES={pay:'',self:'セルフへ',cover:'レジに入る',cook:'温める',stock:'品出し',carry:'荷物を運ぶ',waste:'期限の品を下げる',order:'発注',wipe:'テーブル拭き',basket:'かごを戻す',tidy:'整理',front:'前出し',mop:'モップ',wait:''};
+const NAMES={pay:'',self:'セルフへ',cover:'レジに入る',cook:'温める',stock:'品出し',carry:'荷物を運ぶ',waste:'期限の品を下げる',order:'発注',wipe:'テーブル拭き',regopen:'レジ開け',regclose:'レジ締め',clean:'清掃',count:'数量チェック',basket:'かごを戻す',tidy:'整理',front:'前出し',mop:'モップ',wait:''};
 function plan(res,cfg,acts,layout){if(!res)return null;const C=cache.get(res);if(C&&C.acts===acts)return C.p;
-  const AN=animOf(cfg),CK=Object.assign({},CK0,AN.clerk||{}),sp=CK.mps*60/(AN.unitM||0.009),Z=cfg.zones,pi=placeIndex(cfg,layout||{}),O1=((cfg.open||[5,23.5])[1])*60;
+  const AN=animOf(cfg),CK=Object.assign({},CK0,AN.clerk||{}),sp=CK.mps*60/(AN.unitM||0.009),Z=cfg.zones,pi=placeIndex(cfg,layout||{}),O1=((cfg.open||[5,23.5])[1])*60,O0=((cfg.open||[5,23.5])[0])*60;
   const crew=(res.crew||[]).filter(w=>(w.spans||[]).length);const on=(w,t)=>w.spans.some(([a,b])=>t>=a&&t<b);
   const roleAt=(w,t)=>{const L=crew.filter(x=>on(x,t));return L.length<=1?'one':L[0]===w?'reg':'floor';};
   const spotOf=pid=>{const w=pi[pid];if(!w)return null;if(w[0]==='hot'||w[0]==='warmer')return CPOS.hot;if(w[0]==='tobacco')return CPOS.reg;const s=standOf(w[0],w[1],Z);return s?[s[0],s[1]+8]:null;};
@@ -448,11 +448,31 @@ function plan(res,cfg,acts,layout){if(!res)return null;const C=cache.get(res);if
       // next へ戻る（間に合うように）
       if(cpl(cur,next)>0.5){const dt=cpl(cur,next)/sp;if(g1-dt>t)stay(g1-dt,null);walkTo(next);}
       if(t<g1)stay(g1,null);};
+    // 開店前・閉店後の作業（2026-11-11・ユーザー）：4:30〜5:00 は清掃・レジ開け・品出し、23:30〜24:00 はレジ締め・清掃・数量チェック。
+    // 店員が2人なら分ける（1人目がレジ、2人目が清掃）。だれの番号でも同じ順に決まる（その時刻だけで決まる）
+    const nth=tt=>crew.filter(x=>on(x,tt)).indexOf(w);
+    const script=(steps,t1)=>{const t0=t,D=t1-t0;if(D<=0.05)return;let acc=0;
+      for(const [kind,fr] of steps){const g=Math.min(t1,t0+D*(acc+=fr));if(g-t<0.02)continue;const k0=t;
+        if(kind==='regopen'||kind==='regclose'){walkTo(CPOS.reg);stay(g,kind);continue;}
+        if(kind==='clean'){let i=0;while(t<g-0.05&&i<40){const q=[120+hsh('cl',w.id,Math.round(t0),i)*760,300+hsh('cy',w.id,Math.round(t0),i)*130];const d=cpl(cur,q)/sp;if(t+d>g)break;walkTo(q);i++;}
+          if(t<g)stay(g,null);rec.push({t0:k0,t1:g,kind:'clean'});continue;}
+        // 品出し・数量チェック：棚を順に回って、少しずつ止まる
+        const zs=kind==='stock'?['shelf','fridge','dry','regfront']:['fridge','shelf','dry','omiyage','hook','regfront'];let i=0;
+        while(t<g-0.05&&i<30){const zk=zs[(i+Math.floor(hsh('zs',w.id,kind)*zs.length))%zs.length],z=zoneAt(Z,zk,Math.floor(hsh('zi',w.id,kind,i)*20));const p=z?[z[0],z[1]+10]:CPOS.hot;
+          const d=cpl(cur,p)/sp;if(t+d+0.05>g)break;walkTo(p);const k1=t;stay(Math.min(g,t+Math.max(0.05,(g-t0)/6)),null);rec.push({t0:k1,t1:t,kind});i++;}
+        if(t<g)stay(g,null);}};
     // 勤務の時間ごとに（休憩のあいだは描かない。戻ったら持ち場から）
     for(const [s0,s1] of w.spans){t=s0;cur=home(s0+0.01);L.push({t,x:cur[0],y:cur[1]});
-      for(const r of N){if(r.t0<s0||r.t0>=s1)continue;fill(r.t0,r.at);if(t<r.t0)t=r.t0;
+      if(s0<O0){const k=nth(s0+0.01),n=crew.filter(x=>on(x,s0+0.01)).length;L.pop();cur=MAP.ent;L.push({t,x:cur[0],y:cur[1]});   // 入口から入ってくる
+        script(n<=1?[['clean',0.4],['regopen',0.25],['stock',0.35]]:k===0?[['regopen',0.35],['stock',0.65]]:[['clean',0.5],['stock',0.5]],Math.min(s1,O0));
+        if(t<O0&&cpl(cur,home(O0+0.01))>0.5)walkTo(home(O0+0.01));}
+      const e1=Math.min(s1,O1);
+      for(const r of N){if(r.t0<s0||r.t0>=e1)continue;fill(r.t0,r.at);if(t<r.t0)t=r.t0;
         if(cpl(cur,r.at)>0.5)walkTo(r.at);stay(Math.max(t,r.t1),r.kind);}
-      fill(s1,home(s1-0.01));}
+      if(t<e1)fill(e1,home(e1-0.01));
+      if(s1>O1&&t<s1){if(t<O1)t=O1;const k=nth(O1+0.01),n=crew.filter(x=>on(x,O1+0.01)).length;
+        script(n<=1?[['regclose',0.3],['clean',0.35],['count',0.35]]:k===0?[['regclose',0.45],['count',0.55]]:[['clean',0.5],['count',0.5]],s1-0.4);
+        if(MAP.ent){walkTo(MAP.ent);}if(t<s1)stay(s1,null);}}
     byId[w.id]={id:w.id,name:w.name,L:mark(L),rec,spans:w.spans};});
   for(const w of crew)out.push(byId[w.id]);
   const carts=tasks.filter(k=>k.kind==='stock').map(k=>({e:k.deli,cart:k.cart,done:k.left<=1e-6?(k.cart.at(-1)||{t1:k.ready}).t1:O1}));

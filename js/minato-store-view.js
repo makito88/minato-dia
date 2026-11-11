@@ -75,7 +75,7 @@ function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.n
   const W=V.cfg.walk,M=V.M;
   if(!V.st){sub.textContent='まだ出していません';kpi.innerHTML='';
     top.innerHTML=`<div class="ks-card"><h3><span>港駅・改札口の前に、2つ目の店を出す</span><small>みなとスタンド（緑ヶ丘の店とは別の店）</small></h3>
-      <p class="ks-note">お客さんが<b>中に入って歩く店</b>です。入口 → 冷蔵ケース → おにぎりの低い棚 → 床の印のところで並ぶ → レジ（有人1台＋セルフ1台）→ 出口。おみやげは奥の角、乾物・おやつは低い棚のとなり、イートインは立ち席${W.eatIn.stand??W.eatIn.seats}${W.eatIn.sit?'＋座れる席'+W.eatIn.sit:''}（レンジ・お湯）。品は${V.cfg.products.length}品。開店は${M.store.open[0]}時〜${Math.floor(M.store.open[1])}時半（仮）。</p>
+      <p class="ks-note">お客さんが<b>中に入って歩く店</b>です。入口 → 冷蔵ケース → おにぎりの低い棚 → 床の印のところで並ぶ → レジ（有人1台＋セルフ1台）→ 出口。おみやげは奥の角、乾物・おやつは低い棚のとなり、イートインは立ち席${W.eatIn.stand??W.eatIn.seats}${W.eatIn.sit?'＋座れる席'+W.eatIn.sit:''}（レンジ・お湯）。品は${V.cfg.products.length}品。開店は${M.store.open[0]}時〜${Math.floor(M.store.open[1])}時半（仮）。店員は開店の30分前に来て清掃・レジ開け・品出しをし、閉店の30分後（レジ締め・清掃・数量チェックのあと）に帰ります。</p>
       <p class="ks-note">港で働く人の交代（6・14・22時）の前後に、作業着の人が早足で来ます。発注は<b>おまかせ</b>（この店の売れ方から毎日決める）。<b>センターへの記録・配送会社の便・お金の流れには、まだつないでいません</b>（あとの回で）。</p>
       <button type="button" class="ks-btn pri" id="msOpen">港駅・改札口の前に「港の店」を出す</button></div>`;
     top.querySelector('#msOpen').onclick=openStore;return;}
@@ -293,7 +293,9 @@ function clerkDo(c,k,Tn){const x=k.x,y=k.y,a=k.act;
   else if(a==='stock'||a==='carry'){c.fillStyle='#b08a50';c.fillRect(x+(a==='stock'?2:-7),y-(a==='stock'?30:22),14,9);c.strokeStyle='rgba(0,0,0,.3)';c.lineWidth=1;c.strokeRect(x+(a==='stock'?2:-7)+.5,y-(a==='stock'?30:22)+.5,13,8);}
   else if(a==='front'||a==='tidy'){c.fillStyle='#f0c9a0';c.fillRect(x+7,y-24+(Math.floor(Tn*300)%2),3,3);}
   else if(a==='wipe'){c.fillStyle='#9fd3e6';c.fillRect(x+6+Math.sin(Tn*500)*3,y-18,7,4);}
-  else if(a==='mop'){c.strokeStyle='#7a6a5a';c.lineWidth=1.6;c.beginPath();c.moveTo(x+6,y-22);c.lineTo(x+14,y+1);c.stroke();c.fillStyle='#c9c4b8';c.fillRect(x+9,y,10,3);}
+  else if(a==='regopen'||a==='regclose'){c.fillStyle='#d9b24a';c.fillRect(x+6,y-22,8,5);c.fillStyle='#8a6d1f';c.fillRect(x+8,y-21,4,1);}   // レジのお金（開店前・閉店後）
+  else if(a==='count'){c.fillStyle='#3a4046';c.fillRect(x+6,y-25,6,9);c.fillStyle='#9fd3c7';c.fillRect(x+7,y-24,4,4);}   // 数量チェックの端末
+  else if(a==='mop'||a==='clean'){c.strokeStyle='#7a6a5a';c.lineWidth=1.6;c.beginPath();c.moveTo(x+6,y-22);c.lineTo(x+14,y+1);c.stroke();c.fillStyle='#c9c4b8';c.fillRect(x+9,y,10,3);}
   else if(a==='order'){c.fillStyle='#3a4046';c.fillRect(x+5,y-26,9,7);c.fillStyle='#9fd3c7';c.fillRect(x+6,y-25,7,4);}
   else if(a==='cook'){c.fillStyle='#e8a04a';c.fillRect(x+6,y-22,6,4);}
   else if(a==='waste'){c.fillStyle='#d8382e';c.fillRect(x+6,y-24,7,7);}
@@ -327,7 +329,12 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
   c.restore();
   // 時計と、開店前・閉店後
   c.fillStyle='rgba(15,20,24,.82)';c.beginPath();c.roundRect(10,46,96,26,5);c.fill();c.fillStyle='#ffb347';c.font='700 18px "DotGothic16",monospace';c.textAlign='left';c.fillText(fmtT(Tn),20,66);
-  const O0=V.cfg.open[0]*60,O1=V.cfg.open[1]*60;if(Tn>=O1&&FF&&!vw){FX.closed(c,FF);return;}if(Tn<O0||Tn>=O1){c.fillStyle='rgba(20,24,28,.5)';c.fillRect(0,40,1000,560);c.fillStyle='#fff';c.font='700 22px sans-serif';c.textAlign='center';c.fillText(Tn<O0?`開店前（${V.cfg.open[0]}:00から）`:'本日の営業は終わりました',500,300);}}
+  const O0=V.cfg.open[0]*60,O1=V.cfg.open[1]*60;
+  // 開店前・閉店後に店員が作業しているあいだ（港駅の店・4:30〜5:00 と 23:30〜24:00）は、店の中が見えるように薄く暗くして、上に札だけ
+  const working=res&&(res.crew||[]).some(w=>(w.spans||[]).some(([a,b])=>Tn>=a&&Tn<b))&&(Tn<O0||Tn>=O1);
+  if(working){c.fillStyle='rgba(20,24,28,.22)';c.fillRect(0,40,1000,560);const tx=Tn<O0?`開店前の準備（清掃・レジ開け・品出し）・${fmtT(O0)}開店`:'閉店後の作業（レジ締め・清掃・数量チェック）';
+    c.font='700 15px sans-serif';const tw=c.measureText(tx).width+24;c.fillStyle='rgba(20,24,28,.82)';c.beginPath();c.roundRect(500-tw/2,84,tw,28,6);c.fill();c.fillStyle='#fff';c.textAlign='center';c.fillText(tx,500,103);return;}
+  if(Tn>=O1&&FF&&!vw){FX.closed(c,FF);return;}if(Tn<O0||Tn>=O1){c.fillStyle='rgba(20,24,28,.5)';c.fillRect(0,40,1000,560);c.fillStyle='#fff';c.font='700 22px sans-serif';c.textAlign='center';c.fillText(Tn<O0?`開店前（${fmtT(O0)}から）`:'本日の営業は終わりました',500,300);}}
 function fxCtx(res,Tn){const S=V.st,day=gDay(),c=gCond();return {res,Tn,cfg:V.cfg,st:S,cond:{wx:c.wx,season:c.season,day:c.day},port:g(()=>SEAS.portPlan,null),sd:samedayNow(S,day,c)||null,fan:!!V.fan,local:V.localDay===res.day?V.local:null,plan:V.plan||null};}
 function click(){if(innerWidth<760){V.half=V.half==='reg'?'ent':V.half==='ent'?'all':'reg';const t=document.getElementById('ksTop');if(t)t.dataset.k='';refresh();}}   // スマホ：押すと、レジ側 → 入口側 → 店ぜんぶ
 

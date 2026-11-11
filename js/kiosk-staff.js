@@ -86,9 +86,14 @@ function today(cfg,state,type,day){const crew=state.crew;
   if(!crew){const n=Math.max(1,state.staff||1),o=[];for(let i=0;i<n;i++)o.push({p:{id:'x'+i,name:'店員',skill:{reg:1,stock:1,care:1},morale:60,days:30,wage:cfg.wage},spans:[[cfg.open[0]*60,cfg.open[1]*60]]});return o;}
   const sh=crew.shift[type]||{},o=[];
   for(const p of crew.people){if(!active(p,day))continue;const pl=dayPlan(cfg,sh[p.id]);if(!pl.total||!pl.ok)continue;   // 組めない日は休み
-    let spans=pl.spans.map(([a,b])=>[a*60,b*60]),brk=null;
+    let spans=pl.spans.map(([a,b])=>[a*60,b*60]),brk=null,bm=pl.brk;
+    // 開店前・閉店後の作業（港駅の店・2026-11-11・設定 crew.work があるときだけ）：いちばん早い区切りから入る人は work.from から（清掃・レジ開け・品出し）、
+    // 終わりは work.to まで（閉店のあとのレジ締め・清掃・数量チェック）。休憩は、のびた分も入れた時間で決め直す
+    const WK=cfg.crew.work;if(WK){const b0=Math.min(...B(cfg).map(x=>x.from))*60,f=WK.from*60,e=WK.to*60;
+      spans=spans.map(([a,b])=>[a===b0&&f<a?f:a,Math.min(b,e)]).filter(([a,b])=>b>a);
+      const tot=spans.reduce((s,[a,b])=>s+(b-a),0)/60;bm=0;for(const [over,min] of (cfg.crew.hourly||{}).breaks||[])if(tot>over)bm=min;}
     // 休憩：いちばん長いかたまりの真ん中あたり（15分きざみ）。そのあいだは店にいない・給料なし
-    if(pl.brk){let k=0;spans.forEach((s,i)=>{if(s[1]-s[0]>spans[k][1]-spans[k][0])k=i;});const [a,b]=spans[k],m=a+Math.round(((b-a)-pl.brk)/2/15)*15;brk=[m,m+pl.brk];spans.splice(k,1,[a,m],[m+pl.brk,b]);}
+    if(bm){let k=0;spans.forEach((s,i)=>{if(s[1]-s[0]>spans[k][1]-spans[k][0])k=i;});const [a,b]=spans[k],m=a+Math.round(((b-a)-bm)/2/15)*15;brk=[m,m+bm];spans.splice(k,1,[a,m],[m+bm,b]);}
     o.push({p,spans,gaps:pl.gaps,brk});}
   return o;}
 const onAt=(w,t)=>w.spans.some(([a,b])=>t>=a&&t<b);
