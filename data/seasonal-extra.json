@@ -238,7 +238,10 @@
    "src": "assume",
    "only": [
     "P"
-   ]
+   ],
+   "where": {
+    "港": 1
+   }
   },
   {
    "id": "x_ship_delay",
@@ -276,7 +279,10 @@
    "src": "assume",
    "only": [
     "P"
-   ]
+   ],
+   "where": {
+    "港": 1
+   }
   },
   {
    "id": "x_ferry_cancel",
@@ -313,7 +319,10 @@
    "src": "assume",
    "only": [
     "P"
-   ]
+   ],
+   "where": {
+    "港": 1
+   }
   },
   {
    "id": "x_gyosen",
@@ -351,7 +360,10 @@
    "src": "assume",
    "only": [
     "P"
-   ]
+   ],
+   "where": {
+    "港": 1
+   }
   },
   {
    "id": "x_niyaku",
@@ -389,7 +401,10 @@
    "src": "assume",
    "only": [
     "P"
-   ]
+   ],
+   "where": {
+    "港": 1
+   }
   },
   {
    "id": "x_rare_ship",
@@ -441,7 +456,10 @@
      ],
      "k": 0.5
     }
-   ]
+   ],
+   "where": {
+    "港": 1
+   }
   },
   {
    "id": "x_minato_hanabi",
@@ -506,7 +524,10 @@
      ],
      "k": 0.8
     }
-   ]
+   ],
+   "where": {
+    "港": 1
+   }
   },
   {
    "id": "x_umi_marathon",
@@ -780,7 +801,10 @@
    "src": "assume",
    "only": [
     "P"
-   ]
+   ],
+   "where": {
+    "港": 1
+   }
   },
   {
    "id": "x_company_move",
