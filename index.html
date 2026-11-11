@@ -3275,7 +3275,7 @@ const ENSEN_UI=(()=>{
   async function init(){const first=load();
     try{const r=await fetch('data/ensen.json');if(!r.ok)throw new Error('HTTP '+r.status);ENS.cfg=await r.json();}catch(e){ENS.cfg=null;renderAll();return;}
     try{const [a,b]=await Promise.all(['data/seasonal.json?v=20261110a','data/seasonal-extra.json'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.cfg=a&&typeof SeasonCore!=='undefined'?SeasonCore.merge(a,b):null;}catch(e){SEAS.cfg=null;}
-    try{const [pj,lj]=await Promise.all(['data/port.json?v=20261110a','data/links.json?v=20261110g'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.port=pj;SEAS.L=lj;}catch(e){SEAS.port=null;}   // 港（客船の日）（読めなくても、ほかはいつもどおり）   // 季節のできごと（読めなくても、ほかはいつもどおり）
+    try{const [pj,lj]=await Promise.all(['data/port.json?v=20261110a','data/links.json?v=20261112a'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.port=pj;SEAS.L=lj;}catch(e){SEAS.port=null;}   // 港（客船の日）（読めなくても、ほかはいつもどおり）   // 季節のできごと（読めなくても、ほかはいつもどおり）
     ensReset(st.seed);ENS.day=st.day;NEWD={...st.newd};
     if(first&&COND.econ!=='auto'&&COND.econ==='mid')COND.econ='auto';   // はじめて使うときは景気を「自動」に
     setTimeout(()=>{if(SEAS.hold){SEAS.hold=false;seasLetters();}},25000);   // js/away.js が動かなかったときの予備
@@ -3457,7 +3457,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <!-- 売店運営（第2段）：計算は js/kiosk-core.js、表示は js/kiosk-view.js、設定は data/kiosk.json -->
 <script src="js/kiosk-staff.js?v=20261111w5"></script>
 <script src="js/kiosk-walk.js?v=20261111a7"></script>
-<script src="js/kiosk-core.js?v=20261111w5"></script>
+<script src="js/kiosk-core.js?v=20261112a"></script>
 <script src="js/survey-core.js"></script>
 <script src="js/links/survey-to-kiosk.js?v=20261109a"></script>
 <script src="js/center-core.js?v=20261110e"></script>
@@ -3479,12 +3479,13 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/minato-store-anim.js?v=20261111w4"></script>
 <script src="js/links/local-to-kiosk.js?v=20261110d"></script>
 <script src="js/links/factory-to-kiosk-sameday.js?v=20261110a"></script>
+<script src="js/links/minato-to-group.js?v=20261112a"></script>
 <script src="js/minato-store-fx.js?v=20261111a3"></script>
 <!-- 港駅の売店：きょう売れたもの（棚 × 時間・いつもと比べる）：計算 js/minato-sales-core.js・画面 js/minato-sales-view.js -->
 <script src="js/minato-sales-core.js?v=20261111a"></script>
 <script src="js/minato-sales-view.js?v=20261111u"></script>
-<script src="js/minato-store-view.js?v=20261111w6"></script>
-<script src="js/kiosk-view.js?v=20261111w6"></script>
+<script src="js/minato-store-view.js?v=20261112a"></script>
+<script src="js/kiosk-view.js?v=20261112a"></script>
 <script src="js/center-view.js?v=20261109o"></script>
 <script src="js/haiso-core.js?v=20261109n"></script>
 <script src="js/haiso-view.js?v=20261109n"></script>

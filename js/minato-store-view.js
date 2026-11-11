@@ -25,14 +25,14 @@ const V={K:null,M:null,R:null,cfg:null,st:null,err:null,res:null,resKey:'',resD:
 {const st=document.createElement('style');st.textContent='.ms-leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--muted)}.ms-leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}.ms-half{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.ms-half[hidden]{display:none}.ks-which{display:flex;flex-wrap:wrap;gap:6px}.ks-which[hidden]{display:none}';document.head.appendChild(st);}
 /* ---------- 読み込み・保存 ---------- */
 const getJ=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.json();});
-Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261110g').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null),getJ('data/center.json?v=20261109f').catch(()=>null)]).then(([K,M,R,L,FJ,HJ,CJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.C=CJ;V.cfg=MS.cfg(K,M);
+Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261112a').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null),getJ('data/center.json?v=20261109f').catch(()=>null)]).then(([K,M,R,L,FJ,HJ,CJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.C=CJ;V.cfg=MS.cfg(K,M);
   try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;if(MS.crewFix&&MS.crewFix(V.cfg,s,KS,gDay())){s.news.push({day:gDay(),kind:'crew',title:'店員のシフトを組み直した',text:'1日に働くのは3〜8時間、4時間をこえると休憩（45分・8時間働くなら1時間）、18歳未満の人は22時〜5時に入らない形にしました。時給は東京都の最低賃金（1,280円）より下げません。'});persist();}crewAd();omStart();}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
 /* おまかせ発注（S1）：前からある店にも om を足す（最初からおまかせ・記録がないうちは今の数のまま）。足したら便りで知らせる */
 function omStart(){const S=V.st;if(!S||S.om)return;MS.omInit(S,V.C,'auto');
   S.news.push({day:gDay(),kind:'center',title:'港の店の発注を「おまかせ」にした',text:'締めのたびに、品ごとの売れた数・売り切れで逃した数・廃棄を記録し、運行日の始めに、緑ヶ丘のおまかせと同じ決め方（同じ型の日・天気と季節・ねらい「その間」）でその日の数を決めます。記録が少ないうちは今の数と混ぜて少しずつ変えます。新聞・雑誌・たばこは店の数のままです。'});S.unread=(S.unread||0)+1;persist();}
 /* 運行日の始めに1回：おまかせなら、その日の仕入れ数を決める（計算は MinatoStore.omOrder）。その日の計算（ensureRes）より先に */
 function omToday(){const S=V.st;if(!S||!S.om||!V.C||!window.CenterCore)return;const day=gDay();if(S.om.day===day)return;const c=gCond();
-  g(()=>MS.omOrder(V.cfg,CenterCore,KC,V.C,S,day,{day:c.day,wx:c.wx,season:c.season}),null);if(S.om.day===day){persist();setTimeout(refresh,0);}}
+  const p=g(()=>MS.omOrder(V.cfg,CenterCore,KC,V.C,S,day,{day:c.day,wx:c.wx,season:c.season}),null);if(p)V.omP={day,why:p.why};if(S.om.day===day){persist();setTimeout(refresh,0);}}
 /* きょう、だれもいない時間があれば、すぐ募集を出す（便りでお知らせ・2026-11-11） */
 function crewAd(){const S=V.st;if(!S||!MS.crewAdNow)return;const day=gDay(),x=g(()=>MS.crewAdNow(V.cfg,S,KS,day),false);if(!x)return;const TN=V.cfg.crew.dayTypes||{};
   S.news.push({day,kind:'crew',title:'店員が足りないので、募集を出した（おまかせ）',text:`${x.g.slice(0,3).map(o=>(TN[o.t]||o.t)+'の'+o.b.name+'（'+o.b.from+'〜'+o.b.to+'時）').join('・')}${x.g.length>3?'など':''}に入れる人がいません。きょうから${V.cfg.crew.ad.days}日間、時給${x.w.toLocaleString()}円で募集します。応募した人は、締めのあと採用してシフトに入れます。だれもいない時間は、店を閉めます。`});persist();}
@@ -44,7 +44,14 @@ function ctxNow(){const d=gD(),S=V.st;if(!d||!d.sim||!S)return null;const s=d.si
   let stops;if(V.stopsD===d)stops=V.stops;else{stops=new Array(KC.H).fill(0);for(const t of d.trips){const i=t.seq.indexOf(S.st);if(i>=0&&t.stop[i])stops[Math.min(KC.H-1,Math.floor(t.arr[i]/60))]++;}V.stops=stops;V.stopsD=d;}
   const c=gCond(),day=gDay(),ge=g(()=>seasKioskGenre(S.st),null);
   return {day,dow:day%7,cond:{day:c.day,wx:c.wx,season:c.season},flows:{hb:s.hb,ha:s.ha},stops,plats:g(()=>ST[S.st].plats,2)||2,rcfg:V.R,order:S.order,express:[],addOn:[],edits:[],startT:S.openedDay===day?S.openedT:0,
-    fx:ge?SeasonCore.mergeFx(undefined,ge):undefined,local:localNow(S,day),sameday:samedayNow(S,day,c),cruise:g(()=>SEAS.portPlan?SEAS.portPlan.cruise:undefined,undefined)};}
+    fx:ge?SeasonCore.mergeFx(undefined,ge):undefined,local:localNow(S,day),sameday:sdFor(S,day,c),...(grp(S,day,c)||{}),cruise:g(()=>SEAS.portPlan?SEAS.portPlan.cruise:undefined,undefined)};}
+/* 橋：港駅の店 → グループの流れ（js/links/minato-to-group.js・2026-11-12）。その日の注文がセンター・工場の流れにのった日は、
+   届く数を納品書の出荷数・センターの倉庫の割り振りまでにし、トラックの着く時刻を使う（数は緑ヶ丘の店の画面 minatoKiosk.group が CenterCore で出す）。のっていない日は前と同じ（上限なし） */
+function grpOn(){return !!(window.MinatoToGroup&&MinatoToGroup.on(V.L)&&window.CenterCore&&g(()=>minatoKiosk.group,null));}
+function grp(S,day,c){if(!grpOn())return null;const K=minatoKiosk.group,key=CenterCore.storeKey(S);if(!K.inFlow(day,key))return null;const sh=KC.shelfInfo(V.cfg,S.layout);
+  return {supply:K.supply(day,key,V.cfg,sh),supplyOrd:K.supplyOrd(day,key,V.cfg,sh),cart:K.cart(day,key,V.cfg,sh),cstock:K.cstock(day,V.cfg,sh),truck:K.truck(day,key,c)};}
+// できたての便：流れにのった日は、夜の工場の注文からもう引いてあるので、昼前の便から引かない（noCut）
+function sdFor(S,day,c){const sd=samedayNow(S,day,c);if(!sd||!grpOn())return sd;return minatoKiosk.group.noCut(day,CenterCore.storeKey(S))?{...sd,noCut:true}:sd;}
 /* 橋：工場 → 売店（できたての便・js/links/factory-to-kiosk-sameday.js）。前の夜の発注と、運行日の始めの天気だけから決まる（同じ日なら同じ） */
 function samedayNow(S,day,c){if(!window.FactoryToKioskSameday||!V.L||!V.FJ||!V.HJ)return undefined;const k=day+'|'+c.wx;if(V.sdK===S&&V.sdKey===k)return V.sd;
   V.sd=g(()=>FactoryToKioskSameday.plan(V.L,{F:V.FJ,H:V.HJ,M:V.M},S,{day,cond:{wx:c.wx}}),null)||undefined;V.sdK=S;V.sdKey=k;return V.sd;}
@@ -55,11 +62,11 @@ function checkDay(){const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（緑ヶ丘の店と同じ）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;crewAd();}
 function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();omToday();const c=ctxNow();if(!c)return V.res;
-  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'')+'|'+(c.cruise?c.cruise.pax:'');
+  const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'')+'|'+(c.cruise?c.cruise.pax:'')+'|'+(c.supply?JSON.stringify(c.supply):'')+'|'+(c.cart?JSON.stringify(c.cart.runs):'')+'|'+(c.cstock?JSON.stringify(c.cstock):'')+'|'+(c.sameday&&c.sameday.noCut?1:0);
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();return V.res;}
 function closeToday(res){if(window.MinatoSalesView)try{MinatoSalesView.record(res,V.cfg,V.st.layout);}catch(e){}   /* きょう売れたもの：棚 × 時台の1日の記録（js/minato-sales-view.js） */
-  if(V.st.om&&window.CenterCore)g(()=>MS.omRecord(V.cfg,CenterCore,V.st,res),null);const r=KC.closeDay(V.cfg,V.st,res,{});const lc=V.localDay===res.day?V.local:null;V.st=r.state;
+  if(V.st.om&&window.CenterCore)g(()=>MS.omRecord(V.cfg,CenterCore,V.st,res),null);if(grpOn())g(()=>minatoKiosk.group.record(V.cfg,V.st,res),null);V.closedRes=res;const r=KC.closeDay(V.cfg,V.st,res,{});const lc=V.localDay===res.day?V.local:null;V.st=r.state;
   if(lc)for(const x of lc.say)V.st.news.push({day:res.day,kind:'local',title:x.name+'（'+x.person+'）',text:'「'+x.text+'」'});   /* 便り：地元のお店の人のひとこと */
   V.st.today=null;V.st.unread=(V.st.unread||0)+r.news.length;persist();}
 function tick(){if(V.cfg&&V.st)ensureRes();}
@@ -357,7 +364,13 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
 function fxCtx(res,Tn){const S=V.st,day=gDay(),c=gCond();return {res,Tn,cfg:V.cfg,st:S,cond:{wx:c.wx,season:c.season,day:c.day},port:g(()=>SEAS.portPlan,null),sd:samedayNow(S,day,c)||null,fan:!!V.fan,local:V.localDay===res.day?V.local:null,plan:V.plan||null};}
 function click(){if(innerWidth<760){V.half=V.half==='reg'?'ent':V.half==='ent'?'all':'reg';const t=document.getElementById('ksTop');if(t)t.dataset.k='';refresh();}}   // スマホ：押すと、レジ側 → 入口側 → 店ぜんぶ
 
-window.MinatoStoreView={render,panel,draw,click,get ready(){return !!V.cfg;},get state(){return V.st;},get today(){return ensureRes();},get actors(){return V.acts;},
+window.MinatoStoreView={render,panel,draw,click,get ready(){return !!V.cfg;},get state(){return V.st;},get cfg(){return V.cfg;},
+  // 緑ヶ丘の店の画面（js/kiosk-view.js）が運行日の始めに呼ぶ（橋 minato-to-group）：前の日を締め、その日の注文を決めてから、注文の数を渡す
+  group:{prep(day){checkDay();omToday();const S=V.st;if(!S||!V.cfg||!window.CenterCore||S.closed!==day-1)return null;if(S.om&&S.om.mode==='auto'&&S.om.day!==day)return null;
+      const c=gCond(),cond={day:c.day,wx:c.wx,season:c.season};let why=V.omP&&V.omP.day===day?V.omP.why:null;
+      if(!why&&S.om&&S.om.mode==='auto')why=g(()=>CenterCore.plan(V.cfg,V.C,S,S.om.recs,cond,{forDay:day,aim:S.om.aim,shelf:KC.shelfInfo(V.cfg,S.layout),cur:S.order}).why,null);
+      V.res=null;return {S,cfg:V.cfg,why,sd:samedayNow(S,day,c)};},
+    resOf(day){return V.res&&V.res.day===day?V.res:(V.closedRes&&V.closedRes.day===day?V.closedRes:null);}},get today(){return ensureRes();},get actors(){return V.acts;},
   closeToday(){const r=ensureRes();if(r)closeToday(r);return V.st&&V.st.hist&&V.st.hist.at(-1);},   // 開発用
   reset(){try{localStorage.removeItem(MS.KEY);}catch(e){}V.st=null;V.res=null;refresh();}};
 })();

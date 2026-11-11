@@ -106,7 +106,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const LC=ctx.local||null;if(LC)for(const x of LC.runs||[])deliveries.push({t:Math.max(x.t,O0-1),name:x.name,express:{items:x.items},fee:0,local:x.shop});
   // できたての便（港駅の売店の7回目・2026-11-10）：ctx.sameday（橋 js/links/factory-to-kiosk-sameday.js の plan）があれば、工場の朝の便がその品を着いた時刻に届ける。
   //   その分は ctx.sameday.replace の便（昼前の便）から減らす（sdLeft）。料金は便ごと（pl.sameday）。ないときは前と同じ
-  const SD=ctx.sameday||null,sdLeft=SD?{...SD.items}:null;let samedayFee=0;
+  const SD=ctx.sameday||null,sdLeft=SD&&!SD.noCut?{...SD.items}:null;/* noCut：夜の工場の注文から、もう引いてある（橋 minato-to-group・2026-11-12） */let samedayFee=0;
   if(SD)deliveries.push({t:Math.max(SD.arrive,O0-1),name:'できたての便',express:{items:SD.items},fee:SD.fee||0,sameday:true});
   const sdCut=(d,pid,q)=>{if(!sdLeft||d.name!==SD.replace||!sdLeft[pid]||q<=0)return q;const c=Math.min(q,sdLeft[pid]);sdLeft[pid]-=c;return q-c;};
   deliveries.sort((a,b)=>a.t-b.t);
