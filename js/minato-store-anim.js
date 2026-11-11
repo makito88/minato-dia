@@ -280,7 +280,8 @@ function bubbles(res,t,win,cfg,P){win=win||0.07;const out=[];const lo=t-win;
   if(P&&P.greet){let i=0,j=P.greet.length;while(i<j){const m=(i+j)>>1;if(P.greet[m]<lo)i=m+1;else j=m;}if(i<P.greet.length&&P.greet[i]<=t){const k=P.clerks.find(k=>k.spans.some(([a,b])=>t>=a&&t<b));if(k){const p=along(k.L,t);out.push({x:p[0],y:p[1]-52,text:'いらっしゃいませ',kind:'greet'});}}}
   let i=0,j=res.ev.length;while(i<j){const m=(i+j)>>1;if(res.ev[m].t<lo-2)i=m+1;else j=m;}
   for(;i<res.ev.length&&res.ev[i].t<=t;i++){const e=res.ev[i];
-    if(e.k==='selfhelp'&&e.t>=lo)out.push({x:MAP.reg.s[0],y:MAP.reg.s[1]-50,text:'すみません…',kind:'help',e});
+    if(e.k==='selfhelp'&&e.t>=lo)out.push({x:MAP.reg.s[0],y:MAP.reg.s[1]-50,text:e.age?'年齢の確認をお願いします':'すみません…',kind:'help',e});   // age：セルフでお酒（A4）
+    else if(e.k==='guide'&&e.t>=lo)out.push({x:MAP.reg.f[0]-10,y:MAP.reg.f[1]-62,text:'こちらのレジへどうぞ',kind:'guide',e});   // 気配り：有人レジへ案内（A4）
     else if(e.k==='look'&&e.why==='列が長い'&&e.t>=lo){const Q=MAP.q[e.lane||'f'],k=Math.min(9,(e.q||0)+1);out.push({x:Q.x+Q.dx*k,y:Q.y+Q.dy*Math.min(5,k)-48,text:(e.q||0)>=5?'床の印より長い…':'電車が来ちゃう',kind:'left',e});}
     else if(e.k==='range'){const tc=e.t+1.5;if(t>=tc&&t<tc+win)out.push({x:MAP.rangeAt[0]+20,y:MAP.rangeAt[1]-70,text:'チン',kind:'range',e});}
     else if(e.k==='eatfull'&&e.t>=lo)out.push({x:MAP.seat(3)[0]-40,y:MAP.seat(3)[1]-50,text:'席がいっぱい',kind:'full',e});

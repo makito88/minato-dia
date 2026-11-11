@@ -88,7 +88,8 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   let waste=0,wasteBy={},returned=0,deliveredCost=0;
   const gapQ={},shrinkBy={};let shrinkCost=0,shrinkN=0;   // gapQ：なくなったが、まだ気づいていない品
   const noticeGap=t=>{const ks=Object.keys(gapQ).filter(k=>gapQ[k]>0);if(!ks.length)return;ev.push({t,k:'gap',items:ks.map(k=>[k,gapQ[k]])});for(const k of ks)gapQ[k]=0;};
-  const shelfFill=(t,why)=>{if(why)noticeGap(t);let moved=0;for(const pid in SI){if(P[pid].genre==='hot')continue;const have=shelf[pid]||0,cap=SI[pid].cap;if(have>=cap)continue;const inBack=backQ(pid)-have;const k=Math.min(cap-have,Math.max(0,inBack));if(k>0){shelf[pid]=have+k;moved+=k;}}
+  const held={};   // 地元のお店の品で、店員がまだ並べていない数（A4・港駅の店だけ。{pid:{q}}）
+  const shelfFill=(t,why)=>{if(why)noticeGap(t);let moved=0;for(const pid in SI){if(P[pid].genre==='hot')continue;const have=shelf[pid]||0,cap=SI[pid].cap;if(have>=cap)continue;const inBack=backQ(pid)-have-(held[pid]?held[pid].q:0);const k=Math.min(cap-have,Math.max(0,inBack));if(k>0){shelf[pid]=have+k;moved+=k;}}
     if(moved&&why)ev.push({t,k:'restock',n:moved,why});return moved;};
   // 棚にある数は「ロットのうち棚に出した数」。ロットの合計＝棚＋裏
   for(const pid in SI)shelf[pid]=0;
@@ -119,7 +120,9 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
   const capC=(pid,q,dd)=>{if(!cLeft||cLeft[pid]==null||q<=0)return q;const lf=Math.max(0,cLeft[pid]);if(q>lf){ccut[pid]=(ccut[pid]||0)+q-lf;(dd._ccut||(dd._ccut={}))[pid]=(dd._ccut[pid]||0)+q-lf;q=lf;}cLeft[pid]=lf-q;return q;};
   const deliver=(d,t)=>{const s=setAt(t),si=shelfInfo(cfg,s.layout);let n=0,cost=0;const its={};
     if(d.express){let n2=0,c2=0;const names=[];for(const pid in d.express.items){const it=P[pid];if(!it)continue;const q=d.addOn?capC(pid,d.express.items[pid],d):d.express.items[pid];if(q<=0)continue;(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n2+=q;c2+=q*it.cost;names.push(it.short);its[pid]=q;}
-      deliveredCost+=c2;if(d.sameday){samedayFee+=d.fee||0;ev.push({t,k:'delivery',n:n2,cost:c2,fee:d.fee||0,name:d.name,items:its,sameday:true,carrier:SD.carrier});return;}if(d.local){ev.push({t,k:'delivery',n:n2,cost:c2,name:d.name,items:its,local:d.local});return;}ev.push({t,k:'delivery',n:n2,cost:c2+(d.fee!=null?d.fee:cfg.express.fee),name:(d.addOn?d.name+'に追加（':'臨時便（')+names.join('・')+'）',items:its,express:!d.addOn,addOn:!!d.addOn});return;}
+      deliveredCost+=c2;if(d.sameday){samedayFee+=d.fee||0;ev.push({t,k:'delivery',n:n2,cost:c2,fee:d.fee||0,name:d.name,items:its,sameday:true,carrier:SD.carrier});return;}if(d.local){ev.push({t,k:'delivery',n:n2,cost:c2,name:d.name,items:its,local:d.local});
+      const sh=WK&&n2>0?WK.shelveAt(t,n2,KS,cfg):null;if(sh){for(const pid in its)held[pid]={q:(held[pid]?held[pid].q:0)+its[pid]};const x={t:sh.t,name:d.name,shelve:true,items:its,by:sh.by,from:t,local:d.local};let j=di+1;while(j<deliveries.length&&deliveries[j].t<=x.t)j++;deliveries.splice(j,0,x);}   // 店員が並べ終えてから棚に出る（A4）
+      return;}ev.push({t,k:'delivery',n:n2,cost:c2+(d.fee!=null?d.fee:cfg.express.fee),name:(d.addOn?d.name+'に追加（':'臨時便（')+names.join('・')+'）',items:its,express:!d.addOn,addOn:!!d.addOn});return;}
     for(const pid in si){const it=P[pid],g=ix.G[it.genre];if(!d.all&&!(d.genres||[]).includes(it.genre))continue;if(LC&&LC.pids&&LC.pids[pid])continue;
       let q;if(CT&&CT.pids[pid]){q=sdCut(d,pid,((CT.runs[d.name]||{})[pid])||0);if(d.all&&CT.cut[pid]){cutBy[pid]=CT.cut[pid];(d._cut||(d._cut={}))[pid]=CT.cut[pid];}if(d.all&&CT.ccut&&CT.ccut[pid]){ccut[pid]=(ccut[pid]||0)+CT.ccut[pid];(d._ccut||(d._ccut={}))[pid]=(d._ccut[pid]||0)+CT.ccut[pid];}if(q>0&&cLeft&&cLeft[pid]!=null)cLeft[pid]=Math.max(0,cLeft[pid]-q);if(q>0){(lots[pid]||(lots[pid]=[])).push({q,c:it.cost,d:ctx.day});n+=q;cost+=q*it.cost;its[pid]=q;}continue;}
       if(g.life>=99||g.life>=2){q=Math.max(0,(dayOrder[pid]||0)-backQ(pid));}   // 日持ちする物は、そのジャンルの載っている便ごとに目標の数まで
@@ -164,7 +167,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       ev.push({t:edits[ei].t,k:'edit'});shelfFill(edits[ei].t,'変えた棚に並べる');ei++;}};
   const takeSnap=t=>{while(nextSnap<=t){const o={},b={};for(const pid in SI){o[pid]=stockOf(pid);b[pid]=P[pid].genre==='hot'?backQ(pid):Math.max(0,backQ(pid)-(shelf[pid]||0));}snap.push({t:nextSnap,s:o,b});nextSnap+=SNAP;}};
   const tick=t=>{applyEdit(t);
-    while(di<deliveries.length&&deliveries[di].t<=t){nowT=deliveries[di].t;deliver(deliveries[di],deliveries[di].t);shelfFill(deliveries[di].t,'納品のあと品出し');cook(deliveries[di].t);di++;}
+    while(di<deliveries.length&&deliveries[di].t<=t){nowT=deliveries[di].t;const dd=deliveries[di];if(dd.shelve){for(const pid in dd.items)if(held[pid]){held[pid].q-=dd.items[pid];if(held[pid].q<=0)delete held[pid];}ev.push({t:dd.t,k:'shelve',name:dd.name,items:dd.items,by:dd.by,from:+dd.from.toFixed(2),local:dd.local});shelfFill(dd.t);di++;continue;}deliver(deliveries[di],deliveries[di].t);shelfFill(deliveries[di].t,'納品のあと品出し');cook(deliveries[di].t);di++;}
     while(nextRestock<=t){nowT=nextRestock;let s0=-1;for(let k=0;k<W.length;k++)if(KS.onAt(W[k],nextRestock)&&free[k]<=nextRestock+5&&(s0<0||free[k]<free[s0]))s0=k;
       if(s0>=0){const moved=shelfFill(nextRestock,'品出し');if(moved)free[s0]=Math.max(free[s0],nextRestock)+cfg.restockMin/KS.speed(cfg,W[s0].p,'stock');}
       cook(nextRestock);nextRestock+=cfg.restockEvery;}
@@ -203,7 +206,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     let want=null,target=v.reg?v.reg.pid:v.mania||v.sns||null;
     if(target)want=P[target].genre;
     else{const gw=cfg.genres.map(g=>{let w=g.base*(ps.pref[g.id]??1)*hm(g.hours,h)*((g.season&&g.season[ctx.cond.season])||1)*((g.wx&&g.wx[ctx.cond.wx])??1);
-        if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w*(moodG[g.id]||1)*fG(g.id)*(WK&&WK.gMul?WK.gMul(v,g.id):1);});   // 歩く店（港駅）：その人の道（どこから・どこへ）で、ほしいジャンルが変わる
+        if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w*(moodG[g.id]||1)*fG(g.id)*(WK&&WK.gMul?WK.gMul(v,g.id):1)*(v.trash&&WK?WK.trashG(v,g.id):1);});   // 歩く店（港駅）：その人の道（どこから・どこへ）で、ほしいジャンルが変わる
       want=cfg.genres[pickW(gw,r)].id;}
     // どれを選ぶか（棚に見えている物から）
     const cands=ix.byG[want].filter(it=>SI[it.id]);
@@ -243,12 +246,12 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     if(!bought.length){logLook(it.id,'売り切れ');continue;}
     hourly[h]+=yen;hourlyN[h]++;add(byPs,v.ps,1);
     // きっかけ：いちばん効いた「気分」の要素（前の人・SNS・ブーム・新商品）、なければ雨・買うつもり
-    let mot=v.reg?'regular':v.mania?'mania':v.sns?'sns':null;
+    let mot=v.reg?'regular':v.mania?'mania':v.sns?'sns':v.trash?'trash':null;   // trash：ごみのついでに（港駅の店だけ・A4）
     if(!mot){const mp=P[bought[0][0]],fx={herd:herdF(mp.id,v.t)-1,sns:buzzF(mp.id)-1,trend:trendOn(mp)-1,new:newF(mp.id)-1};let best=null;for(const k in fx)if(fx[k]>0.25&&(!best||fx[k]>fx[best]))best=k;
       mot=best&&r()<fx[best]/(1+fx[best])?best:(mp.genre==='umbrella'&&(ctx.cond.wx==='rain'||ctx.cond.wx==='snow'))?'rain':'plan';}
     add(motives,mot,1);recent.push({t:start,pid:bought[0][0]});if(recent.length>60)recent.splice(0,20);
     const selfL=!!(WP&&WP.lane==='s'),e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1,by:hasCrew&&!selfL?W[k0].p.id:undefined};ev.push(e);
-    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2),dw:+(v.dw||1.5).toFixed(1)});if(v.trip)e.trip=v.trip.id;   // trip：どこから・どこへの道の id（港駅の店だけ）   // dw：その時台の電車までの分のめやす（絵の「急いでいる人」用・A2。結果は変えない）
+    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2),dw:+(v.dw||1.5).toFixed(1)});if(v.trip)e.trip=v.trip.id;if(WP.guide)e.guide=WP.guide;if(WP.age)e.age=WP.age;if(v.trash)e.trash=true;   // guide：有人レジへ案内された・age：年齢確認（self セルフで店員／staffed 有人で確認）・trash：ごみのついで（A4）   // trip：どこから・どこへの道の id（港駅の店だけ）   // dw：その時台の電車までの分のめやす（絵の「急いでいる人」用・A2。結果は変えない）
      WK.after(WP,bought,ev);}
     if(v.reg)regEvents.push({g:v.reg,ok:true});
     // 評価
@@ -261,6 +264,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       regEvents.push({join:{id:'r'+ctx.day+'_'+Math.floor(v.t),ps:v.ps,p:v.p,a:v.a,em:v.em,pid:main.id,t:Math.round(v.t),wd:v.p<=1,loyal:cfg.regulars.loyalty,since:ctx.day}});}
   }
   tick(O1);noticeGap(O1);
+  if(WK&&WK.extra)for(const e of WK.extra())if(anyOn(e.t))ev.push(e);   // ごみだけ捨てに来た人（港駅の店だけ・A4。買わない）
   for(const pst of posts)if(!pst.good)ev.push({t:pst.t,k:'sns',pid:pst.pid,ps:pst.ps,good:false});
   // 閉店：その日のうちに売る物は廃棄、新聞・雑誌（返品できる物）は返品、パンは日持ちの分だけ残す
   const carry={};

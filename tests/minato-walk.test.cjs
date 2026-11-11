@@ -36,7 +36,7 @@ for(const r of A.out){for(let i=1;i<r.ev.length;i++)assert.ok(r.ev[i].t>=r.ev[i-
   sum.long+=r.reasons['列が長い']||0;sum.shfBuy+=r.byPs.shf||0;assert.ok(!r.byPs.cru,'客船の客は来ない');
   for(const e of r.ev){if(e.k==='buy'){sum.cust++;assert.ok(e.lane==='f'||e.lane==='s','レジ');assert.ok(e.stay>0,'店にいた分');
       for(const [pid,q] of e.items){sum.items+=q;const g=I.P[pid].genre;if(g==='omiyage')sum.omi+=q;if(g==='bento')sum.bento+=q;
-        if(e.lane==='s')assert.ok(!['hot','tobacco','alcohol'].includes(g),'セルフで買えない品 '+pid);}}
+        if(e.lane==='s')assert.ok(!['hot','tobacco'].includes(g),'セルフで買えない品 '+pid);}}   // お酒は A4 からセルフでも買える（年齢確認で店員が呼ばれる）
     if(e.k==='eatin')assert.ok(e.seat>=0&&e.seat<c.walk.eatIn.seats&&e.to>e.t,'席');}}
 const selfShare=sum.self/(sum.self+sum.staffed);
 assert.ok(sum.sales>0&&sum.cust>0);assert.ok(selfShare>0.2&&selfShare<0.8,'セルフの割合 '+selfShare);
