@@ -88,5 +88,33 @@ assert.ok(qSeen>0&&eatSeen>0&&payF>0&&payS>0,'列・イートイン・有人と�
   const ctx2={...ctx,day:3,cruise:{pax:600,from:9*60,to:15*60}},res2=KC.simulate(c,st,ctx2),acts3=A.build(res2,c,st.layout),nf=acts3.filter(x=>x.style==='fol').length;
   assert.ok(nf>0,'客船の客は連れについていく');
   console.log(`  A2：動き方 ${Object.entries(sty).map(([k,v])=>k+v).join('・')}・手に取って戻す${cmp}回・グミの前は最長${gumMax.toFixed(1)}秒・3点以上でかご ${bk3}/${n3}・ごみ箱に寄る${trash}人・客船の日に連れについていく${nf}人`);}
+// A3：店員の台本（レジがいちばん先・セルフで呼ばれる・品出し・あいた時間の仕事・2人のときはレジに寄る）と、買ったものの吹き出し
+{const run=staff=>{const s2=MS.create(K,M,KC,{seed:3,day:1,staff});const r=KC.simulate(c,s2,{...ctx,order:s2.order});const b=A.build(r,c,s2.layout);
+    const r2={...r,ev:[...r.ev,{t:400,k:'delivery',n:9,name:'汐見屋',local:'shiomi',items:{om_hesiko:9}},{t:570,k:'delivery',n:4,name:'ハーフェン堂',local:'hafen',items:{om_waffle2:4}}].sort((x,y)=>x.t-y.t)};
+    const before2=JSON.stringify(r2),P=A.plan(r2,c,b,s2.layout);assert.equal(JSON.stringify(r2),before2,'店員の台本で計算の結果は変わらない');
+    const P2=A.plan({...r2},c,b,s2.layout);assert.equal(JSON.stringify(P.clerks.map(k=>k.L)),JSON.stringify(P2.clerks.map(k=>k.L)),'同じなら同じ');return {r:r2,b,P,s2};};
+  const one=run(1),two=run(2),stat={};let payOK=0,payN=0,cover=0,greet=0,buyB=0,maxB=0;
+  for(const X of [one,two]){const {r,b,P}=X,O0=c.open[0]*60,O1=c.open[1]*60;
+    for(const k of P.clerks){for(let i=1;i<k.L.length;i++)assert.ok(k.L[i].t>=k.L[i-1].t-1e-9,'店員の時刻は順');for(const q of k.L)assert.ok(q.x>=x0-5&&q.x<=x0+w+5&&q.y>=y0-5&&q.y<=A.MAP.wallY,'店員は店の中');
+      for(const q of k.rec){stat[q.kind]=(stat[q.kind]||0)+(q.t1-q.t0);}}
+    // 有人レジで会計しているあいだは、店員がレジにいる（計算でセルフに呼ばれて有人レジが止まった時間の、ずれの分のほか）
+    for(const a of b){if(a.kind!=='buy'||a.lane!=='f')continue;const t=(a.ts+a.te)/2;payN++;if(A.clerks(r,t,P).list.some(k=>Math.hypot(k.x-A.MAP.clerk.f[0],k.y-A.MAP.clerk.f[1])<2))payOK++;}
+    // セルフで呼ばれた店員はセルフレジへ
+    for(const e of r.ev.filter(e=>e.k==='selfhelp')){const L=A.clerks(r,e.t+e.min/2,P).list;assert.ok(L.some(k=>k.id===e.by&&k.busy==='self'),'呼ばれた店員がセルフへ');
+      if(L.length>=2&&L.some(k=>k.act==='cover'))cover++;}
+    // 吹き出し：会計が終わった時刻に「＋金額　品」と客層の札。同時に3つまで
+    for(const a of b.filter(a=>a.kind==='buy').slice(0,200)){const B=A.bubbles(r,a.te+0.01,0.07,c,P).filter(x=>x.kind==='buy');maxB=Math.max(maxB,B.length);if(B.some(x=>x.e.end===a.te&&/^\+¥[\d,]+　/.test(x.text)&&x.sub))buyB++;}
+    for(let t=O0;t<O1;t+=0.5){const B=A.bubbles(r,t,0.07,c,P);if(B.some(x=>x.kind==='greet'))greet++;assert.ok(B.filter(x=>x.kind==='buy').length<=3,'吹き出しの上限');}
+    // 地元のお店の箱は、サインのあと店員が取りに来て棚へ
+    for(const v of P.locals){assert.ok(v.pick!=null&&v.pick>=v.s1-1e-9,'店員が箱を取りに来る');}
+    // 便が届いたら品出し（台車は品出しが終わるまで）
+    for(const q of P.carts){assert.ok(q.cart.length>0&&q.done>q.e.t,'品出しをする '+q.e.name);}}
+  assert.ok(payOK/payN>0.97,'有人レジの会計中は店員がレジ '+payOK+'/'+payN);
+  assert.ok(two.P.clerks.length===2&&cover>0,'2人のときは、レジの人がセルフに呼ばれたら、もう1人がレジに入る');
+  for(const k of ['stock','front','order','cook','waste','wipe','mop','carry'])assert.ok(stat[k]>0,'店員の仕事 '+k);
+  assert.ok(buyB>=190&&maxB<=3&&greet>0,'買ったものの吹き出し・いらっしゃいませ');
+  // 1人の時間は、あいた時間に売り場の仕事をする（ずっとレジに立っているだけではない）
+  {const k=one.P.clerks[0];let away=0,n=0;for(let t=6*60;t<22*60;t+=0.5){const p=A.clerks(one.r,t,one.P).list[0];n++;if(Math.hypot(p.x-A.MAP.clerk.f[0],p.y-A.MAP.clerk.f[1])>40)away++;}assert.ok(away/n>0.2&&away/n<0.97,'1人でも売り場に出る '+away+'/'+n);}
+  console.log(`  A3：店員の仕事（分・2日分）${Object.entries(stat).map(([k,v])=>k+Math.round(v)).join('・')}・有人レジの会計中に店員がレジ ${payOK}/${payN}・レジに入る${cover}回・吹き出し ${buyB}・いらっしゃいませ${greet}`);}
 console.log(`  港駅の店の絵：人${acts.length}（買った${nBuy}・見て帰った${nLook}）・同時に最大${maxN}人・イートイン${nEat}人がつながる`);
 console.log('minato-anim ok');

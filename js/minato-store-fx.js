@@ -30,8 +30,8 @@ const LEAVE=6;   // 下ろした箱は、サインのあと LEAVE 分、レジ�
 function boxes(c,x,y,n,col){for(let i=0;i<n;i++){c.fillStyle=col;c.fillRect(x-9+(i%2)*6,y-8-i*7,16,7);c.strokeStyle='rgba(0,0,0,.3)';c.strokeRect(x-9+(i%2)*6+.5,y-8-i*7+.5,15,6);}}
 const lines=t=>{if(t.length<=16)return [t];const i=Math.max(t.indexOf('。'),-1),j=i>0&&i<t.length-1?i+1:t.lastIndexOf('、',18)+1||Math.ceil(t.length/2);return [t.slice(0,j),t.slice(j)];};
 function sayOf(F,v){const L=F.local&&F.local.say;const s=L&&L.find(x=>x.shop===v.shop);return s?s.text:null;}
-function drawLocals(c,F){const T=F.Tn;for(const v of localsOf(F)){if(T<v.t0-0.01||T>v.s1+LEAVE)continue;const col=v.shop==='hafen'?'#c9955a':'#8fb3c4';
-    const p=MinatoAnim.localAt(v,T);const put=p?p.put:v.box;if(put>0&&T>=v.u0){c.globalAlpha=Math.min(1,(v.s1+LEAVE-T)/1);boxes(c,v.drop[0]+16,v.drop[1]+4,put,col);c.globalAlpha=1;}
+function drawLocals(c,F){const T=F.Tn;for(const v of (F.plan&&F.plan.locals)||localsOf(F)){const gone=v.pick!=null?v.pick:v.s1+LEAVE;if(T<v.t0-0.01||T>Math.max(gone,v.t1))continue;const col=v.shop==='hafen'?'#c9955a':'#8fb3c4';   // A3：箱は、店員が取りに来るまでレジの横に
+    const p=MinatoAnim.localAt(v,T);const put=p?p.put:v.box;if(put>0&&T>=v.u0&&T<gone){c.globalAlpha=v.pick!=null?1:Math.min(1,(gone-T)/1);boxes(c,v.drop[0]+16,v.drop[1]+4,put,col);c.globalAlpha=1;}
     if(!p)continue;const x=p.x,y=p.y,bob=p.mv?Math.sin(T*900)*1:0,face=p.ph==='unload'?-1:1;
     if(p.cartAt){const [cx,cy]=p.cartAt,held=p.ph==='in'||p.ph==='out';c.fillStyle='rgba(0,0,0,.15)';c.fillRect(cx-13,cy+1,26,4);c.fillStyle='#6a6f74';c.fillRect(cx-12,cy-3,24,3);c.fillStyle='#333';c.beginPath();c.arc(cx-9,cy+2,2.4,0,7);c.arc(cx+9,cy+2,2.4,0,7);c.fill();
       boxes(c,cx,cy-2,p.left,col);c.strokeStyle='#555';c.lineWidth=1.5;c.beginPath();c.moveTo(cx-12,cy-3);c.lineTo(cx-15,cy-20);c.stroke();   // 台車の持ち手（押して歩く）
@@ -46,7 +46,10 @@ function drawLocals(c,F){const T=F.Tn;for(const v of localsOf(F)){if(T<v.t0-0.01
     if(p.ph==='sign'&&sayOf(F,v)){const L=lines(sayOf(F,v));L.forEach((t,i)=>pill(c,x+6,y-46-(L.length-1-i)*16,(i?'':'「')+t+(i===L.length-1?'」':''),'#5a3a22','#fff',11));}   // ひとこと（長いときは2行。スマホの半分の表示でも切れないように）
     else if(p.ph==='unload')pill(c,x,y-48,v.name,'#7a4a2a');
     else pill(c,x,y-46,v.name,'#7a4a2a');}}
-function drawDeli(c,F){const T=F.Tn;let k=0;drawLocals(c,F);for(const e of deliveries(F)){if(e.local||T<e.t||T>=e.t+DUR)continue;const f=Math.min(1,(T-e.t)/MOVE),dx=(k++)*34;   // 同じ時刻に届いたもの（店を開いた時刻にまとめて届いた日など）は、少しずつずらす
+function drawDeli(c,F){const T=F.Tn;let k=0;drawLocals(c,F);
+  if(F.plan){for(const q of F.plan.carts){const e=q.e;if(T<e.t||T>=q.done)continue;let p=[160+(k++)*34,428];for(const s of q.cart){if(s.t0>T)break;p=[s.x,s.y];}   // A3：台車は入口に置かれ、店員が品出しする棚の横へ。品出しが終わったら片づける
+      cart(c,p[0],p[1],e.sameday?'#e9b44c':'#5b8fb0',e.n,e.sameday?'できたて':null);}return;}
+  for(const e of deliveries(F)){if(e.local||T<e.t||T>=e.t+DUR)continue;const f=Math.min(1,(T-e.t)/MOVE),dx=(k++)*34;   // 同じ時刻に届いたもの（店を開いた時刻にまとめて届いた日など）は、少しずつずらす
     const to=e.local?[470,150]:e.sameday?[235,190]:[e.name==='朝の便'?215:235,e.name==='朝の便'?140:190];
     const p0=f<0.4?lerp([150,445],[110,300],f/0.4):lerp([110,300],to,(f-0.4)/0.6),p=[p0[0]+dx,p0[1]];
     cart(c,p[0],p[1],e.sameday?'#e9b44c':'#5b8fb0',e.n,e.sameday?'できたて':null);}}

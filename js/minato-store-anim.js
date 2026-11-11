@@ -255,16 +255,29 @@ function at(actors,t,cap){cap=cap||40;let lo=0,hi=actors.length;while(lo<hi){con
   out.sort((u,v)=>u.y-v.y);
   if(out.length>cap){const keep=new Set(out.slice().sort((u,v)=>(v.ph==='pay'||v.ph==='queue')-(u.ph==='pay'||u.ph==='queue')).slice(0,cap));for(const o of out)if(!keep.has(o))o.dot=true;}
   return out;}
-/* 店員の場所：有人レジ・ホットケースの前。セルフで呼ばれたら、その時間だけセルフレジへ */
-function clerks(res,t,onAt){const C=(res.crew||[]).filter(w=>(w.spans||[]).some(([a,b])=>t>=a&&t<b));const out=[];
+/* 店員の場所：有人レジ・ホットケースの前。セルフで呼ばれたら、その時間だけセルフレジへ。
+   P（plan() の結果）を渡すと、A3 の店員の台本（していること act と、その名前 label）で */
+function clerks(res,t,P){const C=(res.crew||[]).filter(w=>(w.spans||[]).some(([a,b])=>t>=a&&t<b));const out=[];
   const help=res.ev.filter(e=>e.k==='selfhelp'&&t>=e.t-0.05&&t<e.t+e.min+0.05);
-  C.forEach((w,i)=>{const home=i===0?MAP.clerk.f:MAP.clerk.hot;let p=home,busy=null;const h=help.find(e=>e.by===w.id);
+  if(P){for(const k of P.clerks){if(!k.spans.some(([a,b])=>t>=a&&t<b))continue;const p=along(k.L,t),r=recAt(k.rec,t),act=r?r.kind:'';
+      out.push({id:k.id,name:k.name,x:p[0],y:p[1],mv:p[2],act,label:NAMES[act]||'',busy:act==='self'?'self':null,v:r&&r.v||null});}}
+  else C.forEach((w,i)=>{const home=i===0?MAP.clerk.f:MAP.clerk.hot;let p=home,busy=null;const h=help.find(e=>e.by===w.id);
     if(h){const f0=Math.min(1,Math.max(0,(t-(h.t-0.05))/0.05)),f1=Math.min(1,Math.max(0,(h.t+h.min+0.05-t)/0.05));p=lerp(home,MAP.clerk.self,Math.min(f0,f1));busy='self';}
     out.push({id:w.id,name:w.name,x:p[0],y:p[1],busy});});
   const stop=help.some(e=>e.stop&&t>=e.t&&t<e.t+e.min);
   return {list:out,stop};}
-/* 吹き出し（時刻が近い出来事だけ。win 分のあいだ出す） */
-function bubbles(res,t,win){win=win||0.07;const out=[];const lo=t-win;
+/* 吹き出し（時刻が近い出来事だけ。win 分のあいだ出す）。cfg を渡すと、会計が終わった人の「＋金額　品・品」（A3・緑ヶ丘の店と同じ形。客層ときっかけの札）も。
+   P（plan()）を渡すと、店員の「いらっしゃいませ」も */
+const YEN=n=>'¥'+Math.round(n).toLocaleString('ja-JP');
+function buyText(cfg,e){const I=cfg._ixA||(cfg._ixA={P:Object.fromEntries(cfg.products.map(p=>[p.id,p])),PS:Object.fromEntries(cfg.personas.map(p=>[p.id,p]))});
+  const its=e.items.slice(0,3).map(([p,q])=>((I.P[p]&&I.P[p].short)||p)+(q>1?'×'+q:'')).join('・')+(e.items.length>3?'…':'');
+  const m=e.mot&&e.mot!=='plan'?((cfg.mood&&cfg.mood.labels||{})[e.mot]||''):'';return {text:'+'+YEN(e.yen)+'　'+its,sub:((I.PS[e.ps]||{}).short||'')+(e.reg?'・常連':m?'・'+m:'')};}
+function bubbles(res,t,win,cfg,P){win=win||0.07;const out=[];const lo=t-win;
+  if(cfg){const CAP=(animOf(cfg).clerk||{}).bubbleCap||3,B=[];   // 混んでいる時間は、同時に出す数に上限（新しいほうから）
+    let i0=0,j0=res.ev.length;while(i0<j0){const m=(i0+j0)>>1;if(res.ev[m].t<lo-3)i0=m+1;else j0=m;}
+    for(let q=i0;q<res.ev.length&&res.ev[q].t<=t;q++){const e=res.ev[q];if(!(e.k==='buy'&&e.lane&&e.end!=null&&e.end<=t&&e.end>t-win*1.3))continue;const r=MAP.reg[e.lane],x=buyText(cfg,e);B.push({x:r[0]+(e.lane==='f'?-10:0),y:r[1]-62,text:x.text,sub:x.sub,kind:'buy',e});}
+    B.sort((a,b)=>b.e.end-a.e.end);const seen={};for(const b of B){if(out.length>=CAP)break;const k=b.e.lane;seen[k]=(seen[k]||0)+1;if(seen[k]>1)b.y-=24*(seen[k]-1);out.push(b);}}
+  if(P&&P.greet){let i=0,j=P.greet.length;while(i<j){const m=(i+j)>>1;if(P.greet[m]<lo)i=m+1;else j=m;}if(i<P.greet.length&&P.greet[i]<=t){const k=P.clerks.find(k=>k.spans.some(([a,b])=>t>=a&&t<b));if(k){const p=along(k.L,t);out.push({x:p[0],y:p[1]-52,text:'いらっしゃいませ',kind:'greet'});}}}
   let i=0,j=res.ev.length;while(i<j){const m=(i+j)>>1;if(res.ev[m].t<lo-2)i=m+1;else j=m;}
   for(;i<res.ev.length&&res.ev[i].t<=t;i++){const e=res.ev[i];
     if(e.k==='selfhelp'&&e.t>=lo)out.push({x:MAP.reg.s[0],y:MAP.reg.s[1]-50,text:'すみません…',kind:'help',e});
@@ -292,5 +305,110 @@ function locals(res,cfg){const AN=animOf(cfg),LA=AN.local||AN0.local,out=[];let 
 /* 時刻 t の地元のお店の人：{x,y,mv,ph（in・unload・sign・out）,left（台車・かごに残っている箱）} */
 function localAt(v,t){if(t<v.t0||t>v.t1)return null;const p=along(v.L,t),ph=t<v.u0?'in':t<v.u1?'unload':t>=v.s0&&t<v.s1?'sign':t<v.p0?'walk':'out';
   const left=t<v.u0?v.box:t<v.u1?Math.ceil(v.box*(1-(t-v.u0)/(v.u1-v.u0))-1e-9):0;return {x:p[0],y:p[1],mv:p[2],ph,left,put:v.box-left,cartAt:v.cart?(ph==='in'||ph==='out'?[p[0]+18,p[1]]:v.park):null};}
-root.MinatoAnim={MAP,build,at,clerks,bubbles,standOf,placeIndex,along,locals,localAt};
+/* ---------- A3（2026-11-11）：店員の台本 ----------
+   計算の出来事（会計・セルフで呼ばれた・便が届いた・ホットを温めた・期限で下げた・地元のお店の荷物・イートイン）から、
+   店員ごとの「時刻 → 場所としていること」を1日に1回作る（その時刻だけで決まる。途中から見ても同じ）。
+   ・いちばん先：有人レジ。お客さんが列に向かって歩き出したら（列に入る lead 分前）レジへ戻り始め、会計が終わるまでレジ。
+   ・セルフで呼ばれたら、その時間はセルフレジ（計算の出来事のまま）。
+   ・店員が2人の時間は、1人目がレジ・2人目が売り場。レジの人がセルフに呼ばれたら、売り場の人がレジの位置にずれる（気配り。A4 の前は絵だけ）。
+   ・あいた時間：温める → 品出し（便・地元のお店の箱）→ 期限の品を下げる → 発注の作業（締め切りの前）→ テーブル拭き・かごを入口へ → 商品の整理・前出し・モップ。
+   ・出来事は足さない（売れ方・在庫は計算のまま。店員がしていることを描くだけ）。 */
+const CK0={mps:1.25,lead:0.1,merge:0.25,stockPer:0.008,stockMin:1,stockMax:20,chunk:1.2,cook:0.12,waste:0.15,order:{from:1095,to:1140,min:6},wipe:0.2,basketN:4,basket:0.1,
+  front:[0.4,0.9],mop:{quiet:6,min:2},greet:0.4};
+const BEHIND=(p)=>p[0]>=556&&p[0]<=772&&p[1]>=230&&p[1]<=292,GATE=[548,262],RGATE=[786,262],nearR=p=>p[0]>772&&p[1]<390;   // レジの中（たばこ棚とカウンターのあいだ）には、左右の端から出入りする
+function croute(a,b){if(BEHIND(a)&&BEHIND(b))return [b];if(BEHIND(a)||BEHIND(b)){const o=BEHIND(a)?b:a,g=nearR(o)?RGATE:GATE;
+    if(BEHIND(a))return nearR(o)?[g,b]:[g,...route(g,b)];return nearR(o)?[g,b]:[...route(a,g),b];}
+  return route(a,b);}
+const cpl=(a,b)=>{let d=0,cur=a;for(const q of croute(a,b)){d+=dist(cur,q);cur=q;}return d;};
+const CPOS={reg:MAP.clerk.f,hot:MAP.clerk.hot,self:MAP.clerk.self,term:[660,252],bk:[226,424]};
+const NAMES={pay:'',self:'セルフへ',cover:'レジに入る',cook:'温める',stock:'品出し',carry:'荷物を運ぶ',waste:'期限の品を下げる',order:'発注',wipe:'テーブル拭き',basket:'かごを戻す',tidy:'整理',front:'前出し',mop:'モップ',wait:''};
+function plan(res,cfg,acts,layout){if(!res)return null;const C=cache.get(res);if(C&&C.acts===acts)return C.p;
+  const AN=animOf(cfg),CK=Object.assign({},CK0,AN.clerk||{}),sp=CK.mps*60/(AN.unitM||0.009),Z=cfg.zones,pi=placeIndex(cfg,layout||{}),O1=((cfg.open||[5,23.5])[1])*60;
+  const crew=(res.crew||[]).filter(w=>(w.spans||[]).length);const on=(w,t)=>w.spans.some(([a,b])=>t>=a&&t<b);
+  const roleAt=(w,t)=>{const L=crew.filter(x=>on(x,t));return L.length<=1?'one':L[0]===w?'reg':'floor';};
+  const spotOf=pid=>{const w=pi[pid];if(!w)return null;if(w[0]==='hot'||w[0]==='warmer')return CPOS.hot;if(w[0]==='tobacco')return CPOS.reg;const s=standOf(w[0],w[1],Z);return s?[s[0],s[1]+8]:null;};
+  // 仕事の候補（計算の出来事から）
+  const tasks=[];let tk=0;const add=o=>{o.id=tk++;o.left=o.dur;tasks.push(o);};
+  for(const e of res.ev){
+    if(e.k==='cook')add({kind:'cook',pr:0,ready:e.t,until:e.t+2,dur:CK.cook,spots:[CPOS.hot],any:1});
+    else if(e.k==='delivery'&&!e.local&&e.n>0){const zs=[],seen=new Set();for(const pid in (e.items||{})){const w=pi[pid];if(!w||seen.has(w[0]))continue;const s=standOf(w[0],w[1],Z);if(!s)continue;seen.add(w[0]);zs.push([w[0],[s[0],s[1]+10]]);}
+      zs.sort((a,b)=>STOP_ORDER.indexOf(a[0])-STOP_ORDER.indexOf(b[0]));if(!zs.length)zs.push(['shelf',[230,272]]);
+      add({kind:'stock',pr:1,ready:e.t,until:O1,dur:Math.min(CK.stockMax,Math.max(CK.stockMin,e.n*CK.stockPer)),spots:zs.map(z=>z[1]),deli:e,cart:[]});}
+    else if(e.k==='waste'&&e.pid){const s=spotOf(e.pid);if(s)add({kind:'waste',pr:2,ready:e.t,until:e.t+60,dur:CK.waste,spots:[s],any:s===CPOS.hot});}}
+  // 地元のお店の箱：サインのあと、レジの横から棚へ運んで並べる
+  const LV=locals(res,cfg);for(const v of LV){const pid=Object.keys(v.e.items||{})[0],s=(pid&&spotOf(pid))||[470,172];add({kind:'carry',pr:1,ready:v.s1,until:O1,dur:0.06+0.3*v.box,spots:[v.drop,s],v});}
+  // 発注の作業（締め切りの前に、レジの奥の端末で）
+  add({kind:'order',pr:3,ready:CK.order.from,until:CK.order.to,dur:CK.order.min,spots:[CPOS.term],any:1});
+  // テーブル拭き（ごみ箱に寄らなかった人の席）・かごを入口へ（有人レジで受け取ったかごが basketN 個たまったら）
+  let nb=0;for(const a of acts||[]){if(a.kind!=='buy')continue;if(a.seat&&!a.trash){const s=MAP.seat(a.seat.i);add({kind:'wipe',pr:4,ready:a.seat.to+0.1,until:a.seat.to+20,dur:CK.wipe,spots:[[s[0]-(a.seat.i<6?14:0),s[1]+(a.seat.i<6?0:10)]]});}
+    if(a.bk&&a.lane==='f'&&++nb%CK.basketN===0)add({kind:'basket',pr:4,ready:a.te,until:a.te+30,dur:CK.basket,spots:[CPOS.reg,CPOS.bk]});}
+  tasks.sort((x,y)=>x.ready-y.ready||x.pr-y.pr);
+  // すいている時台（買った人が quiet 人より少ない時台）と閉店前30分は、モップも
+  const perH={};for(const e of res.ev)if(e.k==='buy'){const h=Math.floor(e.t/60);perH[h]=(perH[h]||0)+1;}
+  const mopOK=t=>t>=O1-30||(perH[Math.floor(t/60)]||0)<CK.mop.quiet;
+  // 有人レジ（列に入る lead 分前から会計が終わるまで）
+  const regIv=[];for(const a of acts||[])if(a.kind==='buy'&&a.lane==='f')regIv.push([a.tq-CK.lead,a.te]);regIv.sort((a,b)=>a[0]-b[0]);
+  const help=res.ev.filter(e=>e.k==='selfhelp');
+  const out=[];
+  // 売り場の時間が長い店員から先に仕事を割り当てる（品出しは売り場の人がする）
+  const floorShare=w=>{let a=0,n=0;for(const [s0,s1] of w.spans)for(let t=s0;t<s1;t+=10){n++;if(roleAt(w,t)==='floor')a++;}return n?a/n:0;};
+  const order=crew.map((w,i)=>[w,floorShare(w),i]).sort((x,y)=>(y[1]>0.5)-(x[1]>0.5)||x[0].spans[0][0]-y[0].spans[0][0]||x[2]-y[2]).map(x=>x[0]),byId={};
+  order.forEach((w,wi)=>{
+    // この店員がいなければならない所（時刻の順）
+    const need=[];
+    for(const [s0,s1] of w.spans){
+      for(const [a,b] of regIv){if(b<=s0||a>=s1)continue;const m=(a+b)/2;if(roleAt(w,m)==='floor')continue;need.push({t0:Math.max(s0,a),t1:Math.min(s1,b),at:CPOS.reg,kind:'pay'});}
+      for(const e of help){const a=e.t-0.05,b=e.t+e.min;if(b<=s0||a>=s1)continue;
+        if(e.by===w.id)need.push({t0:Math.max(s0,a),t1:Math.min(s1,b),at:CPOS.self,kind:'self'});
+        else if(roleAt(w,e.t)==='floor'&&crew.find(x=>x.id===e.by)&&roleAt(crew.find(x=>x.id===e.by),e.t)==='reg')need.push({t0:Math.max(s0,e.t),t1:Math.min(s1,e.t+e.min),at:CPOS.reg,kind:'cover'});}}
+    // セルフで呼ばれた時間がいちばん先（計算では、そのあいだ有人レジが止まる）。重なるレジの時間は、その前とあとに分ける
+    const SF=need.filter(r=>r.kind==='self'),cut=r=>{let L=[r];for(const h of SF){const L2=[];for(const q of L){if(h.t1<=q.t0||h.t0>=q.t1){L2.push(q);continue;}if(h.t0>q.t0)L2.push({...q,t1:h.t0});if(h.t1<q.t1)L2.push({...q,t0:h.t1});}L=L2;}return L;};
+    need.splice(0,need.length,...SF,...need.filter(r=>r.kind!=='self').flatMap(cut));
+    need.sort((a,b)=>a.t0-b.t0||(a.kind==='self'?-1:1));
+    // 重なり・すき間の短いものはまとめる（同じ場所なら）
+    const N=[];for(const r of need){const z=N.at(-1);if(z&&r.t0<z.t1+CK.merge&&z.at===r.at){z.t1=Math.max(z.t1,r.t1);continue;}if(z&&r.t0<z.t1){r.t0=z.t1;if(r.t1<=r.t0)continue;}N.push({...r});}
+    const L=[],rec=[];let t=w.spans[0][0],cur=CPOS.reg;
+    const walkTo=(p)=>{for(const q of croute(cur,p)){t+=dist(cur,q)/sp;L.push({t,x:q[0],y:q[1]});cur=q;}cur=p;};
+    const stay=(t1,kind,extra)=>{if(t1<=t)return;const t0=t;t=t1;L.push({t,x:cur[0],y:cur[1]});if(kind)rec.push(Object.assign({t0,t1,kind},extra||{}));};
+    const home=tt=>roleAt(w,tt)==='floor'?CPOS.hot:CPOS.reg;
+    let fk=0;
+    const fill=(g1,next)=>{// t から g1 まで（g1 に next にいる）。あいた時間の仕事
+      let guard=0;while(guard++<6000){const free=g1-t;if(free<=0.02)break;const role=roleAt(w,t);
+        const back=p=>cpl(p,next)/sp;let pick=null,chunk=0,spot=null;
+        for(const k of tasks){if(k.ready>t)break;if(k.left<=1e-6||k.until<t||k.taken&&k.taken!==w.id)continue;if(role==='reg'&&!k.any)continue;
+          const sp0=k.kind==='stock'?k.spots[k.si=(k.si||0)%k.spots.length]:k.kind==='carry'||k.kind==='basket'?k.spots[0]:k.spots[0];
+          const go=cpl(cur,sp0)/sp;let c=Math.min(k.left,k.kind==='stock'?CK.chunk:k.left);const extra=k.kind==='carry'||k.kind==='basket'?cpl(k.spots[0],k.spots[1])/sp:0,endP=k.kind==='carry'||k.kind==='basket'?k.spots[1]:sp0;
+          const room=free-go-extra-back(endP);if(room<Math.min(c,0.1))continue;c=Math.min(c,room);
+          if(!pick||k.pr<pick.pr){pick=k;chunk=c;spot=sp0;if(k.pr===0)break;}}
+        if(pick){const k=pick;walkTo(spot);
+          if(k.kind==='carry'){if(k.v.pick==null)k.v.pick=t;const c0=t,d0=0.05;stay(t+d0,null);walkTo(k.spots[1]);rec.push({t0:c0,t1:t,kind:'carry',v:k.v});const d1=Math.max(0.02,chunk-d0);stay(t+d1,'stock',{v:k.v,zk:'omiyage'});k.left=0;k.taken=w.id;continue;}
+          if(k.kind==='basket'){stay(t+0.02,'basket');walkTo(k.spots[1]);stay(t+k.dur,'basket',{put:1});k.left=0;continue;}
+          const t0=t;stay(t+chunk,k.kind,{deli:k.deli});if(k.kind==='stock'){k.cart.push({t0,t1:t,x:cur[0]+22,y:cur[1]});k.si++;k.taken=w.id;}
+          k.left-=chunk;continue;}
+        // 何もなければ：整理・前出し・モップ（レジの人はレジのまわりで整理）
+        if(role==='reg'){const p=home(t),go=cpl(cur,p)/sp;if(free-go-back(p)<0.05)break;walkTo(p);const rem=g1-t-back(p);if(rem<0.02)break;stay(t+Math.min(rem,0.5),'tidy');continue;}
+        const mop=mopOK(t)&&hsh('mop',w.id,fk)<0.5,R=CK.front;let p;
+        if(mop){p=[120+hsh('mx',w.id,fk)*760,300+hsh('my',w.id,fk)*130];}
+        else{const zs=['shelf','fridge','dry','regfront','hook','omiyage'],zk=zs[Math.floor(hsh('fz',w.id,fk)*zs.length)],s=zoneAt(Z,zk,Math.floor(hsh('fi',w.id,fk)*20));p=s?[s[0],s[1]+10]:home(t);}
+        fk++;const go=cpl(cur,p)/sp,room=free-go-back(p);if(room<0.12){if(free-back(cur)>0.02&&cpl(cur,next)<1)stay(g1,'wait');break;}
+        walkTo(p);const d=Math.min(room,mop?CK.mop.min*0.5:R[0]+(R[1]-R[0])*hsh('fd',w.id,fk));
+        if(mop){const q=[Math.max(60,Math.min(940,p[0]+(hsh('mq',w.id,fk)<0.5?-1:1)*90)),p[1]],t0=t;t+=d;L.push({t,x:q[0],y:q[1]});cur=q;rec.push({t0,t1:t,kind:'mop'});}
+        else stay(t+d,hsh('ft',w.id,fk)<0.4?'tidy':'front');}
+      // next へ戻る（間に合うように）
+      if(cpl(cur,next)>0.5){const dt=cpl(cur,next)/sp;if(g1-dt>t)stay(g1-dt,null);walkTo(next);}
+      if(t<g1)stay(g1,null);};
+    // 勤務の時間ごとに（休憩のあいだは描かない。戻ったら持ち場から）
+    for(const [s0,s1] of w.spans){t=s0;cur=home(s0+0.01);L.push({t,x:cur[0],y:cur[1]});
+      for(const r of N){if(r.t0<s0||r.t0>=s1)continue;fill(r.t0,r.at);if(t<r.t0)t=r.t0;
+        if(cpl(cur,r.at)>0.5)walkTo(r.at);stay(Math.max(t,r.t1),r.kind);}
+      fill(s1,home(s1-0.01));}
+    byId[w.id]={id:w.id,name:w.name,L:mark(L),rec,spans:w.spans};});
+  for(const w of crew)out.push(byId[w.id]);
+  const carts=tasks.filter(k=>k.kind==='stock').map(k=>({e:k.deli,cart:k.cart,done:k.left<=1e-6?(k.cart.at(-1)||{t1:k.ready}).t1:O1}));
+  // いらっしゃいませ：お客さんが入ってきたとき（greet 分に1回まで）
+  const greet=[];let lastG=-9;for(const a of (acts||[]).slice().sort((x,y)=>x.ta-y.ta)){if(a.ta-lastG<CK.greet)continue;lastG=a.ta;greet.push(a.ta);}
+  const p={clerks:out,carts,greet,locals:LV};cache.set(res,{acts,p});return p;}
+const cache=new WeakMap();
+const recAt=(R,t)=>{let lo=0,hi=R.length-1,f=null;while(lo<=hi){const m=(lo+hi)>>1;if(R[m].t0<=t){f=m;lo=m+1;}else hi=m-1;}return f!=null&&R[f].t1>t?R[f]:null;};
+root.MinatoAnim={MAP,build,at,clerks,bubbles,standOf,placeIndex,along,locals,localAt,plan,NAMES};
 })(typeof window!=='undefined'?window:globalThis);

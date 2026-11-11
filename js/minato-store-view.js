@@ -225,17 +225,31 @@ function shelfLayer(res,Tn){const k=Math.floor(Tn*6)+'|'+(res&&res.day);if(V.she
   return cv;}
 
 /* ---------- 絵：毎コマ ---------- */
-function bubble(c,x,y,t,col){c.font='12px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(t).width+14;x=Math.max(34+w/2,Math.min(966-w/2,x));c.fillStyle=col;c.beginPath();c.roundRect(x-w/2,y-11,w,20,8);c.fill();c.beginPath();c.moveTo(x-4,y+9);c.lineTo(x,y+15);c.lineTo(x+4,y+9);c.fill();c.fillStyle='#1c2826';c.textAlign='center';c.fillText(t,x,y+3);}
+let BX=[34,966];   // 吹き出しを切らない横のはば（スマホの半分の表示では、その半分の中）
+function bubble(c,x,y,t,col,sub){c.font='12px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(t).width+14;x=Math.max(BX[0]+w/2,Math.min(BX[1]-w/2,x));c.fillStyle=col;c.beginPath();c.roundRect(x-w/2,y-11,w,20,8);c.fill();c.beginPath();c.moveTo(x-4,y+9);c.lineTo(x,y+15);c.lineTo(x+4,y+9);c.fill();c.fillStyle='#1c2826';c.textAlign='center';c.fillText(t,x,y+3);
+  if(sub){c.font='700 9px "Zen Kaku Gothic New",sans-serif';const sw=c.measureText(sub).width+8,sx=x-w/2+4;c.fillStyle='#2f6a4e';c.beginPath();c.roundRect(sx,y-21,sw,12,4);c.fill();c.fillStyle='#fff';c.textAlign='left';c.fillText(sub,sx+4,y-12);}}   // 客層ときっかけの小さな札（A3）
+/* A3：店員がしていること（小さな道具と、短い札） */
+function clerkDo(c,k,Tn){const x=k.x,y=k.y,a=k.act;
+  if(a==='pay'){if(Math.floor(Tn*600)%3===0){c.fillStyle='rgba(232,64,52,.9)';c.fillRect(x+7,y-20,6,2);}c.fillStyle='#333';c.fillRect(x+6,y-23,4,6);}   // バーコードを読む
+  else if(a==='stock'||a==='carry'){c.fillStyle='#b08a50';c.fillRect(x+(a==='stock'?2:-7),y-(a==='stock'?30:22),14,9);c.strokeStyle='rgba(0,0,0,.3)';c.lineWidth=1;c.strokeRect(x+(a==='stock'?2:-7)+.5,y-(a==='stock'?30:22)+.5,13,8);}
+  else if(a==='front'||a==='tidy'){c.fillStyle='#f0c9a0';c.fillRect(x+7,y-24+(Math.floor(Tn*300)%2),3,3);}
+  else if(a==='wipe'){c.fillStyle='#9fd3e6';c.fillRect(x+6+Math.sin(Tn*500)*3,y-18,7,4);}
+  else if(a==='mop'){c.strokeStyle='#7a6a5a';c.lineWidth=1.6;c.beginPath();c.moveTo(x+6,y-22);c.lineTo(x+14,y+1);c.stroke();c.fillStyle='#c9c4b8';c.fillRect(x+9,y,10,3);}
+  else if(a==='order'){c.fillStyle='#3a4046';c.fillRect(x+5,y-26,9,7);c.fillStyle='#9fd3c7';c.fillRect(x+6,y-25,7,4);}
+  else if(a==='cook'){c.fillStyle='#e8a04a';c.fillRect(x+6,y-22,6,4);}
+  else if(a==='waste'){c.fillStyle='#d8382e';c.fillRect(x+6,y-24,7,7);}
+  else if(a==='basket')basket(c,x+9,y-16,false);
+  if(k.label&&a!=='tidy'){c.font='700 9px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(k.label).width+8;c.fillStyle='rgba(47,138,110,.92)';c.beginPath();c.roundRect(x-w/2,y-52,w,12,4);c.fill();c.fillStyle='#fff';c.textAlign='center';c.fillText(k.label,x,y-43);}}
 function view(){const n=innerWidth<760;if(!n||V.half==='all')return null;return V.half==='ent'?{x:20,y:80,w:600}:{x:400,y:96,w:600};}
 function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,0,1000,600);return;}
   if(!V.st){c.drawImage(bg(),0,0,1000,600);c.fillStyle='rgba(20,24,28,.55)';c.fillRect(0,0,1000,600);c.fillStyle='#fff';c.font='700 20px sans-serif';c.textAlign='center';c.fillText('港駅・改札口の前に、まだ店がありません',500,300);return;}
-  const res=ensureRes(),vw=view();c.save();if(vw){const s=1000/vw.w;c.scale(s,s);c.translate(-vw.x,-vw.y);}
+  const res=ensureRes(),vw=view();BX=vw?[vw.x+4,vw.x+vw.w-4]:[34,966];c.save();if(vw){const s=1000/vw.w;c.scale(s,s);c.translate(-vw.x,-vw.y);}
   c.drawImage(bg(),0,0,1000,600);if(res)c.drawImage(shelfLayer(res,Tn),0,0,1000,600);
   const FX=window.MinatoFx,FF=res&&FX?fxCtx(res,Tn):null;   // 絵の第2段（js/minato-store-fx.js）：重ねて描くだけ
   if(FF){if(V.actsRes!==res){V.acts=A.build(res,V.cfg,V.st.layout);V.actsRes=res;}FF.acts=V.acts;FX.under(c,FF);}
   if(res){if(V.actsRes!==res){V.acts=A.build(res,V.cfg,V.st.layout);V.actsRes=res;}
-    const K=A.clerks(res,Tn);
-    for(const k of K.list){const sp=sprite('clerk',0);c.drawImage(sp,k.x-14,k.y-38,28,44);}
+    const PL=V.plan=A.plan(res,V.cfg,V.acts,V.st.layout),K=A.clerks(res,Tn,PL),wk0=Math.floor(Date.now()/220)%2;   // A3：店員の台本
+    for(const k of K.list){const sp=sprite('clerk',k.mv?wk0:0);c.drawImage(sp,k.x-14,k.y-38,28,44);clerkDo(c,k,Tn);}
     if(!K.list.length){c.fillStyle='#7a2e2e';c.beginPath();c.roundRect(560,240,150,28,6);c.fill();c.fillStyle='#fff';c.font='700 13px sans-serif';c.textAlign='center';c.fillText('ただいま休止中',635,259);}
     if(K.stop){c.fillStyle='#e0a21b';c.beginPath();c.roundRect(566,300,68,16,4);c.fill();c.fillStyle='#fff';c.font='700 10px sans-serif';c.textAlign='center';c.fillText('しばらくお待ちを',600,312);}
     const L=A.at(V.acts,Tn,V.cap),wk=Math.floor(Date.now()/220)%2,BK=(V.cfg.walk&&V.cfg.walk.anim&&V.cfg.walk.anim.basket||{}).at||[212,428];
@@ -246,12 +260,12 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
       if(o.ph==='pack'){c.fillStyle='#e8e2d4';c.fillRect(o.x+6,o.y-20+Math.sin(Tn*700)*1.5,7,9);}   // 会計のあと：袋を持ち直す（A1）
       if(o.ph==='eat'){c.fillStyle='#fff';c.beginPath();c.ellipse(o.x+14,o.y-16,5,3,0,0,7);c.fill();}}
     if(FF)FX.over(c,FF);
-    for(const b of A.bubbles(res,Tn))bubble(c,b.x,b.y,b.text,b.kind==='help'?'#ffe7a3':b.kind==='left'?'#ffd3c9':b.kind==='range'?'#fff2c2':b.kind==='full'?'#ffe0e0':'#e6e6e6');}
+    for(const b of A.bubbles(res,Tn,0.07,V.cfg,PL))bubble(c,b.x,b.y,b.text,b.kind==='help'?'#ffe7a3':b.kind==='left'?'#ffd3c9':b.kind==='range'?'#fff2c2':b.kind==='full'?'#ffe0e0':b.kind==='buy'?'#bff0c8':b.kind==='greet'?'#ffffff':'#e6e6e6',b.sub);}
   c.restore();
   // 時計と、開店前・閉店後
   c.fillStyle='rgba(15,20,24,.82)';c.beginPath();c.roundRect(10,46,96,26,5);c.fill();c.fillStyle='#ffb347';c.font='700 18px "DotGothic16",monospace';c.textAlign='left';c.fillText(fmtT(Tn),20,66);
   const O0=V.cfg.open[0]*60,O1=V.cfg.open[1]*60;if(Tn>=O1&&FF&&!vw){FX.closed(c,FF);return;}if(Tn<O0||Tn>=O1){c.fillStyle='rgba(20,24,28,.5)';c.fillRect(0,40,1000,560);c.fillStyle='#fff';c.font='700 22px sans-serif';c.textAlign='center';c.fillText(Tn<O0?`開店前（${V.cfg.open[0]}:00から）`:'本日の営業は終わりました',500,300);}}
-function fxCtx(res,Tn){const S=V.st,day=gDay(),c=gCond();return {res,Tn,cfg:V.cfg,st:S,cond:{wx:c.wx,season:c.season,day:c.day},port:g(()=>SEAS.portPlan,null),sd:samedayNow(S,day,c)||null,fan:!!V.fan,local:V.localDay===res.day?V.local:null};}
+function fxCtx(res,Tn){const S=V.st,day=gDay(),c=gCond();return {res,Tn,cfg:V.cfg,st:S,cond:{wx:c.wx,season:c.season,day:c.day},port:g(()=>SEAS.portPlan,null),sd:samedayNow(S,day,c)||null,fan:!!V.fan,local:V.localDay===res.day?V.local:null,plan:V.plan||null};}
 function click(){if(innerWidth<760){V.half=V.half==='reg'?'ent':V.half==='ent'?'all':'reg';const t=document.getElementById('ksTop');if(t)t.dataset.k='';refresh();}}   // スマホ：押すと、レジ側 → 入口側 → 店ぜんぶ
 
 window.MinatoStoreView={render,panel,draw,click,get ready(){return !!V.cfg;},get state(){return V.st;},get today(){return ensureRes();},get actors(){return V.acts;},
