@@ -55,7 +55,8 @@ function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();omToday();const c=c
   const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'')+'|'+(c.cruise?c.cruise.pax:'');
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();return V.res;}
-function closeToday(res){if(V.st.om&&window.CenterCore)g(()=>MS.omRecord(V.cfg,CenterCore,V.st,res),null);const r=KC.closeDay(V.cfg,V.st,res,{});const lc=V.localDay===res.day?V.local:null;V.st=r.state;
+function closeToday(res){if(window.MinatoSalesView)try{MinatoSalesView.record(res,V.cfg,V.st.layout);}catch(e){}   /* きょう売れたもの：棚 × 時台の1日の記録（js/minato-sales-view.js） */
+  if(V.st.om&&window.CenterCore)g(()=>MS.omRecord(V.cfg,CenterCore,V.st,res),null);const r=KC.closeDay(V.cfg,V.st,res,{});const lc=V.localDay===res.day?V.local:null;V.st=r.state;
   if(lc)for(const x of lc.say)V.st.news.push({day:res.day,kind:'local',title:x.name+'（'+x.person+'）',text:'「'+x.text+'」'});   /* 便り：地元のお店の人のひとこと */
   V.st.today=null;V.st.unread=(V.st.unread||0)+r.news.length;persist();}
 function tick(){if(V.cfg&&V.st)ensureRes();}
@@ -94,7 +95,8 @@ function panel(kpi){kpi=kpi||document.getElementById('ksKpi');const res=ensureRe
   const on=(res.crew||[]).filter(w=>(w.spans||[]).some(([a,b])=>Tn>=a&&Tn<b)).map(w=>esc(w.name));
   kpi.innerHTML=`<div><span>きょうの売上（いままで）</span><b>${yen(o.sales)}</b></div><div><span>お客さん</span><b>${num(o.cust)}人</b></div>
     <div><span>セルフレジの割合</span><b>${f+s?Math.round(s/(f+s)*100):0}%</b></div><div><span>セルフで店員を呼んだ</span><b>${help}回</b></div>
-    <div><span>列が長くて帰った</span><b>${left}人</b></div><div><span>イートイン（うち座った）</span><b>${eat}人（${sit}人）</b></div><div><span>地元のお店へ（仕入れ）</span><b>${yen(loc)}</b></div><div><span>できたての便（運賃）</span><b>${yen(sdf)}</b></div><div><span>いまの店員</span><b>${on.length?on.join('・'):'だれもいない'}</b></div>`;}
+    <div><span>列が長くて帰った</span><b>${left}人</b></div><div><span>イートイン（うち座った）</span><b>${eat}人（${sit}人）</b></div><div><span>地元のお店へ（仕入れ）</span><b>${yen(loc)}</b></div><div><span>できたての便（運賃）</span><b>${yen(sdf)}</b></div><div><span>いまの店員</span><b>${on.length?on.join('・'):'だれもいない'}</b></div>`;
+  if(window.MinatoSalesView)MinatoSalesView.render(document.getElementById('ksBody'),{res,Tn,cfg:V.cfg,layout:V.st.layout,MAP:A.MAP,price:V.st.price});   /* きょう売れたもの（棚 × 時間）：下の欄に */}
 
 /* 発注の欄（S1）：おまかせ／自分で決める・ねらい・きょうの数。切りかえは次の運行日の数から（きょうの数はもう決まっている） */
 function omCard(){const S=V.st,O=S&&S.om;if(!O)return '';const A=(V.C&&V.C.aims)||{},auto=O.mode==='auto',P={};for(const p of V.cfg.products)P[p.id]=p;
