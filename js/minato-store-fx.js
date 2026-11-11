@@ -12,7 +12,7 @@
 'use strict';
 if(typeof MinatoAnim==='undefined')return;
 const A=MinatoAnim,MAP=A.MAP,WY=MAP.wallY;
-const C={foot:null,footRes:null,eat:null,eatRes:null,deli:null,deliRes:null};
+const C={foot:null,footRes:null,eat:null,eatRes:null,deli:null,deliRes:null,loc:null,locRes:null};
 const lerp=(a,b,f)=>[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f];
 function pill(c,x,y,t,bg,fg,size){c.font=`700 ${size||10}px "Zen Kaku Gothic New",sans-serif`;const w=c.measureText(t).width+10;c.fillStyle=bg;c.beginPath();c.roundRect(x-w/2,y-8,w,15,6);c.fill();c.fillStyle=fg||'#fff';c.textAlign='center';c.fillText(t,x,y+3);}
 const genreOf=(F,pid)=>{const I=F._I||(F._I={});if(!I[pid]){const p=F.cfg.products.find(x=>x.id===pid);I[pid]=p?p.genre:'';}return I[pid];};
@@ -24,14 +24,32 @@ function cart(c,x,y,col,n,tag){c.fillStyle='rgba(0,0,0,.15)';c.fillRect(x-14,y+3
   const k=Math.min(3,1+Math.floor(n/40));for(let i=0;i<k;i++){c.fillStyle=col;c.fillRect(x-12,y-9-i*8,24,8);c.strokeStyle='rgba(0,0,0,.25)';c.strokeRect(x-12+.5,y-9-i*8+.5,23,7);}
   c.fillStyle='#333';c.beginPath();c.arc(x-10,y+3,2.5,0,7);c.arc(x+10,y+3,2.5,0,7);c.fill();c.strokeStyle='#555';c.lineWidth=1.5;c.beginPath();c.moveTo(x+14,y-2);c.lineTo(x+18,y-22);c.stroke();
   if(tag)pill(c,x,y-12-k*8,tag,'#d8582e');}
-function drawDeli(c,F){const T=F.Tn;let k=0;for(const e of deliveries(F)){if(T<e.t||T>=e.t+DUR)continue;const f=Math.min(1,(T-e.t)/MOVE),dx=(k++)*34;   // 同じ時刻に届いたもの（店を開いた時刻にまとめて届いた日など）は、少しずつずらす
+/* 地元のお店の人（A1）：動きは MinatoAnim.locals（お客さんと同じくらいの速さ）。ここでは描くだけ */
+function localsOf(F){if(C.locRes===F.res)return C.loc;C.locRes=F.res;C.loc=MinatoAnim.locals(F.res,F.cfg);return C.loc;}
+const LEAVE=6;   // 下ろした箱は、サインのあと LEAVE 分、レジの横に置いておく（店員が棚に並べるのは A3 で描く）
+function boxes(c,x,y,n,col){for(let i=0;i<n;i++){c.fillStyle=col;c.fillRect(x-9+(i%2)*6,y-8-i*7,16,7);c.strokeStyle='rgba(0,0,0,.3)';c.strokeRect(x-9+(i%2)*6+.5,y-8-i*7+.5,15,6);}}
+const lines=t=>{if(t.length<=16)return [t];const i=Math.max(t.indexOf('。'),-1),j=i>0&&i<t.length-1?i+1:t.lastIndexOf('、',18)+1||Math.ceil(t.length/2);return [t.slice(0,j),t.slice(j)];};
+function sayOf(F,v){const L=F.local&&F.local.say;const s=L&&L.find(x=>x.shop===v.shop);return s?s.text:null;}
+function drawLocals(c,F){const T=F.Tn;for(const v of localsOf(F)){if(T<v.t0-0.01||T>v.s1+LEAVE)continue;const col=v.shop==='hafen'?'#c9955a':'#8fb3c4';
+    const p=MinatoAnim.localAt(v,T);const put=p?p.put:v.box;if(put>0&&T>=v.u0){c.globalAlpha=Math.min(1,(v.s1+LEAVE-T)/1);boxes(c,v.drop[0]+16,v.drop[1]+4,put,col);c.globalAlpha=1;}
+    if(!p)continue;const x=p.x,y=p.y,bob=p.mv?Math.sin(T*900)*1:0,face=p.ph==='unload'?-1:1;
+    if(p.cartAt){const [cx,cy]=p.cartAt,held=p.ph==='in'||p.ph==='out';c.fillStyle='rgba(0,0,0,.15)';c.fillRect(cx-13,cy+1,26,4);c.fillStyle='#6a6f74';c.fillRect(cx-12,cy-3,24,3);c.fillStyle='#333';c.beginPath();c.arc(cx-9,cy+2,2.4,0,7);c.arc(cx+9,cy+2,2.4,0,7);c.fill();
+      boxes(c,cx,cy-2,p.left,col);c.strokeStyle='#555';c.lineWidth=1.5;c.beginPath();c.moveTo(cx-12,cy-3);c.lineTo(cx-15,cy-20);c.stroke();   // 台車の持ち手（押して歩く）
+      if(held){c.strokeStyle='#f0c9a0';c.lineWidth=2;c.beginPath();c.moveTo(x+4,y-18+bob);c.lineTo(cx-15,cy-19);c.stroke();}}
+    // 体（前かけ）・頭・手ぬぐい
+    c.fillStyle=v.shop==='hafen'?'#7a4a2a':'#2f5d73';c.beginPath();c.roundRect(x-6,y-27+bob,12,19,3);c.fill();c.fillStyle='#f3efe6';c.fillRect(x-4,y-22+bob,8,13);
+    c.fillStyle='#f0c9a0';c.beginPath();c.arc(x,y-32+bob,5,0,7);c.fill();c.fillStyle=v.shop==='hafen'?'#e9e2d0':'#fff';c.fillRect(x-5,y-37+bob,10,3);
+    c.fillStyle='#333';const st=p.mv?Math.sin(T*900)*2:0;c.fillRect(x-4,y-8,3,8+st*0.3);c.fillRect(x+1,y-8,3,8-st*0.3);
+    if(!v.cart&&p.left>0){c.fillStyle='#b08a50';c.fillRect(x+5,y-19,11,8);c.strokeStyle='#8a6a38';c.beginPath();c.arc(x+10.5,y-19,4,Math.PI,0);c.stroke();}   // 手さげのかご
+    if(p.ph==='unload'){c.fillStyle='#f0c9a0';c.fillRect(x+face*6-1,y-18,3,3);}
+    if(p.ph==='sign'){c.fillStyle='#fff';c.fillRect(x+6,y-20,8,10);c.strokeStyle='#333';c.lineWidth=1;c.beginPath();c.moveTo(x+8,y-13);c.lineTo(x+12,y-16);c.stroke();}   // 受け取りの紙にサイン
+    if(p.ph==='sign'&&sayOf(F,v)){const L=lines(sayOf(F,v));L.forEach((t,i)=>pill(c,x+6,y-46-(L.length-1-i)*16,(i?'':'「')+t+(i===L.length-1?'」':''),'#5a3a22','#fff',11));}   // ひとこと（長いときは2行。スマホの半分の表示でも切れないように）
+    else if(p.ph==='unload')pill(c,x,y-48,v.name,'#7a4a2a');
+    else pill(c,x,y-46,v.name,'#7a4a2a');}}
+function drawDeli(c,F){const T=F.Tn;let k=0;drawLocals(c,F);for(const e of deliveries(F)){if(e.local||T<e.t||T>=e.t+DUR)continue;const f=Math.min(1,(T-e.t)/MOVE),dx=(k++)*34;   // 同じ時刻に届いたもの（店を開いた時刻にまとめて届いた日など）は、少しずつずらす
     const to=e.local?[470,150]:e.sameday?[235,190]:[e.name==='朝の便'?215:235,e.name==='朝の便'?140:190];
     const p0=f<0.4?lerp([150,445],[110,300],f/0.4):lerp([110,300],to,(f-0.4)/0.6),p=[p0[0]+dx,p0[1]];
-    if(e.local){// 地元のお店の人が、手さげのかごで届ける
-      c.fillStyle='#c4302b';c.beginPath();c.roundRect(p[0]-5,p[1]-26,10,18,3);c.fill();c.fillStyle='#f0c9a0';c.beginPath();c.arc(p[0],p[1]-31,5,0,7);c.fill();
-      c.fillStyle='#b08a50';c.fillRect(p[0]+5,p[1]-18,10,8);c.fillStyle='#333';c.fillRect(p[0]-4,p[1]-8,3,8);c.fillRect(p[0]+1,p[1]-8,3,8);
-      pill(c,p[0],p[1]-44-((k-1)%2)*17,e.name,'#7a4a2a');}
-    else cart(c,p[0],p[1],e.sameday?'#e9b44c':'#5b8fb0',e.n,e.sameday?'できたて':null);}}
+    cart(c,p[0],p[1],e.sameday?'#e9b44c':'#5b8fb0',e.n,e.sameday?'できたて':null);}}
 /* できたての札：着いてから決まった時間、その品の棚に「できたて」の札 */
 function slotRect(F,zk,i){const Fx=MAP.fx[zk],z=F.cfg.zones[zk];if(!Fx||!z)return null;const [x,y,w,d,h]=Fx,rw=w-4,rh=d-4,R=z.rows,Cc=z.cols;
   const r=Math.floor(i/z.cols),cc=i%z.cols;return [x+2+cc*rw/Cc,y-h+2+r*rh/R,rw/Cc-1,rh/R-1];}

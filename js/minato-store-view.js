@@ -210,6 +210,7 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
     for(const o of L){if(o.dot){c.fillStyle=(V.cfg.personas.find(p=>p.id===o.a.ps)||{}).icon||'#555';c.beginPath();c.arc(o.x,o.y-4,3.5,0,7);c.fill();continue;}
       const sp=sprite(o.a.ps,o.mv?wk:0),sw=sp.width/SC;c.drawImage(sp,o.x-14,o.y-38,sw,44);
       if(o.ph==='pay'&&o.a.lane==='s'){c.fillStyle='rgba(159,211,199,.7)';c.fillRect(o.x-6,o.y-46,12,4);}
+      if(o.ph==='pack'){c.fillStyle='#e8e2d4';c.fillRect(o.x+6,o.y-20+Math.sin(Tn*700)*1.5,7,9);}   // 会計のあと：袋を持ち直す（A1）
       if(o.ph==='eat'){c.fillStyle='#fff';c.beginPath();c.ellipse(o.x+14,o.y-16,5,3,0,0,7);c.fill();}}
     if(FF)FX.over(c,FF);
     for(const b of A.bubbles(res,Tn))bubble(c,b.x,b.y,b.text,b.kind==='help'?'#ffe7a3':b.kind==='left'?'#ffd3c9':b.kind==='range'?'#fff2c2':b.kind==='full'?'#ffe0e0':'#e6e6e6');}
@@ -217,7 +218,7 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
   // 時計と、開店前・閉店後
   c.fillStyle='rgba(15,20,24,.82)';c.beginPath();c.roundRect(10,46,96,26,5);c.fill();c.fillStyle='#ffb347';c.font='700 18px "DotGothic16",monospace';c.textAlign='left';c.fillText(fmtT(Tn),20,66);
   const O0=V.cfg.open[0]*60,O1=V.cfg.open[1]*60;if(Tn>=O1&&FF&&!vw){FX.closed(c,FF);return;}if(Tn<O0||Tn>=O1){c.fillStyle='rgba(20,24,28,.5)';c.fillRect(0,40,1000,560);c.fillStyle='#fff';c.font='700 22px sans-serif';c.textAlign='center';c.fillText(Tn<O0?`開店前（${V.cfg.open[0]}:00から）`:'本日の営業は終わりました',500,300);}}
-function fxCtx(res,Tn){const S=V.st,day=gDay(),c=gCond();return {res,Tn,cfg:V.cfg,st:S,cond:{wx:c.wx,season:c.season,day:c.day},port:g(()=>SEAS.portPlan,null),sd:samedayNow(S,day,c)||null,fan:!!V.fan};}
+function fxCtx(res,Tn){const S=V.st,day=gDay(),c=gCond();return {res,Tn,cfg:V.cfg,st:S,cond:{wx:c.wx,season:c.season,day:c.day},port:g(()=>SEAS.portPlan,null),sd:samedayNow(S,day,c)||null,fan:!!V.fan,local:V.localDay===res.day?V.local:null};}
 function click(){if(innerWidth<760){V.half=V.half==='reg'?'ent':V.half==='ent'?'all':'reg';const t=document.getElementById('ksTop');if(t)t.dataset.k='';refresh();}}   // スマホ：押すと、レジ側 → 入口側 → 店ぜんぶ
 
 window.MinatoStoreView={render,panel,draw,click,get ready(){return !!V.cfg;},get state(){return V.st;},get today(){return ensureRes();},get actors(){return V.acts;},

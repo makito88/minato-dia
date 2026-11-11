@@ -38,5 +38,29 @@ assert.ok(qSeen>0&&eatSeen>0&&payF>0&&payS>0,'列・イートイン・有人と�
 // 店員とセルフで呼ばれたとき
 {const e=res.ev.find(x=>x.k==='selfhelp');assert.ok(e);const C=A.clerks(res,e.t+e.min/2);assert.ok(C.list.some(k=>k.busy==='self'),'呼ばれた店員がセルフレジへ');
   assert.ok(A.bubbles(res,e.t+0.01).some(b=>b.kind==='help'),'吹き出し');}
+// A1（2026-11-11）：歩く速さは客層ごとに一定・改札口 ↔ 店は距離 ÷ 速さ・会計のあとの短い動き・地元のお店の人
+{const AN=c.walk.anim;assert.ok(AN&&AN.mps.shf>AN.mps.sen,'速さの設定（data/minato-store.json の walk.anim）');
+  let fast=0,segs=0,stuck=0,packSeen=0,nPack=0;
+  for(const x of acts){const sp=AN.mps[x.ps]*60/AN.unitM;
+    assert.ok(Math.abs(x.pre-Math.hypot(x.gate[0]-150,x.gate[1]-440)/sp)<1e-9,'改札口から入口までは距離 ÷ 速さ');
+    const span=x.kind==='buy'?x.tq-x.ta:0,L=x.kind==='buy'?x.walk:[];let D=0;for(let i=1;i<L.length;i++)D+=Math.hypot(L[i].x-L[i-1].x,L[i].y-L[i-1].y);
+    const hurry=x.kind==='buy'&&D/sp>span*AN.hurry;
+    for(const W of [x.walk,x.after||[]])for(let i=1;i<W.length;i++){const d=Math.hypot(W[i].x-W[i-1].x,W[i].y-W[i-1].y),dt=W[i].t-W[i-1].t;if(d<1)continue;segs++;
+      if(d/dt>sp*1.02&&!(hurry&&W===x.walk))fast++;}
+    // 1か所に長く固まらない：買い物中に同じ点に止まるのは、shuffle の2倍まで
+    if(x.kind==='buy')for(let i=1;i<L.length;i++)if(L[i].x===L[i-1].x&&L[i].y===L[i-1].y&&L[i].t-L[i-1].t>AN.shuffle*2+1e-9)stuck++;
+    if(x.pack){nPack++;assert.ok(Math.abs(x.pack.t1-x.pack.t0-AN.pack)<1e-9);}}
+  assert.equal(fast,0,'早足の人のほかは、自分の速さより速く歩かない');assert.equal(stuck,0,'棚の前で固まらない');assert.ok(nPack>0,'会計のあとに袋を持ち直す人がいる');
+  for(let t=5*60;t<23.5*60;t+=0.05)for(const o of A.at(acts,t,40))if(o.ph==='pack')packSeen++;assert.ok(packSeen>0);
+  // 地元のお店の人：届いた出来事から（出来事を足さない）。同じなら同じ・店の中・順番どおり
+  const r2={...res,ev:[...res.ev,{t:400,k:'delivery',n:9,name:'汐見屋',local:'shiomi'},{t:570,k:'delivery',n:4,name:'ハーフェン堂',local:'hafen'}]};
+  const V=A.locals(r2,c);assert.equal(V.length,2);assert.equal(JSON.stringify(V),JSON.stringify(A.locals(r2,c)),'同じなら同じ');
+  assert.equal(A.locals(res,c).length,res.ev.filter(e=>e.k==='delivery'&&e.local&&e.n>0).length);
+  for(const v of V){assert.ok(v.t0<v.e.t&&v.e.t<v.u0&&v.u0<v.u1&&v.u1<v.s0&&v.s0<v.s1&&v.s1<v.t1,'入る → 下ろす → サイン → 帰る');
+    assert.ok(v.t1-v.t0<4,'地元のお店の人は数分で帰る（前は12分）');const seen=new Set();
+    for(let t=v.t0;t<=v.t1;t+=0.01){const p=A.localAt(v,t);assert.ok(p&&p.x>=25&&p.x<=975&&p.y>=65&&p.y<=600);seen.add(p.ph);}
+    for(const k of ['in','unload','sign','out'])assert.ok(seen.has(k),k);}
+  assert.ok(V[0].cart&&!V[1].cart,'汐見屋は台車・ハーフェン堂はかご');
+  console.log(`  A1：早足でない人は一定の速さ（区間${segs}）・会計のあと袋を持ち直す${nPack}人・地元のお店の人 ${V.map(v=>v.name+' '+(v.t1-v.t0).toFixed(1)+'分').join('・')}`);}
 console.log(`  港駅の店の絵：人${acts.length}（買った${nBuy}・見て帰った${nLook}）・同時に最大${maxN}人・イートイン${nEat}人がつながる`);
 console.log('minato-anim ok');

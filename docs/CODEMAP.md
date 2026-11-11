@@ -86,21 +86,21 @@ STORDER …12・DAYN …22・MSV …29・■ 読み込み・保存 …31・persi
 
 begin() …15・visitors() …20・plan() …33・commit() …43・after() …57・公開 KioskWalk …83
 
-## js/minato-store-anim.js（141行）
+## js/minato-store-anim.js（184行）
 
-■ 見取り図（キャンバスの座標） …10・MAP …12・SPEED …30・STOP_ORDER …31・standOf() …33・placeIndex() …44・route() …46・legs() …50・PRE …59・build() …62・along() …99・qSlot() …103・at() …105・clerks() …122・bubbles() …130・公開 MinatoAnim …139
+■ 見取り図（キャンバスの座標） …10・MAP …12・AN0 …31・STOP_ORDER …35・standOf() …37・placeIndex() …48・route() …50・legs() …56・mark() …69・DOOR_IN …74・build() …79・EASE …120・along() …121・qSlot() …127・at() …129・clerks() …146・bubbles() …154・■ 地元のお店の人（A1・2026-11-11） …163・LOCAL_DROP …167・locals() …168・localAt() …180・公開 MinatoAnim …182
 
 ## js/minato-store-core.js（37行）
 
 KEY …12・cfg() …15・create() …33・公開 MinatoStore …35
 
-## js/minato-store-fx.js（101行）
+## js/minato-store-fx.js（119行）
 
-pill() …17・■ 荷物が届く：台車（センターの便）・できたての便（札つき）・地元のお店の人（手で） …20・deliveries() …21・DUR …22・cart() …23・drawDeli() …27・slotRect() …36・drawTag() …38・■ 天気：濡れた床・雪の入口・海風 …45・drawFloor() …46・drawWeather() …53・■ イートイン：カップ麺の3分・湯気 …62・eats() …63・drawEat() …64・■ 防犯：見える範囲（扇形）。ミラー2つ・カメラ2台・レジの店員 …70・fan() …71・drawFan() …72・■ 客船の日：旗と汽笛 …79・drawFlags() …80・drawHorn() …83・■ 1日の足あと（閉店のあと） …87・footprints() …88・closed() …92・公開 MinatoFx …96
+pill() …17・■ 荷物が届く：台車（センターの便）・できたての便（札つき）・地元のお店の人（手で） …20・deliveries() …21・DUR …22・cart() …23・localsOf() …28・LEAVE …29・boxes() …30・sayOf() …32・drawLocals() …33・drawDeli() …49・slotRect() …54・drawTag() …56・■ 天気：濡れた床・雪の入口・海風 …63・drawFloor() …64・drawWeather() …71・■ イートイン：カップ麺の3分・湯気 …80・eats() …81・drawEat() …82・■ 防犯：見える範囲（扇形）。ミラー2つ・カメラ2台・レジの店員 …88・fan() …89・drawFan() …90・■ 客船の日：旗と汽笛 …97・drawFlags() …98・drawHorn() …101・■ 1日の足あと（閉店のあと） …105・footprints() …106・closed() …110・公開 MinatoFx …114
 
-## js/minato-store-view.js（227行）
+## js/minato-store-view.js（228行）
 
-DAYN …21・■ 読み込み・保存 …25・persist() …29・■ その日の計算 …32・ctxNow() …33・samedayNow() …39・localNow() …42・checkDay() …44・ensureRes() …47・closeToday() …51・tick() …54・■ 店を出す …57・openStore() …58・■ 売店の画面の上の欄 …63・PSN …64・render() …65・panel() …82・localLine() …92・cruiseLine() …99・samedayLine() …103・■ 絵：小さな絵を作っておく …109・mk() …111・LOOK …112・fig() …116・sprite() …132・box() …135・label() …136・bg() …137・DISP …180・shelfLayer() …181・■ 絵：毎コマ …195・bubble() …196・view() …197・draw() …198・fxCtx() …220・click() …221・公開 MinatoStoreView …223
+DAYN …21・■ 読み込み・保存 …25・persist() …29・■ その日の計算 …32・ctxNow() …33・samedayNow() …39・localNow() …42・checkDay() …44・ensureRes() …47・closeToday() …51・tick() …54・■ 店を出す …57・openStore() …58・■ 売店の画面の上の欄 …63・PSN …64・render() …65・panel() …82・localLine() …92・cruiseLine() …99・samedayLine() …103・■ 絵：小さな絵を作っておく …109・mk() …111・LOOK …112・fig() …116・sprite() …132・box() …135・label() …136・bg() …137・DISP …180・shelfLayer() …181・■ 絵：毎コマ …195・bubble() …196・view() …197・draw() …198・fxCtx() …221・click() …222・公開 MinatoStoreView …224
 
 ## js/money-core.js（66行）
 
