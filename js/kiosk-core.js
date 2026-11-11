@@ -185,9 +185,10 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     const c=Object.keys(SI).filter(k=>P[k].genre!=='hot'&&(shelf[k]||0)>0).map(k=>{const zs=Object.keys(SI[k].zones);const zf=Math.max(...zs.map(z=>SH.zone[z]??1));return [k,zf*(SH.genre[P[k].genre]??0.6)*Math.sqrt(SI[k].face)];}).filter(x=>x[1]>0);
     if(!c.length)return;let tot=c.reduce((a,x)=>a+x[1],0),u=rS()*tot,pid=c[c.length-1][0];for(const [k,w] of c){u-=w;if(u<=0){pid=k;break;}}
     shelf[pid]-=1;const g2=take(pid,1);shrinkCost+=g2.cost;shrinkN+=1;add(shrinkBy,pid,1);add(gapQ,pid,1);};
-  for(const v of visitors){tick(v.t);nowT=v.t;if(!anyOn(v.t)){closedN++;continue;}steal(v);const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
+  // 持ち物（WK.carryOf）は港駅の店だけ（A5）
+  for(const v of visitors){tick(v.t);nowT=v.t;if(!anyOn(v.t)){closedN++;continue;}steal(v);if(WK&&WK.carryOf)WK.carryOf(v);const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
     if(v.imp){   // なんとなく：棚全体から目に入った物（安い・手軽・映える・いま売れている物ほど）を手に取る
-      const all=Object.keys(SI).map(k=>P[k]).filter(c=>stockOf(c.id)>0&&!ix.G[c.genre].age&&!(M.fixed||[]).includes(c.genre));if(!all.length)continue;
+      const all=Object.keys(SI).map(k=>P[k]).filter(c=>stockOf(c.id)>0&&!ix.G[c.genre].age&&!(M.fixed||[]).includes(c.genre)&&!(WK&&WK.block&&WK.block(v,c.genre)));if(!all.length)continue;
       const ws=all.map(c=>c.w*SI[c.id].vis*(1+c.photo)*(priceOf(c.id)<=200?1.4:0.8)*(c.ease/5)*herdF(c.id,v.t)*(moodG[c.genre]||1)*buzzF(c.id)*trendOn(c)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(priceOf(c.id)/c.price-1)));
       const c=all[pickW(ws,r)],S2=cfg.service,WP=WK?WK.plan(v,[[c.id,1]],S2.base+(v.em?S2.emoney:S2.cash)+(c.genre==='hot'?S2.hot:0)):null;
       const [k2,st2]=WP?[WP.k,WP.start]:pickS(v.t),qd=st2>(WP?WP.t:v.t)+0.2;   // 会計に人が並んでいると気になる
@@ -198,7 +199,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       const g2=takeShelf(c.id,1);if(!g2.got)continue;
       const y2=g2.got*priceOf(c.id);add(sold,c.id,g2.got);add(gross,c.id,y2);add(cogs,c.id,g2.cost);hourly[h]+=y2;hourlyN[h]++;add(byPs,v.ps,1);
       const mot=qd?'queue':'impulse';add(motives,mot,1);ev.push({t:st2,k:'buy',ps:v.ps,items:[[c.id,g2.got]],yen:y2,em:v.em,wait:st2-v.t,mot,by:hasCrew&&!(WP&&WP.lane==='s')?W[k2].p.id:undefined});recent.push({t:st2,pid:c.id});
-      if(WP){Object.assign(ev[ev.length-1],{wait:+WP.wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2)});if(v.trip)ev[ev.length-1].trip=v.trip.id;WK.after(WP,[[c.id,g2.got]],ev);}
+      if(WP){const e1=ev[ev.length-1];Object.assign(e1,{wait:+WP.wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2)});if(v.trip)e1.trip=v.trip.id;if(v.carry)e1.carry=v.carry;if(WP.rush)e1.rush=true;WK.after(WP,[[c.id,g2.got]],ev);}
       if(r()<ps.sns*c.photo*0.35){const p2={t:st2+2,pid:c.id,ps:v.ps,good:true};posts.push(p2);ev.push({t:p2.t,k:'sns',pid:c.id,ps:v.ps,good:true});}
       continue;}
     const minor=v.a===0;
@@ -207,10 +208,12 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     if(target)want=P[target].genre;
     else{const gw=cfg.genres.map(g=>{let w=g.base*(ps.pref[g.id]??1)*hm(g.hours,h)*((g.season&&g.season[ctx.cond.season])||1)*((g.wx&&g.wx[ctx.cond.wx])??1);
         if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w*(moodG[g.id]||1)*fG(g.id)*(WK&&WK.gMul?WK.gMul(v,g.id):1)*(v.trash&&WK?WK.trashG(v,g.id):1);});   // 歩く店（港駅）：その人の道（どこから・どこへ）で、ほしいジャンルが変わる
-      want=cfg.genres[pickW(gw,r)].id;}
+      want=cfg.genres[pickW(gw,r)].id;
+      const sk=WK&&WK.seek?WK.seek(v):null;   // 酔い止めを探す人（港駅の店だけ・A5）：売っていないので帰るか、のど飴・ガムを代わりに
+      if(sk){if(sk.miss){want='daily';add(reasons,'置いていない',1);const e={t:v.t,k:'look',ps:v.ps,pid:null,genre:want,want:sk.want,why:'置いていない',reg:false,mania:false};if(v.carry)e.carry=v.carry;ev.push(e);continue;}want=sk.genre;}}
     // どれを選ぶか（棚に見えている物から）
     const cands=ix.byG[want].filter(it=>SI[it.id]);
-    const logLook=(pid,why)=>{add(looked,pid||('g:'+want),1);add(reasons,why,1);ev.push({t:v.t,k:'look',ps:v.ps,pid,genre:want,why,reg:!!v.reg,mania:!!v.mania});};
+    const logLook=(pid,why)=>{add(looked,pid||('g:'+want),1);add(reasons,why,1);const e={t:v.t,k:'look',ps:v.ps,pid,genre:want,why,reg:!!v.reg,mania:!!v.mania};if(v.carry)e.carry=v.carry;ev.push(e);};
     if(!cands.length){add(miss,want,1);logLook(null,'置いていない');if(v.reg)regEvents.push({g:v.reg,ok:false,why:'置いていない'});continue;}
     let it;if(target&&SI[target])it=P[target];
     else{const ws=cands.map(c=>{const pr=priceOf(c.id)/c.price;return c.w*SI[c.id].vis*repF(c.id)*buzzF(c.id)*trendOn(c)*herdF(c.id,v.t)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(pr-1))*(stockOf(c.id)>0?1:0.6)*(SD&&SD.tag.pids[c.id]&&v.t>=SD.tag.from&&v.t<SD.tag.to?SD.tag.k:1);});it=cands[pickW(ws,r)];}   // 「できたて」の札（ctx.sameday があるときだけ・効き目は仮）
@@ -228,12 +231,13 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     const items=[[it.id,v.mania?(1+Math.floor(r()*3)):1]];
     // かご：最初の品との相性で、もう1品・2品…と足す（関係のない品を手に取る人も、同じ品を2つの人もいる）
     const BK=cfg.basket;if(BK&&!v.mania){const bh=hm(BK.hours,h),bp=BK.ps[v.ps]??1;let pr=BK.add*bp*bh*(v.reg?0.5:1)*fBk*(WK?WK.basketMul(v):1);
-      const have=new Set(items.map(x=>x[0])),ok=c=>SI[c.id]&&stockOf(c.id)>0&&!have.has(c.id)&&!(ix.G[c.genre].age&&minor)&&c.genre!=='tobacco'&&(c.genre!=='hot'||hotStock(c.id)>0);
+      const have=new Set(items.map(x=>x[0])),ok=c=>SI[c.id]&&stockOf(c.id)>0&&!have.has(c.id)&&!(ix.G[c.genre].age&&minor)&&c.genre!=='tobacco'&&(c.genre!=='hot'||hotStock(c.id)>0)&&!(WK&&WK.block&&WK.block(v,c.genre));
       if(rB()<BK.double*bp&&['colddrink','onigiri','gummy','coffee','bread'].includes(it.genre))items[0][1]=2;
       for(let n=1;n<BK.max&&rB()<pr;n++){const base=P[items[0][0]].genre,PR=BK.pairs[base]||{};let pick=null,kind;
         if(rB()<BK.unrelated){const all=Object.keys(SI).map(k=>P[k]).filter(ok);if(all.length){pick=all[pickW(all.map(c=>c.w*SI[c.id].vis),rB)];kind='r';}}
         else{const gs=Object.keys(PR).filter(g=>ix.byG[g]&&ix.byG[g].some(ok));if(gs.length){const g=gs[pickW(gs.map(g=>PR[g]*((cfg.genres.find(x=>x.id===g)||{}).season?.[ctx.cond.season]||1)),rB)];const cs=ix.byG[g].filter(ok);pick=cs[pickW(cs.map(c=>c.w*SI[c.id].vis*repF(c.id)),rB)];kind='p';}}
         if(!pick)break;items.push([pick.id,1,kind]);have.add(pick.id);pr*=BK.decay;}}
+    if(WK&&WK.cap)WK.cap(v,items);   // 両手がふさがる荷物の人は、買う品が少ない（港駅の店だけ・A5）
     const S=cfg.service;let svc=S.base+S.perItem*(items.length-1)+(v.em?S.emoney:S.cash);for(const [pid] of items){if(P[pid].genre==='hot')svc+=S.hot;if(ix.G[P[pid].genre].age)svc+=S.age;}
     const WP=WK?WK.plan(v,items,svc):null;   // 歩く店：店の中を回ってからレジへ（有人かセルフか）
     const [k0,start]=WP?[WP.k,WP.start]:pickS(v.t),wait=WP?WP.wait:start-v.t;if(!WP)svc/=KS.speed(cfg,W[k0].p,'reg');
@@ -251,7 +255,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       mot=best&&r()<fx[best]/(1+fx[best])?best:(mp.genre==='umbrella'&&(ctx.cond.wx==='rain'||ctx.cond.wx==='snow'))?'rain':'plan';}
     add(motives,mot,1);recent.push({t:start,pid:bought[0][0]});if(recent.length>60)recent.splice(0,20);
     const selfL=!!(WP&&WP.lane==='s'),e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1,by:hasCrew&&!selfL?W[k0].p.id:undefined};ev.push(e);
-    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2),dw:+(v.dw||1.5).toFixed(1)});if(v.trip)e.trip=v.trip.id;if(WP.guide)e.guide=WP.guide;if(WP.age)e.age=WP.age;if(v.trash)e.trash=true;   // guide：有人レジへ案内された・age：年齢確認（self セルフで店員／staffed 有人で確認）・trash：ごみのついで（A4）   // trip：どこから・どこへの道の id（港駅の店だけ）   // dw：その時台の電車までの分のめやす（絵の「急いでいる人」用・A2。結果は変えない）
+    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2),dw:+(v.dw||1.5).toFixed(1)});if(v.trip)e.trip=v.trip.id;if(WP.guide)e.guide=WP.guide;if(WP.age)e.age=WP.age;if(v.trash)e.trash=true;if(v.carry)e.carry=v.carry;if(WP.rush)e.rush=true;   // guide：有人レジへ案内された・age：年齢確認（self セルフで店員／staffed 有人で確認）・trash：ごみのついで（A4）   // trip：どこから・どこへの道の id（港駅の店だけ）   // dw：その時台の電車までの分のめやす（絵の「急いでいる人」用・A2。結果は変えない）
      WK.after(WP,bought,ev);}
     if(v.reg)regEvents.push({g:v.reg,ok:true});
     // 評価

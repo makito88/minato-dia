@@ -80,7 +80,7 @@ function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.n
       <button type="button" class="ks-btn pri" id="msOpen">港駅・改札口の前に「港の店」を出す</button></div>`;
     top.querySelector('#msOpen').onclick=openStore;return;}
   const S=V.st,c=gCond();sub.textContent=`運行日${gDay()}（開店${gDay()-S.openedDay+1}日目）・${DAYN[c.day]||''}・${WXN[c.wx]||''}・歩く店・有人1＋セルフ1`;
-  const P=PSN(),ps=['shf','salM','salF','stu','jk','sen','tou','hou','fam','cpl','frd'].filter(k=>P[k]);
+  const P=PSN(),ps=['shf','salM','salF','stu','jk','sen','tou','hou','fam','cpl','frd','mkt','fer','evt','smn'].filter(k=>P[k]);
   const h=`<div class="ks-card ms-top"><p class="ks-note" style="margin:0">斜め上から見た店の中です。人は、売店の計算で起きた出来事（買った・見て帰った・列で帰った・セルフで迷った・イートイン）を時刻の順に描いたものです。
     <span class="ks-lst">未接続</span> センターへの記録・センターからの配送会社の便・お金の流れ</p>${omCard()}<div id="msLocal"></div>
     <div class="ms-leg">${ps.map(k=>`<span><i style="background:${P[k].icon}"></i>${esc(P[k].short)}</span>`).join('')}</div>
@@ -133,7 +133,9 @@ function mk(w,h,f){const c=document.createElement('canvas');c.width=w*SC;c.heigh
 const LOOK={salM:{body:'#3a4a6a',hair:'#2b2016',acc:'tie'},salF:{body:'#8a5b7a',hair:'#3a2618'},jk:{body:'#f2f2f2',skirt:'#24345a',hair:'#2b2016',acc:'ribbon'},stu:{body:'#1f2630',hair:'#1a1410'},
   sen:{body:'#7a6a5a',hair:'#c9c9c9',acc:'cane'},tou:{body:'#d9822b',hair:'#5a3a20',acc:'flag'},hou:{body:'#5b8a3a',hair:'#3a2618',acc:'bag'},shf:{body:'#7d7a4a',hair:'#2b2016',acc:'vest',cap:'#3c4a2a'},
   cru:{body:'#f4f0e6',hair:'#b08a5a',acc:'hat'},fam:{body:'#e07a5f',hair:'#3a2618',acc:'bag',with:{body:'#f2c14e',hair:'#3a2618',kid:true}},
-  cpl:{body:'#c9578a',hair:'#2b2016',with:{body:'#4a6a8a',hair:'#2b2016'}},frd:{body:'#8a6ad0',hair:'#1a1410',with:{body:'#3aa38a',hair:'#5a3a20'}},clerk:{body:'#2f8a6e',hair:'#2b2016',acc:'apron',cap:'#2f8a6e'}};
+  cpl:{body:'#c9578a',hair:'#2b2016',with:{body:'#4a6a8a',hair:'#2b2016'}},frd:{body:'#8a6ad0',hair:'#1a1410',with:{body:'#3aa38a',hair:'#5a3a20'}},clerk:{body:'#2f8a6e',hair:'#2b2016',acc:'apron',cap:'#2f8a6e'},
+  // A5 の新しい客層（色だけ。持ち物と姿は A6）
+  mkt:{body:'#3a7a8a',hair:'#2b2016',acc:'vest',cap:'#e8e8e0'},fer:{body:'#2a8ab0',hair:'#5a3a20',acc:'bag'},evt:{body:'#d0a020',hair:'#1a1410',with:{body:'#4a4a6a',hair:'#3a2618'}},smn:{body:'#5a5a8a',hair:'#2b2016',acc:'tie'}};
 function fig(c,cx,L,st,back){c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(cx,40,8,3,0,0,7);c.fill();
     c.strokeStyle='#2a2a30';c.lineWidth=3;c.lineCap='round';c.beginPath();c.moveTo(cx-3,30);c.lineTo(cx-3+st,39);c.moveTo(cx+3,30);c.lineTo(cx+3-st,39);c.stroke();
     if(L.skirt){c.fillStyle=L.skirt;c.beginPath();c.moveTo(cx-7,26);c.lineTo(cx+7,26);c.lineTo(cx+8,32);c.lineTo(cx-8,32);c.closePath();c.fill();}

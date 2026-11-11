@@ -9,6 +9,8 @@
    ・A4（2026-11-11・設定に age・care・localShelve・trash があるときだけ）：年齢確認（セルフでお酒→店員が呼ばれる・有人は若く見える客層だけ）／
      気配り（有人レジへ案内 guide・もう1人がレジに入る cover。強さは店員の「接客」careOf）／地元のお店の品は店員が並べてから棚へ（shelveAt）／
      ごみだけの人・ごみのついでに買う人（trash）。気配りの乱数は自分の種（'care'）、ごみの人は（'trash'）。
+   ・A5（2026-11-11・設定に carry・newPs・rush・self.svcPs があるときだけ）：持ち物（carryOf。人ごとの種 'carry'）／新しい客層4つ（市場帰り・船に乗る・
+     イベント帰り・セミナー。種 'newps'・催しの日は 'hall'）／会計の速さ（セルフは客層ごと self.svcPs・急いでいる人 rush は両方のレジで速い。種 'rush'）。
    ・DOM もゲーム本体の変数も使わない。
    ===================================================================== */
 (function(root){
@@ -17,8 +19,8 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 /* h：KioskCore の道具（hash・rng・poisson・pickW）。o：{R, DW, O0, O1, ageMix} */
 function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx.day,state.st,state.place,'walk'));
   const gz=()=>{const u=Math.max(1e-9,r()),v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(6.2832*v);};
-  const S={shift:0,cruise:0,self:0,staffed:0,selfHelp:0,queueLeft:0,eatIn:0,eatFull:0,range:0,stay:0,stayN:0,items:0,ageSelf:0,ageF:0,guide:0,cover:0,regStop:0,trashOnly:0,trashBuy:0,trash:0};
-  const AG=W.age||null,CR=W.care||null,TS=W.trash||null,rC=h.rng(h.hash(state.seed,ctx.day,state.st,state.place,'care')),extraEv=[];
+  const S={shift:0,cruise:0,self:0,staffed:0,selfHelp:0,queueLeft:0,eatIn:0,eatFull:0,range:0,stay:0,stayN:0,items:0,ageSelf:0,ageF:0,guide:0,cover:0,regStop:0,trashOnly:0,trashBuy:0,trash:0,newPs:{},carry:{},seek:0,seekLeft:0,rush:0,capped:0};
+  const AG=W.age||null,CR=W.care||null,TS=W.trash||null,CA=W.carry||null,NP=W.newPs||null,RU=W.rush||null,rC=h.rng(h.hash(state.seed,ctx.day,state.st,state.place,'care')),extraEv=[];
   /* 気配り（A4）：その店員がするか。接客がていねい・ふつうの店員はたいてい、そっけない店員とやる気の低い店員はときどき（数字は仮） */
   const careP=w=>{if(!CR)return 0;const p=w.p,lo=(p.skill&&p.skill.care||1)<=(CR.loCare??0.92)||(p.morale??60)<(CR.loMorale??45);return lo?(CR.lo??0.35):(CR.hi??0.9);};
   const ageItems=items=>items.filter(([pid])=>B.ix.G[B.ix.P[pid].genre].age).length;
@@ -36,7 +38,43 @@ function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx
       const at=()=>{let u=rt()*len;for(const [x,y] of hs){if(u<y-x)return (x+u)*60;u-=y-x;}return hs[0][0]*60;};
       const nO=h.poisson(TS.only||0,rt);for(let i=0;i<nO;i++){const t=at(),ps=ks[h.pickW(ks.map(k=>PSW[k]),rt)];if(t<o.O0||t>=o.O1)continue;extraEv.push({t,k:'trash',ps});}
       const nB=h.poisson(TS.buy||0,rt);for(let i=0;i<nB;i++){const t=at(),ps=ks[h.pickW(ks.map(k=>PSW[k]),rt)];if(t<o.O0||t>=o.O1)continue;out.push({t,p:3,a:(TS.age||{})[ps]??2,ps,em:rt()<(TS.em??0.6),dw:o.DW[Math.floor(t/60)]||1.5,trash:true});S.trashBuy++;}}
+    /* 新しい客層4つ（A5・設定 newPs があるときだけ。港駅の店だけ）：市場帰り・船に乗る人・イベント帰り・セミナーに行く人。乱数は自分の種（'newps'）、港浜ホールの催しの日は（'hall'） */
+    if(NP){const rn=h.rng(h.hash(state.seed,ctx.day,state.st,state.place,'newps')),rh=h.rng(h.hash(state.seed,ctx.day,'hall')),dk=ctx.cond&&ctx.cond.day||'wd';
+      const inH=(hs,u)=>{const len=hs.reduce((a,[x,y])=>a+(y-x),0);let x=u*len;for(const [a,b] of hs){if(x<b-a)return (a+x)*60;x-=b-a;}return hs[0][0]*60;};
+      const add=(id,n,tOf)=>{const N=NP[id];if(!N||!cfg.personas.some(p=>p.id===id))return;for(let i=0;i<n;i++){const t=tOf(),hh=Math.floor(t/60);if(t<o.O0||t>=o.O1)continue;
+        out.push({t,p:N.p||0,a:Math.max(0,h.pickW(N.a||[0,1],rn)),ps:id,em:rn()<(N.em??0.6),dw:o.DW[hh]||1.5,np:id});S.newPs[id]=(S.newPs[id]||0)+1;}};
+      const hall={};for(const id of Object.keys(NP)){const N=NP[id];if(N.days)hall[id]=rh()<(N.days[dk]||0);}   // 港浜ホールの催しがある日か（同じ日なら同じ）
+      for(const id of Object.keys(NP)){const N=NP[id];if(N.closed&&((N.closed.day||[]).includes(dk)||(N.closed.dow||[]).includes(ctx.dow)))continue;
+        if(N.days&&!hall[id])continue;
+        const hs=N.hours||[[8,18]];
+        if(N.n)add(id,h.poisson(N.n,rn),()=>inH(hs,rn()));
+        if(N.base)add(id,h.poisson(N.base[dk]||0,rn),()=>inH(hs,rn()));
+        const C=ctx.cruise;if(N.cruise&&C&&C.pax>0&&cru&&(cru.strength||0)>0){const [b0,b1]=N.cruiseBefore||[90,20];add(id,h.poisson(C.pax*N.cruise,rn),()=>C.to-b0+rn()*(b0-b1));}}}
     return out;}
+  /* 持ち物（A5・設定 carry があるときだけ）：買い物に効く持ち物を、人ごとの種（'carry'）で決める。同じ人なら同じ。null＝なし */
+  const carryOf=v=>{if(v.carry!==undefined)return v.carry;v.carry=null;if(!CA)return null;
+    const rc=h.rng(h.hash(state.seed,ctx.day,state.st,state.place,'carry',Math.round(v.t*1000),v.ps,v.a)),hh=Math.floor(v.t/60),out=[];let n=0;
+    for(const k of CA.kinds){const u=rc();if(k.pay==='em'&&!v.em||k.pay==='cash'&&v.em)continue;
+      let p;if(k.wx){if(!(ctx.cond&&k.wx.includes(ctx.cond.wx)))continue;p=k.p??0.8;}else p=(k.ps&&k.ps[v.ps])??k.psDefault??0;
+      if(k.hours&&k.hours.some(([a,b])=>hh>=a&&hh<b))p*=k.hMul||1;
+      if(u>=p)continue;if(!k.wx){if(n>=(CA.max||2))continue;n++;}
+      out.push(k.id);S.carry[k.id]=(S.carry[k.id]||0)+1;if(k.trash)S.trash++;}   // 空き缶・ペットボトル：まずごみ箱へ（ごみのたまる早さに足す）
+    if(out.length)v.carry=out;return v.carry;};
+  const KI={};if(CA)for(const k of CA.kinds)KI[k.id]=k;
+  const has=(v,id)=>{const c=carryOf(v);return !!(c&&c.includes(id));};
+  /* 持ち物で、ほしいジャンルの重さが変わる（マイボトル・濡れた傘・子ども・空き缶）。傘を持っていない人は雨の日に傘を買いやすい */
+  const carryG=(v,g)=>{if(!CA)return 1;const c=carryOf(v);let m=1;if(c)for(const id of c){const k=KI[id];if(k&&k.genre&&k.genre[g]!=null)m*=k.genre[g];}
+    const U=KI.umb;if(U&&U.without&&U.without[g]!=null&&ctx.cond&&U.wx.includes(ctx.cond.wx)&&!(c&&c.includes('umb')))m*=U.without[g];return m;};
+  /* 持ち物で、そのジャンルを買わない（濡れた傘の人は傘を買わない）。かごに足す品・なんとなく手に取る品にも効かせる */
+  const block=(v,g)=>{if(!CA)return false;if(v.cb===undefined){const c=carryOf(v);v.cb=null;if(c)for(const id of c){const k=KI[id];if(k&&k.genre)for(const gg in k.genre)if(k.genre[gg]===0)(v.cb||(v.cb={}))[gg]=1;}}return !!(v.cb&&v.cb[g]);};   // 人ごとに1回だけ調べる
+  /* 酔い止めを探す（乗船券の人）：売っていないので、leave の人は「置いていない」で帰り、ほかは代わりのジャンル。null＝探さない */
+  const seek=v=>{const K=KI.ticket;if(!K||!has(v,'ticket'))return null;const rs=h.rng(h.hash(state.seed,ctx.day,'seek',Math.round(v.t*1000),v.ps));
+    if(rs()>=(K.seek??0.5))return null;S.seek++;if(rs()<(K.leave??0.5)){S.seekLeft++;return {miss:true,want:'酔い止め'};}return {genre:K.alt||'gummy',want:'酔い止め'};};
+  /* 両手がふさがる荷物：買う品は maxItems まで（かごを持てない） */
+  const cap=(v,items)=>{const K=KI.load;if(!K||!has(v,'load'))return;const m=K.maxItems||2;let n=0;for(let i=0;i<items.length;i++){if(n>=m){items.length=i;S.capped++;break;}if(items[i][1]>m-n)items[i][1]=m-n;n+=items[i][1];}};
+  /* 急いでいる人（A5・設定 rush があるときだけ）：電車までの余りが短く、店にいる時間も短い人。乱数は人ごとの種（'rush'） */
+  const rushOf=v=>{if(v.rush!==undefined)return v.rush;v.rush=false;if(!RU)return false;const rr=h.rng(h.hash(state.seed,ctx.day,'rush',Math.round(v.t*1000),v.ps));
+    const slack=rr()*2*Math.max(0.5,v.dw||1.5);v.rush=slack<(RU.pad??1.5)&&stayOf(v)<=(RU.stay??3);return v.rush;};
   /* ごみのついでに買う人のほしいジャンル（A4）：お菓子の棚だけ */
   const trashG=(v,g)=>v.trash&&TS?((TS.genre||{})[g]||0):1;
   /* どこから・どこへ・なぜ（2026-11-11・設定 walk.trip があるときだけ）：客層とその時台に合う道を1つ選ぶ。乱数は自分の種（'trip'）だけ */
@@ -44,31 +82,35 @@ function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx
   const tripOf=v=>{if(!TR)return null;if(v.trip!==undefined)return v.trip;const hh=Math.floor(v.t/60),off=W.trip.off??0.05;
     const L=TR.filter(x=>x.ps.includes(v.ps));if(!L.length){v.trip=null;return null;}
     const ws=L.map(x=>(x.w||1)*((x.hours||[]).some(([a,b])=>hh>=a&&hh<b)?1:off));v.trip=L[h.pickW(ws,rT)];return v.trip;};
-  const gMul=(v,g)=>{const x=tripOf(v);return x&&x.genre&&x.genre[g]!=null?x.genre[g]:1;};
+  const gMul=(v,g)=>{const x=tripOf(v);return (x&&x.genre&&x.genre[g]!=null?x.genre[g]:1)*(CA?carryG(v,g):1);};   // A5：持ち物の分もかける
   /* 店にいる分（人ごと。対数のぶれ）。道（trip）の stay 倍をかける */
-  const stayOf=v=>{if(v.stay==null){const m=W.stay[v.ps]||3.5;v.stay=+(m*Math.exp((W.stay.sd||0.3)*gz())).toFixed(2);if(v.imp)v.stay=+(v.stay*0.6).toFixed(2);const x=tripOf(v);if(x&&x.stay)v.stay=+(v.stay*x.stay).toFixed(2);}return v.stay;};
-  const basketMul=v=>{const K=W.stayBasket||{};return clamp(Math.pow(stayOf(v)/(K.ref||3.5),K.pow||0.5),K.min||0.6,K.max||2);};
+  const stayOf=v=>{if(v.stay==null){const sp=CA&&has(v,'phone')?(KI.phone.stay||1):1;const m=W.stay[v.ps]||3.5;v.stay=+(m*Math.exp((W.stay.sd||0.3)*gz())).toFixed(2);if(v.imp)v.stay=+(v.stay*0.6).toFixed(2);const x=tripOf(v);if(x&&x.stay)v.stay=+(v.stay*x.stay).toFixed(2);if(sp!==1)v.stay=+(v.stay*sp).toFixed(2);}return v.stay;};   // A5：スマホだけの人はまっすぐ寄り
+  const basketMul=v=>{const K=W.stayBasket||{};return clamp(Math.pow(stayOf(v)/(K.ref||3.5),K.pow||0.5),K.min||0.6,K.max||2)*(CA&&has(v,'cart')?(KI.cart.basket||1):1);};   // A5：シルバーカーは少し多めに
   const qLen=(q,t)=>{let n=0;for(let i=q.length-1;i>=0;i--)if(q[i]>t)n++;return n;};
   /* 会計の計画（まだ決めない）。svc＝秒（店員の速さで割る前）。返すもの：{lane:'f'有人|'s'セルフ, k, start, end, wait, qn, full} */
   function plan(v,items,svc){const t=v.t+stayOf(v),SF=W.self||{},I=B.ix,noSelf=items.some(([pid])=>(SF.noSelf||[]).includes(I.P[pid].genre)||(!AG&&I.G[I.P[pid].genre].age));   // A4：年齢確認の設定があれば、お酒もセルフで買える（店員が呼ばれて確認する）
     const [k,eff]=B.pickS(t),fStart=Math.max(eff,regFree),sStart=Math.max(t,selfFree);
     let lane='f';
-    if(!noSelf&&(W.registers.self||0)>0){const like=r()<((SF.pick||{})[v.ps]??0.5),sw=SF.switch||3;
+    if(!noSelf&&(W.registers.self||0)>0){let pk=(SF.pick||{})[v.ps]??0.5;if(CA){if(has(v,'phone'))pk=Math.min(0.95,pk*(KI.phone.pick||1));if(has(v,'coin'))pk*=KI.coin.pick??1;}   // A5：スマホだけの人はセルフへ・小銭入れの人は有人へ
+      const like=r()<pk,sw=SF.switch||3;
       lane=like?(sStart>fStart+sw?'f':'s'):(fStart>sStart+sw&&r()<0.5?'s':'f');}
     if(lane==='f'&&k<0)lane=noSelf?'f':'s';
     // 年齢確認（A4）：nA＝年齢の確認がいる品の数（会計の秒数 svc には、品ごとに service.age が入っている）
     const nA=AG?ageItems(items):0,young=nA>0&&(AG.young||[]).includes(v.ps);
     // 気配り：有人レジへ案内（A4）。セルフで店員を呼ぶことになりそうな人を、有人レジがすいているときだけ、レジに並ぶ前に有人レジへ
     let guide=null;
-    if(CR&&lane==='s'&&k>=0&&fStart<=t+(CR.guideFree??0.3)){const likely=nA>0||((SF.confuse||{})[v.ps]??0.05)>=(CR.guideConfuse??0.1)||items.reduce((a,x)=>a+x[1],0)>=(CR.guideItems??4);
+    if(CR&&lane==='s'&&k>=0&&fStart<=t+(CR.guideFree??0.3)){const likely=nA>0||(CA&&KI.coin&&KI.coin.guide&&has(v,'coin'))||((SF.confuse||{})[v.ps]??0.05)>=(CR.guideConfuse??0.1)||items.reduce((a,x)=>a+x[1],0)>=(CR.guideItems??4);
       if(likely){let who=-1,bp=0;for(let j=0;j<B.W.length;j++)if(B.onAt(B.W[j],t)){const cp=careP(B.W[j]);if(cp>bp){bp=cp;who=j;}}
         if(who>=0&&rC()<bp){lane='f';guide=B.W[who].p.id;}}}
     const start=lane==='s'?sStart:fStart,q=lane==='s'?qS:qF,qn=qLen(q,t);
     const svc2=AG&&nA>0&&!(lane==='f'&&young)?svc-nA*(cfg.service.age||0):svc;   // 有人レジで確認するのは若く見える客層だけ。セルフは画面では確認しない（店員が来る）
-    const sec=lane==='s'?svc2*(SF.svcMul||1.3):svc2/B.speed(k);
-    return {v,t,lane,k,start,end:start+sec/60,wait:start-t,qn,full:qn>=(W.queueMark||99),items,guide,age:nA>0?(lane==='s'?'self':young?'staffed':null):null};}
+    // 会計の速さ（A5）：セルフは客層ごと（svcPs）・スマホだけの人はもっと速い・エコバッグは少し短い・急いでいる人はどちらのレジでも速い
+    const svc3=Math.max(3,svc2-(CA&&has(v,'eco')?(KI.eco.sec||0):0)),ru=RU&&rushOf(v)?(RU.mul??0.8):1;
+    const sm=lane==='s'?((SF.svcPs&&SF.svcPs[v.ps])??(SF.svcMul||1.3))*(CA&&has(v,'phone')?(KI.phone.selfMul||1):1):1;
+    const sec=(lane==='s'?svc3*sm:svc3/B.speed(k))*ru;
+    return {v,t,lane,k,start,end:start+sec/60,wait:start-t,qn,full:qn>=(W.queueMark||99),items,guide,rush:ru!==1,age:nA>0?(lane==='s'?'self':young?'staffed':null):null};}
   /* 会計を決める（品を渡したあとに呼ぶ）。セルフで迷ったら店員を呼ぶ（有人レジが止まる） */
-  function commit(p,ev){const SF=W.self||{};S.stay+=p.v.stay;S.stayN++;
+  function commit(p,ev){const SF=W.self||{};S.stay+=p.v.stay;S.stayN++;if(p.rush)S.rush++;
     if(p.guide){ev.push({t:Math.max(p.v.t,p.t-0.3),k:'guide',ps:p.v.ps,by:p.guide});S.guide++;}
     if(p.age==='staffed')S.ageF++;
     if(p.lane==='f'){regFree=p.end;B.free[p.k]=p.end;qF.push(p.start);S.staffed++;}
@@ -120,7 +162,8 @@ function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx
   const bind=b=>{B=b;};
   const stats=()=>({shift:S.shift,cruise:S.cruise,self:S.self,staffed:S.staffed,selfShare:S.self+S.staffed?+(S.self/(S.self+S.staffed)).toFixed(3):0,selfHelp:S.selfHelp,queueLeft:S.queueLeft,
     eatIn:S.eatIn,eatSit:S.eatSit||0,eatFull:S.eatFull,range:S.range,stayAvg:S.stayN?+(S.stay/S.stayN).toFixed(2):0,
+    ...(NP||CA||RU?{newPs:S.newPs,carry:S.carry,seek:S.seek,seekLeft:S.seekLeft,rush:S.rush,capped:S.capped}:{}),
     ...(AG||CR||TS?{ageSelf:S.ageSelf,ageF:S.ageF,guide:S.guide,cover:S.cover,regStop:+S.regStop.toFixed(1),trashOnly:S.trashOnly,trashBuy:S.trashBuy,trash:S.trash}:{})});
-  return {visitors,stayOf,basketMul,plan,commit,left,after,bind,stats,tripOf,gMul,trashG,shelveAt,extra};}
+  return {visitors,stayOf,basketMul,plan,commit,left,after,bind,stats,tripOf,gMul,trashG,shelveAt,extra,carryOf,seek,cap,rushOf,block};}
 root.KioskWalk={begin};
 })(typeof window!=='undefined'?window:globalThis);

@@ -66,6 +66,10 @@
    "fam": 6,
    "cpl": 5,
    "frd": 4.5,
+   "mkt": 1.8,
+   "fer": 3,
+   "evt": 3.5,
+   "smn": 2,
    "sd": 0.35,
    "note": "店の中にいる分（真ん中の値）。急ぐ人は短く、観光客は長い。人ごとに sd のぶれ（対数）"
   },
@@ -126,7 +130,11 @@
     "cru": 0.3,
     "fam": 0.4,
     "cpl": 0.55,
-    "frd": 0.6
+    "frd": 0.6,
+    "mkt": 0.35,
+    "fer": 0.5,
+    "evt": 0.6,
+    "smn": 0.7
    },
    "confuse": {
     "salM": 0.03,
@@ -140,13 +148,19 @@
     "cru": 0.18,
     "fam": 0.08,
     "cpl": 0.06,
-    "frd": 0.05
+    "frd": 0.05,
+    "mkt": 0.06,
+    "fer": 0.08,
+    "evt": 0.05,
+    "smn": 0.03
    },
    "help": [
     1.5,
     3.5
    ],
    "helpNote": "セルフで迷うと店員が呼ばれ、そのあいだ（分・幅）有人レジが止まる",
+   "svcPs": {"salM": 1.0, "salF": 1.0, "jk": 1.0, "stu": 1.0, "shf": 1.0, "smn": 1.0, "evt": 1.1, "frd": 1.05, "cpl": 1.1, "hou": 1.2, "fam": 1.25, "mkt": 1.2, "fer": 1.2, "tou": 1.4, "cru": 1.4, "sen": 1.6},
+   "svcPsNote": "セルフの会計の速さ（有人レジの何倍。A5・2026-11-11・ユーザー「急いでいる人は特に早い」・数字は仮）。学生・会社員・交代で働く人は慣れていて有人とほぼ同じ、年配の人・観光客・客船の客は遅い。ない客層は svcMul",
    "switch": 3,
    "switchNote": "好きなレジの列が、もう一方より switch 分以上長いと、もう一方へ"
   },
@@ -181,6 +195,10 @@
    "label": "ごみのついでに",
    "note": "ごみの人（A4・2026-11-11・数字は仮）。only：ごみだけ捨てに来る人（1日の平均。買わない。出来事 trash）。buy：ごみを捨てに来て、ついでにお菓子の棚（genre）に寄る人（1日の平均。来る人に足す。きっかけ trash）。来る時台 hours・客層 ps・年代 age。ごみ箱のたまる早さのめやすは、結果の walk.trash（イートインで食べた人＋ごみだけの人）"
   },
+  "carry": {"max": 2, "kinds": [{"id": "phone", "name": "スマホ・ミニ財布だけ", "pay": "em", "ps": {"salM": 0.55, "salF": 0.55, "jk": 0.6, "stu": 0.6, "shf": 0.4, "smn": 0.6, "evt": 0.55, "frd": 0.5, "cpl": 0.45, "fer": 0.3, "tou": 0.25, "hou": 0.2, "fam": 0.2, "cru": 0.15, "mkt": 0.2, "sen": 0.05}, "pick": 1.35, "selfMul": 0.95, "stay": 0.85}, {"id": "coin", "name": "小銭入れ", "pay": "cash", "ps": {"sen": 0.7, "hou": 0.5, "mkt": 0.6, "shf": 0.35}, "psDefault": 0.25, "pick": 0.3, "guide": true}, {"id": "can", "name": "空き缶・ペットボトル", "ps": {"shf": 0.14, "mkt": 0.12, "evt": 0.15, "stu": 0.1, "salM": 0.08, "frd": 0.08}, "psDefault": 0.04, "hours": [[12, 24]], "hMul": 1.5, "genre": {"snack": 1.3, "gummy": 1.3}, "trash": true}, {"id": "bottle", "name": "マイボトル", "ps": {"salF": 0.2, "smn": 0.25, "salM": 0.1, "sen": 0.12, "hou": 0.1}, "psDefault": 0.05, "genre": {"colddrink": 0.35, "coffee": 0.35, "hotdrink": 0.35}}, {"id": "umb", "name": "濡れた傘", "wx": ["rain", "snow"], "p": 0.8, "genre": {"umbrella": 0}, "without": {"umbrella": 3}}, {"id": "load", "name": "両手がふさがる荷物", "ps": {"mkt": 0.85, "fer": 0.4, "cru": 0.2, "tou": 0.15}, "psDefault": 0.03, "maxItems": 2}, {"id": "cart", "name": "シルバーカー", "ps": {"sen": 0.15}, "basket": 1.25}, {"id": "kid", "name": "ベビーカー・子どもの手", "ps": {"fam": 0.7}, "genre": {"gummy": 1.5, "snack": 1.4, "donut": 1.3}}, {"id": "eco", "name": "エコバッグ", "ps": {"hou": 0.5, "sen": 0.35, "salF": 0.2}, "psDefault": 0.08, "sec": 2}, {"id": "ticket", "name": "酔い止めの箱・乗船券", "ps": {"fer": 0.9, "cru": 0.3}, "seek": 0.5, "leave": 0.5, "alt": "gummy"}], "note": "持ち物（A5・2026-11-11・数字はすべて仮）。お客さん一人ずつに、買い物に効く持ち物を kinds の順に確かさ（客層 ps・ない客層は psDefault・時台 hours は hMul 倍・天気 wx）で引き、max 個まで（umb は数えない）。乱数は自分の種（carry）。pay：em の人だけ（スマホ）・cash の人だけ（小銭入れ）。スマホ：セルフを選ぶ確かさ pick 倍・セルフの会計 selfMul 倍・店にいる時間 stay 倍（まっすぐ寄り）。小銭入れ：セルフを選ぶ確かさ pick 倍・気配りの「有人レジへ案内」の相手（guide）。空き缶：まずごみ箱（ごみのたまる早さに足す）・お菓子の棚に寄りやすい。マイボトル：飲み物が欲しくなる重さ genre 倍。濡れた傘：雨と雪の日の p の人。傘のジャンルは0、持っていない人は without 倍。両手がふさがる荷物：買う品は maxItems まで。シルバーカー：かごの品が basket 倍。ベビーカー・子どもの手：お菓子につられる。エコバッグ：会計 sec 秒短い。酔い止めの箱・乗船券：seek の人が酔い止めを探す（売っていない）→ leave の人は「置いていない」で帰り、ほかは alt（のど飴・ガム）を代わりに。絵だけの持ち物は A6"},
+  "newPs": {"mkt": {"name": "市場帰りの人", "p": 0, "n": 8, "hours": [[6, 9.5]], "closed": {"day": ["hol"], "dow": [3]}, "a": [0, 0.15, 0.35, 0.3, 0.2], "em": 0.35, "why": "魚市場（街のカルテ）の朝の仕事を終えた人。市場が休みの日（日曜・祝日・水曜〔仮〕）は来ない"}, "fer": {"name": "船に乗る人", "p": 2, "base": {"wd": 1.5, "sat": 4, "hol": 4}, "hours": [[8, 16]], "cruise": 0.008, "cruiseBefore": [90, 20], "a": [0.05, 0.25, 0.3, 0.2, 0.2], "em": 0.6, "why": "港浜客船ターミナル（街のカルテ）から船に乗る人。ふだんは島や港めぐりの船（仮・土日が多い）。客船が寄る日（港の島 js/port-core.js）は、客船に乗りこむ人が出る時刻の前に（客の数×cruise）"}, "evt": {"name": "イベント帰りの人", "p": 3, "days": {"wd": 0.15, "sat": 0.5, "hol": 0.5}, "n": 18, "hours": [[20.5, 22]], "a": [0.15, 0.4, 0.3, 0.1, 0.05], "em": 0.7, "why": "港浜ホール（街のカルテ）の催しのあと。催しがある日は日付と保存の種で決める（仮・土日に多い）。何人かで1つの会計"}, "smn": {"name": "セミナーに行く人", "p": 0, "days": {"wd": 0.3}, "n": 10, "hours": [[8.5, 9.75]], "a": [0, 0.35, 0.4, 0.2, 0.05], "em": 0.75, "why": "港浜ホールの朝のセミナー・研修に行く人。平日だけ（仮）"}},
+  "newPsNote": "新しい客層4つ（A5・2026-11-11・港駅の店だけ・多さはすべて仮）。来る日と時刻は今ある島から理由をつける（why）。n・base は1日の平均（ポアソン）。days は運行日の型（wd・sat・hol）ごとの、その日に催しがある確かさ（港浜ホール・日付と保存の種で決める）。closed の日は来ない。乱数は自分の種（newps と hall）。客層の好み・待てる長さは personas、店にいる時間は stay、セルフは self、道は trip",
+  "rush": {"pad": 1.5, "stay": 3, "mul": 0.8, "note": "急いでいる人（A5・2026-11-11・数字は仮）。電車までの余り（0〜2×その時台の電車までの分のめやす。乱数は carry）が pad 分より短く、店にいる時間が stay 分以下の人。どちらのレジでも会計が mul 倍（財布やスマホを先に出している）。買った出来事に rush"},
   "queueMark": 5,
   "queueMarkNote": "床の印（並べる人数）。レジの列がこれより長いと、最後尾に来た人は帰る",
   "eatIn": {
@@ -701,7 +719,11 @@
     "cru": 0.85,
     "fam": 0.8,
     "cpl": 1.0,
-    "frd": 1.0
+    "frd": 1.0,
+    "mkt": 1.1,
+    "fer": 1.15,
+    "evt": 1.0,
+    "smn": 1.2
    },
    "mpsDefault": 1.0,
    "mpsNote": "ふだん歩く速さ 約1.0〜1.4 m/秒（現）を、店の中では少しゆっくりに（仮）。年配の人・家族連れ・客船の客はゆっくり",
@@ -1554,7 +1576,11 @@
       "omiyage": 1.8,
       "colddrink": 1.2
      }
-    }
+    },
+    {"id": "mkt_out", "ps": ["mkt"], "from": "魚市場", "to": "電車", "why": "朝の仕事を終えて、帰りの1本", "hours": [[6, 10]], "w": 1, "stay": 0.8, "genre": {"colddrink": 1.5, "coffee": 1.4, "hotdrink": 1.3, "tobacco": 1.2}},
+    {"id": "fer_in", "ps": ["fer"], "from": "電車", "to": "客船のターミナル", "why": "船に乗る前に、飲み物と酔い止め・おみやげを急いで", "hours": [[8, 17]], "w": 1, "stay": 0.8, "genre": {"omiyage": 1.4, "colddrink": 1.3, "gummy": 1.4}},
+    {"id": "evt_out", "ps": ["evt"], "from": "港浜ホール", "to": "電車", "why": "催しのあと、何人かで飲み物とお酒", "hours": [[20, 23]], "w": 1, "stay": 1.0, "genre": {"colddrink": 1.4, "alcohol": 1.5, "snack": 1.2, "hot": 1.2}},
+    {"id": "smn_in", "ps": ["smn"], "from": "電車", "to": "港浜ホール", "why": "セミナーの前に、飲み物・のど飴・エナジー", "hours": [[8, 10]], "w": 1, "stay": 0.7, "genre": {"colddrink": 1.4, "energy": 1.4, "gummy": 1.4, "coffee": 1.3}}
    ]
   }
  },
@@ -1828,7 +1854,11 @@
    ],
    "male": 0.5,
    "note": "2〜3人。学生の友だちも、大人の友だちも。1つの会計。SNS に写真をよくのせる。立ち席でも座れる席でも。数字はすべて仮"
-  }
+  },
+  {"id": "mkt", "name": "市場帰りの人", "short": "市場", "icon": "#3a7a8a", "pref": {"colddrink": 1.8, "coffee": 1.6, "hotdrink": 1.5, "tobacco": 1.3, "onigiri": 1.2, "paper": 1.2, "energy": 1.1, "omiyage": 0.05, "magazine": 0.3, "gummy": 0.4, "donut": 0.4, "sand": 0.6}, "priceSens": 0.7, "patience": 0.8, "sns": 0.02, "review": 0.03, "taste": [2, 4, 4], "male": 0.7, "note": "魚市場の朝の仕事を終えた人（A5）。発泡スチロールの箱で両手がふさがる人が多い（持ち物 load）。飲み物1本。数字はすべて仮"},
+  {"id": "fer", "name": "船に乗る人", "short": "乗船", "icon": "#2a8ab0", "pref": {"omiyage": 2.0, "colddrink": 1.4, "gummy": 1.6, "snack": 1.2, "sand": 1.2, "onigiri": 1.1, "donut": 1.0, "alcohol": 0.6, "tobacco": 0.3, "paper": 0.5, "magazine": 0.6, "bento": 0.8}, "priceSens": 0.7, "patience": 0.7, "sns": 0.2, "review": 0.08, "taste": [3, 3, 3], "male": 0.5, "note": "客船のターミナルから船に乗る人（A5）。乗船券・酔い止めの箱（持ち物 ticket）。おみやげを急いで。数字はすべて仮"},
+  {"id": "evt", "name": "イベント帰りの人", "short": "イベント", "icon": "#d0a020", "group": true, "pref": {"colddrink": 1.6, "alcohol": 1.6, "snack": 1.4, "hot": 1.4, "gummy": 1.2, "cupmen": 0.8, "paper": 0.1, "tobacco": 0.6, "omiyage": 0.3, "magazine": 0.3, "bento": 0.6}, "priceSens": 0.8, "patience": 0.8, "sns": 0.3, "review": 0.08, "taste": [3.2, 3, 3], "male": 0.5, "note": "港浜ホールの催しのあと、何人かで（A5）。夜。飲み物とお酒。1つの会計。数字はすべて仮"},
+  {"id": "smn", "name": "セミナーに行く人", "short": "セミナー", "icon": "#5a5a8a", "pref": {"colddrink": 1.6, "energy": 1.6, "gummy": 1.5, "coffee": 1.6, "onigiri": 1.1, "sand": 1.1, "paper": 1.0, "alcohol": 0.05, "omiyage": 0.05, "magazine": 0.4, "tobacco": 0.5, "bento": 0.4}, "priceSens": 0.6, "patience": 0.6, "sns": 0.05, "review": 0.05, "taste": [2.5, 3.5, 3.5], "male": 0.6, "note": "港浜ホールの朝のセミナー・研修に行く人（A5）。まっすぐ。飲み物・のど飴・エナジー。数字はすべて仮"}
  ],
  "range": {
   "keep": "data/kiosk.json の products のうち drop 以外は置ける",
