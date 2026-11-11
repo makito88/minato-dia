@@ -96,7 +96,15 @@ function render(el,ctx){if(!el)return;style();const {res,Tn,cfg,layout,MAP}=ctx;
     ${sel?`<div class="pk"><b>${esc(C.NAME[sel])}でよく売れた品（いままで）</b><ul>${top.length?top.map(([pid,q],i)=>`<li><span class="rk">${i+1}</span>${esc(P[pid]?P[pid].name:pid)}<em>${q}個</em></li>`).join(''):'<li>まだ売れていません</li>'}</ul></div>`:''}</div>`;
   // 右：表 か 品の一覧
   let right='';
-  if(UI.tab==='list'){const L=[];for(const z in S.items)for(const pid in S.items[z])L.push([pid,z,S.items[z][pid]]);L.sort((a,b)=>b[2]-a[2]);const m=L.length?L[0][2]:1;
+  if(UI.tab==='trip'){const RT={},PN={},GN={};for(const x of (cfg.walk&&cfg.walk.trip&&cfg.walk.trip.routes)||[])RT[x.id]=x;for(const p of cfg.personas)PN[p.id]=p.name;for(const g0 of cfg.genres)GN[g0.id]=g0.name;
+    const T2={};for(const e of res.ev){if(e.t>T)break;if(e.k!=='buy'||!e.trip||!RT[e.trip])continue;const o=T2[e.trip]||(T2[e.trip]={n:0,q:0,g:{},ps:{}});o.n++;o.ps[e.ps]=(o.ps[e.ps]||0)+1;
+      for(const [pid,q] of e.items){o.q+=q;const ge=P[pid]?P[pid].genre:'';o.g[ge]=(o.g[ge]||0)+q;}}
+    const L=Object.entries(T2).sort((a,b)=>b[1].n-a[1].n),m=L.length?L[0][1].n:1;
+    right=`<div class="bx"><h4>どこから来て、どこへ行く人か<small>${fm(O0*60)}〜${fm(T)}・会計した人</small></h4>${L.length?`<div class="sc" style="max-height:470px;overflow-y:auto"><table><tr><th>どこから → どこへ</th><th class="hz">客層</th><th class="r">人</th><th>よく買ったもの</th></tr>
+      ${L.map(([id,o])=>{const x=RT[id],gs=Object.entries(o.g).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([g0])=>esc(GN[g0]||g0)).join('・');
+        return `<tr><td><b>${esc(x.from)} → ${esc(x.to)}</b><br><small style="color:var(--muted)">${esc(x.why)}</small></td><td class="hz">${Object.keys(o.ps).map(k=>esc(PN[k]||k)).join('・')}</td><td class="r"><span class="bar" style="--w:${(o.n/m).toFixed(3)}"></span>${o.n}</td><td>${gs}</td></tr>`;}).join('')}</table></div>`
+      :'<p class="nt">まだ会計した人がいません。</p>'}<p class="nt">お客さんは、客層とその時台に合う「道」を1つ持っています（すべて仮の数字）。道によって、ほしい物と店にいる時間が変わります。</p></div>`;}
+  else if(UI.tab==='list'){const L=[];for(const z in S.items)for(const pid in S.items[z])L.push([pid,z,S.items[z][pid]]);L.sort((a,b)=>b[2]-a[2]);const m=L.length?L[0][2]:1;
     right=`<div class="bx"><h4>品の一覧<small>${fm(O0*60)}〜${fm(T)}・${L.length}品</small></h4><div class="sc" style="max-height:430px;overflow-y:auto"><table><tr><th>品</th><th class="hz">棚</th><th class="r">個</th><th class="r">売上</th></tr>
       ${L.map(([pid,z,q])=>`<tr><td>${esc(P[pid]?P[pid].name:pid)}</td><td class="hz">${esc(C.NAME[z])}</td><td class="r"><span class="bar" style="--w:${Math.max(0.04,q/m).toFixed(3)}"></span>${q}</td><td class="r">${num(q*((ctx.price&&ctx.price[pid])||(P[pid]?P[pid].price||0:0)))}円</td></tr>`).join('')}</table></div>
       <p class="nt">売上は値札の値段で数えた目安です（値引きは入りません）。</p></div>`;}
@@ -117,7 +125,7 @@ function render(el,ctx){if(!el)return;style();const {res,Tn,cfg,layout,MAP}=ctx;
     const none=UI.tab==='cmp'&&!B?`<p class="nt">${UI.cmp==='yday'?'きのうの記録がまだありません（閉店のあとに1日ずつ残ります）。':'同じ型の日（'+(KINDN[kind]||'')+'）の記録が2日たまると、いつもと比べられます。'}</p>`:'';
     right=`<div class="bx"><h4>${ttl}</h4>${seg}${none}<div class="sc"><div class="hm" style="grid-template-columns:${cols};min-width:${mn}px">${g}</div></div>
       <p class="nt">${B?'いちばん下の点線の枠と、合計の縦の線は「'+(UI.tab==='cmp'&&UI.cmp==='yday'?'きのう':'いつも')+'の同じ時刻まで」。':''}ホット・たばこ・ホット飲料はレジで受け取る品。数は計算で売れた個数（見て帰った人・売り切れで買えなかった人は入らない）。</p></div>`;}
-  const tabs=[['grid','棚 × 時間'],['list','品の一覧'],['cmp','いつもと比べる']].map(([t,n])=>`<button data-t="${t}" class="${UI.tab===t?'on':''}">${n}</button>`).join('');
+  const tabs=[['grid','棚 × 時間'],['list','品の一覧'],['trip','どこへ行く人'],['cmp','いつもと比べる']].map(([t,n])=>`<button data-t="${t}" class="${UI.tab===t?'on':''}">${n}</button>`).join('');
   el.innerHTML=`<div class="ks-card mss"><h3>きょう売れたもの <span style="font-weight:400;font-size:12px;color:var(--muted)">${fm(T)}まで</span><span class="tabs">${tabs}</span></h3>${kp}<div class="g2">${mapBox}${right}</div></div>`;
   const re=()=>{el.dataset.mss='';render(el,ctx);};
   el.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{UI.tab=b.dataset.t;re();});

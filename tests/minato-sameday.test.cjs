@@ -34,7 +34,7 @@ const none=JSON.parse(JSON.stringify(L));none.links.find(x=>x.id===SD.ID).state=
 const H=KC.H,a=new Array(H).fill(0).map((_,h)=>h>=5&&h<24?(h>=7&&h<9||h>=11&&h<13||h>=17&&h<19?400:150):0),fl=[a,a.map(x=>x*0.3),a.map(x=>x*0.2),a.map(x=>x*0.3)];
 const ctxOf=(st,day,extra)=>Object.assign({day,dow:day%7,cond:{day:day%7===0?'hol':day%7===6?'sat':'wd',wx:day%5===0?'rain':'sun',season:'aut'},flows:{hb:fl,ha:fl},stops:new Array(H).fill(4),plats:2,rcfg:R,order:st.order,express:[],addOn:[],edits:[],startT:0},extra||{});
 const SP=new Set(M.sameday.items);
-function run(Ln,days,kOne){let st=MS.create(K,M,KC,{seed:5,day:1});st.openedDay=1;const out=[],plans=[];
+function run(Ln,days,kOne,seed){let st=MS.create(K,M,KC,{seed:seed||5,day:1});st.openedDay=1;const out=[],plans=[];
   for(let day=1;day<=days;day++){const cx=ctxOf(st,day);let p=SD.plan(Ln,CF,st,{day,cond:cx.cond});if(p&&kOne)p={...p,tag:{...p.tag,k:1}};plans.push(p);
     const res=KC.simulate(c,st,p?{...cx,sameday:p}:cx);out.push(res);st=KC.closeDay(c,st,res).state;}return {out,plans};}
 const A=run(L,14),B=run(L,14),Z=run(off,14),A1=run(L,14,true);
@@ -48,8 +48,9 @@ A.out.forEach((r,i)=>{const p=A.plans[i],z=Z.out[i];
   const mid=r.ev.find(x=>x.k==='delivery'&&x.name===M.sameday.replace),mid0=z.ev.find(x=>x.k==='delivery'&&x.name===M.sameday.replace);
   for(const pid of SP)assert.equal((mid.items[pid]||0)+(p.items[pid]||0),Math.max(mid0.items[pid]||0,p.items[pid]||0),'昼前の便から減る '+pid);});
 // 札の効き目：札のある時間に、おにぎりの中で札の品が選ばれる割合（k=1 と比べる）
-const share=(R0,acc)=>R0.out.forEach((r,i)=>{const p=R0.plans[i];for(const e of r.ev)if(e.k==='buy'&&e.t>=p.tag.from&&e.t<p.tag.to)for(const [pid,q] of e.items)if(I.P[pid].genre==='onigiri'){acc.all+=q;if(SP.has(pid))acc.on+=q;}});
+const share=(R0,acc)=>R0.out.forEach((r,i)=>{const p=R0.plans[i];for(const e of r.ev){if(e.t<p.tag.from||e.t>=p.tag.to)continue;if(e.k==='buy')for(const [pid,q] of e.items){if(I.P[pid].genre==='onigiri'){acc.all+=q;if(SP.has(pid))acc.on+=q;}}else if(e.k==='look'&&e.why==='売り切れ'&&e.pid&&I.P[e.pid].genre==='onigiri'){acc.all++;if(SP.has(e.pid))acc.on++;}}});   // 売り切れで買えなかった人も「選んだ」に数える（札の品が早く売り切れると、買えた数だけでは比べられないため）
 share(A,soldF);share(A1,soldF1);
+for(const sd of [6,7,8]){share(run(L,14,false,sd),soldF);share(run(L,14,true,sd),soldF1);}   // 2026-11-11：1つの種だけだとぶれで逆になることがあるので、種を4つ合わせて比べる（客の「どこから・どこへ」を足したとき）
 assert.ok(soldF.on/soldF.all>soldF1.on/soldF1.all,'札のある品が選ばれやすい '+JSON.stringify({soldF,soldF1}));
 console.log(`  できたての便（14日）：届いた ${got}個・料金 ${fee.toLocaleString()}円・札の時間のおにぎりのうち札の品 ${(soldF.on/soldF.all*100).toFixed(1)}%（札の効き目なし ${(soldF1.on/soldF1.all*100).toFixed(1)}%）・着いた時刻 ${A.plans.map(p=>Math.floor(p.arrive/60)+':'+String(p.arrive%60).padStart(2,'0')).join(' ')}`);
 console.log('minato-sameday.test ok');

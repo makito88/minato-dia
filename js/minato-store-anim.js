@@ -111,7 +111,7 @@ function script(e,a,X){const {AN,pi,Z,P,res,lay}=X,id=a.id,sp=a.sp,span=Math.max
     if(e.ps==='sen'||(e.mot==='new'&&k===0)){const rd=(M.read||[3,6]);const b=rd[0]+(rd[1]-rd[0])*hsh(seed,'rd',k);q.d+=b*(a.hurry?0.5:1);q.hi+=rd[1];q.kind='read';}
     if(e.mot==='sns'&&k===0||q.zk==='omiyage'&&(e.ps==='tou'||e.ps==='cru')&&hsh(seed,'ph')<0.6)q.kind='photo';});
   // 行ったり来たり：はじめの棚（低い棚か冷蔵ケース）で、となりの同じジャンルの品を手に取って戻す（その時刻に棚にある品）
-  const cmpAt=(q,t,k)=>{const L=lay[q.zk]||[],z=Z[q.zk];if(!z)return null;const out=[];for(const dj of [1,-1,2,-2]){const j=q.i+dj;if(j<0||j>=L.length)continue;const pid=L[j];if(!pid||q.pids.includes(pid)||!P[pid]||P[pid].genre!==q.g)continue;out.push([j,pid]);}
+  const cmpAt=(q,t,k)=>{const L=lay[q.zk]||[],z=Z[q.zk];if(!z)return null;const out=[];for(const dj of [1,-1,2,-2]){const j=q.i+dj;if(j<0||j>=L.length)continue;const pid=L[j];if(!pid||q.pids.includes(pid)||e.items.some(([b])=>b===pid)||!P[pid]||P[pid].genre!==q.g)continue;out.push([j,pid]);}
     if(!out.length)return null;const sk=stockAt(res,t),ok=out.filter(([,pid])=>!sk||(sk[pid]||0)>0);if(!ok.length)return null;const [j,pid]=ok[Math.floor(hsh(seed,'cmp',k)*ok.length)];const s=standOf(q.zk,j,Z);
     return {zk:q.zk,i:j,x:s[0],y:s[1],g:q.g,pids:[],kind:'cmp',pid};};
   let stops=S.slice();const ext=[];

@@ -25,8 +25,14 @@ function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx
     const C=ctx.cruise;if(cru&&C&&(cru.strength||0)>0&&C.pax>0){const n=h.poisson(C.pax*(cru.when.visit||0.1)*cru.strength,r);
       for(let i=0;i<n;i++){const t=C.from+r()*Math.max(1,C.to-C.from);one(t,'cru',r()<0.5?3:4,r()<0.7,'cru');S.cruise++;}}
     return out;}
-  /* 店にいる分（人ごと。対数のぶれ） */
-  const stayOf=v=>{if(v.stay==null){const m=W.stay[v.ps]||3.5;v.stay=+(m*Math.exp((W.stay.sd||0.3)*gz())).toFixed(2);if(v.imp)v.stay=+(v.stay*0.6).toFixed(2);}return v.stay;};
+  /* どこから・どこへ・なぜ（2026-11-11・設定 walk.trip があるときだけ）：客層とその時台に合う道を1つ選ぶ。乱数は自分の種（'trip'）だけ */
+  const TR=W.trip&&W.trip.routes||null,rT=TR?h.rng(h.hash(state.seed,ctx.day,state.st,state.place,'trip')):null;
+  const tripOf=v=>{if(!TR)return null;if(v.trip!==undefined)return v.trip;const hh=Math.floor(v.t/60),off=W.trip.off??0.05;
+    const L=TR.filter(x=>x.ps.includes(v.ps));if(!L.length){v.trip=null;return null;}
+    const ws=L.map(x=>(x.w||1)*((x.hours||[]).some(([a,b])=>hh>=a&&hh<b)?1:off));v.trip=L[h.pickW(ws,rT)];return v.trip;};
+  const gMul=(v,g)=>{const x=tripOf(v);return x&&x.genre&&x.genre[g]!=null?x.genre[g]:1;};
+  /* 店にいる分（人ごと。対数のぶれ）。道（trip）の stay 倍をかける */
+  const stayOf=v=>{if(v.stay==null){const m=W.stay[v.ps]||3.5;v.stay=+(m*Math.exp((W.stay.sd||0.3)*gz())).toFixed(2);if(v.imp)v.stay=+(v.stay*0.6).toFixed(2);const x=tripOf(v);if(x&&x.stay)v.stay=+(v.stay*x.stay).toFixed(2);}return v.stay;};
   const basketMul=v=>{const K=W.stayBasket||{};return clamp(Math.pow(stayOf(v)/(K.ref||3.5),K.pow||0.5),K.min||0.6,K.max||2);};
   const qLen=(q,t)=>{let n=0;for(let i=q.length-1;i>=0;i--)if(q[i]>t)n++;return n;};
   /* 会計の計画（まだ決めない）。svc＝秒（店員の速さで割る前）。返すもの：{lane:'f'有人|'s'セルフ, k, start, end, wait, qn, full} */
@@ -79,6 +85,6 @@ function begin(cfg,state,ctx,h,o){const W=cfg.walk,r=h.rng(h.hash(state.seed,ctx
   const bind=b=>{B=b;};
   const stats=()=>({shift:S.shift,cruise:S.cruise,self:S.self,staffed:S.staffed,selfShare:S.self+S.staffed?+(S.self/(S.self+S.staffed)).toFixed(3):0,selfHelp:S.selfHelp,queueLeft:S.queueLeft,
     eatIn:S.eatIn,eatSit:S.eatSit||0,eatFull:S.eatFull,range:S.range,stayAvg:S.stayN?+(S.stay/S.stayN).toFixed(2):0});
-  return {visitors,stayOf,basketMul,plan,commit,left,after,bind,stats};}
+  return {visitors,stayOf,basketMul,plan,commit,left,after,bind,stats,tripOf,gMul};}
 root.KioskWalk={begin};
 })(typeof window!=='undefined'?window:globalThis);

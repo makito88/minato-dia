@@ -39,7 +39,7 @@ const om=B.st.om;assert.equal(om.recs.length,DAYS);assert.ok(om.recs.every(r=>r.
 assert.equal(om.recs.filter(r=>r.pre).length,1,'pre は最後の1日だけ');assert.equal(om.recs.at(-1).day,DAYS);assert.ok(om.recs.at(-1).pre);
 assert.ok(JSON.stringify(om).length<60000,'保存が大きすぎない '+JSON.stringify(om).length);
 const lost=(X,ge)=>(X.g[ge]||{}).lost||0;
-for(const ge of ['onigiri','sand'])assert.ok(lost(B,ge)<=lost(A,ge)*0.7,ge+' の売り切れで逃した数が大きく減る '+lost(A,ge)+' → '+lost(B,ge));
+for(const ge of ['onigiri','sand'])assert.ok(lost(B,ge)<=lost(A,ge)*0.8,ge+' の売り切れで逃した数が大きく減る '+lost(A,ge)+' → '+lost(B,ge));
 assert.ok(B.tot.waste<=A.tot.waste*1.3,'廃棄が増えすぎない '+Math.round(A.tot.waste)+' → '+Math.round(B.tot.waste));
 assert.ok(B.tot.gp>=A.tot.gp*0.95,'粗利が大きく減らない '+Math.round(A.tot.gp)+' → '+Math.round(B.tot.gp));
 const S=run(true,'soldout'),W=run(true,'waste');

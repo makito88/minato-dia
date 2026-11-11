@@ -683,17 +683,246 @@
    "packNote": "会計のあと、レジの横で財布をしまう・袋を持ち直す分（分。約5秒）",
    "shuffle": 0.25,
    "shuffleNote": "棚の前で長く見る人は、この分ごとに棚に沿って半歩ずれる（1か所に固まらない）",
-   "dwell": {"onigiri": [4, 15], "sand": [5, 15], "bread": [4, 15], "donut": [4, 15], "colddrink": [3, 10], "coffee": [2, 6], "hotdrink": [3, 10], "energy": [2, 6], "alcohol": [5, 15], "snack": [4, 12], "gummy": [2, 6], "paper": [2, 5], "magazine": [10, 60], "daily": [5, 20], "umbrella": [3, 8], "bento": [8, 25], "cupmen": [5, 15], "omiyage": [15, 60], "browse": [3, 10], "glance": [2, 6]},
+   "dwell": {
+    "onigiri": [
+     4,
+     15
+    ],
+    "sand": [
+     5,
+     15
+    ],
+    "bread": [
+     4,
+     15
+    ],
+    "donut": [
+     4,
+     15
+    ],
+    "colddrink": [
+     3,
+     10
+    ],
+    "coffee": [
+     2,
+     6
+    ],
+    "hotdrink": [
+     3,
+     10
+    ],
+    "energy": [
+     2,
+     6
+    ],
+    "alcohol": [
+     5,
+     15
+    ],
+    "snack": [
+     4,
+     12
+    ],
+    "gummy": [
+     2,
+     6
+    ],
+    "paper": [
+     2,
+     5
+    ],
+    "magazine": [
+     10,
+     60
+    ],
+    "daily": [
+     5,
+     20
+    ],
+    "umbrella": [
+     3,
+     8
+    ],
+    "bento": [
+     8,
+     25
+    ],
+    "cupmen": [
+     5,
+     15
+    ],
+    "omiyage": [
+     15,
+     60
+    ],
+    "browse": [
+     3,
+     10
+    ],
+    "glance": [
+     2,
+     6
+    ]
+   },
    "dwellNote": "棚の前で立ち止まる秒数の幅（A2・2026-11-11 ユーザー「グミの棚で長く悩む人はいない」・すべて仮）。この中で人の番号で選ぶ。browse＝ほかの棚をのぞく・glance＝ちらっと見る。たばこ・ホットはレジで言うので0",
-   "dwellMul": {"hurry": 0.5, "ps": {"sen": 1.4}, "genrePs": {"omiyage": {"tou": 1.5, "cru": 1.5}}, "night": {"from": 21, "g": {"bento": 1.3, "alcohol": 1.3}}, "read": [3, 6]},
+   "dwellMul": {
+    "hurry": 0.5,
+    "ps": {
+     "sen": 1.4
+    },
+    "genrePs": {
+     "omiyage": {
+      "tou": 1.5,
+      "cru": 1.5
+     }
+    },
+    "night": {
+     "from": 21,
+     "g": {
+      "bento": 1.3,
+      "alcohol": 1.3
+     }
+    },
+    "read": [
+     3,
+     6
+    ]
+   },
    "dwellMulNote": "急いでいる人は0.5倍・年配の人は1.4倍・観光客と客船の客はおみやげで1.5倍・21時からはお弁当とお酒の前で迷って1.3倍。表示を読む人（新商品・年配）は read 秒を足す",
-   "styles": {"ps": {"shf": {"st": 8, "bf": 1, "loop": 0.5, "wan": 0.5}, "salM": {"st": 7, "bf": 1, "loop": 1, "wan": 1}, "salF": {"st": 2, "bf": 6, "loop": 1, "wan": 1}, "jk": {"st": 1, "bf": 2, "loop": 2, "wan": 5}, "stu": {"st": 6, "bf": 1, "loop": 1, "wan": 2}, "sen": {"st": 2, "bf": 1, "loop": 5, "wan": 1}, "tou": {"st": 1, "bf": 1, "loop": 5, "wan": 3}, "hou": {"st": 4, "bf": 2, "loop": 1, "wan": 2}, "cru": {"st": 1, "loop": 4, "wan": 1, "fol": 5}, "fam": {"st": 3, "bf": 1, "loop": 2, "wan": 3}, "cpl": {"st": 1, "bf": 2, "loop": 3, "wan": 3}, "frd": {"st": 1, "bf": 2, "loop": 2, "wan": 4}}, "rush": {"h": [6, 9], "st": 2.5}, "noon": {"h": [11, 15], "wan": 1.5, "bf": 1.5}, "night": {"h": [21, 26], "bf": 1.5}, "hurry": {"st": 8}, "omiyageLoop": 0.5, "follow": 0.6, "omiyagePs": ["tou", "cru", "fam", "cpl", "frd", "jk", "sen", "hou"]},
+   "styles": {
+    "ps": {
+     "shf": {
+      "st": 8,
+      "bf": 1,
+      "loop": 0.5,
+      "wan": 0.5
+     },
+     "salM": {
+      "st": 7,
+      "bf": 1,
+      "loop": 1,
+      "wan": 1
+     },
+     "salF": {
+      "st": 2,
+      "bf": 6,
+      "loop": 1,
+      "wan": 1
+     },
+     "jk": {
+      "st": 1,
+      "bf": 2,
+      "loop": 2,
+      "wan": 5
+     },
+     "stu": {
+      "st": 6,
+      "bf": 1,
+      "loop": 1,
+      "wan": 2
+     },
+     "sen": {
+      "st": 2,
+      "bf": 1,
+      "loop": 5,
+      "wan": 1
+     },
+     "tou": {
+      "st": 1,
+      "bf": 1,
+      "loop": 5,
+      "wan": 3
+     },
+     "hou": {
+      "st": 4,
+      "bf": 2,
+      "loop": 1,
+      "wan": 2
+     },
+     "cru": {
+      "st": 1,
+      "loop": 4,
+      "wan": 1,
+      "fol": 5
+     },
+     "fam": {
+      "st": 3,
+      "bf": 1,
+      "loop": 2,
+      "wan": 3
+     },
+     "cpl": {
+      "st": 1,
+      "bf": 2,
+      "loop": 3,
+      "wan": 3
+     },
+     "frd": {
+      "st": 1,
+      "bf": 2,
+      "loop": 2,
+      "wan": 4
+     }
+    },
+    "rush": {
+     "h": [
+      6,
+      9
+     ],
+     "st": 2.5
+    },
+    "noon": {
+     "h": [
+      11,
+      15
+     ],
+     "wan": 1.5,
+     "bf": 1.5
+    },
+    "night": {
+     "h": [
+      21,
+      26
+     ],
+     "bf": 1.5
+    },
+    "hurry": {
+     "st": 8
+    },
+    "omiyageLoop": 0.5,
+    "follow": 0.6,
+    "omiyagePs": [
+     "tou",
+     "cru",
+     "fam",
+     "cpl",
+     "frd",
+     "jk",
+     "sen",
+     "hou"
+    ]
+   },
    "stylesNote": "動き方の型（A2・すべて仮）：st まっすぐ／bf 行ったり来たり（となりの品を手に取って見比べて戻す）／loop ひと回り／wan ぶらぶら／fol 連れについていく（客船の客で、0.6分以内に入った同じ客層の人のあとを）。重みに、朝のラッシュ（6〜9時）・昼（11〜15時）・夜（21時〜）・急いでいる人の倍率をかける。おみやげを買う人の半分はひと回りしてから。おみやげの台をのぞくのは omiyagePs の客層だけ（朝の会社員は寄らない）",
-   "train": {"hurryPad": 1.5},
+   "train": {
+    "hurryPad": 1.5
+   },
    "trainNote": "電車まであと何分：入った時刻の時台の dw（計算の立ち止まれる時間のめやす）から、人の番号で 0.5〜(2×dw) 分。それが「店にいた時間＋待った時間＋hurryPad 分」より短い人は急いでいる",
-   "basket": {"p3": 0.85, "p2": 0.25, "late": 0.35, "at": [212, 428]},
+   "basket": {
+    "p3": 0.85,
+    "p2": 0.25,
+    "late": 0.35,
+    "at": [
+     212,
+     428
+    ]
+   },
    "basketNote": "かご（A2）：買う品が3点以上の人は85%、2点は25%が持つ。うち35%は、2か所回って手がいっぱいになってから入口へ取りに行く。会計で店員に渡す",
-   "slot": {"gap": 16, "step": 18, "keep": 4},
+   "slot": {
+    "gap": 16,
+    "step": 18,
+    "keep": 4
+   },
    "slotNote": "棚の前で人が重なるとき：あとから来た人は棚に沿って step ずつずれる（左右に2か所ずつ）。それでもあかなければ少しうしろで待つ。歩く人は通路の左側（keep）を歩く。どれもその時刻に店にいる人だけから決める",
    "trashP": 0.5,
    "trashNote": "イートインで食べ終わった人のうち、ごみ箱に寄ってから出る人の割合（人の番号で決まる）",
@@ -708,6 +937,595 @@
     },
     "note": "地元のお店の人：お客さんと同じくらいの速さ（台車のときは少し遅く）。荷物を下ろす（箱1つ 約15秒）→ レジの横で店員と検品・受け取りのサイン（約40秒）→ 帰る。下ろした箱を棚に並べるのは店員（A3・A4）"
    }
+  },
+  "trip": {
+   "note": "お客さんの「どこから・どこへ・なぜ」（2026-11-11・ユーザーの頼み・すべて仮）。客層ごとに道（routes）を、その時台に合うもの（hours の外は off 倍）の重さ w で1つ選ぶ。選んだ道で、ほしいジャンルの重さ（genre 倍）と店にいる時間（stay 倍）が変わる。来る人の数は変えない。港駅の店だけ（緑ヶ丘の店には walk がない）。乱数は自分の種（trip）だけ",
+   "off": 0.05,
+   "routes": [
+    {
+     "id": "shf_in",
+     "ps": [
+      "shf"
+     ],
+     "from": "電車",
+     "to": "工場",
+     "why": "仕事の前の朝ごはん・休憩の飲み物",
+     "hours": [
+      [
+       5,
+       7
+      ],
+      [
+       13,
+       15
+      ],
+      [
+       21,
+       23
+      ]
+     ],
+     "w": 1,
+     "stay": 0.8,
+     "genre": {
+      "coffee": 1.5,
+      "onigiri": 1.4,
+      "energy": 1.3,
+      "tobacco": 1.2,
+      "paper": 1.2
+     }
+    },
+    {
+     "id": "shf_out",
+     "ps": [
+      "shf"
+     ],
+     "from": "工場",
+     "to": "電車",
+     "why": "夜勤明け・仕事帰りの食事",
+     "hours": [
+      [
+       6,
+       8
+      ],
+      [
+       14,
+       16
+      ],
+      [
+       22,
+       24
+      ]
+     ],
+     "w": 1,
+     "stay": 1.1,
+     "genre": {
+      "bento": 1.6,
+      "alcohol": 1.8,
+      "hotdrink": 1.2,
+      "hot": 1.3
+     }
+    },
+    {
+     "id": "sal_am",
+     "ps": [
+      "salM",
+      "salF"
+     ],
+     "from": "電車",
+     "to": "港のオフィス",
+     "why": "朝の飲み物・朝ごはん",
+     "hours": [
+      [
+       5,
+       10
+      ]
+     ],
+     "w": 1,
+     "stay": 0.8,
+     "genre": {
+      "coffee": 1.4,
+      "onigiri": 1.3,
+      "colddrink": 1.2,
+      "paper": 1.2,
+      "bread": 1.2
+     }
+    },
+    {
+     "id": "sal_lunch",
+     "ps": [
+      "salM",
+      "salF"
+     ],
+     "from": "港のオフィス",
+     "to": "港のオフィス",
+     "why": "昼ごはん",
+     "hours": [
+      [
+       11,
+       14
+      ]
+     ],
+     "w": 1.2,
+     "stay": 1.0,
+     "genre": {
+      "bento": 1.6,
+      "onigiri": 1.3,
+      "sand": 1.3,
+      "cupmen": 1.3,
+      "colddrink": 1.2
+     }
+    },
+    {
+     "id": "sal_visit",
+     "ps": [
+      "salM",
+      "salF"
+     ],
+     "from": "電車",
+     "to": "取引先（工場・ふ頭）",
+     "why": "外回りの前の飲み物",
+     "hours": [
+      [
+       9,
+       18
+      ]
+     ],
+     "w": 0.5,
+     "stay": 0.8,
+     "genre": {
+      "colddrink": 1.3,
+      "coffee": 1.2,
+      "gummy": 1.2
+     }
+    },
+    {
+     "id": "sal_pm",
+     "ps": [
+      "salM",
+      "salF"
+     ],
+     "from": "港のオフィス",
+     "to": "電車",
+     "why": "帰りのお酒・おつまみ",
+     "hours": [
+      [
+       17,
+       24
+      ]
+     ],
+     "w": 1.2,
+     "stay": 1.1,
+     "genre": {
+      "alcohol": 1.6,
+      "snack": 1.4,
+      "bento": 1.2,
+      "hot": 1.2
+     }
+    },
+    {
+     "id": "stu_am",
+     "ps": [
+      "stu",
+      "jk"
+     ],
+     "from": "電車",
+     "to": "港の高校",
+     "why": "朝の飲み物・パン",
+     "hours": [
+      [
+       5,
+       9
+      ]
+     ],
+     "w": 1,
+     "stay": 0.8,
+     "genre": {
+      "colddrink": 1.2,
+      "onigiri": 1.2,
+      "bread": 1.3,
+      "gummy": 1.2
+     }
+    },
+    {
+     "id": "stu_pm",
+     "ps": [
+      "stu",
+      "jk"
+     ],
+     "from": "港の高校",
+     "to": "電車",
+     "why": "部活のあと・寄り道",
+     "hours": [
+      [
+       15,
+       23
+      ]
+     ],
+     "w": 1.2,
+     "stay": 1.2,
+     "genre": {
+      "snack": 1.4,
+      "gummy": 1.4,
+      "hot": 1.4,
+      "colddrink": 1.2,
+      "energy": 1.2,
+      "donut": 1.2
+     }
+    },
+    {
+     "id": "stu_meet",
+     "ps": [
+      "stu",
+      "jk"
+     ],
+     "from": "電車",
+     "to": "待ち合わせ（港・赤レンガ倉庫）",
+     "why": "友だちとの寄り道",
+     "hours": [
+      [
+       10,
+       19
+      ]
+     ],
+     "w": 0.6,
+     "stay": 1.3,
+     "genre": {
+      "colddrink": 1.3,
+      "gummy": 1.3,
+      "snack": 1.2
+     }
+    },
+    {
+     "id": "sen_hosp",
+     "ps": [
+      "sen"
+     ],
+     "from": "電車",
+     "to": "港の病院",
+     "why": "病院の待ち時間に",
+     "hours": [
+      [
+       8,
+       12
+      ]
+     ],
+     "w": 1,
+     "stay": 1.0,
+     "genre": {
+      "colddrink": 1.3,
+      "paper": 1.4,
+      "gummy": 1.2,
+      "magazine": 1.2
+     }
+    },
+    {
+     "id": "sen_shop",
+     "ps": [
+      "sen"
+     ],
+     "from": "家",
+     "to": "商店街",
+     "why": "新聞と買い物のついで",
+     "hours": [
+      [
+       7,
+       16
+      ]
+     ],
+     "w": 1,
+     "stay": 1.2,
+     "genre": {
+      "paper": 1.5,
+      "daily": 1.3,
+      "bread": 1.2
+     }
+    },
+    {
+     "id": "sen_home",
+     "ps": [
+      "sen"
+     ],
+     "from": "病院・商店街",
+     "to": "電車",
+     "why": "帰りの休憩",
+     "hours": [
+      [
+       11,
+       17
+      ]
+     ],
+     "w": 0.8,
+     "stay": 1.1,
+     "genre": {
+      "bread": 1.3,
+      "hotdrink": 1.3,
+      "donut": 1.2,
+      "colddrink": 1.1
+     }
+    },
+    {
+     "id": "sen_eve",
+     "ps": [
+      "sen"
+     ],
+     "from": "家・病院",
+     "to": "電車・家",
+     "why": "夕方の一品・あしたの新聞",
+     "hours": [
+      [
+       17,
+       24
+      ]
+     ],
+     "w": 1,
+     "stay": 1.1,
+     "genre": {
+      "bento": 1.3,
+      "bread": 1.2,
+      "alcohol": 1.1,
+      "paper": 1.1
+     }
+    },
+    {
+     "id": "tou_in",
+     "ps": [
+      "tou"
+     ],
+     "from": "電車",
+     "to": "赤レンガ倉庫・魚市場",
+     "why": "歩く前の水と地図",
+     "hours": [
+      [
+       5,
+       14
+      ]
+     ],
+     "w": 1,
+     "stay": 1.0,
+     "genre": {
+      "colddrink": 1.5,
+      "umbrella": 1.2,
+      "omiyage": 0.6
+     }
+    },
+    {
+     "id": "tou_out",
+     "ps": [
+      "tou"
+     ],
+     "from": "赤レンガ倉庫・魚市場",
+     "to": "電車",
+     "why": "帰りのおみやげ",
+     "hours": [
+      [
+       12,
+       20
+      ]
+     ],
+     "w": 1.1,
+     "stay": 1.3,
+     "genre": {
+      "omiyage": 1.8,
+      "colddrink": 1.2,
+      "donut": 1.2
+     }
+    },
+    {
+     "id": "hou_forgot",
+     "ps": [
+      "hou"
+     ],
+     "from": "商店街",
+     "to": "家",
+     "why": "買い忘れ",
+     "hours": [
+      [
+       9,
+       20
+      ]
+     ],
+     "w": 1,
+     "stay": 1.0,
+     "genre": {
+      "daily": 1.6,
+      "paper": 1.2,
+      "colddrink": 1.2
+     }
+    },
+    {
+     "id": "hou_rail",
+     "ps": [
+      "hou"
+     ],
+     "from": "家",
+     "to": "電車",
+     "why": "出かける前の飲み物",
+     "hours": [
+      [
+       5,
+       23
+      ]
+     ],
+     "w": 0.8,
+     "stay": 0.9,
+     "genre": {
+      "colddrink": 1.3,
+      "gummy": 1.2
+     }
+    },
+    {
+     "id": "fam_in",
+     "ps": [
+      "fam"
+     ],
+     "from": "電車",
+     "to": "港の観光地",
+     "why": "子どもの飲み物とおやつ",
+     "hours": [
+      [
+       9,
+       14
+      ]
+     ],
+     "w": 1,
+     "stay": 1.2,
+     "genre": {
+      "colddrink": 1.4,
+      "snack": 1.4,
+      "gummy": 1.4
+     }
+    },
+    {
+     "id": "fam_out",
+     "ps": [
+      "fam"
+     ],
+     "from": "港の観光地",
+     "to": "電車",
+     "why": "帰りのおみやげ",
+     "hours": [
+      [
+       13,
+       20
+      ]
+     ],
+     "w": 1,
+     "stay": 1.3,
+     "genre": {
+      "omiyage": 1.5,
+      "donut": 1.3,
+      "colddrink": 1.2
+     }
+    },
+    {
+     "id": "cpl_in",
+     "ps": [
+      "cpl"
+     ],
+     "from": "電車",
+     "to": "海辺・赤レンガ倉庫",
+     "why": "歩きながらの飲み物",
+     "hours": [
+      [
+       6,
+       16
+      ]
+     ],
+     "w": 1,
+     "stay": 1.1,
+     "genre": {
+      "colddrink": 1.4,
+      "donut": 1.2
+     }
+    },
+    {
+     "id": "cpl_out",
+     "ps": [
+      "cpl"
+     ],
+     "from": "海辺・赤レンガ倉庫",
+     "to": "電車",
+     "why": "帰りのおみやげ・夜のお酒",
+     "hours": [
+      [
+       15,
+       23
+      ]
+     ],
+     "w": 1,
+     "stay": 1.2,
+     "genre": {
+      "omiyage": 1.5,
+      "alcohol": 1.3
+     }
+    },
+    {
+     "id": "frd_in",
+     "ps": [
+      "frd"
+     ],
+     "from": "電車",
+     "to": "港",
+     "why": "一緒に選ぶおやつ",
+     "hours": [
+      [
+       10,
+       16
+      ]
+     ],
+     "w": 1,
+     "stay": 1.2,
+     "genre": {
+      "colddrink": 1.3,
+      "snack": 1.4,
+      "gummy": 1.3
+     }
+    },
+    {
+     "id": "frd_out",
+     "ps": [
+      "frd"
+     ],
+     "from": "港",
+     "to": "電車",
+     "why": "帰りのおみやげ・写真",
+     "hours": [
+      [
+       15,
+       22
+      ]
+     ],
+     "w": 1,
+     "stay": 1.2,
+     "genre": {
+      "omiyage": 1.3,
+      "snack": 1.3
+     }
+    },
+    {
+     "id": "cru_in",
+     "ps": [
+      "cru"
+     ],
+     "from": "客船ターミナル",
+     "to": "港の観光地",
+     "why": "上陸してすぐの水・日焼け止め",
+     "hours": [
+      [
+       0,
+       24
+      ]
+     ],
+     "w": 1,
+     "stay": 1.0,
+     "genre": {
+      "colddrink": 1.6,
+      "daily": 1.4,
+      "omiyage": 1.2
+     }
+    },
+    {
+     "id": "cru_back",
+     "ps": [
+      "cru"
+     ],
+     "from": "港の観光地",
+     "to": "客船ターミナル",
+     "why": "船に戻る前のおみやげ（急いで）",
+     "hours": [
+      [
+       0,
+       24
+      ]
+     ],
+     "w": 1,
+     "stay": 0.9,
+     "genre": {
+      "omiyage": 1.8,
+      "colddrink": 1.2
+     }
+    }
+   ]
   }
  },
  "genres": [

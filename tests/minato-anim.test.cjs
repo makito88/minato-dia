@@ -71,9 +71,9 @@ assert.ok(qSeen>0&&eatSeen>0&&payF>0&&payS>0,'列・イートイン・有人と�
       // どの棚の前でも、その品のジャンルの幅（年配1.4倍・おみやげ1.5倍・夜1.3倍・表示を読む＋6秒）をこえない
       const g=r.g,cap=(D[g]||D.browse)[1]*1.4*1.5*1.3+6;assert.ok(d<=cap+0.01,g+' '+d.toFixed(1)+'秒');
       if(g==='gummy'){gum++;gumMax=Math.max(gumMax,d);}
-      if(r.kind==='cmp'){cmp++;const p=I.P[r.pid],e=res.ev.find(v=>v.k==='buy'&&Math.abs(v.end-x.te)<1e-6&&v.ps===x.ps);assert.ok(p,'戻す品がある');
+      if(r.kind==='cmp'){cmp++;const p=I.P[r.pid],e=res.ev.find(v=>v.k==='buy'&&Math.abs(v.end-x.te)<1e-6&&v.ps===x.ps&&v.yen===x.yen);assert.ok(p,'戻す品がある');
         assert.ok(!e.items.some(([pid])=>pid===r.pid),'戻す品は買った品とちがう');assert.ok((KC.stockAt(res,x.ta+(x.tq-x.ta)*0.3)[r.pid]||0)>0,'戻す品はその時刻に棚にある');}}
-    const nI=res.ev.find(v=>v.k==='buy'&&Math.abs(v.end-x.te)<1e-6&&v.ps===x.ps).items.reduce((s,[,q])=>s+q,0);if(nI>=3){n3++;if(x.bk)bk3++;}if(nI===1&&x.bk)bk1++;
+    const nI=res.ev.find(v=>v.k==='buy'&&Math.abs(v.end-x.te)<1e-6&&v.ps===x.ps&&v.yen===x.yen).items.reduce((s,[,q])=>s+q,0);if(nI>=3){n3++;if(x.bk)bk3++;}if(nI===1&&x.bk)bk1++;
     if(x.trash)trash++;}
   assert.equal(over,0,'立ち止まる秒数は幅の中');assert.ok(gumMax<=6*1.4+6+0.01,'グミの棚で長く悩まない');
   assert.ok(Object.keys(sty).length>=4,'いろいろな動き方 '+JSON.stringify(sty));assert.ok(cmp>0,'手に取って戻す人がいる');assert.ok(ext>B.length,'余った時間はほかの棚をのぞく・回る');

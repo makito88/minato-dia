@@ -195,7 +195,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       const g2=takeShelf(c.id,1);if(!g2.got)continue;
       const y2=g2.got*priceOf(c.id);add(sold,c.id,g2.got);add(gross,c.id,y2);add(cogs,c.id,g2.cost);hourly[h]+=y2;hourlyN[h]++;add(byPs,v.ps,1);
       const mot=qd?'queue':'impulse';add(motives,mot,1);ev.push({t:st2,k:'buy',ps:v.ps,items:[[c.id,g2.got]],yen:y2,em:v.em,wait:st2-v.t,mot,by:hasCrew&&!(WP&&WP.lane==='s')?W[k2].p.id:undefined});recent.push({t:st2,pid:c.id});
-      if(WP){Object.assign(ev[ev.length-1],{wait:+WP.wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2)});WK.after(WP,[[c.id,g2.got]],ev);}
+      if(WP){Object.assign(ev[ev.length-1],{wait:+WP.wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2)});if(v.trip)ev[ev.length-1].trip=v.trip.id;WK.after(WP,[[c.id,g2.got]],ev);}
       if(r()<ps.sns*c.photo*0.35){const p2={t:st2+2,pid:c.id,ps:v.ps,good:true};posts.push(p2);ev.push({t:p2.t,k:'sns',pid:c.id,ps:v.ps,good:true});}
       continue;}
     const minor=v.a===0;
@@ -203,7 +203,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     let want=null,target=v.reg?v.reg.pid:v.mania||v.sns||null;
     if(target)want=P[target].genre;
     else{const gw=cfg.genres.map(g=>{let w=g.base*(ps.pref[g.id]??1)*hm(g.hours,h)*((g.season&&g.season[ctx.cond.season])||1)*((g.wx&&g.wx[ctx.cond.wx])??1);
-        if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w*(moodG[g.id]||1)*fG(g.id);});
+        if(g.age&&minor)w=0;if(trend&&ix.byG[g.id].some(it=>it.tags.some(t=>trend.tags.includes(t))))w*=1+trend.amp*0.6;return w*(moodG[g.id]||1)*fG(g.id)*(WK&&WK.gMul?WK.gMul(v,g.id):1);});   // 歩く店（港駅）：その人の道（どこから・どこへ）で、ほしいジャンルが変わる
       want=cfg.genres[pickW(gw,r)].id;}
     // どれを選ぶか（棚に見えている物から）
     const cands=ix.byG[want].filter(it=>SI[it.id]);
@@ -248,7 +248,7 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
       mot=best&&r()<fx[best]/(1+fx[best])?best:(mp.genre==='umbrella'&&(ctx.cond.wx==='rain'||ctx.cond.wx==='snow'))?'rain':'plan';}
     add(motives,mot,1);recent.push({t:start,pid:bought[0][0]});if(recent.length>60)recent.splice(0,20);
     const selfL=!!(WP&&WP.lane==='s'),e={t:start,k:'buy',ps:v.ps,items:bought,yen,em:v.em,wait,reg:!!v.reg,mania:!!v.mania,mot,addon:bought.length>1,by:hasCrew&&!selfL?W[k0].p.id:undefined};ev.push(e);
-    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2),dw:+(v.dw||1.5).toFixed(1)});   // dw：その時台の電車までの分のめやす（絵の「急いでいる人」用・A2。結果は変えない）
+    if(WP){Object.assign(e,{wait:+wait.toFixed(2),lane:WP.lane,stay:v.stay,end:+WP.end.toFixed(2),dw:+(v.dw||1.5).toFixed(1)});if(v.trip)e.trip=v.trip.id;   // trip：どこから・どこへの道の id（港駅の店だけ）   // dw：その時台の電車までの分のめやす（絵の「急いでいる人」用・A2。結果は変えない）
      WK.after(WP,bought,ev);}
     if(v.reg)regEvents.push({g:v.reg,ok:true});
     // 評価
