@@ -186,7 +186,9 @@ function simulate(cfg,state,ctx){const ix=index(cfg),R=ctx.rcfg,r=rng(hash(state
     if(!c.length)return;let tot=c.reduce((a,x)=>a+x[1],0),u=rS()*tot,pid=c[c.length-1][0];for(const [k,w] of c){u-=w;if(u<=0){pid=k;break;}}
     shelf[pid]-=1;const g2=take(pid,1);shrinkCost+=g2.cost;shrinkN+=1;add(shrinkBy,pid,1);add(gapQ,pid,1);};
   // 持ち物（WK.carryOf）は港駅の店だけ（A5）
-  for(const v of visitors){tick(v.t);nowT=v.t;if(!anyOn(v.t)){closedN++;continue;}steal(v);if(WK&&WK.carryOf)WK.carryOf(v);const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
+  // 歩く店でレジに着いた順にするとき（A7・設定 walk.fifo）：人をレジに着く時刻（v.ta）の順に処理する。棚から取るのも、その時刻
+  const VS=WK&&WK.order?WK.order(visitors):visitors;
+  for(const v of VS){const tv=v.ta??v.t;tick(Math.min(tv,O1));nowT=tv;if(!anyOn(v.t)){closedN++;continue;}steal(v);if(WK&&WK.carryOf)WK.carryOf(v);const ps=ix.PS[v.ps],h=Math.floor(v.t/60);add(byPs,v.ps,0);
     if(v.imp){   // なんとなく：棚全体から目に入った物（安い・手軽・映える・いま売れている物ほど）を手に取る
       const all=Object.keys(SI).map(k=>P[k]).filter(c=>stockOf(c.id)>0&&!ix.G[c.genre].age&&!(M.fixed||[]).includes(c.genre)&&!(WK&&WK.block&&WK.block(v,c.genre)));if(!all.length)continue;
       const ws=all.map(c=>c.w*SI[c.id].vis*(1+c.photo)*(priceOf(c.id)<=200?1.4:0.8)*(c.ease/5)*herdF(c.id,v.t)*(moodG[c.genre]||1)*buzzF(c.id)*trendOn(c)*newF(c.id)*Math.exp(-cfg.price.elastic*ps.priceSens*(priceOf(c.id)/c.price-1)));

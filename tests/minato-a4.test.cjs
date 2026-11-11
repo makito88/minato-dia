@@ -33,7 +33,10 @@ for(const res of [...A1,...A2]){const ev=res.ev;for(let i=1;i<ev.length;i++)asse
 assert.ok(S.alcSelf>20,'セルフでお酒を買う人がいる '+S.alcSelf);
 assert.ok(S.young>0&&S.old>0,'有人レジのお酒：若い客層と、ほかの客層');
 assert.ok(S.guide>50&&S.guideF>0&&S.guideF<=S.guide,'有人レジへ案内 '+S.guide+'・案内されて買った '+S.guideF);
-assert.ok(S.cover>0&&S.coverNoStop===S.cover,'レジに入る（有人レジは止まらない）'+S.cover);
+assert.ok(S.coverNoStop===S.cover,'レジに入る（有人レジは止まらない）'+S.cover);
+// A7（レジは着いた順）のあとは、店員2人がそろって1分以上ふさがることがほとんどなく、この14日では cover が出ない。しくみは、着いた順にする前の並べ方（fifo なし）で確かめる
+{const cF={...c,walk:{...c.walk}};delete cF.walk.fifo;let n=0,ok=0;for(const r of run(cF,2,14))for(const e of r.ev)if(e.k==='cover'){n++;const h=r.ev.find(x=>x.k==='selfhelp'&&x.by===e.from&&Math.abs(x.t-e.t)<5);if(h&&!h.stop)ok++;}
+  assert.ok(n>0&&ok===n,'レジに入る（fifo なしの並べ方）'+n);}
 assert.ok(A1.every(r=>!r.ev.some(e=>e.k==='cover')),'店員が1人のときは、レジに入る人はいない');
 assert.ok(S.shelve>=24,'地元のお店の品を並べる '+S.shelve);
 const dl=[...A1].flatMap(r=>r.ev.filter(e=>e.k==='shelve').map(e=>e.t-e.from));assert.ok(dl.every(x=>x>=c.walk.localShelve.sign&&x<30),'並べ終えるまで数分 '+Math.min(...dl).toFixed(1)+'〜'+Math.max(...dl).toFixed(1));
