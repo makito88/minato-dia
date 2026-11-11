@@ -73,7 +73,21 @@ function openStore(){const day=gDay(),st=MS.create(V.K,V.M,KC,{seed:(Date.now()%
 
 /* ---------- 売店の画面の上の欄 ---------- */
 const PSN=()=>{const o={};for(const p of V.cfg.personas)o[p.id]=p;return o;};
-function render(o){const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.name:'港駅の店';
+/* 完成イメージと比べる（ユーザーの絵・2026-11-11）：アニメの下か横に、assets/images/minato-store-concept.webp を出す。どちらに出すかは、この端末に覚える */
+const CIMG='assets/images/minato-store-concept.webp',CIMG_S='assets/images/minato-store-concept-s.webp';
+function conceptUI(){const box=document.getElementById('msConcept'),stage=document.querySelector('.ks-stage');if(!box||!stage)return;
+  let m=innerWidth>=900?'side':'below';try{m=localStorage.getItem('minato-concept')||m;}catch(e){}   // はじめは、PC は横・スマホは下
+  const k='m:'+m;box.hidden=false;
+  const side=stage.querySelector('img.ms-cimg');stage.classList.toggle('ms-side',m==='side');
+  if(m==='side'&&!side){const im=document.createElement('img');im.className='ms-cimg';im.src=CIMG;im.alt='港駅の売店の完成イメージ（ユーザーの絵）';im.loading='lazy';stage.appendChild(im);}
+  if(m!=='side'&&side)side.remove();
+  if(box.dataset.k===k)return;box.dataset.k=k;
+  const btn=(v,t)=>`<button type="button" class="ks-chip" data-cm="${v}" aria-pressed="${m===v}">${t}</button>`;
+  box.innerHTML=`<div class="ms-cbar"><b>完成イメージと比べる</b>${btn('off','アニメだけ')}${btn('below','下に並べる')}${btn('side','横に並べる')}</div>`+
+    (m==='below'?`<figure><img src="${CIMG}" srcset="${CIMG_S} 814w, ${CIMG} 1628w" sizes="(max-width: 899px) 100vw, 1180px" alt="港駅の売店の完成イメージ（ユーザーの絵）" loading="lazy"><figcaption>完成イメージ（ユーザーが用意した絵・2026-11-11）。めざす見た目の参考で、計算や時刻とはつながっていません。</figcaption></figure>`:
+     m==='side'?`<p class="ks-note" style="margin:6px 0 0">右（スマホでは下）が完成イメージ（ユーザーが用意した絵・参考）。</p>`:'');
+  box.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{try{localStorage.setItem('minato-concept',b.dataset.cm);}catch(e){}box.dataset.k='';conceptUI();});}
+function render(o){conceptUI();const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.name:'港駅の店';
   if(!V.cfg){top.innerHTML=`<div class="ks-card"><p>${V.err?'港駅の店の設定を読み込めませんでした（'+esc(V.err)+'）':'準備しています…'}</p></div>`;sub.textContent='';kpi.innerHTML='';return;}
   const W=V.cfg.walk,M=V.M;
   if(!V.st){sub.textContent='まだ出していません';kpi.innerHTML='';

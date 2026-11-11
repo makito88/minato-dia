@@ -238,6 +238,9 @@ const CSS=`
 .ks-life{margin:0 0 6px;font-size:12px;line-height:1.6;color:var(--muted,#667);overflow-wrap:anywhere}.ks-life b{color:var(--ink,inherit)}.ks-life a{white-space:nowrap}.ks-src{font-style:normal;font-size:10px;border:1px solid currentColor;border-radius:3px;padding:0 2px;margin-left:2px;opacity:.8}.ks-lst{font-size:10px;background:rgba(200,140,40,.15);border-radius:3px;padding:0 4px}
 .ks-card h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}.ks-card h3 small{font-size:11.5px;color:var(--muted);font-weight:400}
 .ks-stage{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#2a2f33}.ks-stage canvas{display:block;width:100%;height:auto}
+.ms-concept{margin-top:8px;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--card,#fff)}.ms-concept .ms-cbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}.ms-concept .ms-cbar b{margin-right:auto}.ms-concept figure{margin:8px 0 0}.ms-concept img{display:block;width:100%;height:auto;border-radius:8px}.ms-concept figcaption{font-size:11px;color:var(--mut,#666);margin-top:4px}
+.ks-stage.ms-side{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:transparent;border:0}.ks-stage.ms-side img{display:block;width:100%;height:auto;border-radius:8px;align-self:start}
+@media (max-width:899px){.ks-stage.ms-side{grid-template-columns:1fr}}
 .ks-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.ks-kpi div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
 .ks-kpi span{display:block;font-size:11px;color:var(--muted)}.ks-kpi b{font-family:var(--f-mono);font-size:17px;font-variant-numeric:tabular-nums}.ks-kpi .neg{color:#c9573f}.ks-kpi .pos{color:#2f8a4a}
 .ks-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);position:sticky;top:calc(-10px - env(safe-area-inset-top,0px));z-index:3;background:var(--paper);padding-top:4px}
@@ -317,7 +320,7 @@ function mount(){const s=document.createElement('style');s.textContent=CSS;docum
   const mb=document.querySelector('.minibar-in');if(mb){const b=document.createElement('button');b.id='mks';b.type='button';b.className='mspeed tayorimini';b.innerHTML='売店<span class="dot" hidden></span>';mb.appendChild(b);b.onclick=openFromBadge;}
   const p=document.createElement('section');p.id='ksv';p.className='ksv';p.hidden=true;p.setAttribute('aria-label','売店の運営');
   p.innerHTML=`<div class="ks-in"><div class="ks-hd"><h2 id="ksTitle">売店の運営</h2><small id="ksSub"></small><span class="ks-sp"></span><span id="ksSpd"></span><button type="button" class="ks-btn" id="ksClose">閉じる</button></div>
-    <div id="ksWhich" class="ks-which" hidden></div><div id="ksTop"></div><div class="ks-stage"><canvas id="ksCanvas" width="1000" height="600" aria-label="売店の正面のようす（棚を押すと、その商品のカードが出ます）"></canvas></div><div id="ksAlert" class="ks-alert" aria-live="polite"></div><div id="ksKpi" class="ks-kpi"></div>
+    <div id="ksWhich" class="ks-which" hidden></div><div id="ksTop"></div><div class="ks-stage"><canvas id="ksCanvas" width="1000" height="600" aria-label="売店の正面のようす（棚を押すと、その商品のカードが出ます）"></canvas></div><div id="msConcept" class="ms-concept" hidden></div><div id="ksAlert" class="ks-alert" aria-live="polite"></div><div id="ksKpi" class="ks-kpi"></div>
     <div class="ks-tabs" role="tablist" id="ksTabs"></div><div id="ksBody"></div></div>`;
   document.body.appendChild(p);const sh=document.createElement('aside');sh.id='ksSheet';sh.className='ks-sheet';sh.hidden=true;sh.setAttribute('aria-label','商品カード');p.appendChild(sh);
   $('ksClose').onclick=()=>setOpen(false);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open){if(V.sheet){closeSheet();return;}setOpen(false);}});
@@ -407,6 +410,7 @@ function updateSheet(){const pid=V.sheet,res=V.res;if(!pid||!res||!$('shNow'))re
 function render(full){if(!V.open)return;
   if(!V.cfg){$('ksTop').innerHTML=`<div class="ks-card"><p>${V.err?'設定を読み込めませんでした（'+esc(V.err)+'）。パソコンで index.html を直接開いた場合は読み込めません。':'準備しています…'}</p></div>`;return;}
   renderWhich();
+  {const mc=$('msConcept');if(mc&&!isMinato()){mc.hidden=true;const st=document.querySelector('.ks-stage');if(st){st.classList.remove('ms-side');const im=st.querySelector('img.ms-cimg');if(im)im.remove();}}}   // 港駅の店の完成イメージ（比べる用）は港駅の店だけ
   if(isMinato()){['ksAlert','ksBody'].forEach(id=>$(id).innerHTML='');$('ksTabs').hidden=true;$('ksTop').dataset.k='';if(V.sheet)closeSheet();MSV().render({top:$('ksTop'),kpi:$('ksKpi'),title:$('ksTitle'),sub:$('ksSub')});return;}
   if(!V.st){$('ksTitle').textContent='売店を出す';$('ksSub').textContent='';renderSetup();$('ksKpi').innerHTML='';$('ksBody').innerHTML='';$('ksTabs').hidden=true;return;}
   $('ksTabs').hidden=false;const S=V.st,c=gCond();{const h=lifeLine(S.st,c),t=$('ksTop');if(t.dataset.k!==h||!t.querySelector('.ks-life')){t.innerHTML=h;t.dataset.k=h;}}
