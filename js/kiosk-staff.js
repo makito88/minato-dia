@@ -35,6 +35,8 @@ function minorOf(cfg,p){const MN=cfg.crew.minor;if(!MN||!p)return false;if(p.min
 /* 実際にいる時間（分）：開店前・閉店後の作業（crew.work。いちばん早い区切りから入る人は work.from から・終わりは work.to まで）と、18歳未満の働けない時間（crew.minor の from〜to の外） */
 /* 18歳未満の人が、その区切りの全部には入れないか（夜の区切り・開店前の準備のある朝の区切り）。おまかせのシフトでは、そういう区切りに入れない */
 const clipped=(cfg,b,p)=>{const len=L=>L.reduce((x,[a,c])=>x+c-a,0);return len(realSpans(cfg,[[b.from,b.to]],p))<len(realSpans(cfg,[[b.from,b.to]],null));};
+/* その人が、その型の日のその区切りに入れるか（as：港駅の店の「午前」は朝に入れる人・18歳未満の人は全部には入れない区切りに入れない） */
+function canB(cfg,p,t,b){return (p.avail[t].includes(b.id)||!!b.as&&p.avail[t].includes(b.as))&&!(cfg.crew.minor&&minorOf(cfg,p)&&clipped(cfg,b,p));}
 function realSpans(cfg,spansH,p){let sp=spansH.map(([a,b])=>[a*60,b*60]);const WK=cfg.crew.work,MN=cfg.crew.minor;
   if(WK){const b0=Math.min(...B(cfg).map(x=>x.from))*60,f=WK.from*60,e=WK.to*60;sp=sp.map(([a,b])=>[a===b0&&f<a?f:a,Math.min(b,e)]);}
   if(MN&&minorOf(cfg,p))sp=sp.map(([a,b])=>[Math.max(a,MN.from*60),Math.min(b,MN.to*60)]);
@@ -74,7 +76,7 @@ function assign(cfg,people,need,mode){const C=cfg.crew,sh={},hrs={},nAv=p=>TYPES
   for(const t of TYPES){sh[t]={};for(const p of people)sh[t][p.id]=[];}
   const score=p=>(p.want-(hrs[p.id]||0))/nAv(p)-(mode==='cost'?((p.wageNext??p.wage)-C.market)/200:0);
   // 入れる人が少ない時間帯から先に決める（先に埋めないと、だれもいなくなる）
-  const can=(p,t,b)=>(p.avail[t].includes(b.id)||!!b.as&&p.avail[t].includes(b.as))&&!(C.minor&&minorOf(cfg,p)&&clipped(cfg,b,p));   // 18歳未満の人は、全部には入れない区切りに入れない（港駅の店）
+  const can=(p,t,b)=>canB(cfg,p,t,b);   // 18歳未満の人は、全部には入れない区切りに入れない（港駅の店）
   const slots=[];for(const t of TYPES)for(const b of B(cfg))slots.push({t,b,n:people.filter(p=>can(p,t,b)).length});
   slots.sort((a,c)=>a.n-c.n);
   for(const {t,b} of slots){const add=(b.to-b.from)*C.weekDays[t],k=need(t,b);
@@ -99,7 +101,9 @@ function assign(cfg,people,need,mode){const C=cfg.crew,sh={},hrs={},nAv=p=>TYPES
 function autoShift(cfg,crew,day,mode,perH){const people=crew.people.filter(p=>p.leave==null&&active(p,day+1)),C=cfg.crew;
   const need=(t,b)=>mode==='cost'?1:Math.max(1,Math.min(3,Math.ceil(((perH[t]||[])[B(cfg).indexOf(b)]||0)/(C.morale.busy*0.9))));
   return assign(cfg,people,need,mode);}
-function migrate(cfg,state){if(state.crew)return state.crew;state.crew=create(cfg,state.seed||1,state.openedDay||1,Math.max(1,state.staff||1));return state.crew;}
+function migrate(cfg,state){if(state.crew){wageFloor(cfg,state.crew);return state.crew;}state.crew=create(cfg,state.seed||1,state.openedDay||1,Math.max(1,state.staff||1));wageFloor(cfg,state.crew);return state.crew;}
+/* 最低賃金（crew.minWage）より低い時給は、その額まで上げる（2026-11-11・東京都の最低賃金 1,280円。前の保存の人も） */
+function wageFloor(cfg,crew){const m=cfg.crew.minWage||0;for(const p of crew.people||[]){if(p.wage<m)p.wage=m;if(p.wageNext!=null&&p.wageNext<m)p.wageNext=m;if(p.expect<m)p.expect=m;}for(const a of crew.applicants||[])if(a.wage<m)a.wage=m;}
 
 /* その人がその日に働くか（雇った日の次の日から・辞める日の前の日まで） */
 const active=(p,day)=>(p.from==null||p.from<=day)&&(p.leave==null||p.leave>day);
@@ -169,8 +173,25 @@ function close(cfg,st,res,day,say){const C=cfg.crew,M=C.morale,crew=migrate(cfg,
   crew.ads=(crew.ads||[]).filter(a=>day-a.day<C.ad.days);
   if(nNew)say('crew',`募集に${nNew}人の応募があった`,`「店員」で会って、採用するか決められます（${C.ad.keep}日たつと、ほかで決まっていなくなります）。`);
   if(left)say('crew',`応募していた${left}人が、ほかで決まった`,'');
+  if(C.autoHire)autoHire(cfg,st,crew,day,say);
   return crew;}
+/* 足りない店員の自動の募集（港駅の店・crew.autoHire・2026-11-11 ユーザー）：締めのたびに、あすからのシフトでだれもいない時刻があるかを見る。
+   ①組み直す → ②応募している人のうち、足りない区切りに入れる人を採用して組み直す → ③まだ足りず、募集が出ていなければ、あすから募集を出す（1回 ad.fee 円・時給は相場か最低賃金の高いほう） */
+function gapsOf(cfg,crew,day){const ppl=crew.people.filter(p=>active(p,day));const sh=crew.shiftNext||crew.shift,out=[];
+  for(const t of TYPES){const W=dayWorkers(cfg,ppl,sh[t]||{});for(let m=cfg.open[0]*60;m<cfg.open[1]*60;m+=5)if(!W.some(w=>onAt(w,m))){const b=B(cfg).find(x=>m>=x.from*60&&m<x.to*60);if(b&&!out.some(o=>o.t===t&&o.b===b))out.push({t,b,m});}}
+  return out;}
+function autoHire(cfg,st,crew,day,say){const C=cfg.crew,A=C.autoHire,d1=day+1,need=()=>Math.max(1,st.staff||A.staff||2);
+  const reshape=()=>{const ppl=crew.people.filter(p=>active(p,d1)),sh=assign(cfg,ppl,need,'even');for(const t of TYPES)for(const p of crew.people)if(!sh[t][p.id])sh[t][p.id]=[];crew.shift=sh;delete crew.shiftNext;};   // 締めのあと（あすの分のシフト）なので、そのまま crew.shift に
+  let g=gapsOf(cfg,crew,d1);if(!g.length)return;
+  reshape();g=gapsOf(cfg,crew,d1);
+  // 応募している人から採用（足りない区切りに入れる人・時給の安い人から）
+  const hired=[];
+  while(g.length&&crew.people.filter(p=>p.leave==null).length<C.max){const a=crew.applicants.filter(x=>g.some(o=>canB(cfg,x,o.t,o.b))).sort((x,y)=>x.wage-y.wage)[0];if(!a)break;
+    crew.applicants=crew.applicants.filter(x=>x!==a);a.from=d1;delete a.until;delete a.came;crew.people.push(a);for(const t of TYPES){crew.shift[t][a.id]=[];}hired.push(a);reshape();g=gapsOf(cfg,crew,d1);}
+  if(hired.length)say('crew',`${hired.map(a=>a.name+'さん').join('・')}を採用した（おまかせ）`,`店員が足りない時間があったので、応募していた人を採用しました。あすからシフトに入ります（時給${hired.map(a=>a.wage.toLocaleString()+'円').join('・')}）。`);
+  if(g.length&&!adsOpen(cfg,crew,d1).length&&crew.people.filter(p=>p.leave==null).length<C.max){const w=Math.max(C.minWage||0,C.market+(A.plus||0));crew.ads=(crew.ads||[]).concat([{day:d1,wage:w,auto:true}]);
+    const TN=C.dayTypes||{};say('crew','店員が足りないので、募集を出した（おまかせ）',`${g.slice(0,3).map(o=>(TN[o.t]||o.t)+'の'+o.b.name).join('・')}${g.length>3?'など':''}に入れる人がいません。あすから${C.ad.days}日間、時給${w.toLocaleString()}円で募集します（${C.ad.fee.toLocaleString()}円）。だれもいない時間は、店を閉めます。`);}}
 
-root.KioskStaff={minorOf,realSpans,brkOf,create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,hoursOf,availH,dayPlan,active,close,adsOpen,TYPES,blk};
+root.KioskStaff={gapsOf,autoHire,wageFloor,canB,dayWorkers,minorOf,realSpans,brkOf,create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,hoursOf,availH,dayPlan,active,close,adsOpen,TYPES,blk};
 if(typeof module!=='undefined')module.exports=root.KioskStaff;
 })(typeof window!=='undefined'?window:globalThis);

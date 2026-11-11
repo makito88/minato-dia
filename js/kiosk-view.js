@@ -31,7 +31,7 @@ addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=
 /* ---------- 読み込み・保存 ---------- */
 // 橋の一覧とアンケート（読めなくても売店はいつもどおり。アンケート→売店の橋が「未接続」になるだけ）。売店の最初の計算より前にそろえる（途中で効き目が入って結果が変わらないように）
 const optJson=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
-Promise.all([fetch('data/kiosk.json').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();}),optJson('data/links.json?v=20261110e'),window.SurveyToKiosk?optJson('data/survey.json'):null])
+Promise.all([fetch('data/kiosk.json?v=20261111w3').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();}),optJson('data/links.json?v=20261110e'),window.SurveyToKiosk?optJson('data/survey.json'):null])
   .then(([c,rc,lk,sv])=>{V.cfg=c;V.rcfg=rc;V.links=lk;V.survey=sv;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
@@ -763,7 +763,7 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
   const card=p=>{const w=work[p.id],tr=KS.traits(p),wk=KS.weekHours(V.cfg,cr,p.id,true),next=p.wageNext??p.wage,sp=Math.round(KS.expF(V.cfg,p)*KS.moraleF(p.morale)*100);
     const av=KS.TYPES.map(tp=>`${TN[tp].slice(0,2)}：${p.avail[tp].length?p.avail[tp].map(id=>KS.blk(V.cfg,id).name).join('・'):'—'}`).join('　');
     const mc=p.morale>=60?'#2f8a4a':p.morale>=45?'#c9a35c':'#c9573f';
-    return `<div class="ks-crew${p.warn?' warn':''}"><div class="ks-crew-h"><b>${esc(p.name)}さん</b><span class="mut">${C.kinds.find(k=>k.id===p.kind).name}</span>${p.from>day?'<span class="ks-tag">あすから</span>':''}${p.leave!=null?'<span class="ks-tag neg">あすで辞める</span>':''}</div>
+    return `<div class="ks-crew${p.warn?' warn':''}"><div class="ks-crew-h"><b>${esc(p.name)}さん</b><span class="mut">${C.kinds.find(k=>k.id===p.kind).name}</span>${KS.minorOf&&KS.minorOf(V.cfg,p)?'<span class="ks-tag" title="22時〜5時は働けない">18歳未満</span>':''}${p.from>day?'<span class="ks-tag">あすから</span>':''}${p.leave!=null?'<span class="ks-tag neg">あすで辞める</span>':''}</div>
       <div class="ks-mood"><u style="width:${p.morale}%;background:${mc}"></u></div><div class="ks-crew-m"><b style="color:${mc}">${KS.moodWord(p.morale)}</b>${p.notes&&p.notes.length?`<span>気にしていること：${p.notes.map(esc).join('・')}</span>`:''}</div>
       ${p.ask?`<div class="ks-pend" role="alert"><b>時給を${yen(p.ask)}にしてほしい（いま${yen(p.wage)}）</b><div class="ks-sbtns"><button type="button" class="ks-btn pri" data-raise="${p.id}">${yen(p.ask)}にする（あすから）</button><button type="button" class="ks-btn" data-noraise="${p.id}">見送る</button></div></div>`:''}
       <div class="ks-sg"><span>時給</span><span class="ks-num"><button type="button" data-wage="${p.id}" data-d="-1" aria-label="${C.step}円下げる">−</button><b class="${next!==p.wage?'chg':''}">${yen(next)}</b><button type="button" data-wage="${p.id}" data-d="1" aria-label="${C.step}円上げる">＋</button></span>
@@ -788,7 +788,7 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
     <tr><td class="l"><b>人数</b></td>${cnt.map(n=>`<td class="${n?'':'neg'}"><b>${n}</b></td>`).join('')}<td></td></tr></tbody></table>${V.shMsg?`<p class="ks-note neg" role="alert">${esc(V.shMsg)}</p>`:''}`;
   // 募集
   const ads=KS.adsOpen(V.cfg,cr,day),adOpts=[];for(let wv=C.minWage;wv<=C.maxWage;wv+=C.step)adOpts.push(wv);if(V.adWage==null)V.adWage=C.market;
-  const app=a=>`<div class="ks-crew"><div class="ks-crew-h"><b>${esc(a.name)}さん</b><span class="mut">${C.kinds.find(k=>k.id===a.kind).name}</span><span class="ks-tag">あと${a.until-day}日</span></div>
+  const app=a=>`<div class="ks-crew"><div class="ks-crew-h"><b>${esc(a.name)}さん</b><span class="mut">${C.kinds.find(k=>k.id===a.kind).name}</span>${KS.minorOf&&KS.minorOf(V.cfg,a)?'<span class="ks-tag">18歳未満</span>':''}<span class="ks-tag">あと${a.until-day}日</span></div>
       <div class="ks-sg"><span>時給</span><b>${yen(a.wage)}</b><span>週の希望</span><b>${a.want}時間</b><span>得意</span><span>${KS.traits(a).map(x=>`<span class="ks-tag ${x.good?'pos':'neg'}">${x.t}</span>`).join('')||'<span class="mut">ふつう</span>'}</span>
         <span>入れる時間</span><small>${KS.TYPES.map(tp=>`${TN[tp].slice(0,2)}：${a.avail[tp].length?a.avail[tp].map(id=>KS.blk(V.cfg,id).name).join('・'):'—'}`).join('　')}</small></div>
       <div class="ks-sbtns"><button type="button" class="ks-btn pri" data-hire="${a.id}" ${cr.people.length>=C.max?'disabled':''}>採用する（あすから）</button><button type="button" class="ks-btn" data-pass="${a.id}">見送る</button></div></div>`;
@@ -810,6 +810,7 @@ function renderCrew(b,res){const C=V.cfg.crew,cr=crewOf(),day=gDay(),type=gCond(
   b.querySelectorAll('[data-cell]').forEach(x=>x.onclick=()=>{const [id,hs]=x.dataset.cell.split('|'),h=+hs,S2=shNext();
     // その人のその日の区切りを1時間ずつ（h6〜h22）に直してから、押した1時間を足す・外す
     const set=new Set(KS.hoursOf(V.cfg,S2[ty][id]));if(set.has(h))set.delete(h);else set.add(h);
+    const MN=V.cfg.crew.minor;if(MN&&set.has(h)&&KS.minorOf(V.cfg,find(id))&&(h<MN.from||h+1>MN.to)){V.shMsg=`${find(id).name}さんは18歳未満なので、${MN.to}時〜${MN.from}時は入れません（法律で決まっています）。`;render(true);return;}   // 2026-11-11
     const next=[...set].sort((a,c)=>a-c).map(v=>'h'+v),q=KS.dayPlan(V.cfg,next);
     if(q.gaps>HC.maxGaps){V.shMsg=`中抜けは1日${HC.maxGaps}回までです（${find(id).name}さん）。`;render(true);return;}
     V.shMsg='';S2[ty][id]=next;crewSave(false);});

@@ -50,7 +50,8 @@ const H=KC.H,a=new Array(H).fill(0).map((_,h)=>h>=5&&h<24?150:0),fl=[a,a,a,a];
 const st=KC.create(K,{st:'M',place:'home',seed:3});
 const out=[5,6,9].map(day=>KC.simulate(K,st,{day,dow:day%7,cond:{day:'wd',wx:'sun',season:'aut'},flows:{hb:fl,ha:fl},stops:new Array(H).fill(4),plats:2,rcfg:R,order:st.order,express:[],addOn:[],edits:[],startT:0}));
 const print=crypto.createHash('sha256').update(JSON.stringify(out)).digest('hex').slice(0,16);
-const GREEN='2a115347a9a3ab65';
+// 2026-11-11（ユーザーの頼み）：緑ヶ丘の店にも東京都の最低賃金 1,280円と18歳未満の決まり（22時〜5時は働かない）を当てたので、指紋を作り直した（前 2a115347a9a3ab65。data/kiosk.json を前に戻すと前の指紋に戻ることを確かめた）
+const GREEN='ee4a7b2e83b50952';
 if(process.env.MINATO_PRINT)console.log('  指紋',print);
 assert.equal(print,GREEN,'緑ヶ丘の店の3日分の結果が変わった');
 console.log('  緑ヶ丘の店：3日分の出来事の列・収支が前と同じ（指紋 '+print+'）');

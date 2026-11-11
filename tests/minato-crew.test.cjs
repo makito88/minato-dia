@@ -33,3 +33,19 @@ assert.ok(nGap/nDay<=0.05,'だれもいない時間がある日 '+nGap+'/'+nDay)
   assert.equal(res.closedN,0,'閉まっている時間がない');assert.ok(res.crew.every(x=>x.yen/x.h>=1280-1e-6),'時給は1,280円から');}
 console.log(`  店員の日 ${nW}（休憩あり ${nBrk}・18歳未満 ${nMinor}・4:30から ${nEarly}）・だれもいない時間がある日 ${nGap}/${nDay}`);
 console.log('minato-crew ok');
+// 足りない店員の自動の募集（crew.autoHire・2026-11-11）：20日まわして、自動の募集がないときより閉まる日が少ない・募集の費用がかかる・採用した人は足りない区切りに入れる人
+{const M2=JSON.parse(JSON.stringify(M));delete M2.crew.autoHire;const c2=MS.cfg(K,M2);
+  const run=(cc,seed)=>{let st=MS.create(K,M,KC,{seed,day:1,staff:2});KS.migrate(cc,st);st.crew.blk=CR.blocksVer;let cl=0,rec=0,hire=0;
+    for(let day=1;day<=20;day++){const res=KC.simulate(cc,st,{day,dow:day%7,cond:{day:day%7===0?'hol':day%7===6?'sat':'wd',wx:'sun',season:'aut'},flows:{hb:fl,ha:fl},stops:new Array(H).fill(4),plats:2,rcfg:R,order:st.order,express:[],addOn:[],edits:[],startT:0});
+      if(res.closedN>0)cl++;rec+=res.pl.recruit;st=KC.closeDay(cc,st,res).state;hire+=(st.news||[]).filter(n=>n.day===day&&/採用した/.test(n.title)).length;
+      for(const p of st.crew.people)assert.ok(p.wage>=1280,'時給は1,280円から');}
+    return {cl,rec,hire};};
+  let A={cl:0,rec:0,hire:0},Bz={cl:0,rec:0,hire:0};for(const seed of [7,11,12]){const x=run(c,seed),y=run(c2,seed);for(const k in A){A[k]+=x[k];Bz[k]+=y[k];}}
+  assert.ok(A.cl<Bz.cl,'自動の募集で、閉まる日が減る '+Bz.cl+'→'+A.cl);assert.ok(A.rec>0&&A.hire>0&&Bz.rec===0,'募集の費用・採用');
+  console.log(`  20日×3つの店：閉まる時間があった日 ${Bz.cl} → ${A.cl}（自動の募集）・採用 ${A.hire}人・募集の費用 ${A.rec}円`);}
+console.log('minato-crew ok (auto)');
+// 緑ヶ丘の店にも、最低賃金と18歳未満の決まり（区切りや休憩は前のまま）
+{assert.equal(K.crew.minWage,1280);let nm=0;for(let seed=1;seed<=30;seed++){const st=KC.create(K,{seed,st:'G',place:'home',day:1});st.staff=2;KS.migrate(K,st);
+  for(const p of st.crew.people)assert.ok(p.wage>=1280);
+  for(const t of KS.TYPES)for(const w of KS.today(K,st,t,1))if(KS.minorOf(K,w.p)){nm++;assert.ok(w.spans.every(([x,y])=>x>=300&&y<=1320),'緑ヶ丘でも18歳未満は22時まで');}}
+  assert.ok(nm>0);console.log('  緑ヶ丘：18歳未満の人の日 '+nm);}
