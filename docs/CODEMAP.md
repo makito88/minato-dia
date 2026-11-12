@@ -86,13 +86,13 @@ CSS …17・render() …44・bindDays() …68・open() …69・close() …70・s
 
 hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() …24・shelfInfo() …26・defaultOrder() …31・■ 状態 …32・create() …33・■ 1日を動かす …39・simulate() …42・review() …303・■ 運行日を締める：評判・SNSの話題・常連・ブーム・在庫の持ちこし・知らせ …313・closeDay() …314・■ 移転：別の駅・場所へ移す（次の運行日から） …364・relocate() …369・migratePrices() …382・backAt() …387・stockAt() …388・idxAt() …389・soFar() …391・公開 KioskCore …395
 
-## js/kiosk-scene-core.js（122行）
+## js/kiosk-scene-core.js（161行）
 
-公開 KioskScene …120
+公開 KioskScene …159
 
-## js/kiosk-scene-view.js（141行）
+## js/kiosk-scene-view.js（168行）
 
-json() …11・snapshot() …16・sprite() …25・bottle() …32・draw() …37・panel() …85・resize() …96・frame() …101・init() …112
+json() …11・snapshot() …16・sprite() …25・bottle() …32・draw() …37・panel() …98・resize() …116・frame() …121・init() …132
 
 ## js/kiosk-staff.js（226行）
 

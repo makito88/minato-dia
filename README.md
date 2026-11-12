@@ -22,7 +22,7 @@
 - [沿線暦と沿線だより](docs/features/ensen.md)（季節のできごとの仕組みもここ）
 - [駅ナカ リサーチ](docs/features/research.md)
 - [売店の運営](docs/features/kiosk.md)
-- [店内画で一人の買い物を試す](kiosk-scene.html)（描画の試作。歩く・商品を取る・途中の品切れで選び直す。実際の売店の売上は変えません）
+- [店内画で一人の買い物を試す](kiosk-scene.html)（描画の試作。商品を取る・品切れで選び直す・順番を待つ・カードで会計・退出。実際の売店の売上は変えません）
 - [配送会社とセンターの倉庫](docs/features/haiso.md)
 - [おにぎり工場（米・パン・サンドイッチ・ドーナッツ・お弁当・原材料・収支）](docs/features/factory.md)
 - [保存と引き継ぎ・留守のあいだ](docs/features/save.md)

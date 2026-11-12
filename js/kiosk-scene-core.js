@@ -14,6 +14,10 @@ class Scene {
     this.stock = this.initialStock.slice();
     this.target = 0;
     this.held = null;
+    this.unpaid = this.stock.map(() => 0);
+    this.purchased = this.stock.map(() => 0);
+    this.paymentCount = 0;
+    this.registerBusy = false;
     this.time = 0;
     this.phaseTime = 0;
     this.reach = 0;
@@ -37,12 +41,27 @@ class Scene {
   enter(phase) {
     this.phase = phase;
     this.phaseTime = 0;
+    if (phase === 'done' && this.paymentCount) this.reason = '会計を済ませ、飲み物を手に持って店を出ました。';
   }
   setStock(index, quantity) {
     if (!Number.isInteger(index) || index < 0 || index >= this.stock.length) return;
     const value = Number(quantity);
     if (!Number.isFinite(value)) return;
     this.stock[index] = Math.max(0, Math.floor(value));
+  }
+  setRegisterBusy(busy) {
+    // Once this customer is being served, a new queue cannot interrupt payment.
+    if (this.paymentCount || ['pay','pack','done'].includes(this.phase) || this.next === 'pay') return false;
+    this.registerBusy = !!busy;
+    return true;
+  }
+  pay() {
+    if (this.paymentCount || this.held === null) return;
+    this.unpaid.forEach((quantity, index) => {
+      this.purchased[index] += quantity;
+      this.unpaid[index] = 0;
+    });
+    this.paymentCount++;
   }
   reselect() {
     const next = this.stock.findIndex((count, index) => count > 0 && index !== this.target);
@@ -97,6 +116,7 @@ class Scene {
       } else if (this.reach >= 1) {
         this.stock[this.target]--;
         this.held = this.target;
+        this.unpaid[this.target]++;
         this.reason = this.config.products[this.target].name + 'を棚から取りました。';
         this.enter('take');
       }
@@ -108,12 +128,31 @@ class Scene {
       this.reach = 0;
       this.reason = '飲み物を持って、有人レジの列へ向かいます。';
       this.go(this.config.checkout, 'queue');
-    } else if (this.phase === 'queue' && this.phaseTime >= 3) {
-      this.reason = '前の客の後ろで、会計の順番を待っています。';
-      if (this.phaseTime >= 5) {
-        this.reason = 'この試作では、レジ前までの買い物を観察できます。';
-        this.enter('done');
+    } else if (this.phase === 'queue') {
+      this.direction = 0;
+      this.reason = this.registerBusy ? '店員がほかの対応中なので、飲み物を持って待ちます。' : '足元の印で、呼ばれるのを待っています。';
+      if (!this.registerBusy && this.phaseTime >= this.config.register.waitSeconds) {
+        this.reason = '順番が来たので、レジへ進みます。';
+        this.go(this.config.register.approach, 'pay');
       }
+    } else if (this.phase === 'pay') {
+      this.direction = 0;
+      const duration = this.config.register.paySeconds;
+      this.reason = this.phaseTime < duration * .45 ? '飲み物を持ったまま、空いている手でカードを出します。' : 'カードを読み取り機にかざしています。';
+      if (this.phaseTime >= duration * .7) {
+        this.pay();
+        this.reason = '支払いが終わりました。カードをしまいます。';
+      }
+      if (this.phaseTime >= duration) {
+        this.reason = '次の人のために、レジの横へよけます。';
+        this.go(this.config.register.pack, 'pack');
+      }
+    } else if (this.phase === 'pack') {
+      this.direction = 1;
+      this.reason = '会計済みの飲み物を持ち直してから、出口へ向かいます。';
+      if (this.phaseTime >= this.config.register.packSeconds) this.go(this.config.exit, 'done');
+    } else if (this.phase === 'done' && this.paymentCount) {
+      this.reason = '会計を済ませ、飲み物を手に持って店を出ました。';
     }
   }
 }

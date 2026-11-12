@@ -8,7 +8,7 @@ const config = JSON.parse(read('data/kiosk-scene.json'));
 const jsons = {'data/kiosk-scene.json':config};
 jsons[config.sprites+'frames.json']=JSON.parse(read(config.sprites+'frames.json'));
 const images={};
-for(const file of [config.background,config.sprites+'walk.webp',config.sprites+'reach.webp',...config.products.map(product=>config.sprites+product.carry)]){
+for(const file of [config.background,config.sprites+'walk.webp',config.sprites+'reach.webp',config.sprites+config.register.payment,...config.products.map(product=>config.sprites+product.carry)]){
   images[file]='data:image/webp;base64,'+fs.readFileSync(path.join(root,file)).toString('base64');
 }
 let view=read('js/kiosk-scene-view.js');
