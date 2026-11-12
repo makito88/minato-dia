@@ -31,7 +31,13 @@ function ensure(){if(V.cfg||V.loading)return;V.loading=true;
       V.cat=DC().catalog(g(()=>FactoryNight.kioskMap(F),{}),pid=>pr[pid]);V.pl=(F.pl&&F.pl.customers)||null;}
     if(V.rerender)V.rerender();});}
 
-const CSS=`.dw{display:grid;gap:12px;--sell:#b8621b;--haul:#1f7a8c;--okc:#2f7d4f;--ngc:#c0392b;--wtc:#b7791f}
+const CSS=`.dw-modal{position:fixed;inset:0;z-index:60;background:rgba(20,24,28,.45);display:grid;place-items:center;padding:16px}
+.dw-modal .box{background:var(--panel,#fff);color:var(--ink);max-width:460px;width:100%;border-radius:14px;padding:18px 18px 14px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.dw-modal h4{margin:0 0 6px;font-size:17px}.dw-modal .what{margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+.dw-modal dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 10px;font-size:13px}.dw-modal dt{color:var(--muted)}.dw-modal dd{margin:0}.dw-modal .ng{color:#c0392b}
+.dw-modal .note{font-size:12px;color:var(--muted);margin:0 0 12px}.dw-modal .btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.dw-modal button{font:inherit;font-size:14px;min-height:44px;padding:8px 16px;border-radius:999px;cursor:pointer;border:1px solid var(--line)}.dw-modal .no{background:var(--ink);color:var(--paper,#fff);border-color:var(--ink)}.dw-modal .yes{background:transparent;color:#c0392b;border-color:#c0392b88}
+.dw{display:grid;gap:12px;--sell:#b8621b;--haul:#1f7a8c;--okc:#2f7d4f;--ngc:#c0392b;--wtc:#b7791f}
 .dw .dw-hero{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:14px;padding:14px 16px 12px;background:
   radial-gradient(120% 140% at 100% 0%,color-mix(in srgb,var(--sell) 14%,transparent),transparent 55%),
   radial-gradient(90% 120% at 0% 100%,color-mix(in srgb,var(--haul) 14%,transparent),transparent 60%),var(--panel)}
@@ -218,6 +224,19 @@ function detail(o,inp){const C=V.cfg,we=gWe(),stn=s=>(C.stations||{})[s]||s,day=
   return `<div class="dw-det ${o.kind}"><div class="top"><h4>${esc(o.name)}</h4><p>${o.kind==='sell'?'販売の相談（工場が品を売る）':'配送の相談（みなと川運輸が荷物を運ぶ）'}・${o.via==='intro'?'問屋からの紹介':'相手からの依頼'}・第${o.day}運行日 ${hm(o.t)} に届いた</p></div>
     <div class="sec"><h5>条件</h5>${terms}</div>${outl}${mon}${credit}${acts}${nego}</div>`;}
 
+/* 解約の確認の画面（2026-11-12・ユーザーの頼み「解約する場合は一度確認画面を出して」）。「解約する」を押すまで何も変えない */
+function cxDialog(S,day){const id=V.cxAsk;if(!id)return '';const c=DC().contracts(S,day).find(x=>x.id===id);if(!c||c.cx||c.qt||c.state==='done'){V.cxAsk=null;return '';}
+  const C=V.cfg,o=c.of,R=Object.assign({base:0.6,cancel:0.15,quit:0.3},C.rep||{}),r=g(()=>DC().repOf(C,S,o.partner),R.base),soft=c.trial||c.leg,r2=soft?r:Math.max(0,r-R.cancel);
+  const m=c.kind==='sell'?DC().sellMoney(C,o,gWe(),ownFare()):{profit:o.fare},end=c.leg?day+1:c.trial?day:Math.min(c.to,day+(C.notice||0)),left=Math.max(0,c.to-end);
+  const lost=c.leg?null:m.profit*left,stn=s2=>(C.stations||{})[s2]||s2;
+  const w=c.kind==='sell'?`${esc(DC().LN[o.line]||o.line)} ${o.items.map(i=>esc(i.name)).join('・')}　平日 ${N(DC().qtyOf(o,false))}・土日 ${N(DC().qtyOf(o,true))}`:`かご車 ${o.carts}台 → ${esc(stn(o.to))}駅`;
+  return `<div class="dw-modal" role="dialog" aria-modal="true" aria-labelledby="dwcxT"><div class="box"><h4 id="dwcxT">${esc(o.name)}との取引を解約しますか？</h4>
+    <p class="what">${c.kind==='sell'?'販売の契約':'配送の契約'}（${c.leg?'今までの形':c.trial?'お試し':'続ける'}）・${w}<br>第${c.from}〜${c.to}運行日</p>
+    <dl><dt>終わる日</dt><dd>${c.leg?'次の運行日の夜から、工場の見込みから外します':c.trial?'きょう（第'+day+'運行日）で終わります':`予告 ${C.notice||0}日のあと、第${end}運行日で終わります（それまでは届けます）`}</dd>
+      <dt>相手からの信用</dt><dd>${soft?`変わりません（${r.toFixed(2)}）`:`${r.toFixed(2)} → <b class="${r2<R.quit?'ng':''}">${r2.toFixed(2)}</b>`}${!soft&&r2<R.quit?`<br><b class="ng">${R.quit} を下回るので、この相手からの残りの契約は打ち切られます。</b>`:''}</dd>
+      ${lost!=null?`<dt>なくなるもうけ（見込み）</dt><dd>${Y(m.profit)}/日 × 残り ${left}日 ＝ 約 <b>${Y(lost)}</b></dd>`:''}</dl>
+    <p class="note">迷うときは、解約しないで、期間が終わるのを待つこともできます（期間が終わって自然に終わるのは、解約ではありません）。</p>
+    <div class="btns"><button type="button" class="no" data-cxno="1">やめる（解約しない）</button><button type="button" class="yes" data-cx="${esc(c.id)}">解約する</button></div></div></div>`;}
 function contractsHtml(S,day){const C=V.cfg,stn=s=>(C.stations||{})[s]||s,list=DC().contracts(S,day).sort((a,b)=>({on:0,soon:1,done:2}[a.state]-{on:0,soon:1,done:2}[b.state])||b.at-a.at);
   if(!list.length)return '<div class="dw-empty">契約中の取引はまだありません。相談を引き受けると、ここに並びます。</div>';
   return `<div class="ct">${list.map(c=>{const o=c.of,len=Math.max(1,c.to-c.from+1),gone=Math.max(0,Math.min(len,day-c.from+1)),we=gWe();
@@ -226,7 +245,7 @@ function contractsHtml(S,day){const C=V.cfg,stn=s=>(C.stations||{})[s]||s,list=D
     const tg=[c.leg?'<span class="tg pl">今までの形</span>':`<span class="tg">${c.trial?'お試し':'続ける'}</span>`,c.ng?`<span class="tg ok">交渉 ${c.ng[0]?'+'+Math.round(c.ng[0]*100)+'%':''}${c.ng[1]!==1?` 数${Math.round(c.ng[1]*100)}%`:''}</span>`:'',c.rn?`<span class="tg ok">更新 ${c.rn}回</span>`:'',
       c.cx?`<span class="tg nx">解約した（第${c.cx}日）</span>`:'',c.qt?`<span class="tg nx">相手から打ち切り（第${c.qt}日）</span>`:'',c.rf===c.to&&!c.cx?'<span class="tg nx">相手は更新しない</span>':''].join(' ');
     const R=DC().renewInfo(C,S,c,day),canX=c.state!=='done'&&!c.cx&&!c.qt;
-    const cta=(R||canX)?`<span class="cta">${R?`<button type="button" class="rn" data-rn="${esc(c.id)}">${R.len}日 更新を頼む（見込み ${Math.round(R.p*100)}%）</button>`:''}${canX?`<button type="button" class="cx" data-cx="${esc(c.id)}">${V.cxAsk===c.id?'本当に解約する':'解約する'}</button>${V.cxAsk===c.id?`<span class="why">${c.leg?'工場の見込みから外します（次の運行日の夜から）':c.trial?'お試しは、きょうで終わります（信用は下がりません）':`予告${C.notice}日のあとに終わり、${esc(o.name)}からの信用が下がります`}</span>`:''}`:''}</span>`:'';
+    const cta=(R||canX)?`<span class="cta">${R?`<button type="button" class="rn" data-rn="${esc(c.id)}">${R.len}日 更新を頼む（見込み ${Math.round(R.p*100)}%）</button>`:''}${canX?`<button type="button" class="cx" data-cxq="${esc(c.id)}">解約する…</button>`:''}</span>`:'';
     if(c.leg)return `<div class="ctr ${c.kind} ${c.state}"><span><b>${esc(o.name)}</b>　<span class="tg">${st}</span> ${tg}</span><span class="r">${N(DC().qtyOf(o,false))}個/日</span>
       <small>${w}<br>第${c.from}運行日から（期間なし）・工場の収支で選んでいた取引先。作る数は今までどおり工場の見込み（今までの取引先の分）に入り、お金も今までの形（グループの収支の行にはまだ出ない）。</small>${cta}</div>`;
     return `<div class="ctr ${c.kind} ${c.state}"><span><b>${esc(o.name)}</b>　<span class="tg">${st}</span> ${tg}</span><span class="r">${c.kind==='sell'?'もうけ':'運賃'} ${Y(m.profit)}/日</span>
@@ -270,7 +289,7 @@ function html(){if(!DC())return '<div class="card empty">窓口の計算を読�
   const cnt=k=>box.filter({sell:x=>x.kind==='sell',haul:x=>x.kind==='haul',hold:x=>x.st2==='hold'}[k]).length;
   const ra=DC().repAll(V.cfg,S),sl=DC().salesToday(V.cfg,S,day),ICON={ws:'🤝',door:'🚪'};
   const recent=Object.entries(S.dec).filter(([id,d])=>d[0]!=='hold').sort((a,b)=>b[1][1]-a[1][1]).slice(0,6);
-  return `<div class="dw">
+  return cxDialog(S,day)+`<div class="dw">
     <div class="dw-hero"><h3>相談の受信箱</h3><p>ほかの会社から「品を売ってほしい」「荷物を運んでほしい」という相談が届きます。工場（港浜フーズ）のラインの空きと、みなと川運輸の便のかご車の空きを見て、引き受けるか決めます。相談は運行日ごとに決まった乱数で届きます（相手の名前はすべて架空・数は仮）。</p>
       <div class="dw-kpi"><div><b>${box.length}</b><span>返事を待つ相談</span></div><div class="s"><b>${cnt('sell')}</b><span>販売の相談</span></div><div class="h"><b>${cnt('haul')}</b><span>配送の相談</span></div><div><b>${Y(prof)}</b><span>契約中・これから ${on.length}件の1日（販売のもうけ＋配送の運賃・見込み）</span></div></div></div>
     ${V.msg?`<div class="flash ${V.msg[0]}" role="status"><span>${V.msg[1]}</span><button type="button" data-msgx aria-label="閉じる">×</button></div>`:''}
@@ -302,7 +321,10 @@ function bind(box,rerender){V.rerender=rerender;
   box.querySelectorAll('.dw [data-sales]').forEach(b=>b.onclick=()=>{const S=state(),day=gDay();if(DC().salesDo(V.cfg,S,day,b.dataset.sales)){save(S);const x=S.sales[S.sales.length-1];V.msg=['ok',`${esc((V.cfg.sales.find(t=>t.id===x[1])||{}).name)}：${x[2]}件の相談が、1〜3日あとに届く見込みです。`];}rerender();});
   box.querySelectorAll('.dw [data-rn]').forEach(b=>b.onclick=()=>{const S=state(),day=gDay(),c=S.deals.find(x=>x.id===b.dataset.rn);const r=DC().renew(V.cfg,S,b.dataset.rn,day);if(!r)return;save(S);
     V.msg=r.ok?['ok',`${esc(c.of.name)}と更新しました（第${r.to}運行日まで）。`]:['ng',`${esc(c.of.name)}は、今回は更新しないそうです（見込み ${Math.round(r.p*100)}%）。`];rerender();});
-  box.querySelectorAll('.dw [data-cx]').forEach(b=>b.onclick=()=>{const id=b.dataset.cx;if(V.cxAsk!==id){V.cxAsk=id;rerender();return;}V.cxAsk=null;const S=state(),day=gDay(),c=DC().cancel(V.cfg,S,id,day);if(!c)return;
+  box.querySelectorAll('[data-cxq]').forEach(b=>b.onclick=()=>{V.cxAsk=b.dataset.cxq;rerender();});
+  box.querySelectorAll('[data-cxno]').forEach(b=>b.onclick=()=>{V.cxAsk=null;rerender();});
+  {const mo=box.querySelector('.dw-modal');if(mo){mo.onclick=e=>{if(e.target===mo){V.cxAsk=null;rerender();}};const y=mo.querySelector('.no');if(y)setTimeout(()=>{try{y.focus();}catch(e){}},0);}}
+  box.querySelectorAll('.dw-modal [data-cx]').forEach(b=>b.onclick=()=>{const id=b.dataset.cx;if(V.cxAsk!==id)return;V.cxAsk=null;const S=state(),day=gDay(),c=DC().cancel(V.cfg,S,id,day);if(!c)return;
     if(c.leg&&c.pl)g(()=>{const x=FactoryPL.load();x.customers=(x.customers||[]).filter(k=>k!==c.pl);FactoryPL.save(x);});   /* 今までの形：工場の見込みから外す（dia-factory-pl） */
     save(S);V.msg=['ok',`${esc(c.of.name)}との契約を解約しました（第${Math.max(c.to,day)}運行日で終わり）。`];rerender();});
   box.querySelectorAll('.dw [data-tday]').forEach(b=>b.onclick=()=>{V.tday=+b.dataset.tday;rerender();});   /* 荷物の行方（第5回） */
