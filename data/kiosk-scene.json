@@ -1,0 +1,35 @@
+{
+  "v": 1,
+  "src": "assume",
+  "note": "港駅の店内画を使う描画試作。歩行速度・待ち時間・例の在庫は仮。実際の販売計算は変更しない。",
+  "background": "assets/images/kiosk-scene/background-checkout.webp",
+  "sprites": "assets/images/kiosk-scene/",
+  "width": 1628,
+  "height": 966,
+  "speed": 76,
+  "browseSeconds": 2.4,
+  "reachSeconds": 3.2,
+  "products": [
+    {"id":"cf_black", "name":"缶コーヒー ブラック", "stock":3, "x":310, "y":251, "color":"#633e31", "carry":"carry-coffee.webp"},
+    {"id":"dr_sports", "name":"スポーツドリンク", "stock":3, "x":422, "y":251, "color":"#3e85b6", "carry":"carry-sports.webp"}
+  ],
+  "entry": [[230,802],[218,720],[210,610],[180,485],[180,249]],
+  "checkout": [[550,251],[550,488],[855,488],[855,653],[893,653]],
+  "register": {
+    "src": "assume",
+    "waitSeconds": 3,
+    "paySeconds": 5,
+    "packSeconds": 2,
+    "approach": [[985,653]],
+    "pack": [[1085,659]],
+    "terminal": [919,507],
+    "payment": "payment.webp"
+  },
+  "record": {"src":"assume","rate":3,"queueGap":28,"approachMinutes":0.18,"walkPixelsPerMinute":1800},
+  "exit": [[1125,705],[1191,705],[1191,811]],
+  "occluders": [
+    {"x":228,"y":265,"w":304,"h":158,"front":424},
+    {"x":584,"y":264,"w":214,"h":159,"front":424},
+    {"x":561,"y":594,"w":271,"h":105,"front":700}
+  ]
+}

@@ -336,9 +336,9 @@ function legends(){
 
 /* できあがりのイメージ（AIで描いた絵に、品名を重ねる） */
 function buildHeroes(){const ph=D.photo;if(!ph)return;
-  const nameOf=(line,id)=>{if(line==='bread'){const p=B.products.find(x=>x.id===id);return p?p.name:id;}
+  const nameOf=(line,id)=>{if(line==='sand'||line==='donut'){const p=D[line].products.find(x=>x.id===id);return p?p.name:id;}if(line==='bread'){const p=B.products.find(x=>x.id===id);return p?p.name:id;}
     const f=D.packLine.fillings.find(x=>x.id===id);return f?(f.brand?`<b class="nm">${f.brand}</b>`:'')+f.name:id;};
-  for(const [line,el] of [['rice','riceHero'],['bread','breadHero']]){const h=ph[line],box=$(el);if(!h||!box)continue;
+  for(const [line,el] of [['rice','riceHero'],['bread','breadHero'],['sand','sandHero'],['donut','donutHero']]){const h=ph[line],box=$(el);if(!h||!box)continue;
     box.innerHTML=`<div class="pic"><img src="${h.src}" alt="${h.alt}" loading="lazy">${h.items.map(([id,x,y])=>`<span class="lb" style="left:${x}%;top:${y}%">${nameOf(line,id)}</span>`).join('')}</div><figcaption>${h.caption}。AIで描いたイメージです（品名はあとから重ねた文字）。</figcaption>`;}}
 async function init(){if(!$('breadView'))return;
   try{const r=await fetch('data/factory.json',{cache:'no-cache'});D=await r.json();}catch(e){return;}

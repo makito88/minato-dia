@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>港駅の店内アニメ｜みなと川ダイアリー</title>
+<link rel="stylesheet" href="css/kiosk-scene.css">
+</head>
+<body>
+<main>
+<header><a href="index.html">みなと川ダイアリーへ</a><span>描画の試作</span></header>
+<h1>一人の買い物を追う</h1>
+<p class="intro">飲み物を選び、列に並んで、会計を済ませて店を出る。買い物の記録と、状況を変えて試す例を切り替えられます。</p>
+<div class="toolbar modes"><button id="sample" aria-pressed="true" disabled>反応を試す</button><button id="example" aria-pressed="false" disabled>計算した買い物を見る</button><button id="record-source" hidden disabled>この店の記録を見る</button></div>
+<p id="record-empty" hidden role="status"></p>
+<div id="record-controls" hidden>
+<p id="record-info" class="note"></p>
+<label for="timeline">記録の時刻 <output id="record-clock"></output></label>
+<input id="timeline" type="range" min="0" max="1000" value="0" step="1" aria-label="買い物の記録の再生位置">
+<div class="toolbar"><button id="pay-start">会計の開始へ</button><button id="pay-end">会計の終了へ</button></div>
+</div>
+<div class="stage" aria-busy="true">
+<canvas id="scene" width="1100" height="680" aria-label="港駅の売店で飲み物を選ぶ客"></canvas>
+<p id="loading" role="status">店内画と人物を読み込んでいます…</p>
+</div>
+<div class="toolbar"><button id="play" disabled>一時停止</button><button id="zoom" disabled aria-pressed="true">店ぜんぶを見る</button><button id="slow" disabled aria-pressed="false">ゆっくり見る</button><button id="skip" disabled>レジまで早送り</button><button id="reset" disabled>入口からもう一度</button></div>
+<p id="status" role="status" aria-live="polite"></p>
+<div class="register-control"><button id="register" disabled aria-pressed="false">店員をほかの対応中にする</button><span>対応中は足元の印で待ち、終わるとレジへ進みます。</span></div>
+<div id="products" class="products"></div>
+<p id="source" class="note"></p>
+<details><summary>この試作について</summary><p>動くのは飲み物を買う客一人です。背景のほかの人と店員は静止画です。商品を持つ歩行とカードで支払う姿勢にはAIで描いた素材を使っています。右手に飲み物を持ち、左手で支払ったあと、レジの横へよけて出口に向かいます。</p><p>棚・手元の未会計品・会計済みの品を分けて表示しています。「反応を試す」は例の待ち時間と在庫です。「記録を見る」は計算済みの品・レジ到着・会計開始と終了を読み取ります。対応するのは追加の持ち物の記録がない男性会社員が、飲料1本を有人レジでキャッシュレス決済した買い物です。カードや鞄の見た目、歩く道、商品を取る瞬間、会計後の動きは描画用の仮の表現です。ほかの待っている人は人数だけで、姿はまだ描きません。記録モードの棚在庫の同期は準備中です。元の売店の在庫・売上・保存は変更しません。背景の看板の時刻はイメージです。</p></details>
+<noscript>このアニメーションにはJavaScriptが必要です。</noscript>
+</main>
+<script src="js/kiosk-scene-record.js"></script><script src="js/kiosk-scene-core.js"></script><script src="js/kiosk-scene-view.js"></script>
+</body></html>
