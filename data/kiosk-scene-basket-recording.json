@@ -22,6 +22,7 @@
     "yen": 320
   },
   "queue": [],
+  "companions": [],
   "example": true,
   "note": "例の営業条件から計算した運行日3・平日・晴れの買い物。ユーザーの保存データではありません。種2、9:52までの結果。",
   "basketExample": true

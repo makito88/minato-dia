@@ -8,6 +8,7 @@ const config = JSON.parse(read('data/kiosk-scene.json'));
 const jsons = {'data/kiosk-scene.json':config};
 jsons['data/kiosk-scene-recording.json']=JSON.parse(read('data/kiosk-scene-recording.json'));
 jsons['data/kiosk-scene-basket-recording.json']=JSON.parse(read('data/kiosk-scene-basket-recording.json'));
+jsons['data/kiosk-scene-queue-recording.json']=JSON.parse(read('data/kiosk-scene-queue-recording.json'));
 jsons[config.sprites+'frames.json']=JSON.parse(read(config.sprites+'frames.json'));
 const images={};
 for(const file of [config.sprites+config.bagPack,config.sprites+config.bagWalk,config.sprites+config.basketTake,config.sprites+config.basket,config.background,config.sprites+'walk.webp',config.sprites+'reach.webp',config.sprites+config.register.payment,...config.products.map(product=>config.sprites+product.carry)]){

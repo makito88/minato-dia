@@ -3,6 +3,7 @@
 const $ = id => document.getElementById(id);
 const canvas = $('scene'), ctx = canvas.getContext('2d');
 let scene, config, frames, background, walk, reach, carry, payment, basket, basketTake, bagPack, bagWalk, source, currentRecord;
+let companions = [];
 let paused = false, close = true, slow = false, previous = 0, accumulator = 0;
 let camera = {x: 210, y: 700, width: 620};
 const image = url => new Promise((resolve, reject) => {
@@ -24,11 +25,16 @@ function snapshot() {
     return value;
   } catch (_) { return {invalid:true}; }
 }
-function sprite(sheet, frame, height, alpha = 1) {
+function sprite(actor, sheet, frame, height, alpha = 1) {
   const scale = height / frame.h;
+  // Contact shadow follows the lowest shoe, not the gap between two stepping feet.
+  if(alpha===1){
+    const footX=actor.x+((frame.groundAnchor??frame.anchor)-frame.anchor)*scale;
+    ctx.fillStyle='#3d34252a';ctx.beginPath();ctx.ellipse(footX,actor.y+1,frame.groundAnchor===undefined?16:11,4,0,0,Math.PI*2);ctx.fill();
+  }
   ctx.globalAlpha = alpha;
   ctx.drawImage(sheet, frame.x, frame.y, frame.w, frame.h,
-    scene.x - frame.anchor * scale, scene.y - height, frame.w * scale, height);
+    actor.x - frame.anchor * scale, actor.y - height, frame.w * scale, height);
   ctx.globalAlpha = 1;
 }
 function bottle(x, y, color, size = 1) {
@@ -36,19 +42,19 @@ function bottle(x, y, color, size = 1) {
   ctx.fillStyle = color; ctx.fillRect(x - 4*size, y - 4*size, 8*size, 13*size);
   ctx.fillStyle = '#f9faf2'; ctx.fillRect(x - 4*size, y, 8*size, 4*size);
 }
-function drawBasket(height){
-  const progress=scene.phaseTime/(scene.paySeconds||config.register.paySeconds);
+function drawBasket(actor,height){
+  const progress=actor.phaseTime/(actor.paySeconds||config.register.paySeconds);
   const pose=progress<.18?0:progress<.4?1:progress<.72?2:3;
-  const index=scene.phase==='pay'?16+pose:scene.direction*4+(scene.phase==='walk'?Math.floor(scene.distance/17)%4:0);
-  const taking=scene.phase==='basketTake'&&scene.transfer;
-  const takePose=taking?scene.transfer.pose:0;
+  const index=actor.phase==='pay'?16+pose:actor.direction*4+(actor.phase==='walk'?Math.floor(actor.distance/17)%4:0);
+  const taking=actor.phase==='basketTake'&&actor.transfer;
+  const takePose=taking?actor.transfer.pose:0;
   const sheet=taking?basketTake:basket;
-  const f=taking?frames.basketTake[scene.transfer.id][takePose]:frames.basket[index],b=f.basket,k=height/f.h,x=scene.x-f.anchor*k,y=scene.y-height;
-  sprite(sheet,f,height);
+  const f=taking?frames.basketTake[actor.transfer.id][takePose]:frames.basket[index],b=f.basket,k=height/f.h,x=actor.x-f.anchor*k,y=actor.y-height;
+  sprite(actor,sheet,f,height);
   // Each basket uses its painted hand/handle. Only contents are variable, anchored in atlas space.
   ctx.save();ctx.translate(x,y);ctx.scale(k,k);
   ctx.beginPath();ctx.rect(b.cx-b.w*.36,b.rim-15,b.w*.72,b.depth+15);ctx.clip();
-  scene.loadout.contents.filter(item=>item.location!=='hand').forEach((item,i)=>{
+  actor.loadout.contents.filter(item=>item.location!=='hand').forEach((item,i)=>{
     const p=config.products.find(p=>p.id===item.id),xx=b.cx+(i%2?1:-1)*b.w*.16,yy=b.rim-b.w*.068+Math.floor(i/2)*b.w*.09;
     bottle(xx,yy,p.color,b.w/55);
   });
@@ -115,45 +121,50 @@ function draw(dt = 0) {
   ctx.strokeStyle='#c1c7af';ctx.lineWidth=3;ctx.setLineDash([5,5]);
   ctx.beginPath();ctx.moveTo(waitAt[0]-16,waitAt[1]+3);ctx.lineTo(waitAt[0]+16,waitAt[1]+3);ctx.stroke();ctx.setLineDash([]);
   packingStation();
-  // Ground contact and the same down-right light direction as the painted room.
-  ctx.fillStyle='#3c32222b';ctx.beginPath();ctx.ellipse(scene.x+height*.23,scene.y+height*.16,height*.36,9, .56,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#3d34252a';ctx.beginPath();ctx.ellipse(scene.x,scene.y+1,16,5,0,0,Math.PI*2);ctx.fill();
-  if(scene.loadout&&scene.loadout.mode==='bag'){
-    const f=scene.direction*4+(scene.phase==='walk'?Math.floor(scene.distance/17)%4:0);
-    sprite(bagWalk,frames.bagWalk[f],height);
-  }else if(scene.phase==='bagPack'){
-    const p=scene.packing||{id:scene.units[0],pose:0};
-    sprite(bagPack,frames.bagPack[p.id][p.pose],height);
-  }else if(scene.loadout&&scene.loadout.mode==='basket'){
-    drawBasket(height);
-  }else if(scene.phase==='pay' && scene.held !== null){
-    const progress=scene.phaseTime/(scene.paySeconds||config.register.paySeconds);
-    const pose=progress<.18?0:progress<.4?1:progress<.72?2:3;
-    sprite(payment,frames.payment[config.products[scene.held].id][pose],height);
-  }else if(scene.held !== null){
-    // The carrying arm and the drink are painted together, so they cannot drift apart.
-    const product=config.products[scene.held];
-    const frame=scene.phase==='walk' ? Math.floor(scene.distance/17)%4 : 0;
-    if(scene.phase!=='walk' && scene.direction===0) sprite(payment,frames.payment[product.id][0],height);
-    else sprite(carry[scene.held],frames.carry[product.id][scene.direction*4+frame],height);
-  }else if(['reach','retract','take','browse'].includes(scene.phase)){
-    const position = scene.phase === 'take' ? 2+Math.min(1,scene.phaseTime/1.2) : scene.reach*2;
-    const a=Math.floor(position), b=Math.min(3,a+1), fraction=position-a;
-    sprite(reach,frames.reach[a],height);
-    if(fraction>0)sprite(reach,frames.reach[b],height,fraction);
-  }else{
-    const frame=scene.phase==='walk' ? Math.floor(scene.distance/17)%4 : 1;
-    sprite(walk,frames.walk[scene.direction*4+frame],height);
-  }
-  packingStation(true);
-  // Foreground parts of the existing painting hide a customer passing behind them.
-  for(const shelf of config.occluders){
-    if(scene.y < shelf.front && scene.x+height*.5>shelf.x && scene.x-height*.5<shelf.x+shelf.w){
-      const sx=background.width/config.width, sy=background.height/config.height;
+  // Merge people and foreground shelves by floor depth; avoid repainting over nearer people.
+  const actors=KioskSceneRecord.actorsAt(scene,companions);
+  const layers=[...actors.map(actor=>({depth:actor.y,actor})),...config.occluders.map(shelf=>({depth:shelf.front,shelf}))];
+  layers.sort((a,b)=>a.depth-b.depth||(a.shelf?-1:b.shelf?1:0));
+  for(const layer of layers){
+    if(layer.actor){drawActor(layer.actor);if(layer.actor===scene)packingStation(true);}
+    else{
+      const shelf=layer.shelf,sx=background.width/config.width,sy=background.height/config.height;
       ctx.drawImage(background,shelf.x*sx,shelf.y*sy,shelf.w*sx,shelf.h*sy,shelf.x,shelf.y,shelf.w,shelf.h);
     }
   }
   ctx.setTransform(1,0,0,1,0,0);
+}
+function drawActor(actor){
+  const height=130+Math.max(0,actor.y-251)*.13;
+  // Ground contact and the same down-right light direction as the painted room.
+  ctx.fillStyle='#3c32222b';ctx.beginPath();ctx.ellipse(actor.x+height*.23,actor.y+height*.16,height*.36,9, .56,0,Math.PI*2);ctx.fill();
+  if(actor.loadout&&actor.loadout.mode==='bag'){
+    const f=actor.direction*4+(actor.phase==='walk'?Math.floor(actor.distance/17)%4:0);
+    sprite(actor,bagWalk,frames.bagWalk[f],height);
+  }else if(actor.phase==='bagPack'){
+    const p=actor.packing||{id:actor.units[0],pose:0};
+    sprite(actor,bagPack,frames.bagPack[p.id][p.pose],height);
+  }else if(actor.loadout&&actor.loadout.mode==='basket'){
+    drawBasket(actor,height);
+  }else if(actor.phase==='pay' && actor.held !== null){
+    const progress=actor.phaseTime/(actor.paySeconds||config.register.paySeconds);
+    const pose=progress<.18?0:progress<.4?1:progress<.72?2:3;
+    sprite(actor,payment,frames.payment[config.products[actor.held].id][pose],height);
+  }else if(actor.held !== null){
+    // The carrying arm and the drink are painted together, so they cannot drift apart.
+    const product=config.products[actor.held];
+    const frame=actor.phase==='walk' ? Math.floor(actor.distance/17)%4 : 0;
+    if(actor.phase!=='walk' && actor.direction===0) sprite(actor,payment,frames.payment[product.id][0],height);
+    else sprite(actor,carry[actor.held],frames.carry[product.id][actor.direction*4+frame],height);
+  }else if(['reach','retract','take','browse'].includes(actor.phase)){
+    const position = actor.phase === 'take' ? 2+Math.min(1,actor.phaseTime/1.2) : actor.reach*2;
+    const a=Math.floor(position), b=Math.min(3,a+1), fraction=position-a;
+    sprite(actor,reach,frames.reach[a],height);
+    if(fraction>0)sprite(actor,reach,frames.reach[b],height,fraction);
+  }else{
+    const frame=actor.phase==='walk' ? Math.floor(actor.distance/17)%4 : 1;
+    sprite(actor,walk,frames.walk[actor.direction*4+frame],height);
+  }
 }
 function panel(){
   if($('status').textContent!==scene.reason)$('status').textContent=scene.reason;
@@ -178,7 +189,7 @@ function panel(){
     $('record-clock').textContent=clock(scene.clock)+' ／ '+(slow?'約1倍速':'3倍速');
     $('timeline').value=String(Math.round((scene.clock-scene.ta)/(scene.end-scene.ta)*1000));
     const n=Math.ceil(KioskSceneRecord.ahead(currentRecord,scene.clock));
-    $('status').textContent=scene.reason+(scene.clock>=scene.tq&&scene.clock<scene.ts?' 前で順番を待つ人：'+n+'人（姿は準備中）。':'');
+    $('status').textContent=scene.reason+(scene.clock>=scene.tq&&scene.clock<scene.ts?' 前で順番を待つ人：'+n+'人。描ける先行客は、待機 '+companions.filter(a=>a.tq<=scene.clock&&a.ts>scene.clock).length+'人・会計 '+companions.filter(a=>a.ts<=scene.clock&&a.te>scene.clock).length+'人。':'');
     $('skip').disabled=scene.clock>=scene.tq;
     $('pickup').hidden=!scene.basket;
     $('bag-start').hidden=!scene.basket;
@@ -192,11 +203,13 @@ function clock(t){
 function useMode(record){
   currentRecord=record;const empty=!!record&&!record.event;
   scene=empty?null:record?new KioskSceneRecord.Replay(config,record):new KioskScene(config,source&&source.v===1?source:null);
+  companions=record&&!empty?(record.companions||[]).map(p=>new KioskSceneRecord.Replay(config,p)):[];
   paused=false;previous=0;accumulator=0;$('play').textContent='一時停止';
   $('sample').setAttribute('aria-pressed',String(!record));$('example').setAttribute('aria-pressed',String(!!(record&&record.example)));
   $('record-source').setAttribute('aria-pressed',String(!!record&&!record.example));
   $('basket-example').setAttribute('aria-pressed',String(!!(record&&record.basketExample)));
-  if(record&&record.basketExample)$('example').setAttribute('aria-pressed','false');
+  $('queue-example').setAttribute('aria-pressed',String(!!(record&&record.queueExample)));
+  if(record&&(record.basketExample||record.queueExample))$('example').setAttribute('aria-pressed','false');
   document.querySelector('.stage').hidden=empty;$('products').hidden=empty;
   $('record-empty').hidden=!empty;$('record-controls').hidden=!record||empty;
   document.querySelector('.register-control').hidden=!!record;
@@ -207,6 +220,7 @@ function useMode(record){
     const e=record.event;
     $('source').textContent=(record.example?record.note:'この店の運行日'+record.day+'・'+clock(record.t)+'までに終わった買い物を再生しています。')+' 元の在庫・売上・保存には書き戻しません。';
     $('record-info').textContent='内：有人レジ ／ '+e.items.map(([id,n])=>config.products.find(p=>p.id===id).name+' '+n+'本').join('・')+' ／ 列に到着 '+clock(scene.tq)+' → 会計 '+clock(scene.ts)+'〜'+clock(scene.te)+'（待ち '+Math.round(e.wait*60)+'秒）。仮：歩く道・取る瞬間・持ち方・カードの姿勢・会計後の動き。';
+    $('record-info').textContent+=' 同じ時刻で先行客'+companions.length+'人も再生。';
   }else $('source').textContent=source&&source.v===1?'運行日'+source.day+'・'+clock(source.t)+'時点の棚在庫を写した試作です。操作はこの画面内だけに反映します。':'例の在庫と待ち時間を使っています。「計算した買い物を見る」では売店の計算結果を再生します。';
   panel();resize();
 }
@@ -261,6 +275,7 @@ async function init(){
     $('sample').onclick=()=>useMode(null);
     $('example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-recording.json'));}catch(error){$('source').textContent='例の記録を読み込めませんでした。';console.error(error);}};
     $('basket-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-basket-recording.json'));}catch(error){$('source').textContent='かごの記録を読み込めませんでした。';console.error(error);}};
+    $('queue-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-queue-recording.json'));scene.seek(scene.tq);panel();draw();}catch(error){$('source').textContent='列の記録を読み込めませんでした。';console.error(error);}};
     $('record-source').hidden=!(source&&source.v===2);
     $('record-source').onclick=()=>useMode(source);
     $('timeline').oninput=()=>{scene.seek(scene.ta+Number($('timeline').value)/1000*(scene.end-scene.ta));panel();draw();};

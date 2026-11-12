@@ -12,7 +12,8 @@ const s=new KR.Replay(cfg,packet);
 assert.equal(s.ta,595);assert.equal(s.tq,598);assert.equal(s.ts,600);assert.equal(s.te,600.5);
 s.seek(s.pickAt-.001);assert.equal(s.held,null);s.seek(s.pickAt);assert.equal(s.held,0);assert.deepEqual(s.unpaid,[1,0]);
 s.seek(s.tq);const tail=s.y;s.seek(599.02);assert.ok(s.y<tail);assert.equal(s.phase,'walk','feet move while closing the gap');s.seek(599.1);assert.equal(s.phase,'queue');
-s.seek(s.ts);assert.equal(s.phase,'pay');assert.deepEqual([s.x,s.y],cfg.register.approach.at(-1));
+s.seek(s.ts);assert.equal(s.phase,'walk','business start remains unchanged during the short approach');assert.equal(s.paymentCount,0);
+s.seek(s.arriveRegister);assert.equal(s.phase,'pay');assert.deepEqual([s.x,s.y],cfg.register.approach.at(-1));
 s.seek(s.te-.00001);assert.deepEqual(s.unpaid,[1,0]);assert.equal(s.paymentCount,0);
 s.seek(s.te);assert.deepEqual(s.purchased,[1,0]);assert.deepEqual(s.unpaid,[0,0]);assert.equal(s.paymentCount,1);
 for(let i=0;i<30;i++){s.seek(s.te-1);s.seek(s.end);assert.equal(s.paymentCount,1);assert.deepEqual(s.purchased,[1,0]);}
@@ -105,3 +106,47 @@ const af=require('../assets/images/kiosk-scene/frames.json');
 assert.equal(af.bagWalk.length,16);for(const row of Object.values(af.bagPack))assert.equal(row.length,4);
 for(const f of [...af.bagWalk,...Object.values(af.bagPack).flat()])assert.ok(f.w>0&&f.h>0&&f.anchor>0&&f.anchor<f.w);
 console.log('  bagging: basket/hand/bag conservation, paid state, rewind, return, exit, atlas passed');
+
+// Bounded, independent event projections share a clock without writing business state.
+const prev={...e,t:599.5,end:600,wait:2,stay:3},third={...e,t:599,end:599.5,wait:2,stay:3};
+const group={day:3,ev:[third,prev,e]},groupRaw=JSON.stringify(group),multi=KR.build(group,601);
+assert.equal(multi.companions.length,2);assert.ok(KR.valid(multi));
+assert.equal(multi.companions[1].queue.length,1,'a companion has its own predecessors');
+const old=JSON.parse(JSON.stringify(multi));delete old.companions;assert.ok(KR.valid(old),'old v2 links accepted');
+const malformed=change=>{const p=JSON.parse(JSON.stringify(multi));change(p);assert.equal(KR.valid(p),false);};
+malformed(p=>p.companions.push(p.companions[0]));
+malformed(p=>p.companions[0].companions=[]);
+malformed(p=>p.companions[0].event.id=p.event.id);
+malformed(p=>p.companions[0].event.end+=.01);
+malformed(p=>p.companions[0].event.ps='sen');
+malformed(p=>p.companions[0].day++);
+malformed(p=>p.companions[0].t++);
+malformed(p=>p.companions[0].event.items[0][1]=2);
+assert.equal(KR.build({day:3,ev:[prev,e,{k:'eatin',ps:'salM',from:prev.end,t:prev.end}]},601).companions.length,0);
+const cap=KR.build({day:3,ev:[{...third,t:598.5,end:599,wait:2},...group.ev]},601);assert.equal(cap.companions.length,2);
+const main=new KR.Replay(cfg,multi),others=multi.companions.map(p=>new KR.Replay(cfg,p));
+for(const time of [main.ta,main.tq,599,599.02,599.5,600,main.end,main.tq]){
+ main.seek(time);const visible=KR.actorsAt(main,others);
+ assert.ok(visible.every((a,i)=>!i||a.y>=visible[i-1].y),'depth order');
+ for(const a of visible){assert.equal(a.clock,main.clock);assert.equal(a.paymentCount,Number(time>=a.te));}
+ assert.equal(visible.length,1+others.filter(a=>time>=a.ta&&time<a.end).length,'no actor before entry or after exit');
+}
+main.seek(main.end);assert.equal(KR.actorsAt(main,others).length,1);main.seek(main.tq);assert.equal(KR.actorsAt(main,others).length,3);
+assert.equal(JSON.stringify(group),groupRaw,'business source stays immutable');
+try{cp.execFileSync(process.execPath,[path.join(__dirname,'../tools/kiosk-scene-example.cjs'),tmp,'--queue']);assert.deepEqual(JSON.parse(fs.readFileSync(tmp)),require('../data/kiosk-scene-queue-recording.json'));}finally{fs.rmSync(tmp,{force:true});}
+console.log('  queue actors: actual overlapping fixture, shared clock, own FIFO, cap, strict packets, old links, depth, rewind, entry/exit passed');
+
+// The incoming body remains behind the outgoing body at back-to-back service.
+const actual=require('../data/kiosk-scene-queue-recording.json'),lead=new KR.Replay(cfg,actual.companions[0]),follow=new KR.Replay(cfg,actual);
+assert.equal(follow.ts,actual.event.t);assert.equal(follow.te,actual.event.end);
+for(let t=follow.ts;t<follow.arriveRegister;t+=.001){
+ follow.seek(t);lead.seek(t);assert.ok(lead.x-follow.x>55,'space while the former customer leaves');
+ assert.equal(follow.paymentCount,0);assert.equal(lead.paymentCount,1);
+}
+follow.seek(follow.te);assert.equal(follow.paymentCount,1);
+
+for(const f of Object.values(af.carry).flat())assert.ok(f.groundAnchor>=0&&f.groundAnchor<f.w,'ground contact stays within the carried-drink frame');
+
+const zeroGap=new KR.Replay(cfg,KR.build({day:3,ev:[prev,{...e,wait:0}]},601));
+zeroGap.seek(zeroGap.ts-1e-8);const near=[zeroGap.x,zeroGap.y];zeroGap.seek(zeroGap.ts);
+assert.ok(Math.hypot(zeroGap.x-near[0],zeroGap.y-near[1])<.001,'zero-wait handover remains continuous');
