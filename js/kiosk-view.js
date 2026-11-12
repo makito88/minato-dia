@@ -31,7 +31,7 @@ addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=
 /* ---------- 読み込み・保存 ---------- */
 // 橋の一覧とアンケート（読めなくても売店はいつもどおり。アンケート→売店の橋が「未接続」になるだけ）。売店の最初の計算より前にそろえる（途中で効き目が入って結果が変わらないように）
 const optJson=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
-Promise.all([fetch('data/kiosk.json?v=20261111w3').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();}),optJson('data/links.json?v=20261112k'),window.SurveyToKiosk?optJson('data/survey.json'):null,optJson('data/deals.json?v=20261112k'),optJson('data/haiso.json?v=20261109n')])
+Promise.all([fetch('data/kiosk.json?v=20261111w3').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();}),optJson('data/links.json?v=20261112k'),window.SurveyToKiosk?optJson('data/survey.json'):null,optJson('data/deals.json?v=20261112m'),optJson('data/haiso.json?v=20261109n')])
   .then(([c,rc,lk,sv,dc,hc])=>{V.cfg=c;V.rcfg=rc;V.links=lk;V.survey=sv;V.dcfg=dc;V.hcfg=hc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
@@ -121,7 +121,8 @@ function groupOf(resM,live){if(!window.MoneyCore||!MoneyCore.groupLedger||!V.mcf
   const take=g(()=>window.FactoryPL&&V.fD?FactoryPL.settings(V.fD).take:null,null);
   const dsl=window.DealsToMoney&&DealsToMoney.on(V.links)?g(()=>(loadOrders().days.find(x=>x.day===day)||{}).slip,null):null,deals=dsl?DealsToMoney.rows(dsl):[];   // 取引先・契約の品（第2回）
   const dhl=haulOn()&&window.DealsToMoney&&DealsToMoney.hauls&&DealsToMoney.on(V.links)?g(()=>(loadOrders().days.find(x=>x.day===day)||{}).haul,null):null,hauls=dhl?DealsToMoney.hauls(dhl,V.hcfg):[];   // 配送の契約（第3回）
-  const L=g(()=>MoneyCore.groupLedger(V.mcfg,{day,live,take,haiso:hz,stores,deals,hauls}),null);if(L){L.portOut=!!(pr&&!inP);}return L;}
+  const sales=window.DealsToMoney&&DealsToMoney.sales&&DealsToMoney.on(V.links)&&V.dcfg?g(()=>DealsToMoney.sales(window.DealsCore,V.dcfg,loadDeals(),day),[]):[];   // 自分から動く営業の費用（第4回）
+  const L=g(()=>MoneyCore.groupLedger(V.mcfg,{day,live,take,haiso:hz,stores,deals,hauls,sales}),null);if(L){L.portOut=!!(pr&&!inP);}return L;}
 // 締めた日：両方の店が前の日を締めたあと（運行日の始めの dailyOrder の最後）に1回
 function groupClose(day){const res=V.prevRes;if(!res||res.day!==day)return;try{const L=groupOf(res,false);if(!L)return;const m=loadGroup();m.days=m.days.filter(x=>x.day!==day);
   const pair={};for(const x of L.inv){const k=x.from+'>'+x.to;pair[k]=(pair[k]||0)+x.yen;}m.days.push({day,co:L.co,ext:L.ext,grp:L.grp,pair,names:L.names,portOut:L.portOut});m.days.sort((a,b)=>a.day-b.day);if(m.days.length>14)m.days=m.days.slice(-14);localStorage.setItem(GKEY,JSON.stringify(m));}catch(e){console.warn('グループの収支を残せませんでした',e);}}
@@ -153,7 +154,7 @@ function dealSettle(day,sl,d){if(!sl||!sl.deals||!window.DealsToFactory||!window
 function haulOn(){return !!(window.DealsCore&&window.DealsToHaiso&&V.dcfg&&V.hcfg&&DealsToHaiso.on(V.links));}
 function haulPut(lg,day,cond){if(!haulOn())return;const S=loadDeals();if(!S)return;try{DealsToHaiso.put(DealsCore,V.dcfg,S,lg,day,cond,V.ccfg,V.hcfg);}catch(e){console.warn('配送の契約の荷物を足せませんでした',e);}}
 function haulClose(day){if(!haulOn()||!window.HaisoCore)return;const d=loadOrders().days.find(x=>x.day===day);if(!d||!d.haul)return;const S=loadDeals();if(!S)return;
-  try{const hi=window.minatoKiosk.haisoInput(day),P=hi?HaisoCore.dayPlan(V.hcfg,V.ccfg,CC,hi):null;if(P&&DealsToHaiso.close(DealsCore,S,day,d,P))localStorage.setItem(DKEY,JSON.stringify(S));}catch(e){console.warn('配送の契約の結果を残せませんでした',e);}}
+  try{const hi=window.minatoKiosk.haisoInput(day),P=hi?HaisoCore.dayPlan(V.hcfg,V.ccfg,CC,hi):null;if(P&&DealsToHaiso.close(DealsCore,S,day,d,P,V.dcfg))localStorage.setItem(DKEY,JSON.stringify(S));}catch(e){console.warn('配送の契約の結果を残せませんでした',e);}}
 // 2店の品の設定を合わせたもの（センターの倉庫が、港駅の店にしかない品のジャンルもわかるように）。港駅の店がないときは緑ヶ丘の設定のまま
 function gcfg(){const pc=portOn()?g(()=>MSV2().cfg,null):null;if(!pc)return V.cfg;if(V.gcK===pc&&V.gcB===V.cfg)return V.gc;
   const ids=new Set(V.cfg.products.map(p=>p.id)),gids=new Set(V.cfg.genres.map(x=>x.id));V.gc={...V.cfg,products:[...V.cfg.products,...pc.products.filter(p=>!ids.has(p.id))],genres:[...V.cfg.genres,...pc.genres.filter(x=>!gids.has(x.id))]};delete V.gc._cix;V.gcK=pc;V.gcB=V.cfg;return V.gc;}

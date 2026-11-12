@@ -24,8 +24,8 @@ function sell(DC,cfg,S,d,slip,ccfg,H){if(!d||!slip||!slip.deals||!S)return false
 /* 配送会社の1日の計算に足す届け先（HaisoCore.dayPlan の stores に足す） */
 function stops(DC,H,d){return d&&d.haul?DC.haulStops(d.haul,H&&H.perCart):[];}
 /* その日を締めたあと：便の計算（plan＝HaisoCore.dayPlan）から、配送の契約ごとの結果を積み上げる。返すもの：dia-deals を書きかえたか */
-function close(DC,S,day,d,plan){if(!d||!d.haul||!S)return false;const R=DC.haulResults(d.haul,plan);let ch=false;
-  for(const id in d.haul){const x=d.haul[id];if(x.k!=='haul')continue;if(DC.recordHaul(S,day,id,x,R[id]))ch=true;}return ch;}
+function close(DC,S,day,d,plan,cfg){if(!d||!d.haul||!S)return false;const R=DC.haulResults(d.haul,plan);let ch=false;
+  for(const id in d.haul){const x=d.haul[id];if(x.k!=='haul')continue;if(DC.recordHaul(S,day,id,x,R[id],cfg))ch=true;}return ch;}
 root.DealsToHaiso={ID,on,put,sell,stops,close};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.DealsToHaiso;
 })(typeof globalThis!=='undefined'?globalThis:this);

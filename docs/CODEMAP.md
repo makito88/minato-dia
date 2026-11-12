@@ -38,13 +38,13 @@ CSS …20・COL …45・html() …47・moneyHtml() …105・bind() …124・OPEN
 
 ST_NAME …14・CSS …16・dayLabel() …52・tabs() …54・bindTabs() …55・render() …56・open() …98・close() …99・公開 minatoCenter …103
 
-## js/deals-core.js（160行）
+## js/deals-core.js（233行）
 
-hashS() …13・rngOf() …14・catalog() …22・offersOn() …25・newState() …40・valid() …41・inbox() …43・decide() …47・snap() …53・stateOf() …57・contracts() …58・prune() …60・committed() …66・sellOutlook() …70・sellMoney() …79・haulOutlook() …86・■ 第2回（2026-11-12）：販売の契約を工場とお金へ（橋 deals-to-factory・deals-to-money。つなぐのは js/links/deals-to-*.js） …108・dayOrders() …111・dealMoney() …118・record() …123・■ 第3回（2026-11-12）：配送の契約を配送会社とお金へ（橋 deals-to-haiso。つなぐのは js/links/deals-to-haiso.js） …126・dayHauls() …130・binFor() …137・haulStops() …141・haulResults() …145・recordHaul() …151・ownDeliverFare() …154・公開 DealsCore …158
+hashS() …13・rngOf() …14・catalog() …22・offersOn() …25・buildSell() …31・buildHaul() …37・newState() …42・valid() …43・inbox() …45・decide() …52・snap() …58・stateOf() …63・contracts() …64・prune() …66・committed() …73・sellOutlook() …77・sellMoney() …86・haulOutlook() …93・■ 第2回（2026-11-12）：販売の契約を工場とお金へ（橋 deals-to-factory・deals-to-money。つなぐのは js/links/deals-to-*.js） …115・dayOrders() …118・dealMoney() …125・record() …130・■ 第3回（2026-11-12）：配送の契約を配送会社とお金へ（橋 deals-to-haiso。つなぐのは js/links/deals-to-haiso.js） …134・dayHauls() …138・binFor() …145・haulStops() …149・haulResults() …153・recordHaul() …159・ownDeliverFare() …163・■ 第4回（2026-11-12）：自分から動く営業・信用（評判）・更新と解約・値段の交渉・工場の収支の4つの取引先の移しかえ …165・REP0 …169・repOf() …173・repAll() …176・repAdd() …177・quitCheck() …179・salesDo() …182・salesToday() …184・salesCost() …186・salesOffers() …188・legacyOffer() …198・legacyOffers() …203・migrate() …205・negoChance() …210・modOf() …212・negotiate() …216・cancel() …221・renewInfo() …224・renew() …226・公開 DealsCore …231
 
-## js/deals-view.js（214行）
+## js/deals-view.js（274行）
 
-KEY …11・load() …22・save() …23・state() …24・ensure() …26・CSS …32・inputs() …101・what() …108・handName() …111・card() …112・facBar() …121・slots() …126・haulSec() …129・detail() …139・contractsHtml() …169・gotLine() …178・haulGot() …182・html() …185・bind() …205・count() …210・公開 DealsView …212
+KEY …12・load() …23・save() …24・state() …25・ensure() …27・CSS …33・inputs() …121・what() …128・handName() …131・card() …132・facBar() …142・slots() …147・haulSec() …150・detail() …160・contractsHtml() …203・gotLine() …218・haulGot() …222・html() …225・bind() …251・count() …270・公開 DealsView …272
 
 ## js/donut-core.js（93行）
 
@@ -66,9 +66,9 @@ nowT() …12・sec() …14・SPEEDS …15・liveAt() …17・note() …19・puff
 
 LINES …13・kioskMap() …21・seasonOf() …23・seedOf() …25・latest() …27・splitItems() …29・cfgsFrom() …31・madeOf() …34・runNight() …36・centerShip() …51・share() …53・truckOf() …57・lateRule() …64・slip() …71・dealShip() …85・readLog() …94・withCenter() …95・centerNote() …97・公開 FactoryNight …100
 
-## js/factory-pl.js（104行）
+## js/factory-pl.js（103行）
 
-KEY …11・load() …12・save() …13・defaults() …14・settings() …15・extraUnits() …16・apply() …18・suggestBatches() …24・compute() …28・■ 画面 …63・build() …68・changed() …85・show() …86・init() …98・公開 FactoryPL …101
+KEY …11・load() …12・save() …13・defaults() …14・settings() …15・extraUnits() …16・apply() …18・suggestBatches() …24・compute() …28・■ 画面 …63・build() …68・changed() …84・show() …85・init() …97・公開 FactoryPL …100
 
 ## js/factory-view.js（545行）
 
@@ -90,9 +90,9 @@ hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() 
 
 hash() …12・rng() …13・hoursOf() …19・dayPlan() …23・brkOf() …35・minorOf() …37・canB() …42・realSpans() …43・TYPES …47・traits() …55・moodWord() …57・person() …60・create() …69・assign() …78・autoShift() …118・migrate() …121・wageFloor() …123・insuredOf() …129・weekHours() …131・today() …133・helpFill() …139・dayWorkers() …144・payOf() …162・adsOpen() …165・close() …168・gapsOf() …204・autoHire() …207・公開 KioskStaff …223
 
-## js/kiosk-view.js（1102行）
+## js/kiosk-view.js（1103行）
 
-STORDER …12・DAYN …22・MSV …29・■ 読み込み・保存 …31・persist() …41・■ その日の計算 …45・ctxNow() …46・linkNow() …54・supplyOf() …57・slipWait() …59・truckOf() …60・cartOf() …62・supplyOrdOf() …67・checkDay() …68・ensureRes() …71・tick() …75・closeToday() …76・orderFor() …88・nextOrderDay() …89・■ 川辺の配送センター（計算は js/center-core.js、設定は data/center.json） …90・center() …93・isAuto() …94・managed() …95・aimName() …96・loadOrders() …98・CSKEY …100・loadMoney() …103・moneyOf() …104・GKEY …112・loadGroup() …113・groupOf() …114・groupClose() …126・moneyClose() …128・loadCS() …129・saveCS() …130・csCtx() …131・■ 港駅の店をグループの流れにのせる（橋 minato-to-group・js/links/minato-to-group.js・2026-11-12） …135・MSV2 …137・portOn() …138・portIn() …139・portPut() …141・■ 取引の相談窓口 → 工場・お金（橋 deals-to-factory・deals-to-money・第2回・2026-11-12） …143・DKEY …145・dealsOn() …146・loadDeals() …147・dealPut() …148・dealSettle() …149・haulOn() …153・haulPut() …154・haulClose() …155・gcfg() …158・allocAll() …161・csOpenToday() …164・cstockOf() …167・saveOrders() …168・arrivalToCenter() …170・salesToCenter() …171・planFor() …172・dailyOrder() …174・factoryReady() …195・slipTodo() …196・slipNow() …198・queueSlips() …199・matSync() …203・makeSlip() …205・nextCond() …220・editOrder() …221・expressLeft() …225・expressOpen() …226・todayExpress() …230・openExpress() …232・pendingExpress() …233・addToExpress() …236・orderExpress() …239・addOnOk() …243・addOnNext() …244・addOnToday() …245・orderAddOn() …246・expressConfirm() …251・onDuty() …256・curSet() …257・edit() …258・■ 商品ごとの「いま」 …262・counts() …264・nextDelivery() …267・pinfo() …268・motText() …272・withText() …274・ST_LABEL …276・orderDiff() …279・orderText() …280・■ 骨組み …282・CSS …283・mount() …372・setMult() …387・badge() …388・readNews() …391・openFromBadge() …393・setOpen() …394・■ 開店前：場所を選ぶ …397・renderSetup() …398・■ 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） …411・renderAlert() …412・openSheet() …423・closeSheet() …424・renderSheet() …425・updateSheet() …460・■ 画面全体 …464・render() …465・renderWhich() …478・lifeLine() …483・renderKpi() …487・renderBody() …492・evText() …504・LF0 …517・KIND …520・lfMatch() …523・lfBar() …531・lfSummary() …550・lfCsv() …562・PAGE …571・renderLog() …572・flushLog() …590・centerBox() …598・slipLine() …609・flowLine() …614・■ 荷物の行方（アイデア帳 6.・2026-11-08）：注文番号ごとに、売上の記録 → 注文 → 製造 → 納品書 → 到着を時刻の順に。計算は js/track-core.js、時刻は data/center.json の flow・track …621・trkNow() …624・trkSplit() …625・trkEst() …627・trkRuns() …629・trkRuns0() …630・trkList() …637・renderTrack() …639・renderItems() …694・updateItems() …755・renderLayout() …760・basketStats() …774・renderPeople() …783・crewSave() …812・renderCrew() …813・renderMoney() …895・moveCard() …909・shrinkCard() …929・renderNews() …938・■ 売店の正面の絵 …941・BOX …942・zoneSlots() …943・rr() …944・drawItem() …945・drawKiosk() …955・personColor() …984・spawnFromEvent() …985・bubble() …990・stepPeople() …991・drawPerson() …1000・draw() …1005・onCanvasClick() …1026・loop() …1029・■ 起動 …1034・公開 minatoKiosk …1036
+STORDER …12・DAYN …22・MSV …29・■ 読み込み・保存 …31・persist() …41・■ その日の計算 …45・ctxNow() …46・linkNow() …54・supplyOf() …57・slipWait() …59・truckOf() …60・cartOf() …62・supplyOrdOf() …67・checkDay() …68・ensureRes() …71・tick() …75・closeToday() …76・orderFor() …88・nextOrderDay() …89・■ 川辺の配送センター（計算は js/center-core.js、設定は data/center.json） …90・center() …93・isAuto() …94・managed() …95・aimName() …96・loadOrders() …98・CSKEY …100・loadMoney() …103・moneyOf() …104・GKEY …112・loadGroup() …113・groupOf() …114・groupClose() …127・moneyClose() …129・loadCS() …130・saveCS() …131・csCtx() …132・■ 港駅の店をグループの流れにのせる（橋 minato-to-group・js/links/minato-to-group.js・2026-11-12） …136・MSV2 …138・portOn() …139・portIn() …140・portPut() …142・■ 取引の相談窓口 → 工場・お金（橋 deals-to-factory・deals-to-money・第2回・2026-11-12） …144・DKEY …146・dealsOn() …147・loadDeals() …148・dealPut() …149・dealSettle() …150・haulOn() …154・haulPut() …155・haulClose() …156・gcfg() …159・allocAll() …162・csOpenToday() …165・cstockOf() …168・saveOrders() …169・arrivalToCenter() …171・salesToCenter() …172・planFor() …173・dailyOrder() …175・factoryReady() …196・slipTodo() …197・slipNow() …199・queueSlips() …200・matSync() …204・makeSlip() …206・nextCond() …221・editOrder() …222・expressLeft() …226・expressOpen() …227・todayExpress() …231・openExpress() …233・pendingExpress() …234・addToExpress() …237・orderExpress() …240・addOnOk() …244・addOnNext() …245・addOnToday() …246・orderAddOn() …247・expressConfirm() …252・onDuty() …257・curSet() …258・edit() …259・■ 商品ごとの「いま」 …263・counts() …265・nextDelivery() …268・pinfo() …269・motText() …273・withText() …275・ST_LABEL …277・orderDiff() …280・orderText() …281・■ 骨組み …283・CSS …284・mount() …373・setMult() …388・badge() …389・readNews() …392・openFromBadge() …394・setOpen() …395・■ 開店前：場所を選ぶ …398・renderSetup() …399・■ 要注意：売り切れ・品出し待ち・残りわずか（押すと商品カード） …412・renderAlert() …413・openSheet() …424・closeSheet() …425・renderSheet() …426・updateSheet() …461・■ 画面全体 …465・render() …466・renderWhich() …479・lifeLine() …484・renderKpi() …488・renderBody() …493・evText() …505・LF0 …518・KIND …521・lfMatch() …524・lfBar() …532・lfSummary() …551・lfCsv() …563・PAGE …572・renderLog() …573・flushLog() …591・centerBox() …599・slipLine() …610・flowLine() …615・■ 荷物の行方（アイデア帳 6.・2026-11-08）：注文番号ごとに、売上の記録 → 注文 → 製造 → 納品書 → 到着を時刻の順に。計算は js/track-core.js、時刻は data/center.json の flow・track …622・trkNow() …625・trkSplit() …626・trkEst() …628・trkRuns() …630・trkRuns0() …631・trkList() …638・renderTrack() …640・renderItems() …695・updateItems() …756・renderLayout() …761・basketStats() …775・renderPeople() …784・crewSave() …813・renderCrew() …814・renderMoney() …896・moveCard() …910・shrinkCard() …930・renderNews() …939・■ 売店の正面の絵 …942・BOX …943・zoneSlots() …944・rr() …945・drawItem() …946・drawKiosk() …956・personColor() …985・spawnFromEvent() …986・bubble() …991・stepPeople() …992・drawPerson() …1001・draw() …1006・onCanvasClick() …1027・loop() …1030・■ 起動 …1035・公開 minatoKiosk …1037
 
 ## js/kiosk-walk.js（184行）
 
@@ -130,9 +130,9 @@ pill() …17・■ 荷物が届く：台車（センターの便）・できた�
 
 DAYN …22・■ 読み込み・保存 …26・omStart() …31・omToday() …34・crewAd() …37・persist() …39・■ その日の計算 …42・ctxNow() …43・grpOn() …50・grp() …51・sdFor() …54・samedayNow() …56・localNow() …59・checkDay() …61・ensureRes() …64・closeToday() …68・tick() …72・■ 店を出す …75・openStore() …76・■ 売店の画面の上の欄 …81・PSN …82・CIMG …84・conceptUI() …85・render() …97・panel() …115・omCard() …126・localLine() …137・cruiseLine() …144・samedayLine() …148・■ 絵：小さな絵を作っておく …154・mk() …156・LOOK …157・fig() …163・sprite() …182・basket() …185・handOf() …188・BAGC …196・suitcase() …197・propsDraw() …198・clockDraw() …242・dripsDraw() …247・box() …249・label() …250・bg() …251・DISP …295・shelfLayer() …296・■ 絵：毎コマ …310・bubble() …312・clerkDo() …315・view() …328・draw() …329・fxCtx() …364・click() …365・公開 MinatoStoreView …367
 
-## js/money-core.js（109行）
+## js/money-core.js（111行）
 
-centerCost() …12・dayLedger() …18・groupLedger() …51・project() …92・sumDays() …102・公開 MoneyCore …107
+centerCost() …12・dayLedger() …18・groupLedger() …51・project() …94・sumDays() …104・公開 MoneyCore …109
 
 ## js/money-view.js（125行）
 
@@ -210,9 +210,9 @@ linkOf() …13・on() …14・put() …16・settle() …19・公開 DealsToFacto
 
 linkOf() …12・on() …13・put() …16・sell() …19・stops() …25・close() …27・公開 DealsToHaiso …29
 
-## js/links/deals-to-money.js（19行）
+## js/links/deals-to-money.js（21行）
 
-linkOf() …8・on() …9・rows() …11・hauls() …14・公開 DealsToMoney …16
+linkOf() …8・on() …9・rows() …11・hauls() …14・sales() …17・公開 DealsToMoney …18
 
 ## js/links/factory-to-kiosk-sameday.js（41行）
 

@@ -17,7 +17,7 @@ function put(DC,cfg,S,log,day,cond){const d=log&&log.days.find(x=>x.day===day);i
   const o=DC.dayOrders(cfg,S,day,!!(cond&&cond.day&&cond.day!=='wd'));if(!o)return null;d.deal=o;return o;}
 /* 納品書ができたあと：契約ごとのお金を slip.deals に書き（y＝[売上,作る費用,届ける費用]・n＝相手の名前）、契約の積み上げに足す。返すもの：dia-deals を書きかえたか */
 function settle(DC,cfg,S,day,slip){if(!slip||!slip.deals||!S)return false;let ch=false;
-  for(const id in slip.deals){const c=(S.deals||[]).find(x=>x.id===id),x=slip.deals[id];if(!c)continue;const m=DC.dealMoney(cfg,c,x.it,x.own?x.hf:undefined);   /* own：自社の便で届ける（橋 deals-to-haiso・第3回） */x.y=[m.rev,m.cost,m.fee];x.n=c.of.name;if(DC.record(S,day,id,m))ch=true;}
+  for(const id in slip.deals){const c=(S.deals||[]).find(x=>x.id===id),x=slip.deals[id];if(!c)continue;const m=DC.dealMoney(cfg,c,x.it,x.own?x.hf:undefined);   /* own：自社の便で届ける（橋 deals-to-haiso・第3回） */x.y=[m.rev,m.cost,m.fee];x.n=c.of.name;if(DC.record(S,day,id,m,cfg))ch=true;}
   return ch;}
 root.DealsToFactory={ID,on,put,settle};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.DealsToFactory;

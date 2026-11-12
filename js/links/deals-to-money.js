@@ -13,6 +13,8 @@ function rows(slip){const out=[];if(!slip||!slip.deals)return out;for(const id i
    「荷主 → センター（仕分け料・センターに持ち込む荷物）」と、自社で運べない荷物の港浜急送（配送会社が払う）の行にする。返すもの：[{id,name,fare,sort,other,pcs}] */
 function hauls(dh,H){const out=[],pc=((H&&H.perCart)||{}).center||150,of=((H&&H.otherFee)||{}).extra||0;for(const id in dh||{}){const x=dh[id];if(x.k!=='haul')continue;
   out.push({id,name:x.n||id,fare:x.f||0,sort:x.s||0,other:x.o?of:0,pcs:x.s?Math.round((x.c||0)*pc):0});}return out;}
-root.DealsToMoney={ID,on,rows,hauls};
+/* 第4回（2026-11-12）：その日の営業の費用（dia-deals の sales。窓口で動いた日のもの）を、グループの収支の行にする。返すもの：[{id,name,payer,yen}] */
+function sales(DC,cfg,S,day){return DC&&cfg&&S?DC.salesCost(cfg,S,day):[];}
+root.DealsToMoney={ID,on,rows,hauls,sales};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.DealsToMoney;
 })(typeof globalThis!=='undefined'?globalThis:this);

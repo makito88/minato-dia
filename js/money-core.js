@@ -73,6 +73,8 @@ function groupLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if
   for(const x of o.deals||[]){add('ext','factory',`取引先・契約の品の代金（${x.name}）`,x.rev);add('factory','ext',`材料・人件費など（契約の分・${x.name}）`,x.cost);add('factory','ext',`港浜急送（${x.name}へ届ける・仮）`,x.fee);add('factory','haiso',`運賃（${x.name}へ届ける）`,x.hf);}
   /* 配送の契約（第3回・橋 deals-to-money の hauls）：荷主 → 配送会社の運賃、荷主 → センターの仕分け料、自社で運べない荷物の港浜急送。o.hauls がなければ前と同じ */
   for(const x of o.hauls||[]){add('ext','haiso',`運賃（荷主・${x.name}）`,x.fare);add('ext','center',`仕分け料（荷主・${x.name}）`,x.sort);add('haiso','ext',`港浜急送（${x.name}・自社で運べない荷物）`,x.other);}
+  /* 自分から動く営業の費用（第4回・橋 deals-to-money の sales）：問屋に相談する＝工場、店に声をかける＝センター。o.sales がなければ前と同じ */
+  for(const x of o.sales||[])add(x.payer||'center','ext',`営業の費用（${x.name}）`,x.yen);
   const runs=(o.haiso&&o.haiso.runs)||[];let fC=0,fF=0,xC=0,xF=0,xH=0,hc=0;
   for(const r of runs){if(r.company==='haiso'){if(r.payer==='factory')fF+=r.fare||0;else fC+=r.fare||0;hc+=r.cost||0;}else{if(r.payer==='factory')xF+=r.fee||0;else if(r.payer==='haiso')xH+=r.fee||0;else xC+=r.fee||0;}}
   add('haiso','ext','他社の応援便（契約の荷物）',xH);
