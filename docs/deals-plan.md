@@ -58,7 +58,7 @@
 ## 進み具合（回が終わるたびに書く）
 | 回 | 状態 |
 |---|---|
-| 1 | まだ |
+| 1 | できた（2026-11-12）：`js/deals-core.js`・`js/deals-view.js`・`data/deals.json`・保存 `dia-deals`・センターの画面のタブ・`tests/deals-core.test.cjs`。見込みだけ（工場・配送・お金にはまだ効かない）。詳しくは HANDOFF のいちばん下 |
 | 2 | まだ |
 | 3 | まだ |
 | 4 | まだ |

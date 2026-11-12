@@ -10,7 +10,7 @@
 const $=id=>document.getElementById(id),g=(f,d)=>{try{return f();}catch(e){return d;}};
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const N=n=>Math.round(n).toLocaleString();
-const V={open:false,only:false,timer:0};
+const V={open:false,only:false,timer:0,tab:'wh'};
 const ST_NAME={ok:'足りている',thin:'薄い',short:'足りなくなるおそれ'};const stName=o=>o.cut?`きょう ${o.cut}個 出せなかった`:ST_NAME[o.st];
 
 const CSS=`.cwv{position:fixed;inset:0;z-index:85;background:var(--paper);color:var(--ink);overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 14px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(14px,env(safe-area-inset-left,0px))}
@@ -45,11 +45,17 @@ const CSS=`.cwv{position:fixed;inset:0;z-index:85;background:var(--paper);color:
 .cwv table{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}.cwv th{font-weight:500;color:var(--muted);font-size:11.5px;text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}.cwv td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:right}.cwv th:first-child,.cwv td:first-child{text-align:left}
 .cwv .note{font-size:11.5px;color:var(--muted);line-height:1.65;margin:0}
 .cwv .empty{padding:30px 10px;text-align:center;color:var(--muted)}
+.cwv .cw-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}.cwv .cw-tabs button{font:inherit;font-size:13.5px;border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);padding:8px 14px 7px;cursor:pointer;white-space:nowrap}.cwv .cw-tabs button[aria-selected="true"]{color:var(--ink);font-weight:700;border-bottom-color:var(--accent)}.cwv .cw-tabs .n{display:inline-block;min-width:18px;margin-left:5px;border-radius:9px;background:#b8621b;color:#fff;font-size:11px;line-height:18px;text-align:center;padding:0 4px}
 @media (max-width:820px){.cwv .sum{grid-template-columns:repeat(2,minmax(0,1fr))}.cwv .week{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:560px){.cwv .row{grid-template-columns:minmax(0,1fr)}.cwv .nm{white-space:normal}.cwv .sum b{font-size:17px}}`;
 
 function dayLabel(d,day){const k=d-day;return k===0?'きょう':k===1?'あす':k===2?'あさって':k+'日後';}
-function render(){const box=$('cwv');if(!box||!V.open)return;const I=g(()=>minatoKiosk.centerInfo(),{err:'売店の画面を読み込み中です'});
+/* タブ（2026-11-12 取引の相談窓口・第1回）：倉庫と流れ／取引の相談窓口（js/deals-view.js） */
+function tabs(){if(!window.DealsView)return '';const n=g(()=>DealsView.count(),null);return `<div class="cw-tabs" role="tablist"><button type="button" role="tab" data-tab="wh" aria-selected="${V.tab==='wh'}">倉庫と流れ</button><button type="button" role="tab" data-tab="deals" aria-selected="${V.tab==='deals'}">取引の相談窓口${n?`<span class="n">${n}</span>`:''}</button></div>`;}
+function bindTabs(box){box.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{V.tab=b.dataset.tab;box.scrollTop=0;render();});}
+function render(){const box=$('cwv');if(!box||!V.open)return;
+  if(V.tab==='deals'&&window.DealsView){box.innerHTML=`<div class="in"><div class="hd"><div><h2>川辺の配送センター｜取引の相談窓口</h2><p class="sub">ほかの会社からの「売ってほしい」「運んでほしい」の相談</p></div><button class="x" id="cwClose">閉じる</button></div>${tabs()}${g(()=>DealsView.html(),'<div class="card empty">窓口を開けませんでした</div>')}</div>`;
+    $('cwClose').onclick=close;bindTabs(box);g(()=>DealsView.bind(box,render));return;}const I=g(()=>minatoKiosk.centerInfo(),{err:'売店の画面を読み込み中です'});
   if(I.err){box.innerHTML=`<div class="in"><div class="hd"><div><h2>川辺の配送センター｜倉庫</h2></div><button class="x" id="cwClose">閉じる</button></div><div class="card empty">${esc(I.err)}</div></div>`;$('cwClose').onclick=close;return;}
   const {day,cs,out,ws}=I,pids=Object.keys(out),cnt={ok:0,thin:0,short:0};let total=0;for(const p of pids){cnt[out[p].st]++;total+=out[p].stock;}
   const pend=cs.po.filter(p=>p.st!=='in').sort((a,b)=>a.arr-b.arr),nextIn=pend[0],nextOrd=I.nextOrder;
@@ -75,6 +81,7 @@ function render(){const box=$('cwv');if(!box||!V.open)return;const I=g(()=>minat
   const hist=cs.po.slice().sort((a,b)=>b.day-a.day).map(p=>`<tr><td>${esc(p.no)}</td><td>第${p.day}運行日</td><td>第${p.arr}運行日</td><td>${Object.keys(p.items).length}品</td><td>${N(Object.values(p.items).reduce((a,b)=>a+b,0))}個</td><td>${p.st==='in'?'着いた':p.arr===day+1?'あす着く':'これから着く'}</td></tr>`).join('');
   box.innerHTML=`<div class="in">
     <div class="hd"><div><h2>川辺の配送センター｜倉庫</h2><p class="sub">第${day}運行日・届け先：${esc(I.store)}。センターに置いておく品（飲み物・お菓子・日用品・冷凍のホットスナック）。問屋（${esc(ws.name)}）へは週2回、センターのおまかせで発注します。在庫と出かたはゲームの中の数（内）、発注の決まりと数字は仮（仮）。</p></div><button class="x" id="cwClose">閉じる</button></div>
+    ${tabs()}
     ${window.CenterFlow?CenterFlow.html()+CenterFlow.moneyHtml():''}
     <div class="sum"><div><b>${N(total)}</b><span>倉庫の在庫（${pids.length}品）</span></div><div><b class="${cnt.short?'short':''}">${cnt.short}品</b><span>足りなくなるおそれ</span></div><div><b class="${cnt.thin?'thin':''}">${cnt.thin}品</b><span>薄い</span></div>
       <div><b>${dayLabel(nextOrd,day)}</b><span>次の発注（第${nextOrd}運行日の朝）</span></div><div><b>${nextIn?dayLabel(nextIn.arr,day):'—'}</b><span>${nextIn?`次の入荷 ${N(Object.values(nextIn.items).reduce((a,b)=>a+b,0))}個（${esc(nextIn.no)}）`:'着く予定の発注はありません'}</span></div></div>
@@ -86,12 +93,12 @@ function render(){const box=$('cwv');if(!box||!V.open)return;const I=g(()=>minat
     <section class="card"><h3>問屋への発注の記録<small>おまかせ：最近の出かた×次の次の入荷までの日数＋ばらつきの分 − （在庫＋届く予定）を、ケース単位で</small></h3><div style="overflow-x:auto"><table><thead><tr><th>番号</th><th>発注</th><th>着く</th><th>品数</th><th>個数</th><th></th></tr></thead><tbody>${hist||'<tr><td colspan="6">まだ発注していません</td></tr>'}</tbody></table></div></section>
     <p class="note">「足りなくなるおそれ」：いまの在庫から、次の入荷までに出る見込みを引くとマイナス。「薄い」：入荷までは持つが、ばらつきの分（またはおよそ1.5日分）より少ない。出る見込みは、センターが店へ出した数（足りずに出せなかった分を含む）の最近の平均です。</p>
   </div>`;
-  if(window.CenterFlow)CenterFlow.bind(box);
+  if(window.CenterFlow)CenterFlow.bind(box);bindTabs(box);
   $('cwClose').onclick=close;box.querySelectorAll('[data-only]').forEach(b=>b.onclick=()=>{V.only=b.dataset.only==='1';render();});}
-function open(){const b=$('cwv');b.hidden=false;V.open=true;b.scrollTop=0;render();clearInterval(V.timer);V.timer=setInterval(render,5000);}
+function open(){const b=$('cwv');b.hidden=false;V.open=true;b.scrollTop=0;render();clearInterval(V.timer);V.timer=setInterval(()=>{if(V.tab!=='deals')render();},5000);/* 窓口のタブは返事をしたときだけ描き直す */}
 function close(){const b=$('cwv');if(b)b.hidden=true;V.open=false;clearInterval(V.timer);}
 {const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
  const v=document.createElement('div');v.id='cwv';v.className='cwv';v.hidden=true;v.setAttribute('role','dialog');v.setAttribute('aria-label','センターの倉庫');document.body.appendChild(v);
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open)close();});}
-window.minatoCenter={open,close,refresh:render};
+window.minatoCenter={open,close,refresh:render,tab(t){V.tab=t==='deals'?'deals':'wh';if(V.open)render();}};
 })();
