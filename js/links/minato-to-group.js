@@ -19,12 +19,14 @@ function on(L){const lk=linkOf(L);return !!(lk&&lk.state!=='none'&&lk.state!=='r
 function putOrder(CC,c,ccfg,log,day,S,cond,why,sd,keep){
   const key=CC.storeKey(S),items={...(S.order||{})},recs=(S.om&&S.om.recs)||[];
   const fq={...(CC.factoryQty(c,ccfg,S,recs,day,items)||{})},want=(sd&&sd.want)||{},night={...items};
+  // 日持ちする工場の品（パン）も便ごとに（2026-11-12・緑ヶ丘の店と同じ）：工場に頼む数＝便ごとの注文の合計
+  const frun=CC.runOrder?CC.runOrder(c,ccfg,S,recs,day,cond,items,why||null,'factory'):{};{const fs={};for(const b in frun)for(const pid in frun[b])fs[pid]=(fs[pid]||0)+frun[b][pid];for(const pid in fq)if(fs[pid]!=null)fq[pid]=fs[pid];}
   for(const pid in want){if(night[pid]!=null)night[pid]=Math.max(0,night[pid]-want[pid]);if(fq[pid]!=null)fq[pid]=Math.max(0,fq[pid]-want[pid]);}
   CC.putOrder(c,ccfg,log,day,key,{mode:(S.om&&S.om.mode)||'self',aim:(S.om&&S.om.aim)||null,items:night,fq},keep);
   const d=log.days.find(x=>x.day===day);
   if(d){if(!d.cond&&cond)d.cond=cond;const o=d.orders[key];
     if(CC.runOrder)o.crun=CC.runOrder(c,ccfg,S,recs,day,cond,items,why||null);   // センターの品の便ごとの注文（緑ヶ丘の店と同じ決め方）
-    if(Object.keys(want).length)o.sd={want:{...want}};}                        // 夜の工場から引いた、できたての便の分
+    o.frun=frun;if(Object.keys(want).length)o.sd={want:{...want}};}                        // 夜の工場から引いた、できたての便の分
   return key;}
 root.MinatoToGroup={ID,on,putOrder};
 if(typeof module!=='undefined')module.exports=root.MinatoToGroup;

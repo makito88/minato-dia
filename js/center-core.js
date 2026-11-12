@@ -134,6 +134,7 @@ function recsOf(log,key){return (log&&log.days||[]).map(d=>d.recs&&d.recs[key]).
 /* 売店に回せる工場の品の上限＝納品書の出荷数（工場の品すべて。届く数が工場の出荷数をこえないように） */
 function supplyFor(slip,key,kcfg,ccfg,shelf){const m=slip&&!slip.err&&slip.stores&&slip.stores[key];if(!m)return null;const o={};
   for(const pid in m.items)o[pid]=m.items[pid][1];
+  if(kcfg&&ccfg)for(const pid in m.stock||{})if(o[pid]==null&&routeOf(ccfg,genreOf(kcfg,pid),pid)==='factory')o[pid]=m.stock[pid];   // 工場で作っていない品（工場の品のジャンルでも）：頼んだ数のまま届く（前と同じ。2026-11-12 に港駅の店で見つけた）
   // 工場の品で、この店が頼まなかった品（届ける数が0）は、店に届かない（2026-11-09。shelf を渡したときだけ）
   if(kcfg&&ccfg&&shelf)for(const pid in shelf)if(o[pid]==null&&routeOf(ccfg,genreOf(kcfg,pid),pid)==='factory')o[pid]=0;
   return Object.keys(o).length?o:null;}
@@ -142,7 +143,7 @@ function supplyFor(slip,key,kcfg,ccfg,shelf){const m=slip&&!slip.err&&slip.store
    日持ちする品（パン）は、載っている最初の便（朝の便）にまとめる。店は、この数をそのまま受け取る（店の計算は便ごとの数を決めない）。
    センター在庫の品（飲み物・お菓子など）は、店の便ごとの注文（runOrder）をセンターが倉庫の在庫で割り振った数（allocate）を co で受け取る（2026-11-09 から。それより前の日は、便が着いたときの店の在庫を見て足す（センターの在庫に限りはまだない）。
    返すもの：{runs:{便の名前:{品:数}}, pids:{品:1}, cut:{品:工場が足りなくて届かない数}}。納品書がなければ null */
-function cart(kcfg,ccfg,slip,key,shelf,co){const sup=slip&&!slip.err?supplyFor(slip,key,kcfg,ccfg,shelf):null,ord=sup?supplyOrdFor(slip,key,kcfg,ccfg,shelf):null;if(!sup&&!co)return null;
+function cart(kcfg,ccfg,slip,key,shelf,co,fr){const sup=slip&&!slip.err?supplyFor(slip,key,kcfg,ccfg,shelf):null,ord=sup?supplyOrdFor(slip,key,kcfg,ccfg,shelf):null;if(!sup&&!co)return null;
   const runs={},pids={},cut={},ccut={},DL=kcfg.deliveries||[];for(const d of DL)runs[d.name]={};
   // センターの品（2026-11-09）：店の便ごとの注文を、センターが倉庫の在庫で割り振った数（allocate）。前の夜に決まる
   if(co){for(const b in co.runs)for(const pid in co.runs[b]){pids[pid]=1;if(runs[b]&&co.runs[b][pid]>0)runs[b][pid]=co.runs[b][pid];}for(const pid in co.cut||{})if(co.cut[pid]>0)ccut[pid]=co.cut[pid];}
@@ -152,7 +153,8 @@ function cart(kcfg,ccfg,slip,key,shelf,co){const sup=slip&&!slip.err?supplyFor(s
   if(LT&&LT.mode==='chase'&&LT.bin&&runs[LT.bin])for(const pid in m.items){const c2=m.items[pid][2]||0;if(c2>0&&sup[pid]!=null)runs[LT.bin][pid]=(runs[LT.bin][pid]||0)+c2;}
   for(const pid in sup){const gid=genreOf(kcfg,pid);if(!gid)continue;pids[pid]=1;const ch=(m.items[pid]&&m.items[pid][2])||0,q=sup[pid]||0,o=ord&&ord[pid]!=null?ord[pid]:q;if(o>q+ch)cut[pid]=o-q-ch;if(!q)continue;
     const on=DL.filter(d=>d.all||(d.genres||[]).includes(gid));if(!on.length)continue;
-    if((genreCfg(kcfg,gid).life||0)>=2){runs[on[0].name][pid]=q;continue;}
+    if((genreCfg(kcfg,gid).life||0)>=2){let left=q;const fb=fr?on.map(d=>((fr[d.name]||{})[pid])||0):null;   // 便ごとの注文（frun）があれば、早い便から注文の数まで。なければ前と同じ（朝の便にまとめて）
+      if(fb&&fb.reduce((a,b)=>a+b,0)>0){on.forEach((d,i)=>{const x=i===on.length-1?left:Math.min(left,fb[i]);if(x>0){runs[d.name][pid]=x;left-=x;}});}else runs[on[0].name][pid]=q;continue;}
     const w=on.map(d=>d.all?2:1),W=w.reduce((x,y)=>x+y,0),raw=w.map(x=>q*x/W),fl=raw.map(Math.floor);let left=q-fl.reduce((x,y)=>x+y,0);
     const ord2=raw.map((x,i)=>[x-fl[i],i]).sort((x,y)=>y[0]-x[0]||x[1]-y[1]);for(const [,i] of ord2){if(left<=0)break;fl[i]++;left--;}
     on.forEach((d,i)=>{if(fl[i])runs[d.name][pid]=fl[i];});}
@@ -161,13 +163,15 @@ function cart(kcfg,ccfg,slip,key,shelf,co){const sup=slip&&!slip.err?supplyFor(s
    ・朝の便：在庫の目標（仕入れ数）−次の朝に残る見込み（前の日の 19:00 の在庫−19:00 より後に売れる見込み）。19:00 の記録がない日は、締めのあとの在庫（state.lots）
    ・昼前・午後の便：前の便からその便までに売れる見込み（1日の見込み×その時間帯の割合）を足す
    ・1日の見込みは plan と同じ数（why.mu）。返すもの：{bin:{pid:数}}（センターの品だけ） */
-function runOrder(kcfg,ccfg,state,recs,forDay,next,items,why){const key=storeKey(state),prev=(recs||[]).find(r=>r.store===key&&r.day===forDay-1&&r.pre),ty=(next&&next.day)||'wd',DL=kcfg.deliveries||[],out={};for(const d of DL)out[d.name]={};
-  for(const pid in items){const gid=genreOf(kcfg,pid);if(!gid||routeOf(ccfg,gid,pid)!=='center')continue;const target=items[pid]||0,mu=(why&&why[pid]&&why[pid].mu)||0;
+/* route＝'factory' のとき（2026-11-12）：日持ちする工場の品（パン）も、載っている便ごとに同じ決め方で分ける（工場に頼む数＝便ごとの合計）。
+   runZ（data/center.json・仮）：2つ目からの便に足す、ばらつきの分（前の夜に決めるので、当日の売れ方に合わせて足せない分の用心）。0なら前と同じ */
+function runOrder(kcfg,ccfg,state,recs,forDay,next,items,why,route){route=route||'center';const key=storeKey(state),prev=(recs||[]).find(r=>r.store===key&&r.day===forDay-1&&r.pre),ty=(next&&next.day)||'wd',DL=kcfg.deliveries||[],out={};for(const d of DL)out[d.name]={};
+  for(const pid in items){const gid=genreOf(kcfg,pid);if(!gid||routeOf(ccfg,gid,pid)!==route)continue;if(route==='factory'&&(genreCfg(kcfg,gid).life||0)<2)continue;const target=items[pid]||0,mu=(why&&why[pid]&&why[pid].mu)||0;
     let carry;if(prev){const x=prev.pre.items[pid]||[],sh=shareBefore(kcfg,state,gid,(prev.cond&&prev.cond.day)||ty,prev.pre.at);carry=Math.max(0,(x[2]||0)-((x[0]||0)+(x[1]||0)*(ccfg.lostW??0.7))/Math.max(0.05,sh)*(1-sh));}
     else carry=(state.lots&&state.lots[pid]||[]).reduce((t,l)=>t+(l.q||0),0);
     const on=DL.filter(d=>d.all||(d.genres||[]).includes(gid)).sort((a,b)=>a.t-b.t);if(!on.length)continue;
     const q0=Math.max(0,Math.round(target-carry));if(q0>0)out[on[0].name][pid]=q0;
-    for(let i=1;i<on.length;i++){const a=shareBefore(kcfg,state,gid,ty,on[i-1].t),b=shareBefore(kcfg,state,gid,ty,on[i].t),q=Math.ceil(mu*(b-a)-0.2);if(q>0)out[on[i].name][pid]=q;}}
+    for(let i=1;i<on.length;i++){const a=shareBefore(kcfg,state,gid,ty,on[i-1].t),b=shareBefore(kcfg,state,gid,ty,on[i].t),m=mu*(b-a),q=Math.ceil(m+(ccfg.runZ||0)*Math.sqrt(m)-0.2);if(q>0)out[on[i].name][pid]=q;}}
   return out;}
 /* センターの割り振り：全店の便ごとの注文（orders＝[{key, runs}]）を、倉庫のその日の始めの在庫（stock）で割り振る。
    便の早い順に出し、足りない品は店の注文の割合で分ける（端数は大きい順）。返すもの：{店:{runs:{bin:{pid:数}}, cut:{pid:出せない数}}} */

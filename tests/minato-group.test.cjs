@@ -41,13 +41,17 @@ for(let day=1;day<=10;day++){
   CC.csOpen(GC,C,cs,day,{stores:[{key:km,order:sm.order,shelf:shM},{key:kp,order:sp.order,shelf:shP}],recs:CC.recsOf(log,km).concat(CC.recsOf(log,kp))});
   const al=CC.allocate(K,[{key:km,runs:d.orders[km].crun},{key:kp,runs:op.crun}],cs.stock);
   for(const pid in cs.stock){const t=[km,kp].reduce((x,k)=>x+Object.values(al[k].runs).reduce((y,r)=>y+(r[pid]||0),0),0);assert.ok(t<=cs.stock[pid],'割り振りの合計 ≦ 倉庫の在庫 '+pid);}
-  const ctM=CC.cart(K,C,d.slip,km,shM,al[km]),ctP=CC.cart(PC,C,d.slip,kp,shP,al[kp]);
+  const ctM=CC.cart(K,C,d.slip,km,shM,al[km]),ctP=CC.cart(PC,C,d.slip,kp,shP,al[kp],op.frun);
+  // パン（日持ちする工場の品）：工場に頼む数＝便ごとの注文の合計・早い便から注文の数まで（2026-11-12）
+  for(const pid in (op.frun&&op.frun['朝の便'])||{}){const t=Object.values(op.frun).reduce((x,r)=>x+(r[pid]||0),0);assert.equal(op.factory[pid],t,'工場に頼む数＝便ごとの合計 '+pid);}
+  // 工場で作っていない品（工場の品のジャンル）は、頼んだ数のまま届く
+  for(const pid in (d.slip.stores[kp]&&d.slip.stores[kp].stock)||{}){if(CC.routeOf(C,PC.products.find(p=>p.id===pid).genre,pid)!=='factory')continue;assert.equal(Object.values(ctP.runs).reduce((x,r)=>x+(r[pid]||0),0),d.slip.stores[kp].stock[pid],'作っていない品も届く '+pid);}
   const tr=k=>Object.fromEntries(CC.truckRuns(C,k,day,cond,0).map(r=>[r.bin,r.arrive]));
   const rm=KC.simulate(K,sm,ctxOf(day,sm.order,{supply:CC.supplyFor(d.slip,km,K,C,shM),supplyOrd:CC.supplyOrdFor(d.slip,km,K,C,shM),cart:ctM,truck:tr(km)}));
   const sdx=sd?{...sd,noCut:true}:undefined;
   const rp=KC.simulate(PC,sp,ctxOf(day,sp.order,{supply:CC.supplyFor(d.slip,kp,PC,C,shP),supplyOrd:CC.supplyOrdFor(d.slip,kp,PC,C,shP),cart:ctP,truck:tr(kp),sameday:sdx}));
   // 港駅の店の工場の品：いつもの便で届いた数＝納品書の出荷のうち港駅の店の分（できたての分を二重に引かない）
-  const mp=d.slip.stores[kp];if(mp)for(const pid in mp.items){const want=mp.items[pid][1]+(mp.items[pid][2]||0),got=rp.ev.filter(e=>e.k==='delivery'&&!e.express&&!e.addOn&&!e.local&&!e.sameday).reduce((t,e)=>t+((e.items||{})[pid]||0),0);
+  const mp=d.slip.stores[kp];if(mp)for(const pid in mp.items){if(mp.stock&&mp.stock[pid]!=null)continue;const want=mp.items[pid][1]+(mp.items[pid][2]||0),got=rp.ev.filter(e=>e.k==='delivery'&&!e.express&&!e.addOn&&!e.local&&!e.sameday).reduce((t,e)=>t+((e.items||{})[pid]||0),0);
     assert.equal(got,want,'港駅の店：いつもの便で届く＝出荷の分 '+pid+' day '+day);}
   if(sd){const e=rp.ev.find(x=>x.k==='delivery'&&x.sameday);assert.ok(e,'できたての便は別に届く');for(const pid in sd.items)assert.equal(e.items[pid]||0,sd.items[pid],'できたての便の数 '+pid);}
   CC.csClose(GC,C,cs,[rm,rp]);

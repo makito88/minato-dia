@@ -35,7 +35,7 @@ function dayLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if(y
   add('factory','ext','材料・人件費・電気など',bF*(1-take)*(M.factoryCost??0.7));
   const runs=(o.haiso&&o.haiso.runs)||[];let fC=0,fF=0,xC=0,xF=0,hc=0;
   for(const r of runs){if(r.company==='haiso'){if(r.payer==='factory')fF+=r.fare||0;else fC+=r.fare||0;hc+=r.cost||0;}else{if(r.payer==='factory')xF+=r.fee||0;else xC+=r.fee||0;}}
-  if(o.haiso&&o.haiso.sum)hc+=o.haiso.sum.truckDay||0;
+  if(o.haiso&&o.haiso.sum)hc+=(o.haiso.sum.truckDay||0)+(o.haiso.sum.labor||0);   // 運転手の給料（シフト）も入れる（2026-11-12。前は入っていなかった）
   add('center','haiso','運賃（センター→店）',fC);add('factory','haiso','運賃（工場→センター）',fF);
   add('center','ext','他社の応援便',xC);add('factory','ext','他社の追いかけ便',xF);
   add('haiso','ext','燃料・運転手・トラック',hc);
