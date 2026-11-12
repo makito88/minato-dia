@@ -4,10 +4,11 @@
 const IDS=['cf_black','dr_sports'];
 const finite=x=>Number.isFinite(x);
 function supported(e){
-  return !!e && e.k==='buy' && e.ps==='salM' && e.lane==='f' && e.em===true &&
+  return !!e && e.k==='buy' && ['salM','salF'].includes(e.ps) && e.lane==='f' && e.em===true &&
     Array.isArray(e.items) && e.items.length>0 && e.items.length<=4 &&
     e.items.every(x=>Array.isArray(x)&&IDS.includes(x[0])&&Number.isInteger(x[1])&&x[1]>0) &&
     e.items.reduce((n,x)=>n+x[1],0)<=4 &&
+    (e.ps==='salM'||(e.items.length===1&&e.items[0][0]==='cf_black'&&e.items[0][1]===1)) &&
     finite(e.t) && finite(e.end) && e.end>e.t && finite(e.wait) && e.wait>=0 &&
     finite(e.stay) && e.stay>0 && e.t-e.wait-e.stay>=0 &&
     !e.trash && !e.guide && !(e.carry&&e.carry.length);

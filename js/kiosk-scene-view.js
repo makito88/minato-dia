@@ -3,12 +3,18 @@
 const $ = id => document.getElementById(id);
 const canvas = $('scene'), ctx = canvas.getContext('2d');
 let scene, config, frames, background, walk, reach, carry, payment, basket, basketTake, bagPack, bagWalk, source, currentRecord;
-let companions = [];
+let companions = [], appearances = {};
 let paused = false, close = true, slow = false, previous = 0, accumulator = 0;
 let camera = {x: 210, y: 700, width: 620};
-const image = url => new Promise((resolve, reject) => {
+const imageCache = new Map();
+const image = url => {
+  if(imageCache.has(url))return imageCache.get(url);
+  const promise = new Promise((resolve, reject) => {
   const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('画像を読み込めませんでした。')); img.src = url;
-});
+  });
+  imageCache.set(url,promise);
+  return promise;
+};
 async function json(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error('設定を読み込めませんでした。');
@@ -26,7 +32,7 @@ function snapshot() {
   } catch (_) { return {invalid:true}; }
 }
 function sprite(actor, sheet, frame, height, alpha = 1) {
-  const scale = height / frame.h;
+  const scale = height / (frame.bodyH||frame.h);
   // Contact shadow follows the lowest shoe, not the gap between two stepping feet.
   if(alpha===1){
     const footX=actor.x+((frame.groundAnchor??frame.anchor)-frame.anchor)*scale;
@@ -34,7 +40,7 @@ function sprite(actor, sheet, frame, height, alpha = 1) {
   }
   ctx.globalAlpha = alpha;
   ctx.drawImage(sheet, frame.x, frame.y, frame.w, frame.h,
-    actor.x - frame.anchor * scale, actor.y - height, frame.w * scale, height);
+    actor.x - frame.anchor * scale, actor.y - frame.h*scale, frame.w * scale, frame.h*scale);
   ctx.globalAlpha = 1;
 }
 function bottle(x, y, color, size = 1) {
@@ -135,7 +141,11 @@ function draw(dt = 0) {
   ctx.setTransform(1,0,0,1,0,0);
 }
 function drawActor(actor){
-  const height=130+Math.max(0,actor.y-251)*.13;
+  // Appearance owns atlas/anchors; the event clock, quantities and payment stay shared.
+  const look=appearances[actor.record&&actor.record.event.ps];
+  const actorFrames=look?look.frames:frames;
+  const actorWalk=look?look.walk:walk,actorReach=look?look.reach:reach,actorPayment=look?look.payment:payment;
+  const height=(130+Math.max(0,actor.y-251)*.13)*(look?look.heightScale:1);
   // Ground contact and the same down-right light direction as the painted room.
   ctx.fillStyle='#3c32222b';ctx.beginPath();ctx.ellipse(actor.x+height*.23,actor.y+height*.16,height*.36,9, .56,0,Math.PI*2);ctx.fill();
   if(actor.loadout&&actor.loadout.mode==='bag'){
@@ -149,21 +159,25 @@ function drawActor(actor){
   }else if(actor.phase==='pay' && actor.held !== null){
     const progress=actor.phaseTime/(actor.paySeconds||config.register.paySeconds);
     const pose=progress<.18?0:progress<.4?1:progress<.72?2:3;
-    sprite(actor,payment,frames.payment[config.products[actor.held].id][pose],height);
+    sprite(actor,actorPayment,actorFrames.payment[config.products[actor.held].id][pose],height);
   }else if(actor.held !== null){
     // The carrying arm and the drink are painted together, so they cannot drift apart.
     const product=config.products[actor.held];
     const frame=actor.phase==='walk' ? Math.floor(actor.distance/17)%4 : 0;
-    if(actor.phase!=='walk' && actor.direction===0) sprite(actor,payment,frames.payment[product.id][0],height);
-    else sprite(actor,carry[actor.held],frames.carry[product.id][actor.direction*4+frame],height);
+    if(actor.phase!=='walk' && actor.direction===0) sprite(actor,actorPayment,actorFrames.payment[product.id][0],height);
+    else sprite(actor,look?look.carry[product.id]:carry[actor.held],actorFrames.carry[product.id][actor.direction*4+frame],height);
   }else if(['reach','retract','take','browse'].includes(actor.phase)){
     const position = actor.phase === 'take' ? 2+Math.min(1,actor.phaseTime/1.2) : actor.reach*2;
     const a=Math.floor(position), b=Math.min(3,a+1), fraction=position-a;
-    sprite(actor,reach,frames.reach[a],height);
-    if(fraction>0)sprite(actor,reach,frames.reach[b],height,fraction);
+    // The new atlas has distinct arm silhouettes; overlap would paint two hands.
+    if(look)sprite(actor,actorReach,actorFrames.reach[Math.round(position)],height);
+    else {
+      sprite(actor,actorReach,actorFrames.reach[a],height);
+      if(fraction>0)sprite(actor,actorReach,actorFrames.reach[b],height,fraction);
+    }
   }else{
     const frame=actor.phase==='walk' ? Math.floor(actor.distance/17)%4 : 1;
-    sprite(actor,walk,frames.walk[actor.direction*4+frame],height);
+    sprite(actor,actorWalk,actorFrames.walk[actor.direction*4+frame],height);
   }
 }
 function panel(){
@@ -208,14 +222,15 @@ function useMode(record){
   $('sample').setAttribute('aria-pressed',String(!record));$('example').setAttribute('aria-pressed',String(!!(record&&record.example)));
   $('record-source').setAttribute('aria-pressed',String(!!record&&!record.example));
   $('basket-example').setAttribute('aria-pressed',String(!!(record&&record.basketExample)));
+  $('female-example').setAttribute('aria-pressed',String(!!(record&&record.femaleExample)));
   $('queue-example').setAttribute('aria-pressed',String(!!(record&&record.queueExample)));
-  if(record&&(record.basketExample||record.queueExample))$('example').setAttribute('aria-pressed','false');
+  if(record&&(record.basketExample||record.queueExample||record.femaleExample))$('example').setAttribute('aria-pressed','false');
   document.querySelector('.stage').hidden=empty;$('products').hidden=empty;
   $('record-empty').hidden=!empty;$('record-controls').hidden=!record||empty;
   document.querySelector('.register-control').hidden=!!record;
   for(const id of ['play','zoom','slow','skip','reset'])$(id).disabled=empty;
   $('status').hidden=empty;
-  if(empty){$('record-empty').textContent='この時刻までに終わった買い物の中に、今の絵で再生できる記録はありません。飲料1〜4本・男性会社員・有人レジ・キャッシュレス決済から順に対応しています。「計算した買い物を見る」で例を確認できます。';$('source').textContent='運行日'+record.day+'・'+clock(record.t)+'までの結果。別の品やレジに置き換えてはいません。';return;}
+  if(empty){$('record-empty').textContent='この時刻までに終わった買い物の中に、今の絵で再生できる記録はありません。男性会社員の飲料1〜4本／女性会社員の缶コーヒー1本、有人レジ・キャッシュレス決済から順に対応しています。「計算した買い物を見る」で例を確認できます。';$('source').textContent='運行日'+record.day+'・'+clock(record.t)+'までの結果。別の品やレジに置き換えてはいません。';return;}
   if(record){
     const e=record.event;
     $('source').textContent=(record.example?record.note:'この店の運行日'+record.day+'・'+clock(record.t)+'までに終わった買い物を再生しています。')+' 元の在庫・売上・保存には書き戻しません。';
@@ -250,6 +265,11 @@ async function init(){
     basket=await image(config.sprites+config.basket);
     basketTake=await image(config.sprites+config.basketTake);
     [bagPack,bagWalk]=await Promise.all([image(config.sprites+config.bagPack),image(config.sprites+config.bagWalk)]);
+    await Promise.all(Object.entries(config.appearances||{}).map(async([id,profile])=>{
+      const [f,w,r,p]=await Promise.all([json(config.sprites+profile.frames),image(config.sprites+profile.walk),image(config.sprites+profile.reach),image(config.sprites+profile.payment)]);
+      const items=await Promise.all(Object.entries(profile.carry).map(async([id,file])=>[id,await image(config.sprites+file)]));
+      appearances[id]={frames:f,walk:w,reach:r,payment:p,carry:Object.fromEntries(items),heightScale:profile.heightScale};
+    }));
     source=snapshot();
     config.products.forEach((product,index)=>{
       const card=document.createElement('section');card.className='product';
@@ -276,6 +296,7 @@ async function init(){
     $('example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-recording.json'));}catch(error){$('source').textContent='例の記録を読み込めませんでした。';console.error(error);}};
     $('basket-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-basket-recording.json'));}catch(error){$('source').textContent='かごの記録を読み込めませんでした。';console.error(error);}};
     $('queue-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-queue-recording.json'));scene.seek(scene.tq);panel();draw();}catch(error){$('source').textContent='列の記録を読み込めませんでした。';console.error(error);}};
+    $('female-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-female-recording.json'));}catch(error){$('source').textContent='女性客の記録を読み込めませんでした。';console.error(error);}};
     $('record-source').hidden=!(source&&source.v===2);
     $('record-source').onclick=()=>useMode(source);
     $('timeline').oninput=()=>{scene.seek(scene.ta+Number($('timeline').value)/1000*(scene.end-scene.ta));panel();draw();};

@@ -9,10 +9,15 @@ const jsons = {'data/kiosk-scene.json':config};
 jsons['data/kiosk-scene-recording.json']=JSON.parse(read('data/kiosk-scene-recording.json'));
 jsons['data/kiosk-scene-basket-recording.json']=JSON.parse(read('data/kiosk-scene-basket-recording.json'));
 jsons['data/kiosk-scene-queue-recording.json']=JSON.parse(read('data/kiosk-scene-queue-recording.json'));
+jsons['data/kiosk-scene-female-recording.json']=JSON.parse(read('data/kiosk-scene-female-recording.json'));
 jsons[config.sprites+'frames.json']=JSON.parse(read(config.sprites+'frames.json'));
 const images={};
 for(const file of [config.sprites+config.bagPack,config.sprites+config.bagWalk,config.sprites+config.basketTake,config.sprites+config.basket,config.background,config.sprites+'walk.webp',config.sprites+'reach.webp',config.sprites+config.register.payment,...config.products.map(product=>config.sprites+product.carry)]){
   images[file]='data:image/webp;base64,'+fs.readFileSync(path.join(root,file)).toString('base64');
+}
+for(const profile of Object.values(config.appearances||{})){
+  jsons[config.sprites+profile.frames]=JSON.parse(read(config.sprites+profile.frames));
+  for(const f of [profile.walk,profile.reach,profile.payment,...Object.values(profile.carry)])images[config.sprites+f]='data:image/webp;base64,'+fs.readFileSync(path.join(root,config.sprites+f)).toString('base64');
 }
 let view=read('js/kiosk-scene-view.js');
 const from=view.indexOf('async function json(url) {'), to=view.indexOf('function snapshot() {');

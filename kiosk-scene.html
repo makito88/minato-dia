@@ -10,7 +10,7 @@
 <header><a href="index.html">みなと川ダイアリーへ</a><span>描画の試作</span></header>
 <h1>一人の買い物を追う</h1>
 <p class="intro">飲み物を選び、列に並んで、会計を済ませる。買い物の記録と、状況を変えて試す例を切り替えられます。</p>
-<div class="toolbar modes"><button id="sample" aria-pressed="true" disabled>反応を試す</button><button id="example" aria-pressed="false" disabled>計算した買い物を見る</button><button id="basket-example" aria-pressed="false" disabled>かごで買い物を見る</button><button id="queue-example" aria-pressed="false" disabled>二人の列を見る</button><button id="record-source" hidden disabled>この店の記録を見る</button></div>
+<div class="toolbar modes"><button id="sample" aria-pressed="true" disabled>反応を試す</button><button id="example" aria-pressed="false" disabled>計算した買い物を見る</button><button id="basket-example" aria-pressed="false" disabled>かごで買い物を見る</button><button id="queue-example" aria-pressed="false" disabled>二人の列を見る</button><button id="female-example" aria-pressed="false" disabled>女性の買い物を見る</button><button id="record-source" hidden disabled>この店の記録を見る</button></div>
 <p id="record-empty" hidden role="status"></p>
 <div id="record-controls" hidden>
 <p id="record-info" class="note"></p>
@@ -27,7 +27,7 @@
 <div class="register-control"><button id="register" disabled aria-pressed="false">店員をほかの対応中にする</button><span>対応中は足元の印で待ち、終わるとレジへ進みます。</span></div>
 <div id="products" class="products"></div>
 <p id="source" class="note"></p>
-<details><summary>この試作について</summary><p>飲み物を買う客に加え、同じ列にいた対応可能な先行客を最大2人、同じ時計で動かします。背景に描かれたほかの人と店員は静止画です。商品を持つ歩行とカードで支払う姿勢にはAIで描いた素材を使っています。飲料1本なら右手で持って退出します。複数本ならかごを持ち、会計後レジ横へよけ、1本ずつ袋へ移して、空かごを台に返し退出します。棚へ左手を伸ばし、飲み物をつかんでかごへ移します。台へ置く・袋を持ち上げる途中の姿勢は簡略化しています。かごを使うかどうかは、この画面の仮の表現です。</p><p>棚・手元の未会計品・会計済みの品を分けて表示しています。「反応を試す」は例の待ち時間と在庫です。「記録を見る」は計算済みの品・レジ到着・会計開始と終了を読み取ります。対応するのは追加の持ち物の記録がない男性会社員が、飲料1〜4本を有人レジでキャッシュレス決済した買い物です。カードや鞄の見た目、歩く道、商品を取る瞬間、会計後の動きは描画用の仮の表現です。先行客のうち、飲料1本・同じ男性会社員の条件を満たす人は、元の並び順・会計時刻に沿って再生します。未対応の人は待つ人数に含め、違う姿に置き換えません。人物同士の歩行時の回避はまだありません。記録モードの棚在庫の同期は準備中です。元の売店の在庫・売上・保存は変更しません。背景の看板の時刻はイメージです。</p></details>
+<details><summary>この試作について</summary><p>飲み物を買う客に加え、同じ列にいた対応可能な先行客を最大2人、同じ時計で動かします。背景に描かれたほかの人と店員は静止画です。商品を持つ歩行とカードで支払う姿勢にはAIで描いた素材を使っています。飲料1本なら右手で持って退出します。複数本ならかごを持ち、会計後レジ横へよけ、1本ずつ袋へ移して、空かごを台に返し退出します。棚へ左手を伸ばし、飲み物をつかんでかごへ移します。台へ置く・袋を持ち上げる途中の姿勢は簡略化しています。かごを使うかどうかは、この画面の仮の表現です。</p><p>棚・手元の未会計品・会計済みの品を分けて表示しています。「反応を試す」は例の待ち時間と在庫です。「記録を見る」は計算済みの品・レジ到着・会計開始と終了を読み取ります。対応するのは追加の持ち物の記録がない男性会社員の飲料1〜4本、女性会社員の缶コーヒー1本の有人キャッシュレス会計です。人物ごとの素材・体格と、買い物の時刻・品物は分けて扱います。女性のほかの商品・かご・持参品は未対応です。カードや鞄の見た目、歩く道、商品を取る瞬間、会計後の動きは描画用の仮の表現です。先行客のうち、対応する飲料1本・会社員の条件を満たす人は、元の並び順・会計時刻に沿って再生します。未対応の人は待つ人数に含め、違う姿に置き換えません。人物同士の歩行時の回避はまだありません。記録モードの棚在庫の同期は準備中です。元の売店の在庫・売上・保存は変更しません。背景の看板の時刻はイメージです。</p></details>
 <noscript>このアニメーションにはJavaScriptが必要です。</noscript>
 </main>
 <script src="js/kiosk-scene-record.js"></script><script src="js/kiosk-scene-core.js"></script><script src="js/kiosk-scene-view.js"></script>

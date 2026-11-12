@@ -150,3 +150,20 @@ for(const f of Object.values(af.carry).flat())assert.ok(f.groundAnchor>=0&&f.gro
 const zeroGap=new KR.Replay(cfg,KR.build({day:3,ev:[prev,{...e,wait:0}]},601));
 zeroGap.seek(zeroGap.ts-1e-8);const near=[zeroGap.x,zeroGap.y];zeroGap.seek(zeroGap.ts);
 assert.ok(Math.hypot(zeroGap.x-near[0],zeroGap.y-near[1])<.001,'zero-wait handover remains continuous');
+
+// Appearance does not change event timing, items, queue allocation or payment.
+const femalePacket=KR.build({day:3,ev:[before,{...e,ps:'salF'}]},601),woman=new KR.Replay(cfg,femalePacket);
+assert.ok(KR.valid(femalePacket));assert.equal(woman.record.event.ps,'salF');
+for(const t of [woman.ta,woman.pickAt,woman.tq,woman.ts,woman.te,woman.end,woman.pickAt]){
+ woman.seek(t);s.seek(t);assert.equal(woman.clock,s.clock);assert.equal(woman.paymentCount,s.paymentCount);assert.deepEqual(woman.loadout,s.loadout);
+}
+for(const patch of [{items:[['dr_sports',1]]},{items:[['cf_black',2]]},{carry:['umb']},{lane:'s'},{em:false}])assert.equal(KR.build({day:3,ev:[{...e,ps:'salF',...patch}]},601).event,null);
+const mixed=KR.build({day:3,ev:[{...prev,ps:'salF'},e]},601);assert.equal(mixed.companions[0].event.ps,'salF');assert.ok(KR.valid(mixed));
+assert.equal(KR.build({day:3,ev:[{...e,ps:'salF'},{k:'eatin',ps:'salF',from:e.end,t:601}]},602).event,null);
+try{cp.execFileSync(process.execPath,[path.join(__dirname,'../tools/kiosk-scene-example.cjs'),tmp,'--female']);assert.deepEqual(JSON.parse(fs.readFileSync(tmp)),require('../data/kiosk-scene-female-recording.json'));}finally{fs.rmSync(tmp,{force:true});}
+const femaleFrames=require('../assets/images/kiosk-scene/female-frames.json');
+assert.equal(femaleFrames.walk.length,16);assert.equal(femaleFrames.reach.length,4);assert.equal(femaleFrames.carry.cf_black.length,16);assert.equal(femaleFrames.payment.cf_black.length,4);
+for(const f of [...femaleFrames.walk,...femaleFrames.reach,...femaleFrames.carry.cf_black,...femaleFrames.payment.cf_black]){
+ assert.ok(f.x>=0&&f.y>=0&&f.w>0&&f.h>0&&f.x+f.w<=1122&&f.y+f.h<=1402);assert.ok(f.anchor>=0&&f.anchor<f.w);assert.ok(f.groundAnchor>=0&&f.groundAnchor<f.w);
+}
+console.log('  female appearance: shared event clock, mixed queue, unsupported props, eating exclusion, reproducible fixture and 40 atlas frames passed');

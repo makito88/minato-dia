@@ -1,0 +1,29 @@
+{
+  "v": 2,
+  "mode": "record",
+  "day": 3,
+  "t": 623.52,
+  "event": {
+    "id": 383,
+    "k": "buy",
+    "ps": "salF",
+    "lane": "f",
+    "em": true,
+    "t": 623.3612451494414,
+    "end": 623.52,
+    "wait": 0.13,
+    "stay": 3.1,
+    "items": [
+      [
+        "cf_black",
+        1
+      ]
+    ],
+    "yen": 160
+  },
+  "queue": [],
+  "companions": [],
+  "example": true,
+  "note": "例の営業条件から計算した運行日3・平日・晴れの買い物。ユーザーの保存データではありません。種3、10:23:31.2までの結果。",
+  "femaleExample": true
+}

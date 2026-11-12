@@ -36,5 +36,17 @@
     {"x":228,"y":265,"w":304,"h":158,"front":424},
     {"x":584,"y":264,"w":214,"h":159,"front":424},
     {"x":561,"y":594,"w":271,"h":105,"front":700}
-  ]
+  ],
+  "appearances": {
+    "salF": {
+      "heightScale": 0.96,
+      "frames": "female-frames.json",
+      "walk": "female-empty.webp",
+      "reach": "female-empty.webp",
+      "carry": {
+        "cf_black": "female-carry.webp"
+      },
+      "payment": "female-carry.webp"
+    }
+  }
 }
