@@ -2,7 +2,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const canvas = $('scene'), ctx = canvas.getContext('2d');
-let scene, config, frames, background, walk, reach, carry, payment, basket, source, currentRecord;
+let scene, config, frames, background, walk, reach, carry, payment, basket, basketTake, source, currentRecord;
 let paused = false, close = true, slow = false, previous = 0, accumulator = 0;
 let camera = {x: 210, y: 700, width: 620};
 const image = url => new Promise((resolve, reject) => {
@@ -40,17 +40,20 @@ function drawBasket(height){
   const progress=scene.phaseTime/(scene.paySeconds||config.register.paySeconds);
   const pose=progress<.18?0:progress<.4?1:progress<.72?2:3;
   const index=scene.phase==='pay'?16+pose:scene.direction*4+(scene.phase==='walk'?Math.floor(scene.distance/17)%4:0);
-  const f=frames.basket[index],b=f.basket,k=height/f.h,x=scene.x-f.anchor*k,y=scene.y-height;
-  sprite(basket,f,height);
+  const taking=scene.phase==='basketTake'&&scene.transfer;
+  const takePose=taking?scene.transfer.pose:0;
+  const sheet=taking?basketTake:basket;
+  const f=taking?frames.basketTake[scene.transfer.id][takePose]:frames.basket[index],b=f.basket,k=height/f.h,x=scene.x-f.anchor*k,y=scene.y-height;
+  sprite(sheet,f,height);
   // Each basket uses its painted hand/handle. Only contents are variable, anchored in atlas space.
   ctx.save();ctx.translate(x,y);ctx.scale(k,k);
   ctx.beginPath();ctx.rect(b.cx-b.w*.36,b.rim-15,b.w*.72,b.depth+15);ctx.clip();
-  scene.loadout.contents.forEach((item,i)=>{
-    const p=config.products.find(p=>p.id===item.id),xx=b.cx+(i%2?7:-7),yy=b.rim-3+Math.floor(i/2)*4;
-    bottle(xx,yy,p.color,.8);
+  scene.loadout.contents.filter(item=>item.location!=='hand').forEach((item,i)=>{
+    const p=config.products.find(p=>p.id===item.id),xx=b.cx+(i%2?1:-1)*b.w*.16,yy=b.rim-b.w*.068+Math.floor(i/2)*b.w*.09;
+    bottle(xx,yy,p.color,b.w/55);
   });
   // Restore the basket front, keeping the product bases behind the rim.
-  ctx.drawImage(basket,f.x+b.cx-b.w/2,f.y+b.rim+2,b.w,b.depth,b.cx-b.w/2,b.rim+2,b.w,b.depth);
+  ctx.drawImage(sheet,f.x+b.cx-b.w/2,f.y+b.rim+2,b.w,b.depth,b.cx-b.w/2,b.rim+2,b.w,b.depth);
   ctx.restore();
 }
 function draw(dt = 0) {
@@ -124,7 +127,8 @@ function panel(){
     const label=scene.mode==='record'?'棚在庫の同期は準備中':'この試作の棚に '+count+' 本';
     if($('count'+index).textContent!==label)$('count'+index).textContent=label;
     const where=scene.loadout&&scene.loadout.mode==='basket'?'かごに':'手元に';
-    const held=scene.unpaid[index]?where+scene.unpaid[index]+'本・未会計':scene.purchased[index]?where+scene.purchased[index]+'本・会計済み':'手元になし';
+    const parts=scene.loadout&&scene.loadout.mode==='basket'?['hand','basket'].map(loc=>{const n=scene.loadout.contents.filter(x=>x.id===product.id&&x.location===loc).length;return n?(loc==='hand'?'左手に':'かごに')+n+'本':'';}).filter(Boolean).join('・'):'';
+    const held=scene.unpaid[index]?(parts||where+scene.unpaid[index]+'本')+'・未会計':scene.purchased[index]?(parts||where+scene.purchased[index]+'本')+'・会計済み':'手元になし';
     if($('held'+index).textContent!==held)$('held'+index).textContent=held;
     const button=$('stock'+index);
     button.hidden=scene.mode==='record';
@@ -141,6 +145,7 @@ function panel(){
     const n=Math.ceil(KioskSceneRecord.ahead(currentRecord,scene.clock));
     $('status').textContent=scene.reason+(scene.clock>=scene.tq&&scene.clock<scene.ts?' 前で順番を待つ人：'+n+'人（姿は準備中）。':'');
     $('skip').disabled=scene.clock>=scene.tq;
+    $('pickup').hidden=!scene.basket;
     return;
   }
   $('skip').disabled=scene.paymentCount>0||['queue','pay','pack','done'].includes(scene.phase)||scene.next==='pay';
@@ -193,6 +198,7 @@ async function init(){
     carry=await Promise.all(config.products.map(product=>image(config.sprites+product.carry)));
     payment=await image(config.sprites+config.register.payment);
     basket=await image(config.sprites+config.basket);
+    basketTake=await image(config.sprites+config.basketTake);
     source=snapshot();
     config.products.forEach((product,index)=>{
       const card=document.createElement('section');card.className='product';
@@ -221,6 +227,7 @@ async function init(){
     $('record-source').hidden=!(source&&source.v===2);
     $('record-source').onclick=()=>useMode(source);
     $('timeline').oninput=()=>{scene.seek(scene.ta+Number($('timeline').value)/1000*(scene.end-scene.ta));panel();draw();};
+    $('pickup').onclick=()=>{scene.seek(scene.pickups[0].arrive);panel();draw();};
     $('pay-start').onclick=()=>{scene.seek(scene.ts);panel();draw();};
     $('pay-end').onclick=()=>{scene.seek(scene.te);panel();draw();};
     useMode(source&&source.v===2?source:null);

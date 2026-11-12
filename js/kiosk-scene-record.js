@@ -15,7 +15,7 @@ function supported(e){
 // A reusable holding model: contents and payment state are independent of pose/body.
 function loadout(items,picked,paid){
   const units=items.flatMap(([id,n])=>Array(n).fill(id));
-  const contents=units.slice(0,Math.max(0,Math.floor(picked))).map((id,slot)=>({id,slot,state:paid?'paid':'unpaid'}));
+  const contents=units.slice(0,Math.max(0,Math.floor(picked))).map((id,slot)=>({id,slot,location:units.length>1?'basket':'hand',state:paid?'paid':'unpaid'}));
   return {mode:units.length>1?'basket':'hand',capacity:units.length,contents};
 }
 function build(res,cutoff){
@@ -69,7 +69,7 @@ class Replay {
       this.pickups=this.units.map((id,i)=>{
         const item=config.products.find(p=>p.id===id),prev=config.products.find(p=>p.id===(this.units[i-1]||id));
         const from=this.arriveShelf+e.stay*.32*i/this.units.length,to=this.arriveShelf+e.stay*.32*(i+1)/this.units.length;
-        return {id,from,to,arrive:from+(to-from)*.5,pick:from+(to-from)*.8,point:[item.x,item.y],path:route([[prev.x,prev.y],[item.x,item.y]])};
+        return {id,from,to,arrive:from+(to-from)*.5,pick:from+(to-from)*.62,deposit:from+(to-from)*.88,point:[item.x,item.y],path:route([[prev.x,prev.y],[item.x,item.y]])};
       });
       this.pickAt=this.pickups[0].pick;
     }
@@ -96,6 +96,14 @@ class Replay {
     this.clock=Math.max(this.ta,Math.min(this.end,t));t=this.clock;this.time=(t-this.ta)*60;
     const picked=this.basket?this.pickups.filter(p=>t>=p.pick).length:(t>=this.pickAt?1:0);
     this.loadout=loadout(this.record.event.items,picked,t>=this.te);
+    this.transfer=null;
+    if(this.basket){
+      const stop=this.pickups.find(p=>t>=p.arrive&&t<p.to);
+      if(stop){
+        this.transfer={id:stop.id,progress:(t-stop.arrive)/(stop.to-stop.arrive),pose:t<stop.pick?0:t<stop.arrive+(stop.to-stop.arrive)*.52?1:t<stop.deposit?2:3};
+        if(t>=stop.pick&&t<stop.deposit)this.loadout.contents.at(-1).location='hand';
+      }
+    }
     this.held=picked?this.target:null;
     this.stock=this.config.products.map(()=>null); // Snapshot cadence cannot establish shelf pickup counts.
     this.unpaid=this.config.products.map(p=>this.loadout.contents.filter(x=>x.id===p.id&&x.state==='unpaid').length);
@@ -108,8 +116,8 @@ class Replay {
     else if(this.basket&&t<this.leaveShelf){
       const stop=this.pickups.find(p=>t<p.to)||this.pickups.at(-1);
       if(t<stop.arrive&&stop.path.length){this.phase='walk';at(stop.path,stop.from,stop.arrive);}
-      else {this.phase='browse';stand(stop.point);}
-      this.reason=configName(this.config,stop.id)+'をかごに入れます。（入れる手の動きは準備中）';
+      else {this.phase='basketTake';stand(stop.point);}
+      this.reason=configName(this.config,stop.id)+(t<stop.pick?'へ左手を伸ばします。':t<stop.deposit?'を左手でつかみ、かごへ移します。':'をかごに入れ、手を戻します。');
     }
     else if(t<this.leaveShelf){stand(shelf);this.phase=t<this.reachAt?'browse':t<this.pickAt?'reach':'take';this.reach=Math.max(0,Math.min(1,(t-this.reachAt)/(this.pickAt-this.reachAt)));this.reason=p.name+'を選んで手に取ります。';}
     else if(t<this.tq){this.phase='walk';at(this.shopRoute,this.leaveShelf,this.tq);this.reason='記録どおり、有人レジへ向かいます。';}

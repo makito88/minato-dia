@@ -26,6 +26,7 @@
     "payment": "payment.webp"
   },
   "basket": "basket.webp",
+  "basketTake": "basket-take.webp",
   "record": {"src":"assume","rate":3,"queueGap":28,"approachMinutes":0.18,"walkPixelsPerMinute":1800},
   "exit": [[1125,705],[1191,705],[1191,811]],
   "occluders": [

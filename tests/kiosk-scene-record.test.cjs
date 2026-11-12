@@ -66,3 +66,22 @@ console.log('  basket: sequential pickup, 2 product types/4 units, one payment, 
 // Uneven generated atlas rows must not include the next row's head or cut off a head.
 const rowBounds=[0,282,563,832,1106,1402];
 frames.forEach((f,i)=>{assert.ok(f.y>=rowBounds[Math.floor(i/4)]);assert.ok(f.y+f.h<=rowBounds[Math.floor(i/4)+1]);});
+
+// Each unit exists exactly once while moving from the hand into the basket.
+for(const items of [[['cf_black',2]],[['cf_black',1],['dr_sports',3]]]){
+ const r=new KR.Replay(cfg,KR.build({day:3,ev:[{...e,items}]},601));
+ for(const [i,stop] of r.pickups.entries()){
+  for(const [time,n,hand,pose] of [[stop.pick-1e-6,i,0,0],[stop.pick,i+1,1,1],[stop.deposit-1e-6,i+1,1,2],[stop.deposit,i+1,0,3]]){
+   r.seek(time);assert.equal(r.loadout.contents.length,n);assert.equal(r.loadout.contents.filter(x=>x.location==='hand').length,hand);
+   assert.equal(r.transfer.pose,pose);assert.equal(r.transfer.id,stop.id);assert.equal(r.unpaid.reduce((a,b)=>a+b),n);
+   assert.equal(r.purchased.reduce((a,b)=>a+b),0);assert.equal(r.paymentCount,0);assert.equal(r.direction,0);
+  }
+ }
+ r.seek(r.te);assert.ok(r.loadout.contents.every(x=>x.location==='basket'&&x.state==='paid'));
+ r.seek(r.pickups[0].pick);assert.equal(r.loadout.contents.length,1);assert.equal(r.loadout.contents[0].location,'hand');
+ for(const fps of [15,30,60]){r.reset();for(let i=0;i<fps*Math.ceil((r.end-r.ta)*60+1);i++)r.step(1/fps);assert.equal(r.phase,'done');assert.equal(r.paymentCount,1);assert.equal(r.loadout.contents.length,r.units.length);}
+}
+for(const row of Object.values(require('../assets/images/kiosk-scene/frames.json').basketTake)){
+ assert.equal(row.length,4);for(const f of row){assert.ok(f.h>0&&f.anchor>0&&f.anchor<f.w);assert.ok(f.basket.cx-f.basket.w/2>=0&&f.basket.cx+f.basket.w/2<=f.w);assert.ok(f.basket.rim+f.basket.depth<f.h);}
+}
+console.log('  transfer: hand/basket conservation, exact grasp/release pose, mixed products, rewind, FPS, atlas anchors passed');

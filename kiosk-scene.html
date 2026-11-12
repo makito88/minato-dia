@@ -16,7 +16,7 @@
 <p id="record-info" class="note"></p>
 <label for="timeline">記録の時刻 <output id="record-clock"></output></label>
 <input id="timeline" type="range" min="0" max="1000" value="0" step="1" aria-label="買い物の記録の再生位置">
-<div class="toolbar"><button id="pay-start">会計の開始へ</button><button id="pay-end">会計の終了へ</button></div>
+<div class="toolbar"><button id="pickup" hidden>商品を取るところへ</button><button id="pay-start">会計の開始へ</button><button id="pay-end">会計の終了へ</button></div>
 </div>
 <div class="stage" aria-busy="true">
 <canvas id="scene" width="1100" height="680" aria-label="港駅の売店で飲み物を選ぶ客"></canvas>
@@ -27,7 +27,7 @@
 <div class="register-control"><button id="register" disabled aria-pressed="false">店員をほかの対応中にする</button><span>対応中は足元の印で待ち、終わるとレジへ進みます。</span></div>
 <div id="products" class="products"></div>
 <p id="source" class="note"></p>
-<details><summary>この試作について</summary><p>動くのは飲み物を買う客一人です。背景のほかの人と店員は静止画です。商品を持つ歩行とカードで支払う姿勢にはAIで描いた素材を使っています。飲料1本なら右手で持って退出します。複数本ならかごを持ち、会計後レジ横へよけるところまで再生します。かごから袋へ移す動きと、棚からかごへ入れる手の動きは準備中です。かごを使うかどうかは、この画面の仮の表現です。</p><p>棚・手元の未会計品・会計済みの品を分けて表示しています。「反応を試す」は例の待ち時間と在庫です。「記録を見る」は計算済みの品・レジ到着・会計開始と終了を読み取ります。対応するのは追加の持ち物の記録がない男性会社員が、飲料1〜4本を有人レジでキャッシュレス決済した買い物です。カードや鞄の見た目、歩く道、商品を取る瞬間、会計後の動きは描画用の仮の表現です。ほかの待っている人は人数だけで、姿はまだ描きません。記録モードの棚在庫の同期は準備中です。元の売店の在庫・売上・保存は変更しません。背景の看板の時刻はイメージです。</p></details>
+<details><summary>この試作について</summary><p>動くのは飲み物を買う客一人です。背景のほかの人と店員は静止画です。商品を持つ歩行とカードで支払う姿勢にはAIで描いた素材を使っています。飲料1本なら右手で持って退出します。複数本ならかごを持ち、会計後レジ横へよけるところまで再生します。棚へ左手を伸ばし、飲み物をつかんでかごへ移します。かごから袋へ移す動きは準備中です。かごを使うかどうかは、この画面の仮の表現です。</p><p>棚・手元の未会計品・会計済みの品を分けて表示しています。「反応を試す」は例の待ち時間と在庫です。「記録を見る」は計算済みの品・レジ到着・会計開始と終了を読み取ります。対応するのは追加の持ち物の記録がない男性会社員が、飲料1〜4本を有人レジでキャッシュレス決済した買い物です。カードや鞄の見た目、歩く道、商品を取る瞬間、会計後の動きは描画用の仮の表現です。ほかの待っている人は人数だけで、姿はまだ描きません。記録モードの棚在庫の同期は準備中です。元の売店の在庫・売上・保存は変更しません。背景の看板の時刻はイメージです。</p></details>
 <noscript>このアニメーションにはJavaScriptが必要です。</noscript>
 </main>
 <script src="js/kiosk-scene-record.js"></script><script src="js/kiosk-scene-core.js"></script><script src="js/kiosk-scene-view.js"></script>

@@ -90,13 +90,13 @@ hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() 
 
 公開 KioskScene …159
 
-## js/kiosk-scene-record.js（130行）
+## js/kiosk-scene-record.js（138行）
 
-IDS …4・supported() …6・loadout() …16・build() …21・valid() …38・ahead() …43・route() …47・configName() …127・公開 KioskSceneRecord …128
+IDS …4・supported() …6・loadout() …16・build() …21・valid() …38・ahead() …43・route() …47・configName() …135・公開 KioskSceneRecord …136
 
-## js/kiosk-scene-view.js（235行）
+## js/kiosk-scene-view.js（242行）
 
-json() …11・snapshot() …16・sprite() …27・bottle() …34・drawBasket() …39・draw() …56・panel() …120・clock() …148・useMode() …151・resize() …172・frame() …178・init() …189
+json() …11・snapshot() …16・sprite() …27・bottle() …34・drawBasket() …39・draw() …59・panel() …123・clock() …153・useMode() …156・resize() …177・frame() …183・init() …194
 
 ## js/kiosk-staff.js（226行）
 
