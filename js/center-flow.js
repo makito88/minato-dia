@@ -72,7 +72,7 @@ function html(){const I=g(()=>minatoKiosk.flowInfo(),{err:'売店の画面を読
       bar(r.depart,r.arrive,r.leg==='cs'?st(r.depart,r.arrive):st(r.depart,r.arrive),r.leg==='cs'?COL.fc:COL.other,`${hm(r.depart)} センターを出る → ${hm(r.arrive)}`)+(r.stops||[]).map(x=>pin(x.arrive,st(x.arrive,x.arrive),x.deal?'#1f7a8c':'#1d2430',x.deal?'契約':short(x.key),`${x.deal?`取引先・契約 ${x.name||''}`:keyName[x.key]||x.key} ${hm(x.arrive)} 着${x.late?`（遅れ ${x.late}分）`:''}`)).join(''))).join('');
   // 4) 店：時刻表の便（点線）と、その日の計算で棚に並んだ時刻（できたての便は色を分ける）
   const sRows=I.stores.map((s,i)=>{const c=i===0?COL.m:COL.p;
-    return row(esc(s.name),'時刻表＝点線・棚に並んだ（見込み）',s.bins.map(b=>pin(b.t,'calc','#7b8794','',`時刻表 ${b.name} ${hm(b.t)}`)).join('')+s.dl.map(e=>pin(e.t,st(e.t,e.t)+(e.sameday?' sd':''),e.sameday?COL.sd:c,e.sameday?'できたて':e.name.replace('の便',''),`${e.name} ${hm(e.t)} ${now>=e.t?'届いた':'届く見込み'}・${N(e.n)}個${e.late?`・遅れ ${e.late}分`:''}`)).join(''));}).join('');
+    return row(esc(s.name),s.out?'<b style="color:#b7791f">きょうはセンターの便の外</b>（注文が前のやり方。次の運行日から便にのる）':'時刻表＝点線・棚に並んだ（見込み）',s.bins.map(b=>pin(b.t,'calc','#7b8794','',`時刻表 ${b.name} ${hm(b.t)}`)).join('')+s.dl.map(e=>pin(e.t,st(e.t,e.t)+(e.sameday?' sd':''),e.sameday?COL.sd:c,e.sameday?'できたて':e.name.replace('の便',''),`${e.name} ${hm(e.t)} ${now>=e.t?'届いた':'届く見込み'}・${N(e.n)}個${e.late?`・遅れ ${e.late}分`:''}`)).join(''));}).join('');
   // 5) 運転手の勤務（配送会社の計算）
   const dRows=HZ&&HZ.shifts?HZ.shifts.map(x=>row(esc(x.label),`${hm(x.from)}〜${hm(x.to)}${x.share<1?`（グループの荷物の割合 ${Math.round(x.share*100)}%）`:''}`,bar(x.from,x.to,st(x.from,x.to),COL.drv,`点呼・点検を含む勤務 ${Math.round(x.min/60*10)/10}時間`))).join(''):'';
   // くわしく（ラインごと・便ごと・店ごと）

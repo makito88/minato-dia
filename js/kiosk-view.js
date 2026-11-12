@@ -1077,7 +1077,8 @@ window.minatoKiosk={get state(){return V.st;},refresh(){if(V.open)render(true);}
     const add=(key,name,res,cfg)=>{if(!res||res.day!==day)return;stores.push({key,name,dl:res.ev.filter(e=>e.k==='delivery'&&!e.express&&!e.addOn&&!e.local).map(e=>({name:e.name,t:e.t,late:e.late||0,n:tot(e.items),sameday:!!e.sameday})),
       bins:(cfg.deliveries||[]).map(x=>({name:x.name,t:x.t}))});};
     add(CC.storeKey(V.st),`${stName(V.st.st)}駅${V.rcfg.places[V.st.place].name}店`,V.res,V.cfg);
-    let sd=null;if(portIn(day)){const P=MSV2().state,pc=MSV2().cfg;add(CC.storeKey(P),g(()=>MSV2().storeName,'港駅の店')||'港駅の店',g(()=>MSV2().today,null),pc||{});sd=g(()=>MSV2().sdPlan,null);}
+    /* 港駅の店：注文が流れにのった日も、のっていない日（その運行日の始めに前のやり方で注文した日など）も出す。out＝センターの便に入っていない */
+    let sd=null;const P0=g(()=>MSV2()&&MSV2().state,null);if(P0&&portOn()){const pc=MSV2().cfg,n0=stores.length;add(CC.storeKey(P0),g(()=>MSV2().storeName,'港駅の店')||'港駅の店',g(()=>MSV2().today,null),pc||{});if(stores.length>n0)stores[n0].out=!portIn(day);sd=g(()=>MSV2().sdPlan,null);}
     return {day,now:gT(),slip:d&&d.slip&&!d.slip.err?d.slip:null,orders:d?d.orders:{},factoryNo:d&&d.factory?d.factory.no:null,lineOf,start,flow:V.ccfg.flow||{},fix:(V.ccfg.times&&V.ccfg.times.factoryFix)||1200,
       deadline:F&&F.deadline,ship:F&&F.ship&&F.ship.depart,haiso:hz,stores,sd,fmt:fmtT};},
   get mcfg(){return V.mcfg;},
