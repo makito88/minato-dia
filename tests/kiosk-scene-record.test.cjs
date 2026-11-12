@@ -21,7 +21,7 @@ assert.equal(s.setStock(0,50),false);assert.equal(s.setRegisterBusy(true),false)
 assert.equal(s.phase,'done');s.reset();assert.equal(s.paymentCount,0);assert.equal(s.held,null);
 for(const fps of [15,30,60]){s.reset();for(let i=0;i<fps*(Math.ceil((s.end-s.ta)*60)+1);i++)s.step(1/fps);assert.equal(s.phase,'done');assert.equal(s.paymentCount,1);}
 packet.event.items[0][1]=9;assert.equal(s.record.event.items[0][1],1,'input detached');assert.equal(JSON.stringify(result),original,'simulation never mutated');
-for(const patch of [{lane:'s'},{em:false},{ps:'sen'},{items:[['cf_black',2]]},{items:[['cf_black',1],['dr_sports',1]]},{carry:['umb']},{trash:true},{guide:'x'},{end:NaN}]){
+for(const patch of [{lane:'s'},{em:false},{ps:'sen'},{items:[['cf_black',5]]},{items:[['cf_black',1],['other',1]]},{carry:['umb']},{trash:true},{guide:'x'},{end:NaN}]){
   const p=KR.build({day:3,ev:[{...e,...patch}]},601);assert.equal(p.event,null,'unsupported purchase not replaced '+JSON.stringify(patch));
 }
 assert.equal(KR.build({day:3,ev:[e,{k:'eatin',ps:'salM',from:600.5,t:601}]},602).event,null,'do not make a seated customer leave');
@@ -46,3 +46,23 @@ assert.deepEqual(JSON.parse(decodeURIComponent(opened[0].split('#')[1])),KR.buil
 context.window.KioskSceneRecord=null;vm.runInNewContext('openPaintedScene();',context);
 assert.deepEqual(JSON.parse(decodeURIComponent(opened[0].split('#')[1])),{v:1,day:3,t:601,stock:{cf_black:4,dr_sports:8}});
 console.log('  main-view entry: recorded transaction and legacy stock handoff passed');
+
+// Multiple quantities and product types share the holding model and one payment boundary.
+for(const items of [[['cf_black',2]],[['cf_black',1],['dr_sports',1]],[['dr_sports',2],['cf_black',2]]]){
+  const p=KR.build({day:3,ev:[{...e,items}]},601),raw=JSON.stringify(p),r=new KR.Replay(cfg,p);
+  assert.equal(r.loadout.mode,'basket');assert.equal(r.loadout.contents.length,0);
+  r.pickups.forEach((stop,i)=>{r.seek(stop.pick-1e-6);assert.equal(r.loadout.contents.length,i);r.seek(stop.pick);assert.equal(r.loadout.contents.length,i+1);assert.equal(r.loadout.contents[i].id,stop.id);});
+  r.seek(r.tq);const n=items.reduce((a,x)=>a+x[1],0);assert.equal(r.unpaid.reduce((a,b)=>a+b),n);
+  r.seek(r.te-1e-6);assert.equal(r.paymentCount,0);r.seek(r.te);assert.equal(r.unpaid.reduce((a,b)=>a+b),0);assert.equal(r.purchased.reduce((a,b)=>a+b),n);
+  r.seek(r.end);assert.equal(r.phase,'done');assert.deepEqual([r.x,r.y],cfg.register.pack.at(-1),'stop before taking a store basket outside');
+  r.reset();assert.equal(r.loadout.contents.length,0);assert.equal(r.paymentCount,0);r.seek(r.te);assert.equal(r.purchased.reduce((a,b)=>a+b),n);
+  assert.equal(JSON.stringify(p),raw);assert.equal(r.setStock(0,0),false);
+}
+try{cp.execFileSync(process.execPath,[path.join(__dirname,'../tools/kiosk-scene-example.cjs'),tmp,'--basket']);assert.deepEqual(JSON.parse(fs.readFileSync(tmp)),require('../data/kiosk-scene-basket-recording.json'));}finally{fs.rmSync(tmp,{force:true});}
+const frames=require('../assets/images/kiosk-scene/frames.json').basket;
+assert.equal(frames.length,20);for(const f of frames){assert.ok(f.basket.cx>0&&f.basket.cx<f.w);assert.ok(f.basket.rim>0&&f.basket.rim+f.basket.depth<f.h);}
+console.log('  basket: sequential pickup, 2 product types/4 units, one payment, rewind, generated recording, 20 atlas anchors passed');
+
+// Uneven generated atlas rows must not include the next row's head or cut off a head.
+const rowBounds=[0,282,563,832,1106,1402];
+frames.forEach((f,i)=>{assert.ok(f.y>=rowBounds[Math.floor(i/4)]);assert.ok(f.y+f.h<=rowBounds[Math.floor(i/4)+1]);});

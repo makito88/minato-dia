@@ -2,7 +2,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const canvas = $('scene'), ctx = canvas.getContext('2d');
-let scene, config, frames, background, walk, reach, carry, payment, source, currentRecord;
+let scene, config, frames, background, walk, reach, carry, payment, basket, source, currentRecord;
 let paused = false, close = true, slow = false, previous = 0, accumulator = 0;
 let camera = {x: 210, y: 700, width: 620};
 const image = url => new Promise((resolve, reject) => {
@@ -35,6 +35,23 @@ function bottle(x, y, color, size = 1) {
   ctx.fillStyle = '#e5ebea'; ctx.fillRect(x - 3*size, y - 7*size, 6*size, 3*size);
   ctx.fillStyle = color; ctx.fillRect(x - 4*size, y - 4*size, 8*size, 13*size);
   ctx.fillStyle = '#f9faf2'; ctx.fillRect(x - 4*size, y, 8*size, 4*size);
+}
+function drawBasket(height){
+  const progress=scene.phaseTime/(scene.paySeconds||config.register.paySeconds);
+  const pose=progress<.18?0:progress<.4?1:progress<.72?2:3;
+  const index=scene.phase==='pay'?16+pose:scene.direction*4+(scene.phase==='walk'?Math.floor(scene.distance/17)%4:0);
+  const f=frames.basket[index],b=f.basket,k=height/f.h,x=scene.x-f.anchor*k,y=scene.y-height;
+  sprite(basket,f,height);
+  // Each basket uses its painted hand/handle. Only contents are variable, anchored in atlas space.
+  ctx.save();ctx.translate(x,y);ctx.scale(k,k);
+  ctx.beginPath();ctx.rect(b.cx-b.w*.36,b.rim-15,b.w*.72,b.depth+15);ctx.clip();
+  scene.loadout.contents.forEach((item,i)=>{
+    const p=config.products.find(p=>p.id===item.id),xx=b.cx+(i%2?7:-7),yy=b.rim-3+Math.floor(i/2)*4;
+    bottle(xx,yy,p.color,.8);
+  });
+  // Restore the basket front, keeping the product bases behind the rim.
+  ctx.drawImage(basket,f.x+b.cx-b.w/2,f.y+b.rim+2,b.w,b.depth,b.cx-b.w/2,b.rim+2,b.w,b.depth);
+  ctx.restore();
 }
 function draw(dt = 0) {
   const height = 130 + Math.max(0, scene.y - 251) * .13;
@@ -70,7 +87,9 @@ function draw(dt = 0) {
   // Ground contact and the same down-right light direction as the painted room.
   ctx.fillStyle='#3c32222b';ctx.beginPath();ctx.ellipse(scene.x+height*.23,scene.y+height*.16,height*.36,9, .56,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#3d34252a';ctx.beginPath();ctx.ellipse(scene.x,scene.y+1,16,5,0,0,Math.PI*2);ctx.fill();
-  if(scene.phase==='pay' && scene.held !== null){
+  if(scene.loadout&&scene.loadout.mode==='basket'){
+    drawBasket(height);
+  }else if(scene.phase==='pay' && scene.held !== null){
     const progress=scene.phaseTime/(scene.paySeconds||config.register.paySeconds);
     const pose=progress<.18?0:progress<.4?1:progress<.72?2:3;
     sprite(payment,frames.payment[config.products[scene.held].id][pose],height);
@@ -104,7 +123,8 @@ function panel(){
     const count=scene.stock[index];
     const label=scene.mode==='record'?'棚在庫の同期は準備中':'この試作の棚に '+count+' 本';
     if($('count'+index).textContent!==label)$('count'+index).textContent=label;
-    const held=scene.unpaid[index]?'手元に1本・未会計':scene.purchased[index]?'手元に1本・会計済み':'手元になし';
+    const where=scene.loadout&&scene.loadout.mode==='basket'?'かごに':'手元に';
+    const held=scene.unpaid[index]?where+scene.unpaid[index]+'本・未会計':scene.purchased[index]?where+scene.purchased[index]+'本・会計済み':'手元になし';
     if($('held'+index).textContent!==held)$('held'+index).textContent=held;
     const button=$('stock'+index);
     button.hidden=scene.mode==='record';
@@ -134,16 +154,18 @@ function useMode(record){
   paused=false;previous=0;accumulator=0;$('play').textContent='一時停止';
   $('sample').setAttribute('aria-pressed',String(!record));$('example').setAttribute('aria-pressed',String(!!(record&&record.example)));
   $('record-source').setAttribute('aria-pressed',String(!!record&&!record.example));
+  $('basket-example').setAttribute('aria-pressed',String(!!(record&&record.basketExample)));
+  if(record&&record.basketExample)$('example').setAttribute('aria-pressed','false');
   document.querySelector('.stage').hidden=empty;$('products').hidden=empty;
   $('record-empty').hidden=!empty;$('record-controls').hidden=!record||empty;
   document.querySelector('.register-control').hidden=!!record;
   for(const id of ['play','zoom','slow','skip','reset'])$(id).disabled=empty;
   $('status').hidden=empty;
-  if(empty){$('record-empty').textContent='この時刻までに終わった買い物の中に、今の絵で再生できる記録はありません。飲料1本・男性会社員・有人レジ・キャッシュレス決済から順に対応しています。「計算した買い物を見る」で例を確認できます。';$('source').textContent='運行日'+record.day+'・'+clock(record.t)+'までの結果。別の品やレジに置き換えてはいません。';return;}
+  if(empty){$('record-empty').textContent='この時刻までに終わった買い物の中に、今の絵で再生できる記録はありません。飲料1〜4本・男性会社員・有人レジ・キャッシュレス決済から順に対応しています。「計算した買い物を見る」で例を確認できます。';$('source').textContent='運行日'+record.day+'・'+clock(record.t)+'までの結果。別の品やレジに置き換えてはいません。';return;}
   if(record){
     const e=record.event;
     $('source').textContent=(record.example?record.note:'この店の運行日'+record.day+'・'+clock(record.t)+'までに終わった買い物を再生しています。')+' 元の在庫・売上・保存には書き戻しません。';
-    $('record-info').textContent='内：有人レジ ／ '+config.products[scene.target].name+' 1本 ／ 列に到着 '+clock(scene.tq)+' → 会計 '+clock(scene.ts)+'〜'+clock(scene.te)+'（待ち '+Math.round(e.wait*60)+'秒）。仮：歩く道・手に取る瞬間・カードの姿勢・退出の動き。';
+    $('record-info').textContent='内：有人レジ ／ '+e.items.map(([id,n])=>config.products.find(p=>p.id===id).name+' '+n+'本').join('・')+' ／ 列に到着 '+clock(scene.tq)+' → 会計 '+clock(scene.ts)+'〜'+clock(scene.te)+'（待ち '+Math.round(e.wait*60)+'秒）。仮：歩く道・取る瞬間・持ち方・カードの姿勢・会計後の動き。';
   }else $('source').textContent=source&&source.v===1?'運行日'+source.day+'・'+clock(source.t)+'時点の棚在庫を写した試作です。操作はこの画面内だけに反映します。':'例の在庫と待ち時間を使っています。「計算した買い物を見る」では売店の計算結果を再生します。';
   panel();resize();
 }
@@ -170,6 +192,7 @@ async function init(){
     [frames,background,walk,reach]=await Promise.all([json(config.sprites+'frames.json'),image(config.background),image(config.sprites+'walk.webp'),image(config.sprites+'reach.webp')]);
     carry=await Promise.all(config.products.map(product=>image(config.sprites+product.carry)));
     payment=await image(config.sprites+config.register.payment);
+    basket=await image(config.sprites+config.basket);
     source=snapshot();
     config.products.forEach((product,index)=>{
       const card=document.createElement('section');card.className='product';
@@ -194,6 +217,7 @@ async function init(){
     $('loading').hidden=true;document.querySelector('.stage').setAttribute('aria-busy','false');
     $('sample').onclick=()=>useMode(null);
     $('example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-recording.json'));}catch(error){$('source').textContent='例の記録を読み込めませんでした。';console.error(error);}};
+    $('basket-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-basket-recording.json'));}catch(error){$('source').textContent='かごの記録を読み込めませんでした。';console.error(error);}};
     $('record-source').hidden=!(source&&source.v===2);
     $('record-source').onclick=()=>useMode(source);
     $('timeline').oninput=()=>{scene.seek(scene.ta+Number($('timeline').value)/1000*(scene.end-scene.ta));panel();draw();};

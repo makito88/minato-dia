@@ -5,10 +5,18 @@ const IDS=['cf_black','dr_sports'];
 const finite=x=>Number.isFinite(x);
 function supported(e){
   return !!e && e.k==='buy' && e.ps==='salM' && e.lane==='f' && e.em===true &&
-    Array.isArray(e.items) && e.items.length===1 && IDS.includes(e.items[0][0]) && e.items[0][1]===1 &&
+    Array.isArray(e.items) && e.items.length>0 && e.items.length<=4 &&
+    e.items.every(x=>Array.isArray(x)&&IDS.includes(x[0])&&Number.isInteger(x[1])&&x[1]>0) &&
+    e.items.reduce((n,x)=>n+x[1],0)<=4 &&
     finite(e.t) && finite(e.end) && e.end>e.t && finite(e.wait) && e.wait>=0 &&
     finite(e.stay) && e.stay>0 && e.t-e.wait-e.stay>=0 &&
     !e.trash && !e.guide && !(e.carry&&e.carry.length);
+}
+// A reusable holding model: contents and payment state are independent of pose/body.
+function loadout(items,picked,paid){
+  const units=items.flatMap(([id,n])=>Array(n).fill(id));
+  const contents=units.slice(0,Math.max(0,Math.floor(picked))).map((id,slot)=>({id,slot,state:paid?'paid':'unpaid'}));
+  return {mode:units.length>1?'basket':'hand',capacity:units.length,contents};
 }
 function build(res,cutoff){
   if(!res||!Array.isArray(res.ev)||!finite(cutoff)||!finite(res.day))return null;
@@ -53,16 +61,28 @@ class Replay {
     this.ta=e.t-e.wait-e.stay;this.tq=e.t-e.wait;this.ts=e.t;this.te=e.end;
     const p=config.products[this.target],shelf=[p.x,p.y],R=config.record;
     this.arriveShelf=this.ta+e.stay*.36;this.reachAt=this.ta+e.stay*.42;this.pickAt=this.ta+e.stay*.46;this.leaveShelf=this.ta+e.stay*.48;
+    this.units=e.items.flatMap(([id,n])=>Array(n).fill(id));
+    this.basket=this.units.length>1;
+    this.pickups=[];
+    if(this.basket){
+      this.arriveShelf=this.ta+e.stay*.30;this.leaveShelf=this.ta+e.stay*.62;
+      this.pickups=this.units.map((id,i)=>{
+        const item=config.products.find(p=>p.id===id),prev=config.products.find(p=>p.id===(this.units[i-1]||id));
+        const from=this.arriveShelf+e.stay*.32*i/this.units.length,to=this.arriveShelf+e.stay*.32*(i+1)/this.units.length;
+        return {id,from,to,arrive:from+(to-from)*.5,pick:from+(to-from)*.8,point:[item.x,item.y],path:route([[prev.x,prev.y],[item.x,item.y]])};
+      });
+      this.pickAt=this.pickups[0].pick;
+    }
     this.approachAt=this.ts-Math.min(e.wait*.3,R.approachMinutes);
     this.inRoute=route([...config.entry,shelf]);
     const dest=e.wait?this.queuePoint(this.tq):config.register.approach.at(-1);
-    this.shopRoute=route([shelf,...config.checkout.slice(0,-1),dest]);
+    this.shopRoute=route([this.basket?this.pickups.at(-1).point:shelf,...config.checkout.slice(0,-1),dest]);
     this.approachRoute=route([this.queuePoint(this.approachAt),...config.register.approach]);
     this.packRoute=route([config.register.approach.at(-1),...config.register.pack]);
     this.packAt=this.te+this.packRoute.length/R.walkPixelsPerMinute;
     this.exitAt=this.packAt+config.register.packSeconds/60;
     this.outRoute=route([config.register.pack.at(-1),...config.exit]);
-    this.end=this.exitAt+this.outRoute.length/R.walkPixelsPerMinute;
+    this.end=this.basket?this.packAt:this.exitAt+this.outRoute.length/R.walkPixelsPerMinute;
     this.paySeconds=(this.te-this.ts)*60;
     this.reset();
   }
@@ -74,26 +94,36 @@ class Replay {
   seek(t){
     if(!finite(t))return;
     this.clock=Math.max(this.ta,Math.min(this.end,t));t=this.clock;this.time=(t-this.ta)*60;
-    this.held=t>=this.pickAt?this.target:null;
+    const picked=this.basket?this.pickups.filter(p=>t>=p.pick).length:(t>=this.pickAt?1:0);
+    this.loadout=loadout(this.record.event.items,picked,t>=this.te);
+    this.held=picked?this.target:null;
     this.stock=this.config.products.map(()=>null); // Snapshot cadence cannot establish shelf pickup counts.
-    this.unpaid=this.stock.map((_,i)=>i===this.held&&t<this.te?1:0);
-    this.purchased=this.stock.map((_,i)=>i===this.held&&t>=this.te?1:0);
+    this.unpaid=this.config.products.map(p=>this.loadout.contents.filter(x=>x.id===p.id&&x.state==='unpaid').length);
+    this.purchased=this.config.products.map(p=>this.loadout.contents.filter(x=>x.id===p.id&&x.state==='paid').length);
     this.paymentCount=t>=this.te?1:0;this.registerBusy=false;this.reach=0;this.phaseTime=0;this.direction=0;this.distance=0;
     const at=(r,a,b)=>Object.assign(this,r.at((t-a)/(b-a)));
     const stand=p=>{this.x=p[0];this.y=p[1];};
     const p=this.config.products[this.target],shelf=[p.x,p.y];
     if(t<this.arriveShelf){this.phase='walk';at(this.inRoute,this.ta,this.arriveShelf);this.reason='記録にある飲み物の棚へ向かいます。';}
+    else if(this.basket&&t<this.leaveShelf){
+      const stop=this.pickups.find(p=>t<p.to)||this.pickups.at(-1);
+      if(t<stop.arrive&&stop.path.length){this.phase='walk';at(stop.path,stop.from,stop.arrive);}
+      else {this.phase='browse';stand(stop.point);}
+      this.reason=configName(this.config,stop.id)+'をかごに入れます。（入れる手の動きは準備中）';
+    }
     else if(t<this.leaveShelf){stand(shelf);this.phase=t<this.reachAt?'browse':t<this.pickAt?'reach':'take';this.reach=Math.max(0,Math.min(1,(t-this.reachAt)/(this.pickAt-this.reachAt)));this.reason=p.name+'を選んで手に取ります。';}
     else if(t<this.tq){this.phase='walk';at(this.shopRoute,this.leaveShelf,this.tq);this.reason='記録どおり、有人レジへ向かいます。';}
     else if(t<this.approachAt){this.phase='queue';stand(this.queuePoint(t));this.reason='記録の会計開始時刻まで、飲み物を持って待ちます。';
       const before=ahead(this.record,t-.001),now=ahead(this.record,t);
       if(before>now){this.phase='walk';this.distance=(ahead(this.record,this.tq)-now)*this.config.record.queueGap;}}
     else if(t<this.ts){this.phase='walk';at(this.approachRoute,this.approachAt,this.ts);this.reason='会計の開始時刻に合わせ、レジへ進みます。';}
-    else if(t<this.te){this.phase='pay';stand(this.config.register.approach.at(-1));this.phaseTime=(t-this.ts)*60;this.reason='記録の会計時間です。飲み物を持ったまま、カードで支払います。';}
+    else if(t<this.te){this.phase='pay';stand(this.config.register.approach.at(-1));this.phaseTime=(t-this.ts)*60;this.reason=this.basket?'記録の会計時間です。かごを持ったまま、左手のカードで支払います。':'記録の会計時間です。飲み物を持ったまま、カードで支払います。';}
     else if(t<this.packAt){this.phase='walk';at(this.packRoute,this.te,this.packAt);this.reason='記録の会計が終了しました。レジの横へよけます。';}
+    else if(this.basket){this.phase='done';stand(this.config.register.pack.at(-1));this.direction=1;this.reason='かごの全品が会計済みになりました。袋へ移す動きは準備中のため、ここまでの再生です。';}
     else if(t<this.exitAt){this.phase='pack';stand(this.config.register.pack.at(-1));this.direction=1;this.reason='会計済みの飲み物を持ち直します。';}
     else {this.phase=t>=this.end?'done':'walk';at(this.outRoute,this.exitAt,this.end);this.reason=t>=this.end?'買い物の記録の再生が終わりました。':'飲み物を持って店を出ます。';}
   }
 }
-root.KioskSceneRecord={build,valid,supported,ahead,Replay};
+function configName(config,id){return config.products.find(p=>p.id===id).name;}
+root.KioskSceneRecord={build,valid,supported,ahead,loadout,Replay};
 })(typeof window==='undefined'?globalThis:window);
