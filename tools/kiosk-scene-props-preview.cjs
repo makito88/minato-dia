@@ -1,0 +1,11 @@
+// Reproduce the 40 mounted poses and enlarged fingers without a running game.
+// node tools/kiosk-scene-props-preview.cjs /path/to/holding-poses.html
+const fs=require('node:fs'),path=require('node:path');
+const root=path.join(__dirname,'..'),out=process.argv[2];
+if(!out)throw new Error('出力先HTMLを指定してください。');
+const read=f=>fs.readFileSync(path.join(root,f),'utf8');
+const frames=JSON.parse(read('assets/images/kiosk-scene/female-frames.json')).holding;
+const image='data:image/webp;base64,'+fs.readFileSync(path.join(root,'assets/images/kiosk-scene/female-grip.webp')).toString('base64');
+const template="<meta charset=\"utf-8\"><h2>共通の手で2品を保持：4方向と支払い</h2><p id=\"perf\"></p><canvas id=\"c\" width=\"1280\" height=\"950\"></canvas><h2>手と指の拡大</h2><canvas id=\"hands\" width=\"1280\" height=\"260\"></canvas><script>__CODE__\nconst F=__FRAMES__,url=__IMAGE__;let image=new Image();image.onload=()=>{const start=performance.now(),make=()=>document.createElement('canvas'),list=['cf_black','dr_sports'].flatMap(id=>KioskSceneProps.bake(image,[...F.walk,...F.payment],id,make));document.getElementById('perf').textContent='初回合成 '+(performance.now()-start).toFixed(2)+' ms / '+list.filter(p=>p.sheet!==image).reduce((n,p)=>n+p.sheet.width*p.sheet.height*4,0)+' bytes（RGBA理論値）';const ctx=document.getElementById('c').getContext('2d');ctx.fillStyle='#ece4d5';ctx.fillRect(0,0,1280,950);list.forEach((p,i)=>{let x=i%8*160+80,y=Math.floor(i/8)*185+178,k=150/p.frame.h;ctx.fillStyle='#566';ctx.fillText((i<20?'缶 ':'青 ')+(i%20),x-25,y-155);ctx.fillRect(x-40,y,80,1);ctx.drawImage(p.sheet,p.frame.x,p.frame.y,p.frame.w,p.frame.h,x-p.frame.anchor*k,y-150,p.frame.w*k,150);});const hc=document.getElementById('hands').getContext('2d');hc.fillStyle='#ece4d5';hc.fillRect(0,0,1280,260);[4,8,12,24,28,32].forEach((i,k)=>{const p=list[i],g=p.frame.grip;hc.drawImage(p.sheet,p.frame.x+g.x-16,p.frame.y+g.y-24,32,45,k*200+20,10,160,225)});};image.src=url;</script>";
+const html=template.replace('__CODE__',()=>read('js/kiosk-scene-props.js')).replace('__FRAMES__',()=>JSON.stringify(frames)).replace('__IMAGE__',()=>JSON.stringify(image));
+fs.mkdirSync(path.dirname(path.resolve(out)),{recursive:true});fs.writeFileSync(out,html);console.log(path.resolve(out));

@@ -156,6 +156,13 @@ function drawActor(actor){
     sprite(actor,bagPack,frames.bagPack[p.id][p.pose],height);
   }else if(actor.loadout&&actor.loadout.mode==='basket'){
     drawBasket(actor,height);
+  }else if(look&&look.mounted&&actor.held!==null){
+    const product=config.products[actor.held].id;
+    const paying=actor.phase==='pay',backStill=actor.phase!=='walk'&&actor.direction===0;
+    const progress=actor.phaseTime/(actor.paySeconds||config.register.paySeconds);
+    const index=paying?(progress<.18?0:progress<.4?1:progress<.72?2:3):backStill?0:actor.direction*4+(actor.phase==='walk'?Math.floor(actor.distance/17)%4:0);
+    const pose=look.mounted[product][paying||backStill?'payment':'walk'][index];
+    sprite(actor,pose.sheet,pose.frame,height);
   }else if(actor.phase==='pay' && actor.held !== null){
     const progress=actor.phaseTime/(actor.paySeconds||config.register.paySeconds);
     const pose=progress<.18?0:progress<.4?1:progress<.72?2:3;
@@ -222,15 +229,16 @@ function useMode(record){
   $('sample').setAttribute('aria-pressed',String(!record));$('example').setAttribute('aria-pressed',String(!!(record&&record.example)));
   $('record-source').setAttribute('aria-pressed',String(!!record&&!record.example));
   $('basket-example').setAttribute('aria-pressed',String(!!(record&&record.basketExample)));
+  $('sports-example').setAttribute('aria-pressed',String(!!(record&&record.sportsExample)));
   $('female-example').setAttribute('aria-pressed',String(!!(record&&record.femaleExample)));
   $('queue-example').setAttribute('aria-pressed',String(!!(record&&record.queueExample)));
-  if(record&&(record.basketExample||record.queueExample||record.femaleExample))$('example').setAttribute('aria-pressed','false');
+  if(record&&(record.basketExample||record.queueExample||record.femaleExample||record.sportsExample))$('example').setAttribute('aria-pressed','false');
   document.querySelector('.stage').hidden=empty;$('products').hidden=empty;
   $('record-empty').hidden=!empty;$('record-controls').hidden=!record||empty;
   document.querySelector('.register-control').hidden=!!record;
   for(const id of ['play','zoom','slow','skip','reset'])$(id).disabled=empty;
   $('status').hidden=empty;
-  if(empty){$('record-empty').textContent='この時刻までに終わった買い物の中に、今の絵で再生できる記録はありません。男性会社員の飲料1〜4本／女性会社員の缶コーヒー1本、有人レジ・キャッシュレス決済から順に対応しています。「計算した買い物を見る」で例を確認できます。';$('source').textContent='運行日'+record.day+'・'+clock(record.t)+'までの結果。別の品やレジに置き換えてはいません。';return;}
+  if(empty){$('record-empty').textContent='この時刻までに終わった買い物の中に、今の絵で再生できる記録はありません。男性会社員の飲料1〜4本／女性会社員の飲料1本、有人レジ・キャッシュレス決済から順に対応しています。「計算した買い物を見る」で例を確認できます。';$('source').textContent='運行日'+record.day+'・'+clock(record.t)+'までの結果。別の品やレジに置き換えてはいません。';return;}
   if(record){
     const e=record.event;
     $('source').textContent=(record.example?record.note:'この店の運行日'+record.day+'・'+clock(record.t)+'までに終わった買い物を再生しています。')+' 元の在庫・売上・保存には書き戻しません。';
@@ -269,6 +277,11 @@ async function init(){
       const [f,w,r,p]=await Promise.all([json(config.sprites+profile.frames),image(config.sprites+profile.walk),image(config.sprites+profile.reach),image(config.sprites+profile.payment)]);
       const items=await Promise.all(Object.entries(profile.carry).map(async([id,file])=>[id,await image(config.sprites+file)]));
       appearances[id]={frames:f,walk:w,reach:r,payment:p,carry:Object.fromEntries(items),heightScale:profile.heightScale};
+      if(profile.mountProducts){
+        const mounted={};
+        for(const [pid,sheet] of items)mounted[pid]={walk:KioskSceneProps.bake(sheet,f.holding.walk,pid,()=>document.createElement('canvas')),payment:KioskSceneProps.bake(sheet,f.holding.payment,pid,()=>document.createElement('canvas'))};
+        appearances[id].mounted=mounted;
+      }
     }));
     source=snapshot();
     config.products.forEach((product,index)=>{
@@ -297,6 +310,7 @@ async function init(){
     $('basket-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-basket-recording.json'));}catch(error){$('source').textContent='かごの記録を読み込めませんでした。';console.error(error);}};
     $('queue-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-queue-recording.json'));scene.seek(scene.tq);panel();draw();}catch(error){$('source').textContent='列の記録を読み込めませんでした。';console.error(error);}};
     $('female-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-female-recording.json'));}catch(error){$('source').textContent='女性客の記録を読み込めませんでした。';console.error(error);}};
+    $('sports-example').onclick=async()=>{try{useMode(await json('data/kiosk-scene-sports-recording.json'));}catch(error){$('source').textContent='飲料の記録を読み込めませんでした。';console.error(error);}};
     $('record-source').hidden=!(source&&source.v===2);
     $('record-source').onclick=()=>useMode(source);
     $('timeline').oninput=()=>{scene.seek(scene.ta+Number($('timeline').value)/1000*(scene.end-scene.ta));panel();draw();};

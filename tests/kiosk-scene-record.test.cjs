@@ -157,7 +157,7 @@ assert.ok(KR.valid(femalePacket));assert.equal(woman.record.event.ps,'salF');
 for(const t of [woman.ta,woman.pickAt,woman.tq,woman.ts,woman.te,woman.end,woman.pickAt]){
  woman.seek(t);s.seek(t);assert.equal(woman.clock,s.clock);assert.equal(woman.paymentCount,s.paymentCount);assert.deepEqual(woman.loadout,s.loadout);
 }
-for(const patch of [{items:[['dr_sports',1]]},{items:[['cf_black',2]]},{carry:['umb']},{lane:'s'},{em:false}])assert.equal(KR.build({day:3,ev:[{...e,ps:'salF',...patch}]},601).event,null);
+for(const patch of [{items:[['cf_black',2]]},{carry:['umb']},{lane:'s'},{em:false}])assert.equal(KR.build({day:3,ev:[{...e,ps:'salF',...patch}]},601).event,null);
 const mixed=KR.build({day:3,ev:[{...prev,ps:'salF'},e]},601);assert.equal(mixed.companions[0].event.ps,'salF');assert.ok(KR.valid(mixed));
 assert.equal(KR.build({day:3,ev:[{...e,ps:'salF'},{k:'eatin',ps:'salF',from:e.end,t:601}]},602).event,null);
 try{cp.execFileSync(process.execPath,[path.join(__dirname,'../tools/kiosk-scene-example.cjs'),tmp,'--female']);assert.deepEqual(JSON.parse(fs.readFileSync(tmp)),require('../data/kiosk-scene-female-recording.json'));}finally{fs.rmSync(tmp,{force:true});}
@@ -167,3 +167,14 @@ for(const f of [...femaleFrames.walk,...femaleFrames.reach,...femaleFrames.carry
  assert.ok(f.x>=0&&f.y>=0&&f.w>0&&f.h>0&&f.x+f.w<=1122&&f.y+f.h<=1402);assert.ok(f.anchor>=0&&f.anchor<f.w);assert.ok(f.groundAnchor>=0&&f.groundAnchor<f.w);
 }
 console.log('  female appearance: shared event clock, mixed queue, unsupported props, eating exclusion, reproducible fixture and 40 atlas frames passed');
+
+// Both one-hand drinks retain their original item/yen and all business times.
+const sportsPacket=KR.build({day:3,ev:[{...e,ps:'salF',items:[['dr_sports',1]],yen:200}]},601);
+assert.ok(KR.valid(sportsPacket));const sportsActor=new KR.Replay(cfg,sportsPacket);
+for(const t of [sportsActor.pickAt-1e-6,sportsActor.pickAt,sportsActor.te-1e-6,sportsActor.te,sportsActor.end,sportsActor.pickAt]){
+ sportsActor.seek(t);assert.equal(sportsActor.paymentCount,Number(t>=sportsActor.te));
+ assert.equal(sportsActor.loadout.contents.length,Number(t>=sportsActor.pickAt));
+ if(t>=sportsActor.pickAt)assert.equal(sportsActor.loadout.contents[0].id,'dr_sports');
+}
+try{cp.execFileSync(process.execPath,[path.join(__dirname,'../tools/kiosk-scene-example.cjs'),tmp,'--female-sports']);assert.deepEqual(JSON.parse(fs.readFileSync(tmp)),require('../data/kiosk-scene-sports-recording.json'));}finally{fs.rmSync(tmp,{force:true});}
+console.log('  female sports: real fixture, original item/payment times and rewind passed');

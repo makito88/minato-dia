@@ -44,9 +44,11 @@
       "walk": "female-empty.webp",
       "reach": "female-empty.webp",
       "carry": {
-        "cf_black": "female-carry.webp"
+        "cf_black": "female-grip.webp",
+        "dr_sports": "female-grip.webp"
       },
-      "payment": "female-carry.webp"
+      "payment": "female-grip.webp",
+      "mountProducts": true
     }
   }
 }
