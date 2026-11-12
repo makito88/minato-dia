@@ -64,14 +64,18 @@ function groupLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if
     F+=bF;Cc+=bC;SF+=bS;}
   add('center','factory','工場の品の代金',F*(1-take));
   add('center','ext','問屋の品の代金（店へ出した分）',Cc*(M.wsRate??0.75));
+  for(const x of o.hauls||[])pcs+=x.pcs||0;   /* 配送の契約でセンターを通る荷物も仕分けの人の時間に入れる（第3回）。なければ前と同じ */
   const CCo=centerCost(M,pcs,1);
   if(CCo){add('center','ext','センターの運営の人（センター長・事務・検品）',CCo.ops);add('center','ext','倉庫の家賃・電気・機械',CCo.facility);for(const x of CCo.sort)add('center','ext',`仕分けの人（${x.label}・${x.h}時間）`,x.yen);}
   else add('center','ext','倉庫と仕分け（センター全体の決まった費用）',M.centerFixedDay||M.centerFixed||0);
   add('factory','ext','材料・人件費・電気など（自社の店の分）',(F*(1-take)+SF)*(M.factoryCost??0.7));
   /* 取引の相談窓口の販売の契約（第2回・橋 deals-to-money）：取引先 → 工場の品の代金、工場から外への費用（仮の割合）。o.deals がなければ前と同じ */
-  for(const x of o.deals||[]){add('ext','factory',`取引先・契約の品の代金（${x.name}）`,x.rev);add('factory','ext',`材料・人件費など（契約の分・${x.name}）`,x.cost);add('factory','ext',`港浜急送（${x.name}へ届ける・仮）`,x.fee);}
-  const runs=(o.haiso&&o.haiso.runs)||[];let fC=0,fF=0,xC=0,xF=0,hc=0;
-  for(const r of runs){if(r.company==='haiso'){if(r.payer==='factory')fF+=r.fare||0;else fC+=r.fare||0;hc+=r.cost||0;}else{if(r.payer==='factory')xF+=r.fee||0;else xC+=r.fee||0;}}
+  for(const x of o.deals||[]){add('ext','factory',`取引先・契約の品の代金（${x.name}）`,x.rev);add('factory','ext',`材料・人件費など（契約の分・${x.name}）`,x.cost);add('factory','ext',`港浜急送（${x.name}へ届ける・仮）`,x.fee);add('factory','haiso',`運賃（${x.name}へ届ける）`,x.hf);}
+  /* 配送の契約（第3回・橋 deals-to-money の hauls）：荷主 → 配送会社の運賃、荷主 → センターの仕分け料、自社で運べない荷物の港浜急送。o.hauls がなければ前と同じ */
+  for(const x of o.hauls||[]){add('ext','haiso',`運賃（荷主・${x.name}）`,x.fare);add('ext','center',`仕分け料（荷主・${x.name}）`,x.sort);add('haiso','ext',`港浜急送（${x.name}・自社で運べない荷物）`,x.other);}
+  const runs=(o.haiso&&o.haiso.runs)||[];let fC=0,fF=0,xC=0,xF=0,xH=0,hc=0;
+  for(const r of runs){if(r.company==='haiso'){if(r.payer==='factory')fF+=r.fare||0;else fC+=r.fare||0;hc+=r.cost||0;}else{if(r.payer==='factory')xF+=r.fee||0;else if(r.payer==='haiso')xH+=r.fee||0;else xC+=r.fee||0;}}
+  add('haiso','ext','他社の応援便（契約の荷物）',xH);
   if(o.haiso&&o.haiso.sum)hc+=(o.haiso.sum.truckDay||0)+(o.haiso.sum.labor||0);
   add('center','haiso','運賃（センター→店）',fC);add('factory','haiso','運賃（工場→センター）',fF);
   add('center','ext','他社の応援便',xC);add('factory','ext','他社の追いかけ便',xF);

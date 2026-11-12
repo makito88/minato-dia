@@ -4,7 +4,7 @@
    ・返事（引き受ける〈お試し7日／続ける〉・断る・保留）と契約を、保存 dia-deals（{v:1,...}）の形で持つ。相談そのものは保存せず、毎回作り直す。
    ・見込み：工場（ラインの空き・締め切り）と配送（便のかご車の空き・時刻・自社2店への影響）を、
      すでにある計算の結果（納品書 slip.lines・HaisoCore.dayPlan の便）から読んで出すだけ。工場や配送の計算をやり直さない。
-   ・第1回は見込みだけ。第2回（2026-11-12）から、販売の契約の注文を工場へ（dayOrders）、届けた数からお金（dealMoney）。配送の契約は第3回。
+   ・第1回は見込みだけ。第2回（2026-11-12）から、販売の契約の注文を工場へ（dayOrders）、届けた数からお金（dealMoney）。第3回（2026-11-12）から、配送の契約と「店まで届ける」を配送会社の便へ（dayHauls・haulStops）。
    ・DOM も localStorage も使わない（node でも読める）。設定は data/deals.json（すべて仮）。
    ===================================================================== */
 (function(root){
@@ -76,9 +76,9 @@ function sellOutlook(cfg,S,o,F,day,we){const q=qtyOf(o,we),money=sellMoney(cfg,o
   if(q<=spare){res.fit='ok';res.overMin=0;}
   else{const over=q-spare;res.overMin=rate?Math.ceil(over/rate):null;res.fit=over<=others?'tight':'over';res.over=over;}
   return res;}
-function sellMoney(cfg,o,we){const lc=((cfg.sell.lines||{})[o.line]||{}).cost||0.7;let rev=0,cost=0,own=0;
+function sellMoney(cfg,o,we,ownFare){const lc=((cfg.sell.lines||{})[o.line]||{}).cost||0.7;let rev=0,cost=0,own=0;
   for(const i of o.items){const q=we?i.we:i.wd,ref=i.ref!=null?i.ref:(i.price/0.85);rev+=q*i.price;cost+=q*ref*lc;own+=q*ref*0.85;}
-  const fee=o.hand==='deliver'?((cfg.sell&&cfg.sell.deliverFee)||0):0;   /* 店まで届ける：自社の配送の契約までは港浜急送（第2回・仮） */
+  const fee=o.hand==='deliver'?(ownFare!=null?ownFare(we?qtyOf(o,true):qtyOf(o,false)):((cfg.sell&&cfg.sell.deliverFee)||0)):0;   /* 店まで届ける：ownFare（第3回・自社の便の運賃を数から）がなければ港浜急送（仮） */
   return {rev:Math.round(rev),cost:Math.round(cost+fee),fee,profit:Math.round(rev-cost-fee),ownRev:Math.round(own)};}
 
 /* 配送の見込み。P＝{runs:HaisoCore.dayPlan の runs, trucks:center.json の slip.trucks, H:data/haiso.json}（読むだけ）
@@ -91,7 +91,7 @@ function haulOutlook(cfg,o,P,we){const H=(P&&P.H)||{},res={carts:o.carts,fare:o.
   const tr=((P&&P.trucks)||[]).find(t=>(t.st||[]).includes(o.to));if(!tr){res.mode='none';res.why='届け先の駅に行くトラックがありません';res.cost=0;res.profit=0;return res;}
   const mn=s=>(tr.min||{})[s]??null,mTo=mn(o.to)||0;res.truck=tr.name||tr.id;
   const runs=((P&&P.runs)||[]).filter(r=>r.leg==='cs'&&r.truck===tr.id);
-  const opts=runs.map(r=>{const stops=r.stops||[],last=stops.reduce((a,s)=>!a||s.arrive>a.arrive?s:a,null),lastSt=last?String(last.key).split('-')[0]:null,lm=lastSt?mn(lastSt)||0:0;
+  const opts=runs.map(r=>{const stops=(r.stops||[]).filter(v=>!v.deal),last=stops.reduce((a,s)=>!a||s.arrive>a.arrive?s:a,null),lastSt=last?String(last.key).split('-')[0]:null,lm=lastSt?mn(lastSt)||0:0;
     const detour=Math.abs(mTo-lm),after=(last?last.arrive:r.depart)+hd+detour,first=r.depart+(r.late||0)+mTo;
     const ownSt=stops.map(s=>String(s.key).split('-')[0]),ownDelay=Math.max(0,...ownSt.map(s=>{const m=mn(s)||0;return hd+Math.max(0,mTo+Math.abs(m-mTo)-m);}));
     const spare=+(Math.max(0,(r.cap||10)-(r.carts||0))).toFixed(1);
@@ -115,15 +115,45 @@ function dayOrders(cfg,S,day,we){const z=((cfg&&cfg.sell)||{}).wobble??0.1,by={}
   return n?{by,items}:null;}
 /* 届けた数（納品書の slip.deals[id].it＝{品:[注文,出荷]}）からお金：売上＝出荷×卸値、作る費用＝出荷×仕入れ値×ラインの割合（仮）、
    店まで届けるときは港浜急送の費用（cfg.sell.deliverFee・仮。自社で運ぶ配送の契約は第3回） */
-function dealMoney(cfg,c,it){const o=c.of,lc=(((cfg&&cfg.sell&&cfg.sell.lines)||{})[o.line]||{}).cost||0.7,P={};for(const i of o.items||[])P[i.pid]=i;let rev=0,cost=0,q=0,s=0;
+function dealMoney(cfg,c,it,ownFare){const o=c.of,lc=(((cfg&&cfg.sell&&cfg.sell.lines)||{})[o.line]||{}).cost||0.7,P={};for(const i of o.items||[])P[i.pid]=i;let rev=0,cost=0,q=0,s=0;
   for(const pid in it||{}){const a=it[pid],i=P[pid];q+=a[0]||0;s+=a[1]||0;if(!i)continue;const ref=i.ref!=null?i.ref:(i.price/0.85);rev+=(a[1]||0)*i.price;cost+=(a[1]||0)*ref*lc;}
-  const fee=o.hand==='deliver'&&s>0?((cfg&&cfg.sell&&cfg.sell.deliverFee)||0):0;
+  const fee=o.hand==='deliver'&&s>0?(ownFare!=null?ownFare:((cfg&&cfg.sell&&cfg.sell.deliverFee)||0)):0;   /* ownFare：自社の便で届けるときの運賃（第3回）。なければ港浜急送（仮） */
   return {q,s,short:q-s,rev:Math.round(rev),cost:Math.round(cost),fee,profit:Math.round(rev-cost-fee)};}
 /* 契約に、その日の結果を足す（同じ日は2回足さない）。c.got＝{n:日数, q:頼まれた数, s:届けた数, y:もうけ, last:最後の日, ld:[日,頼まれた,届けた]} */
 function record(S,day,id,m){const c=(S.deals||[]).find(x=>x.id===id);if(!c)return false;const g=c.got||(c.got={n:0,q:0,s:0,y:0,last:0});if(day<=g.last)return false;
   g.n++;g.q+=m.q;g.s+=m.s;g.y+=m.profit;g.last=day;g.ld=[day,m.q,m.s];return true;}
 
-const api={dayOrders,dealMoney,record,hashS,rngOf,catalog,offersOn,newState,valid,inbox,decide,snap,stateOf,contracts,prune,qtyOf,committed,sellOutlook,sellMoney,haulOutlook,LN};
+/* ---------- 第3回（2026-11-12）：配送の契約を配送会社とお金へ（橋 deals-to-haiso。つなぐのは js/links/deals-to-haiso.js） ----------
+   その運行日に走る配送の契約の荷物（かご車）：契約の数のまわりで決まった乱数で少しゆれる（cfg.haul.wobble・0.5台きざみ・仮）。曜日（毎日・平日だけ・土日だけ）を守る。
+   返すもの：{契約id:{k:'haul', c:かご車, to:駅, w:[早い,遅い], b:便, n:相手, f:運賃, s:仕分け料, o:1＝自社で運べない（港浜急送）}}（1つもなければ null）
+   binOf(to,w)：届け先の駅と時刻のはばから、どの便に積むか（センターの時刻表とトラックの分だけで決める。その日の結果は読まない） */
+function dayHauls(cfg,S,day,we,binOf){const H=(cfg&&cfg.haul)||{},z=H.wobble??0.15,out={};let n=0;if(!S)return null;
+  for(const c of S.deals||[]){if(c.kind!=='haul'||day<c.from||day>c.to)continue;const o=c.of;if(o.dow==='wd'&&we||o.dow==='we'&&!we)continue;
+    const r=rngOf('dhaul',S.seed,day,c.id),u=r(),q=Math.max(0.5,Math.round(o.carts*(1+(u*2-1)*z)*2)/2),cg=(H.cargo||[]).find(x=>x.id===o.cargo)||{};
+    const x={k:'haul',c:q,to:o.to,w:o.win.slice(),b:binOf?binOf(o.to,o.win):null,n:o.name,f:o.fare||0,s:/^川辺の配送センター/.test(o.from||'')?Math.round(q*(H.sort||0)):0};
+    if(cg.own===false)x.o=1;out[c.id]=x;n++;}
+  return n?out:null;}
+/* どの便に積むか：ccfg＝data/center.json（flow.runs・slip.trucks）、hd＝積みおろしの分。自社の店のあとに寄る目安（出発＋駅までの分＋積みおろし2回）が、はばの終わりまでに着く便のうちいちばん遅いもの。なければ最初の便 */
+function binFor(ccfg,hd,to,w){const R=((ccfg&&ccfg.flow)||{}).runs||[],T=((ccfg&&ccfg.slip)||{}).trucks||[],tr=T.find(t=>(t.st||[]).includes(to));if(!R.length)return null;const m=tr&&tr.min?tr.min[to]||0:0;
+  const est=R.map(r=>({bin:r.bin,e:(r.depart>=1440?r.depart-1440:r.depart)+m+(hd||15)*2}));const ok=est.filter(x=>x.e<=w[1]).sort((a,b)=>b.e-a.e);return (ok[0]||est.slice().sort((a,b)=>a.e-b.e)[0]).bin;}
+/* 配送会社の1日の計算（HaisoCore.dayPlan）に足す届け先：dh＝その日の d.haul。自社で運べない荷物（o）は足さない。
+   販売の「店まで届ける」（k:'sell'）は工場の品（f＝個数）、配送の契約は荷主の荷物（c＝かご車 × センターの品のかご車1台の数） */
+function haulStops(dh,perCart){const pc=perCart||{factory:300,center:150},out=[];let i=0;
+  for(const id in dh||{}){const x=dh[id];i++;if(x.o||!x.b)continue;out.push({key:x.to+'-d'+i,ext:true,after:true,deal:id,name:x.n,fare:x.f||0,runs:[{bin:x.b,f:x.k==='sell'?(x.p||0):0,c:x.k==='sell'?0:Math.round((x.c||0)*(pc.center||150))}]});}
+  return out;}
+/* その日の結果（便の計算から）：契約ごとに {arr:着いた時刻, late:はばの終わりからの遅れ（分）, c:かご車, help:応援便がいった} */
+function haulResults(dh,plan){const out={};if(!dh||!plan)return out;
+  for(const id in dh){const x=dh[id];if(x.o){out[id]={arr:null,late:0,c:x.c,other:1};continue;}let st=null,run=null;for(const r of plan.runs||[]){if(r.leg!=='cs')continue;const s=(r.stops||[]).find(v=>v.deal===id);if(s){st=s;run=r;break;}}
+    if(!st){out[id]={arr:null,late:0,c:0,miss:1};continue;}const help=(plan.runs||[]).some(r=>r.leg==='cs-extra'&&r.truck===run.truck&&r.bin===run.bin&&r.payer==='haiso');
+    out[id]={arr:st.arrive,late:Math.max(0,Math.round(st.arrive-x.w[1])),c:x.k==='sell'?+(st.carts||0):x.c,help:help?1:0};}
+  return out;}
+/* 配送の契約に、その日の結果を足す（同じ日は2回足さない）。c.got＝{n:日数, q:頼まれたかご車, s:運んだかご車, y:運賃, lt:遅れた日, lm:いちばんの遅れ, last, ld:[日,着いた時刻,遅れ]} */
+function recordHaul(S,day,id,x,res){const c=(S.deals||[]).find(v=>v.id===id);if(!c||c.kind!=='haul')return false;const g=c.got||(c.got={n:0,q:0,s:0,y:0,lt:0,lm:0,last:0});if(day<=g.last)return false;
+  g.n++;g.q=+(g.q+x.c).toFixed(1);g.s=+(g.s+(res&&!res.miss?x.c:0)).toFixed(1);g.y+=x.f||0;if(res&&res.late>0){g.lt=(g.lt||0)+1;g.lm=Math.max(g.lm||0,res.late);}g.last=day;g.ld=[day,res?res.arr:null,res?res.late:0];return true;}
+/* 自社で運ぶ「店まで届ける」の運賃（みなと川運輸の運賃表：1か所＋かご車。グループの中のお金）。H＝data/haiso.json */
+function ownDeliverFare(H,pcs){const f=(H&&H.fare)||{},pc=((H&&H.perCart)||{}).factory||300;return pcs>0?Math.round((f.perStop||0)+(f.perCart||0)*pcs/pc):0;}
+
+const api={dayHauls,binFor,haulStops,haulResults,recordHaul,ownDeliverFare,dayOrders,dealMoney,record,hashS,rngOf,catalog,offersOn,newState,valid,inbox,decide,snap,stateOf,contracts,prune,qtyOf,committed,sellOutlook,sellMoney,haulOutlook,LN};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.DealsCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

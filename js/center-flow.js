@@ -69,7 +69,7 @@ function html(){const I=g(()=>minatoKiosk.flowInfo(),{err:'売店の画面を読
   // 3) センター → 店（2トントラック・応援便）
   const keyName=Object.fromEntries(I.stores.map(s=>[s.key,s.name]));const short=k=>(keyName[k]||k).replace(/^みなとスタンド\s*/,'').slice(0,6);
   const csRows=runs.filter(r=>r.leg==='cs'||r.leg==='cs-extra').map(r=>row(esc(r.label),`${esc(co(r.company))}・${r.carts!=null?`かご車 ${r.carts}台`:''}${r.late?`・道の遅れ ${r.late}分`:''}`,
-      bar(r.depart,r.arrive,r.leg==='cs'?st(r.depart,r.arrive):st(r.depart,r.arrive),r.leg==='cs'?COL.fc:COL.other,`${hm(r.depart)} センターを出る → ${hm(r.arrive)}`)+(r.stops||[]).map(x=>pin(x.arrive,st(x.arrive,x.arrive),'#1d2430',short(x.key),`${keyName[x.key]||x.key} ${hm(x.arrive)} 着${x.late?`（遅れ ${x.late}分）`:''}`)).join(''))).join('');
+      bar(r.depart,r.arrive,r.leg==='cs'?st(r.depart,r.arrive):st(r.depart,r.arrive),r.leg==='cs'?COL.fc:COL.other,`${hm(r.depart)} センターを出る → ${hm(r.arrive)}`)+(r.stops||[]).map(x=>pin(x.arrive,st(x.arrive,x.arrive),x.deal?'#1f7a8c':'#1d2430',x.deal?'契約':short(x.key),`${x.deal?`取引先・契約 ${x.name||''}`:keyName[x.key]||x.key} ${hm(x.arrive)} 着${x.late?`（遅れ ${x.late}分）`:''}`)).join(''))).join('');
   // 4) 店：時刻表の便（点線）と、その日の計算で棚に並んだ時刻（できたての便は色を分ける）
   const sRows=I.stores.map((s,i)=>{const c=i===0?COL.m:COL.p;
     return row(esc(s.name),'時刻表＝点線・棚に並んだ（見込み）',s.bins.map(b=>pin(b.t,'calc','#7b8794','',`時刻表 ${b.name} ${hm(b.t)}`)).join('')+s.dl.map(e=>pin(e.t,st(e.t,e.t)+(e.sameday?' sd':''),e.sameday?COL.sd:c,e.sameday?'できたて':e.name.replace('の便',''),`${e.name} ${hm(e.t)} ${now>=e.t?'届いた':'届く見込み'}・${N(e.n)}個${e.late?`・遅れ ${e.late}分`:''}`)).join(''));}).join('');

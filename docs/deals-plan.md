@@ -63,6 +63,6 @@
 |---|---|
 | 1 | できた（2026-11-12）：`js/deals-core.js`・`js/deals-view.js`・`data/deals.json`・保存 `dia-deals`・センターの画面のタブ・`tests/deals-core.test.cjs`。見込みだけ（工場・配送・お金にはまだ効かない）。詳しくは HANDOFF のいちばん下 |
 | 2 | できた（2026-11-12）：橋 `deals-to-factory`・`deals-to-money`（`js/links/`・仮の数値・強さ1）。運行日の始めに「2店の注文 → 契約の注文（`dia-orders` の `deal`）→ 納品書を1回」。工場の5本のラインに契約の分を足す・足りない夜は 自社 → 契約 → 今まで・納品書に `slip.deals`・グループの収支に「取引先 → 工場」・契約に結果（`c.got`）。`tests/deals-factory.test.cjs`。信用（評判）は第4回。詳しくは HANDOFF のいちばん下 |
-| 3 | まだ |
+| 3 | できた（2026-11-12）：橋 `deals-to-haiso`（`js/links/deals-to-haiso.js`・仮の数値・強さ1）。運行日の始めに「契約の注文 → 配送の契約の荷物（`dia-orders` の `haul`）→ 納品書（→ 店まで届ける数も `haul` に）」。配送会社の1日の計算（`HaisoCore.dayPlan`）に外の届け先として足す（自社の店をぜんぶ回ったあと・自社の店の時刻とセンターの運賃は変わらない・あふれは港浜急送の応援便〈契約の分は配送会社が払う〉・冷凍は港浜急送）。お金：荷主 → 配送会社（運賃）・荷主 → センター（仕分け料）・工場 → 配送会社（店まで届ける）。結果は締めた日のあとに `c.got`。`tests/deals-haiso.test.cjs`。詳しくは HANDOFF のいちばん下 |
 | 4 | まだ |
 | 5 | まだ |

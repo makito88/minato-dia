@@ -29,13 +29,19 @@ function dayPlan(H,C,CC,o){const runs=[],F=C.flow||{},LT=o.slip&&o.slip.late,wai
   const byTruck={};for(const s of o.stores){const tr=CC.truckFor(C,s.key);if(!tr)continue;(byTruck[tr.id]||(byTruck[tr.id]={tr,stores:[]})).stores.push(s);}
   const cs=T.cs||{},cap=cs.cap||10;
   for(const id in byTruck){const {tr,stores}=byTruck[id];
-    (F.runs||[]).forEach((r,ri)=>{const legs=stores.map(s=>{const tp=CC.truckRuns(C,s.key,o.day,o.cond,wait)[ri],x=s.runs.find(v=>v.bin===r.bin)||{};return {key:s.key,ext:!!s.ext,arrive:tp.arrive,depart:tp.depart,late:tp.late,base:(CC.truckFor(C,s.key)||{}).min||0,carts:cartsOf(x.f||0,x.c||0),pcs:(x.f||0)+(x.c||0)};}).filter(l=>l.pcs>0);   // 荷物のない配達先には寄らない
+    (F.runs||[]).forEach((r,ri)=>{const legs=stores.map(s=>{const tp=CC.truckRuns(C,s.key,o.day,o.cond,wait)[ri],x=s.runs.find(v=>v.bin===r.bin)||{};return {key:s.key,ext:!!s.ext,after:!!s.after,deal:s.deal||null,name:s.name,dfare:s.fare||0,arrive:tp.arrive,depart:tp.depart,late:tp.late,base:(CC.truckFor(C,s.key)||{}).min||0,carts:cartsOf(x.f||0,x.c||0),pcs:(x.f||0)+(x.c||0)};}).filter(l=>l.pcs>0);   // 荷物のない配達先には寄らない
       if(!legs.length)return;
+      /* 取引の相談窓口の配送の契約（after・第3回 2026-11-12）：自社の店をぜんぶ回ったあとに寄る（自社の店に着く時刻は変わらない）。after がなければ前と同じ */
+      {const mine=legs.filter(l=>!l.after),aft=legs.filter(l=>l.after);if(aft.length){const hd=H.handleMin||15;let cur=null,cm=0;
+        if(mine.length){const la=mine.reduce((a,l)=>l.arrive>a.arrive?l:a,mine[0]);cur=la.arrive;cm=la.base;}
+        aft.sort((a,b)=>Math.abs(a.base-cm)-Math.abs(b.base-cm)||(a.base-b.base));for(const l of aft){if(cur==null){cur=l.arrive;cm=l.base;continue;}l.arrive=cur+hd+Math.abs(l.base-cm);cur=l.arrive;cm=l.base;}}}
       const far=Math.max(0,...legs.map(l=>l.arrive-l.depart)),base=Math.max(0,...legs.map(l=>l.base)),carts=legs.reduce((t,l)=>t+l.carts,0),km=+(base*(cs.kmPerMin||0.6)*2).toFixed(1),min=far+base+(H.handleMin||15)*legs.length;   // 距離は道の分（遅れは距離に入れない）。運転の時間は行き（遅れを含む）＋帰り＋積みおろし
       const own=Math.min(carts,cap),over=Math.max(0,carts-cap),dep=legs.length?legs[0].depart:r.depart;
-      runs.push({leg:'cs',id:id+(ri+1),truck:id,bin:r.bin,company:H.own,label:`${tr.name}・${r.bin}`,depart:dep,arrive:Math.max(...legs.map(l=>l.arrive)),stops:legs.map(l=>({key:l.key,arrive:l.arrive,late:l.late,pcs:l.pcs})),
-        carts:+own.toFixed(1),cap,km,min,cost:ownCost(km,min),fare:Math.round((fare.perStop||0)*legs.length+(fare.perCart||0)*own),payer:'center',late:Math.max(0,...legs.map(l=>l.late||0))});
-      if(over>0)runs.push({leg:'cs-extra',id:id+(ri+1)+'+',truck:id,bin:r.bin,company:H.other,label:`応援便（${tr.name}・${r.bin}）`,depart:dep,arrive:Math.max(...legs.map(l=>l.arrive)),stops:legs.map(l=>({key:l.key,arrive:l.arrive})),carts:+over.toFixed(1),cap,km:0,min:0,cost:0,fee:of.extra||0,payer:'center',note:'積みきれない分'});});}
+      const dl=legs.filter(l=>l.deal),dC=dl.reduce((t,l)=>t+l.carts,0),oN=legs.length-dl.length,oC=Math.min(carts-dC,cap),dF=dl.reduce((t,l)=>t+l.dfare,0);   /* 契約の荷物の運賃は荷主から（センターは払わない） */
+      runs.push({leg:'cs',id:id+(ri+1),truck:id,bin:r.bin,company:H.own,label:`${tr.name}・${r.bin}`,depart:dep,arrive:Math.max(...legs.map(l=>l.arrive)),stops:legs.map(l=>l.deal?{key:l.key,arrive:l.arrive,late:l.late,pcs:l.pcs,deal:l.deal,name:l.name,carts:+l.carts.toFixed(1)}:{key:l.key,arrive:l.arrive,late:l.late,pcs:l.pcs}),
+        carts:+own.toFixed(1),cap,km,min,cost:ownCost(km,min),fare:Math.round((fare.perStop||0)*oN+(fare.perCart||0)*oC),...(dl.length?{dfare:dF}:{}),payer:'center',late:Math.max(0,...legs.map(l=>l.late||0))});
+      if(over>0){const dO=Math.min(over,dC),cO=over-dO,ex=(c,py,sfx,nt)=>runs.push({leg:'cs-extra',id:id+(ri+1)+sfx,truck:id,bin:r.bin,company:H.other,label:`応援便（${tr.name}・${r.bin}）`,depart:dep,arrive:Math.max(...legs.map(l=>l.arrive)),stops:legs.map(l=>({key:l.key,arrive:l.arrive})),carts:+c.toFixed(1),cap,km:0,min:0,cost:0,fee:of.extra||0,payer:py,note:nt});
+        if(cO>0)ex(cO,'center','+','積みきれない分');if(dO>0)ex(dO,'haiso',cO>0?'+d':'+','積みきれない分（契約の荷物・みなと川運輸が払う）');}});}
   // 4) 運転手の勤務（2026-11-09）：トラックごとに、朝の便（深夜〜早朝）と昼の便（昼前と午後。あいだの待ちも勤務）の2つのシフト。
   //    1シフト＝最初の出発の前と最後に戻ったあとに点呼・点検（checkMin 分ずつ）。短くても minShiftH 時間ぶん払う。22:00〜5:00 は深夜の割増。社会保険（会社の負担）を足す。
   //    工場→センターのトラックは、この店の荷物の割合だけ数える
@@ -53,7 +59,7 @@ function dayPlan(H,C,CC,o){const runs=[],F=C.flow||{},LT=o.slip&&o.slip.late,wai
   const own=runs.filter(r=>r.company===H.own),oth=runs.filter(r=>r.company!==H.own);
   const sum={own:own.length,other:oth.length,trucks:ownTrucks.size,carts:+own.reduce((t,r)=>t+(r.carts||0),0).toFixed(1),km:+own.reduce((t,r)=>t+r.km,0).toFixed(1),hours:+(own.reduce((t,r)=>t+r.min,0)/60).toFixed(1),
     cost:own.reduce((t,r)=>t+r.cost,0)+truckDay+labor,truckDay,labor,drivers:shifts.length,driverH:+(shifts.reduce((t,x)=>t+x.min*x.share,0)/60).toFixed(1),fare:own.reduce((t,r)=>t+(r.fare||0),0),fee:oth.reduce((t,r)=>t+(r.fee||0),0),late:Math.max(0,...own.map(r=>r.late||0))};
-  sum.profit=sum.fare-sum.cost;
+  {const dF=runs.reduce((t,r)=>t+(r.dfare||0),0),dX=oth.filter(r=>r.payer==='haiso').reduce((t,r)=>t+(r.fee||0),0);if(dF||dX){sum.dfare=dF;sum.dfee=dX;}sum.profit=sum.fare+dF-sum.cost-dX;}   /* 契約の運賃（荷主・工場から）と、契約の荷物の応援便（第3回）。なければ前と同じ */
   return {day:o.day,runs:runs.sort((a,b)=>a.depart-b.depart),shifts,sum};}
 const api={dayPlan};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
