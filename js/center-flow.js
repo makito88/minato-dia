@@ -119,7 +119,7 @@ function moneyHtml(){const G=g(()=>minatoKiosk.groupMoney(),null);if(!G)return '
     <div class="sum" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div><b>${y(T.ext.in)}</b><span>グループの外から入った</span></div><div><b>${y(T.ext.out)}</b><span>グループの外へ出た</span></div><div><b style="color:${T.ext.net<0?'#c0392b':'inherit'}">${y(T.ext.net)}</b><span>グループのもうけ</span></div><div><b>${y(T.grp)}</b><span>会社の間で動いた（もうけに入れない）</span></div></div>
     <div class="cf-tw"><table><thead><tr><th>会社・店</th><th>外から入った</th><th>グループ内から</th><th>外へ払った</th><th>グループ内へ</th><th>もうけ</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${invT}
-    <p class="cf-src">グループのもうけ＝外から入ったお金−外へ出たお金（会社ごとのもうけの合計と同じ）。会社の間のお金は、払った会社と受け取った会社で同じ額なので、二重に数えない。センターの決まった費用と配送会社の便は1回だけ数える。<b>入れていないもの</b>：工場のほかの店・取引先の売上と費用（未接続）・できたての便を走らせる配送会社の費用（未計算）・工場の朝の組の人件費（未計算）。${T.portOut?'港駅店が流れにのっていない日は、港駅店を入れていません。':''}</p>
+    <p class="cf-src">グループのもうけ＝外から入ったお金−外へ出たお金（会社ごとのもうけの合計と同じ）。会社の間のお金は、払った会社と受け取った会社で同じ額なので、二重に数えない。センターの決まった費用と配送会社の便は1回だけ数える。<b>入れていないもの</b>：工場のほかの店・取引先の売上と費用（未接続）・できたての便を走らせる配送会社の費用（未計算）・工場の朝の組の人件費（未計算）。${T.portOut?'この日、港駅店の注文はまだ工場・センターの流れにのっていなかったので、港駅店の品はセンターから届いたとみなし、配送会社の便には港駅店の分が入っていません。':''}</p>
     <button type="button" class="cf-go" data-go="money">緑ヶ丘店の請求書の流れ（お金の流れの画面）を開く</button></section>`;}
 function bind(box){box.querySelectorAll('.cfl [data-fac]').forEach(b=>b.onclick=()=>window.open('factory.html#'+b.dataset.fac,'_blank','noopener'));
   box.querySelectorAll('.cfl [data-go]').forEach(b=>b.onclick=()=>{const k=b.dataset.go;g(()=>minatoCenter.close());if(k==='haiso')g(()=>minatoHaiso.open());else if(k==='money')g(()=>minatoMoney.open());else g(()=>minatoKiosk.open());});

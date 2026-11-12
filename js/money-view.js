@@ -102,6 +102,7 @@ function render0(box){
   const rows=L.inv?L.inv.slice().sort((a,b)=>b.yen-a.yen).map(x=>`<tr><td>${x.from==='ext'?'お客さん':esc(nm(x.from))} → ${esc(nm(x.to))}</td><td>${esc(x.what)}</td><td>${yen(x.yen)}</td></tr>`).join(''):'';
   box.innerHTML=`<div class="in">${head}
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">${segs}<span class="note">${esc(L.label)}</span></div>
+    ${old?`<div class="card" style="border-color:#b7791f;background:color-mix(in srgb,#b7791f 10%,var(--panel))"><b>この日は緑ヶ丘店だけの前の数え方です。</b> 2店（緑ヶ丘店・港駅店）とセンター・工場・配送会社の記録は、2026-11-12 の変更のあと、次の運行日が始まったとき（朝4:30すぎ）から残ります。いまの2店の数は「きょう」で見られます。</div>`:''}
     <div class="big"><span>グループのもうけ</span><b class="${net<0?'neg':'pos'}">${sy(net)}</b><span>＝ お客さんから ${yen(sales)} − 外へ ${yen(outE)}</span><span>（会社の間で動いたお金 ${yen(grp)} は入れない）</span></div>
     <div class="cos" style="grid-template-columns:repeat(${Math.min(5,keys.length)},minmax(0,1fr))">${cards}</div>
     <section class="card"><h3>お金の流れの図</h3><div class="svgw">${flowSvg(L.pair,keys,label)}</div><p class="note">緑の矢印は会社どうしの支払い（太いほど大きい）、赤い矢印はグループの外へ出るお金（問屋・店員や運転手の給料・燃料・家賃など）。</p></section>
@@ -109,8 +110,9 @@ function render0(box){
     ${rows?`<section class="card"><details><summary>請求書の一覧（${L.inv.length}枚）</summary><table>${rows}</table></details></section>`:`<p class="note">請求書の一覧は「きょう」だけ（締めた日は、会社ごとの合計と会社の間の合計だけを残しています）。</p>`}
     <p class="note">${old?'この日はまだグループの記録がないので、前の数え方（緑ヶ丘店だけ・センターと配送会社の費用を店の数で分けた分）で出しています。':'センターの決まった費用と配送会社の便は、店がいくつあっても1回だけ数える。工場は、自社の店の分だけ（ほかの店・取引先の分は入れていない）。できたての便を走らせる配送会社の費用と、工場の朝の組の人件費はまだ入れていない。'}売店の「収支」タブは売れた品の原価で数えるので、ここ（その日に届いた品の代金）とは少しちがう。</p></div>`;
   bind(box);}
-function bind(box){$('mfClose').onclick=close;box.querySelectorAll('[data-ext]').forEach(b=>b.onclick=()=>{V.ext=Number(b.dataset.ext);render();});box.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{V.mode=b.dataset.m;render();});}
-function open(){const b=$('mfv');b.hidden=false;V.open=true;b.scrollTop=0;render();clearInterval(V.timer);V.timer=setInterval(()=>{if(V.mode==='t')render();},10000);}
+function bind(box){$('mfClose').onclick=close;box.querySelectorAll('[data-ext]').forEach(b=>b.onclick=()=>{V.ext=Number(b.dataset.ext);render();});box.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{V.mode=b.dataset.m;V.touched=true;render();});}
+function open(){const b=$('mfv');b.hidden=false;V.open=true;if(!V.touched)V.mode=groupView('y')?'y':'t';   // 2店の記録（締めた日）がまだなければ、2店のきょうの見込みから見せる
+  b.scrollTop=0;render();clearInterval(V.timer);V.timer=setInterval(()=>{if(V.mode==='t')render();},10000);}
 function close(){const b=$('mfv');if(b)b.hidden=true;V.open=false;clearInterval(V.timer);}
 /* トップの1行用 */
 function yesterday(){const Gv=groupView('y');if(Gv&&Gv.day!=null){const co={kiosk:{net:0}};for(const k in Gv.co){if(k.startsWith('store:'))co.kiosk.net+=Gv.co[k].net;else co[k]=Gv.co[k];}for(const k of ['center','factory','haiso'])co[k]=co[k]||{net:0};return {day:Gv.day,net:Gv.ext.net,co};}

@@ -116,10 +116,10 @@ function groupOf(resM,live){if(!window.MoneyCore||!MoneyCore.groupLedger||!V.mcf
     for(const e of res.ev){if(e.k!=='delivery'||(e.express&&!e.addOn))continue;const into=e.sameday?sd:dl;for(const pid in e.items||{})into[pid]=(into[pid]||0)+e.items[pid];if(!e.express&&!e.addOn&&!e.local&&!e.sameday&&e.n>0)runs++;}
     stores.push({id,name,sales:res.pl.sales,pl:res.pl,delivered:dl,sd,runs,route:pid=>CC.routeOf(V.ccfg,ix2[pid]&&ix2[pid].genre,pid),cost:pid=>ix2[pid]?ix2[pid].cost:0});};
   one(CC.storeKey(V.st),`${stName(V.st.st)}駅${V.rcfg.places[V.st.place].name}店`,resM,V.cfg);
-  const inP=portIn(day),pr=inP?g(()=>MSV2().group.resOf(day),null):null;if(pr)one(CC.storeKey(MSV2().state),g(()=>MSV2().storeName,'港駅の店'),pr,MSV2().cfg);
+  const inP=portIn(day),pr=portOn()?g(()=>MSV2().group.resOf(day),null):null;if(pr)one(CC.storeKey(MSV2().state),g(()=>MSV2().storeName,'港駅の店'),pr,MSV2().cfg);
   const H=g(()=>minatoHaiso.cfg,null),hi=g(()=>window.minatoKiosk.haisoInput(day),null),hz=H&&hi&&window.HaisoCore?g(()=>HaisoCore.dayPlan(H,V.ccfg,CC,hi),null):null;
   const take=g(()=>window.FactoryPL&&V.fD?FactoryPL.settings(V.fD).take:null,null);
-  const L=g(()=>MoneyCore.groupLedger(V.mcfg,{day,live,take,haiso:hz,stores}),null);if(L){L.portOut=!!(MSV2()&&MSV2().state&&!pr);}return L;}
+  const L=g(()=>MoneyCore.groupLedger(V.mcfg,{day,live,take,haiso:hz,stores}),null);if(L){L.portOut=!!(pr&&!inP);}return L;}
 // 締めた日：両方の店が前の日を締めたあと（運行日の始めの dailyOrder の最後）に1回
 function groupClose(day){const res=V.prevRes;if(!res||res.day!==day)return;try{const L=groupOf(res,false);if(!L)return;const m=loadGroup();m.days=m.days.filter(x=>x.day!==day);
   const pair={};for(const x of L.inv){const k=x.from+'>'+x.to;pair[k]=(pair[k]||0)+x.yen;}m.days.push({day,co:L.co,ext:L.ext,grp:L.grp,pair,names:L.names,portOut:L.portOut});m.days.sort((a,b)=>a.day-b.day);if(m.days.length>14)m.days=m.days.slice(-14);localStorage.setItem(GKEY,JSON.stringify(m));}catch(e){console.warn('グループの収支を残せませんでした',e);}}
