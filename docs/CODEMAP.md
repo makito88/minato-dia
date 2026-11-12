@@ -78,9 +78,9 @@ CSS …17・render() …44・bindDays() …68・open() …69・close() …70・s
 
 hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() …24・shelfInfo() …26・defaultOrder() …31・■ 状態 …32・create() …33・■ 1日を動かす …39・simulate() …42・review() …303・■ 運行日を締める：評判・SNSの話題・常連・ブーム・在庫の持ちこし・知らせ …313・closeDay() …314・■ 移転：別の駅・場所へ移す（次の運行日から） …364・relocate() …369・migratePrices() …382・backAt() …387・stockAt() …388・idxAt() …389・soFar() …391・公開 KioskCore …395
 
-## js/kiosk-staff.js（219行）
+## js/kiosk-staff.js（226行）
 
-hash() …12・rng() …13・hoursOf() …19・dayPlan() …23・brkOf() …35・minorOf() …37・canB() …42・realSpans() …43・TYPES …47・traits() …55・moodWord() …57・person() …60・create() …69・assign() …78・autoShift() …118・migrate() …121・wageFloor() …123・insuredOf() …129・weekHours() …131・today() …133・dayWorkers() …137・payOf() …155・adsOpen() …158・close() …161・gapsOf() …197・autoHire() …200・公開 KioskStaff …216
+hash() …12・rng() …13・hoursOf() …19・dayPlan() …23・brkOf() …35・minorOf() …37・canB() …42・realSpans() …43・TYPES …47・traits() …55・moodWord() …57・person() …60・create() …69・assign() …78・autoShift() …118・migrate() …121・wageFloor() …123・insuredOf() …129・weekHours() …131・today() …133・helpFill() …139・dayWorkers() …144・payOf() …162・adsOpen() …165・close() …168・gapsOf() …204・autoHire() …207・公開 KioskStaff …223
 
 ## js/kiosk-view.js（1082行）
 
@@ -126,9 +126,9 @@ DAYN …22・■ 読み込み・保存 …26・omStart() …31・omToday() …34
 
 centerCost() …12・dayLedger() …18・groupLedger() …51・project() …86・sumDays() …96・公開 MoneyCore …101
 
-## js/money-view.js（122行）
+## js/money-view.js（123行）
 
-CSS …17・flowSvg() …43・projHtml() …61・pairOf() …75・groupView() …76・render() …83・bind() …111・open() …112・close() …113・yesterday() …115・公開 minatoMoney …120
+CSS …17・flowSvg() …43・projHtml() …61・pairOf() …75・groupView() …76・render() …83・render0() …84・bind() …112・open() …113・close() …114・yesterday() …116・公開 minatoMoney …121
 
 ## js/port-core.js（26行）
 

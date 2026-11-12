@@ -132,7 +132,14 @@ function weekHours(cfg,crew,id,useNext){const sh=useNext&&crew.shiftNext||crew.s
 /* きょう働く人：[{p, spans:[[from分,to分]...]}]。crew が無い古い保存は、人数ぶんの「1日中いる人」 */
 function today(cfg,state,type,day){const crew=state.crew;
   if(!crew){const n=Math.max(1,state.staff||1),o=[];for(let i=0;i<n;i++)o.push({p:{id:'x'+i,name:'店員',skill:{reg:1,stock:1,care:1},morale:60,days:30,wage:cfg.wage},spans:[[cfg.open[0]*60,cfg.open[1]*60]]});return o;}
-  return dayWorkers(cfg,crew.people.filter(p=>active(p,day)),crew.shift[type]||{});}
+  return helpFill(cfg,dayWorkers(cfg,crew.people.filter(p=>active(p,day)),crew.shift[type]||{}));}
+/* 本部の応援（2026-11-12・港駅の店。設定 crew.help があるときだけ。緑ヶ丘の店は前と同じ）：
+   店員の時間（crew.work）の中で、だれもいない時間が minGap 分以上つづくところに、グループの本部から応援の人が入る（時給は高め・仮）。
+   店が丸ごと閉まって、届いた品（できたての便など）が置きっぱなしになるのを防ぐ。募集はそのまま続く */
+function helpFill(cfg,o){const H=cfg.crew&&cfg.crew.help;if(!H||!H.on)return o;const WK=cfg.crew.work||{},a0=Math.round((WK.from??cfg.open[0])*60),a1=Math.round((WK.to??cfg.open[1])*60),mg=H.minGap||30,gaps=[];let s0=null;
+  for(let t=a0;t<a1;t+=5){const on=o.some(w=>w.spans.some(([a,b])=>t>=a&&t<b));if(!on&&s0==null)s0=t;if(on&&s0!=null){if(t-s0>=mg)gaps.push([s0,t]);s0=null;}}
+  if(s0!=null&&a1-s0>=mg)gaps.push([s0,a1]);if(!gaps.length)return o;
+  const k=H.skill??0.9;o.push({p:{id:'help',name:H.name||'本部の応援',help:true,skill:{reg:k,stock:k,care:k},morale:60,days:H.days||60,wage:H.wage||1600,commute:H.commute||0},spans:gaps,gaps:gaps.length-1,brk:null});return o;}
 /* その日の型のシフト（{id:[区切り]}）から、働く人と時間（休憩を入れたあと）。today と、おまかせのシフトの直しで使う */
 function dayWorkers(cfg,people,sh){const o=[];
   for(const p of people){const pl=dayPlan(cfg,sh[p.id],p);if(!pl.total||!pl.ok)continue;   // 組めない日は休み
@@ -213,6 +220,6 @@ function autoHire(cfg,st,crew,day,say){const C=cfg.crew,A=C.autoHire,d1=day+1,ne
   if((g.length||nAct()<(A.min||0))&&!adsOpen(cfg,crew,d1).length&&nAct()<C.max){const w=Math.max(C.minWage||0,C.market+(A.plus||0));crew.ads=(crew.ads||[]).concat([{day:d1,wage:w,auto:true}]);
     const TN=C.dayTypes||{};say('crew','店員が足りないので、募集を出した（おまかせ）',g.length?`${g.slice(0,3).map(o=>(TN[o.t]||o.t)+'の'+o.b.name).join('・')}${g.length>3?'など':''}に入れる人がいません。あすから${C.ad.days}日間、時給${w.toLocaleString()}円で募集します（${C.ad.fee.toLocaleString()}円）。だれもいない時間は、店を閉めます。`:`店員が${nAct()}人に減りました（${A.min}人はほしい）。あすから${C.ad.days}日間、時給${w.toLocaleString()}円で募集します（${C.ad.fee.toLocaleString()}円）。`);}}
 
-root.KioskStaff={gapsOf,autoHire,wageFloor,canB,dayWorkers,minorOf,realSpans,brkOf,create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,hoursOf,availH,dayPlan,active,close,adsOpen,TYPES,blk};
+root.KioskStaff={helpFill,gapsOf,autoHire,wageFloor,canB,dayWorkers,minorOf,realSpans,brkOf,create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,hoursOf,availH,dayPlan,active,close,adsOpen,TYPES,blk};
 if(typeof module!=='undefined')module.exports=root.KioskStaff;
 })(typeof window!=='undefined'?window:globalThis);
