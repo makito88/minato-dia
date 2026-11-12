@@ -75,7 +75,7 @@ function render(){const box=$('cwv');if(!box||!V.open)return;const I=g(()=>minat
   const hist=cs.po.slice().sort((a,b)=>b.day-a.day).map(p=>`<tr><td>${esc(p.no)}</td><td>第${p.day}運行日</td><td>第${p.arr}運行日</td><td>${Object.keys(p.items).length}品</td><td>${N(Object.values(p.items).reduce((a,b)=>a+b,0))}個</td><td>${p.st==='in'?'着いた':p.arr===day+1?'あす着く':'これから着く'}</td></tr>`).join('');
   box.innerHTML=`<div class="in">
     <div class="hd"><div><h2>川辺の配送センター｜倉庫</h2><p class="sub">第${day}運行日・届け先：${esc(I.store)}。センターに置いておく品（飲み物・お菓子・日用品・冷凍のホットスナック）。問屋（${esc(ws.name)}）へは週2回、センターのおまかせで発注します。在庫と出かたはゲームの中の数（内）、発注の決まりと数字は仮（仮）。</p></div><button class="x" id="cwClose">閉じる</button></div>
-    ${window.CenterFlow?CenterFlow.html():''}
+    ${window.CenterFlow?CenterFlow.html()+CenterFlow.moneyHtml():''}
     <div class="sum"><div><b>${N(total)}</b><span>倉庫の在庫（${pids.length}品）</span></div><div><b class="${cnt.short?'short':''}">${cnt.short}品</b><span>足りなくなるおそれ</span></div><div><b class="${cnt.thin?'thin':''}">${cnt.thin}品</b><span>薄い</span></div>
       <div><b>${dayLabel(nextOrd,day)}</b><span>次の発注（第${nextOrd}運行日の朝）</span></div><div><b>${nextIn?dayLabel(nextIn.arr,day):'—'}</b><span>${nextIn?`次の入荷 ${N(Object.values(nextIn.items).reduce((a,b)=>a+b,0))}個（${esc(nextIn.no)}）`:'着く予定の発注はありません'}</span></div></div>
     <section class="card"><h3>この先1週間<small>発注の日の朝に頼むと、次の運行日の朝 3:00 にセンターへ着きます（朝の便に間に合う）</small></h3><div class="week">${week.join('')}</div></section>
@@ -93,5 +93,5 @@ function close(){const b=$('cwv');if(b)b.hidden=true;V.open=false;clearInterval(
 {const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
  const v=document.createElement('div');v.id='cwv';v.className='cwv';v.hidden=true;v.setAttribute('role','dialog');v.setAttribute('aria-label','センターの倉庫');document.body.appendChild(v);
  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.open)close();});}
-window.minatoCenter={open,close};
+window.minatoCenter={open,close,refresh:render};
 })();

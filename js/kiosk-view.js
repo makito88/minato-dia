@@ -73,7 +73,7 @@ function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();dailyOrder();csOpen
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();V.evI=KC.idxAt(V.res,gT());return V.res;}
 function tick(){if(!V.cfg||!V.st)return;ensureRes();}
-function closeToday(res){const S=V.st;salesToCenter(res);arrivalToCenter(res);try{moneyClose(res);}catch(e){console.warn('お金の記録を残せませんでした',e);}if(CC&&CC.csClose&&V.ccfg&&V.ccfg.ws){const cs=loadCS();const pr=portIn(res.day)?g(()=>MSV2().group.resOf(res.day),null):null;if(cs&&cs.open&&cs.open.day===res.day&&CC.csClose(pr?gcfg():V.cfg,V.ccfg,cs,pr?[res,pr]:res))saveCS();}
+function closeToday(res){const S=V.st;V.prevRes=res;salesToCenter(res);arrivalToCenter(res);try{moneyClose(res);}catch(e){console.warn('お金の記録を残せませんでした',e);}if(CC&&CC.csClose&&V.ccfg&&V.ccfg.ws){const cs=loadCS();const pr=portIn(res.day)?g(()=>MSV2().group.resOf(res.day),null):null;if(cs&&cs.open&&cs.open.day===res.day&&CC.csClose(pr?gcfg():V.cfg,V.ccfg,cs,pr?[res,pr]:res))saveCS();}
   // その日の最後の設定を、次の日からの設定にする。新しく並べた品は「並べた日」を覚える（マニアが来る）
   const last=S.today&&S.today.day===res.day&&S.today.edits.length?S.today.edits.at(-1):null;
   const before=new Set(Object.keys(KC.shelfInfo(V.cfg,S.layout)));
@@ -107,6 +107,22 @@ function moneyOf(res,live){if(!window.MoneyCore||!V.mcfg||!res||!V.ccfg)return n
   const take=g(()=>window.FactoryPL&&V.fD?FactoryPL.settings(V.fD).take:null,null);
   const nRuns=res.ev.filter(e=>e.k==='delivery'&&!e.express&&!e.addOn&&e.n>0).length;
   return MoneyCore.dayLedger(V.mcfg,{day:res.day,nStores:1,runs:nRuns,sales:res.pl.sales,pl:res.pl,delivered:dl,route:pid=>CC.routeOf(V.ccfg,I.P[pid]&&I.P[pid].genre),cost:pid=>I.P[pid]?I.P[pid].cost:0,haiso:hz,take,live});}
+/* グループの収支（第3段・2026-11-12）：2店とセンター・工場・配送会社を、1日1回だけ数える（MoneyCore.groupLedger）。
+   きょうの分は見込み（毎回作る）。締めた日の分は、両方の店が前の日を締めたあと（運行日の始め）に1回だけ作って dia-group に残す（会社ごとの合計だけ・14日） */
+const GKEY='dia-group';
+function loadGroup(){let o=null;try{o=JSON.parse(localStorage.getItem(GKEY)||'null');}catch(e){}return o&&o.v===1&&Array.isArray(o.days)?o:{v:1,days:[]};}
+function groupOf(resM,live){if(!window.MoneyCore||!MoneyCore.groupLedger||!V.mcfg||!V.ccfg||!resM)return null;const day=resM.day,stores=[];
+  const one=(id,name,res,cfg)=>{const ix2=Object.fromEntries(cfg.products.map(p=>[p.id,p])),dl={},sd={};let runs=0;
+    for(const e of res.ev){if(e.k!=='delivery'||(e.express&&!e.addOn))continue;const into=e.sameday?sd:dl;for(const pid in e.items||{})into[pid]=(into[pid]||0)+e.items[pid];if(!e.express&&!e.addOn&&!e.local&&!e.sameday&&e.n>0)runs++;}
+    stores.push({id,name,sales:res.pl.sales,pl:res.pl,delivered:dl,sd,runs,route:pid=>CC.routeOf(V.ccfg,ix2[pid]&&ix2[pid].genre,pid),cost:pid=>ix2[pid]?ix2[pid].cost:0});};
+  one(CC.storeKey(V.st),`${stName(V.st.st)}駅${V.rcfg.places[V.st.place].name}店`,resM,V.cfg);
+  const inP=portIn(day),pr=inP?g(()=>MSV2().group.resOf(day),null):null;if(pr)one(CC.storeKey(MSV2().state),g(()=>MSV2().storeName,'港駅の店'),pr,MSV2().cfg);
+  const H=g(()=>minatoHaiso.cfg,null),hi=g(()=>window.minatoKiosk.haisoInput(day),null),hz=H&&hi&&window.HaisoCore?g(()=>HaisoCore.dayPlan(H,V.ccfg,CC,hi),null):null;
+  const take=g(()=>window.FactoryPL&&V.fD?FactoryPL.settings(V.fD).take:null,null);
+  const L=g(()=>MoneyCore.groupLedger(V.mcfg,{day,live,take,haiso:hz,stores}),null);if(L){L.portOut=!!(MSV2()&&MSV2().state&&!pr);}return L;}
+// 締めた日：両方の店が前の日を締めたあと（運行日の始めの dailyOrder の最後）に1回
+function groupClose(day){const res=V.prevRes;if(!res||res.day!==day)return;try{const L=groupOf(res,false);if(!L)return;const m=loadGroup();m.days=m.days.filter(x=>x.day!==day);
+  m.days.push({day,co:L.co,ext:L.ext,grp:L.grp,names:L.names,portOut:L.portOut});m.days.sort((a,b)=>a.day-b.day);if(m.days.length>14)m.days=m.days.slice(-14);localStorage.setItem(GKEY,JSON.stringify(m));}catch(e){console.warn('グループの収支を残せませんでした',e);}}
 function moneyClose(res){const L=moneyOf(res,false);if(!L)return;const m=loadMoney();m.days=m.days.filter(x=>x.day!==res.day);m.days.push(L);m.days.sort((a,b)=>a.day-b.day);const k=(V.mcfg&&V.mcfg.keepDays)||35;if(m.days.length>k)m.days=m.days.slice(-k);try{localStorage.setItem(MKEY,JSON.stringify(m));}catch(e){}}
 function loadCS(){if(V.csObj)return V.csObj;let o=null;try{o=JSON.parse(localStorage.getItem(CSKEY)||'null');}catch(e){}V.csObj=o&&o.v===1?o:(CC&&CC.csNew?CC.csNew():null);return V.csObj;}
 function saveCS(){try{if(V.csObj)localStorage.setItem(CSKEY,JSON.stringify(V.csObj));}catch(e){}}
@@ -151,7 +167,7 @@ function dailyOrder(){if(!CC||!V.ccfg||!V.st)return;const S=V.st,day=gDay(),C=ce
       for(const x of lg.days)if(x.day<day-3)for(const k in x.orders||{})delete x.orders[k].crun;}}   // 古い日の便ごとの注文は消す（保存を大きくしない）
     portPut(lg,day,cond);   // 港駅の店の注文も同じ日にそろえる（橋 minato-to-group）。納品書（slipNow）はこのあと
     saveOrders(lg);}catch(e){console.warn('センターの発注を記録できませんでした',e);}
-  C.ordDay=day;persist();slipNow(day);matSync();}
+  C.ordDay=day;persist();slipNow(day);matSync();groupClose(day-1);}
 /* 納品書（発注と配送 第2回・第3回）：運行日が変わったら、その夜の工場の結果から納品書を作って dia-orders に残す（計算は js/factory-night.js）。
    第3回から、売店にはその出荷数までしか届かない（ctxNow の supply）。そのため納品書は、その日の売店の計算より先に「同じ流れの中で」作る
    （工場の計算は index.html で読み、data/factory.json は売店の設定といっしょに読む）。読めなかった日は納品書なし＝上限なし（今までどおり） */
@@ -1008,6 +1024,8 @@ window.minatoKiosk={get state(){return V.st;},refresh(){if(V.open)render(true);}
     const on=z(),off=z();for(let i=0;i<n;i++){const ci={...c,day:c.day+i*7};acc(on,KC.simulate(V.cfg,V.st,ci));acc(off,KC.simulate(V.cfg,V.st,{...ci,fx:undefined}));}
     return {link:linkNow(V.st.st,gCond()),n,on,off};},
   get ccfg(){return V.ccfg;},
+  // グループの収支（センターの画面が読む）：きょう＝見込み（請求書つき）、締めた日＝dia-group の合計
+  groupMoney(){if(!V.st)return null;ensureRes();const today=V.res&&V.res.day===gDay()?groupOf(V.res,true):null;return {day:gDay(),today,days:loadGroup().days};},
   /* センターの画面の「流れ」（js/center-flow.js・2026-11-12）：工場・センター・配送会社・2店が出した数を、その運行日の分だけ集めて渡す（ここでは何も計算し直さない）。
      工場＝納品書（その夜の結果）・センター＝data/center.json の時刻表（予定）・配送会社＝HaisoCore.dayPlan（便と勤務）・店＝その日の計算の届いた出来事 */
   flowInfo(){if(!V.st||!V.ccfg||!CC)return {err:'まだ売店がありません。売店を出すと、流れが見えます。'};const day=gDay(),lg=loadOrders(),d=lg.days.find(x=>x.day===day)||null;ensureRes();

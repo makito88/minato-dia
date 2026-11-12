@@ -99,11 +99,34 @@ function html(){const I=g(()=>minatoKiosk.flowInfo(),{err:'売店の画面を読
     <details><summary>便と車をくわしく</summary>${rTab}</details>
     <details><summary>店に届いた時刻をくわしく</summary>${sTab}</details>
     <p class="cf-src">出どころ：工場の完成・出荷＝工場の夜の計算（内）／センターの到着・仕分け＝時刻表（仮）／便の出発・到着・遅れ＝配送会社の計算（遅れの幅は仮）／棚に並んだ時刻＝店の計算（内）。</p></section>`;}
+/* グループの収支（第3段・2026-11-12）：minatoKiosk.groupMoney() の数を並べるだけ（計算は MoneyCore.groupLedger）。
+   会社の間のお金（店→センター・センター→工場・→配送会社）は、払った会社と受け取った会社で打ち消し合うので、グループのもうけには入れない */
+const MV={tab:'today'};
+function moneyHtml(){const G=g(()=>minatoKiosk.groupMoney(),null);if(!G)return '';
+  const past=G.days||[],yd=past.find(x=>x.day===G.day-1)||null,wk=past.filter(x=>x.day>=G.day-7&&x.day<G.day);
+  const sum=list=>{if(!list.length)return null;const co={},ext={in:0,out:0,net:0};let grp=0;const names={};
+    for(const L of list){Object.assign(names,L.names||{});grp+=L.grp||0;for(const k of ['in','out','net'])ext[k]+=L.ext[k]||0;for(const k in L.co){const c=co[k]||(co[k]={in:0,out:0,net:0,inExt:0,inGrp:0,outExt:0,outGrp:0});for(const f in c)c[f]+=L.co[k][f]||0;}}
+    return {co,ext,grp,names,n:list.length,portOut:list.some(x=>x.portOut)};};
+  const T={today:G.today,yday:yd,week:sum(wk)}[MV.tab];
+  const tabs=[['today','きょう（見込み）'],['yday','きのう'],['week',`この7日（${wk.length}日）`]].map(([k,l])=>`<button type="button" class="cf-go" data-mt="${k}" aria-pressed="${MV.tab===k}" style="${MV.tab===k?'background:var(--ink);color:var(--paper)':''}">${l}</button>`).join('');
+  if(!T)return `<section class="card cfl"><h3>グループの収支<small>2店とセンター・工場・配送会社</small></h3><div>${tabs}</div><div class="cf-na">${MV.tab==='today'?'きょうの計算がまだありません。':'まだ記録がありません（運行日の始めに、前の日の分を1回だけ残します）。'}</div></section>`;
+  const NM={center:'配送センター',factory:'工場',haiso:'配送会社'},nm=k=>(T.names&&T.names[k])||NM[k]||k,y=v=>`${v<0?'−':''}${N(Math.abs(v))}円`;
+  const keys=Object.keys(T.co).sort((a,b)=>(a.startsWith('store:')?0:1)-(b.startsWith('store:')?0:1));
+  const rows=keys.map(k=>{const c=T.co[k];return `<tr><td>${esc(nm(k))}</td><td>${y(c.inExt)}</td><td>${y(c.inGrp)}</td><td>${y(c.outExt)}</td><td>${y(c.outGrp)}</td><td><b style="color:${c.net<0?'#c0392b':'inherit'}">${y(c.net)}</b></td></tr>`;}).join('');
+  const inv=MV.tab==='today'&&G.today?G.today.inv:null;
+  const invT=inv?`<details><summary>きょうの請求書（見込み）</summary><div class="cf-tw"><table><thead><tr><th>払う</th><th>受け取る</th><th>なに</th><th>金額</th></tr></thead><tbody>${inv.map(x=>`<tr><td>${x.from==='ext'?'グループの外':esc(nm(x.from))}</td><td>${x.to==='ext'?'グループの外':esc(nm(x.to))}</td><td>${esc(x.what)}</td><td>${y(x.yen)}</td></tr>`).join('')}</tbody></table></div></details>`:'';
+  return `<section class="card cfl"><h3>グループの収支<small>2店とセンター・工場・配送会社。数は仮の値段（data/money.json）とその日の計算から</small></h3><div>${tabs}</div>
+    <div class="sum" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div><b>${y(T.ext.in)}</b><span>グループの外から入った</span></div><div><b>${y(T.ext.out)}</b><span>グループの外へ出た</span></div><div><b style="color:${T.ext.net<0?'#c0392b':'inherit'}">${y(T.ext.net)}</b><span>グループのもうけ</span></div><div><b>${y(T.grp)}</b><span>会社の間で動いた（もうけに入れない）</span></div></div>
+    <div class="cf-tw"><table><thead><tr><th>会社・店</th><th>外から入った</th><th>グループ内から</th><th>外へ払った</th><th>グループ内へ</th><th>もうけ</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${invT}
+    <p class="cf-src">グループのもうけ＝外から入ったお金−外へ出たお金（会社ごとのもうけの合計と同じ）。会社の間のお金は、払った会社と受け取った会社で同じ額なので、二重に数えない。センターの決まった費用と配送会社の便は1回だけ数える。<b>入れていないもの</b>：工場のほかの店・取引先の売上と費用（未接続）・できたての便を走らせる配送会社の費用（未計算）・工場の朝の組の人件費（未計算）。${T.portOut?'港駅店が流れにのっていない日は、港駅店を入れていません。':''}</p>
+    <button type="button" class="cf-go" data-go="money">緑ヶ丘店の請求書の流れ（お金の流れの画面）を開く</button></section>`;}
 function bind(box){box.querySelectorAll('.cfl [data-fac]').forEach(b=>b.onclick=()=>window.open('factory.html#'+b.dataset.fac,'_blank','noopener'));
-  box.querySelectorAll('.cfl [data-go]').forEach(b=>b.onclick=()=>{const k=b.dataset.go;g(()=>minatoCenter.close());if(k==='haiso')g(()=>minatoHaiso.open());else g(()=>minatoKiosk.open());});
+  box.querySelectorAll('.cfl [data-go]').forEach(b=>b.onclick=()=>{const k=b.dataset.go;g(()=>minatoCenter.close());if(k==='haiso')g(()=>minatoHaiso.open());else if(k==='money')g(()=>minatoMoney.open());else g(()=>minatoKiosk.open());});
+  box.querySelectorAll('.cfl [data-mt]').forEach(b=>b.onclick=()=>{MV.tab=b.dataset.mt;g(()=>minatoCenter.refresh&&minatoCenter.refresh());});
   // 開いた「くわしく」を、5秒ごとの描き直しのあとも開いたままにする
   box.querySelectorAll('.cfl details').forEach((d,i)=>{if(OPEN[i])d.open=true;d.ontoggle=()=>{OPEN[i]=d.open;};});}
 const OPEN={};
 {const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);}
-window.CenterFlow={html,bind};
+window.CenterFlow={html,moneyHtml,bind};
 })();

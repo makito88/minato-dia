@@ -43,6 +43,43 @@ function dayLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if(y
   for(const x of inv){if(co[x.to])co[x.to].in+=x.yen;else ext.out+=x.yen;if(co[x.from])co[x.from].out+=x.yen;else ext.in+=x.yen;}
   for(const k in co)co[k].net=co[k].in-co[k].out;
   return {v:1,day:o.day,live:!!o.live,inv,co,ext};}
+/* グループ全体の1日（2026-11-12・第3段）：店がいくつあっても、センター・工場・配送会社を1回だけ数える。
+   o＝{day, live, take, haiso:{runs,sum}（その日の2店ぶんの便。1回だけ）, stores:[{id, name, sales, pl, delivered:{品:数}（いつもの便で届いた品）, sd:{品:数}（できたての便。工場から直接）, route, cost, runs:便の数}]}
+   ・会社の間の請求書（店→センター・センター→工場・→配送会社）は、払った側と受け取った側で同じ額。グループのもうけ＝外から入ったお金−外へ出たお金（会社の間のお金は打ち消し合う）。
+   ・センターの決まった費用は、ぜんぶ1回（店の数で割らない）。工場の費用は、自社の店の分だけ（ほかの取引先の分は入れない＝未接続）。
+   返すもの：{v:1, day, live, inv, co:{会社:{in,out,net,inExt,inGrp,outExt,outGrp}}, ext:{in,out,net}, grp:会社の間で動いたお金} */
+function groupLedger(M,o){const inv=[],add=(from,to,what,yen)=>{yen=R(yen||0);if(yen>0)inv.push({from,to,what,yen});};
+  const take=o.take!=null?o.take:(M.take??0.15),ids=[];let F=0,Cc=0,SF=0,pcs=0;
+  for(const s of o.stores||[]){const k='store:'+s.id;ids.push(k);let bF=0,bC=0,bD=0,bL=0,bS=0;
+    for(const pid in s.delivered||{}){const q=s.delivered[pid]||0,v=q*(s.cost(pid)||0),r=s.route(pid);if(r==='factory'){bF+=v;pcs+=q;}else if(r==='center'){bC+=v;pcs+=q;}else if(r==='local')bL+=v;else bD+=v;}
+    for(const pid in s.sd||{})bS+=(s.sd[pid]||0)*(s.cost(pid)||0);
+    const pl=s.pl||{};
+    add('ext',k,'お客さんの買い物',s.sales||0);
+    add(k,'center','仕入れ（工場の品）',bF);add(k,'center','仕入れ（センターの品）',bC);
+    add(k,'factory','できたての便の品（工場から直接）',bS);add(k,'haiso','できたての便の運賃',pl.sameday||0);
+    add(k,'ext','新聞・雑誌・たばこ（卸へ）',bD);add(k,'ext','地元のお店へ',bL);
+    add(k,'ext','店員の給料・交通費・保険',(pl.staff||0)+(pl.commute||0)+(pl.social||0)+(pl.recruit||0));
+    add(k,'ext','家賃・電気・手数料など',(pl.rent||0)+(pl.util||0)+(pl.fee||0)+(pl.guard||0)+(pl.express||0));
+    add(k,'center','センターフィー（配送料・'+(s.runs||0)+'便）',((M.centerFee&&M.centerFee.perRun)||0)*(s.runs||0));
+    F+=bF;Cc+=bC;SF+=bS;}
+  add('center','factory','工場の品の代金',F*(1-take));
+  add('center','ext','問屋の品の代金（店へ出した分）',Cc*(M.wsRate??0.75));
+  const CCo=centerCost(M,pcs,1);
+  if(CCo){add('center','ext','センターの運営の人（センター長・事務・検品）',CCo.ops);add('center','ext','倉庫の家賃・電気・機械',CCo.facility);for(const x of CCo.sort)add('center','ext',`仕分けの人（${x.label}・${x.h}時間）`,x.yen);}
+  else add('center','ext','倉庫と仕分け（センター全体の決まった費用）',M.centerFixedDay||M.centerFixed||0);
+  add('factory','ext','材料・人件費・電気など（自社の店の分）',(F*(1-take)+SF)*(M.factoryCost??0.7));
+  const runs=(o.haiso&&o.haiso.runs)||[];let fC=0,fF=0,xC=0,xF=0,hc=0;
+  for(const r of runs){if(r.company==='haiso'){if(r.payer==='factory')fF+=r.fare||0;else fC+=r.fare||0;hc+=r.cost||0;}else{if(r.payer==='factory')xF+=r.fee||0;else xC+=r.fee||0;}}
+  if(o.haiso&&o.haiso.sum)hc+=(o.haiso.sum.truckDay||0)+(o.haiso.sum.labor||0);
+  add('center','haiso','運賃（センター→店）',fC);add('factory','haiso','運賃（工場→センター）',fF);
+  add('center','ext','他社の応援便',xC);add('factory','ext','他社の追いかけ便',xF);
+  add('haiso','ext','燃料・運転手・トラック',hc);
+  const co={};for(const k of [...ids,'center','factory','haiso'])co[k]={in:0,out:0,net:0,inExt:0,inGrp:0,outExt:0,outGrp:0};const ext={in:0,out:0,net:0};let grp=0;
+  for(const x of inv){const fi=!!co[x.from],ti=!!co[x.to];if(fi&&ti)grp+=x.yen;
+    if(ti){co[x.to].in+=x.yen;co[x.to][fi?'inGrp':'inExt']+=x.yen;}else ext.out+=x.yen;
+    if(fi){co[x.from].out+=x.yen;co[x.from][ti?'outGrp':'outExt']+=x.yen;}else ext.in+=x.yen;}
+  for(const k in co)co[k].net=co[k].in-co[k].out;ext.net=ext.in-ext.out;
+  return {v:1,day:o.day,live:!!o.live,inv,co,ext,grp,names:Object.fromEntries((o.stores||[]).map(s=>['store:'+s.id,s.name]))};}
 /* 店を増やしたら（試算・2026-11-09 にやり直し）：1店の1日（L1）を n 店ぶんにし、外の配達先を m 足す。
    配送会社は hzFor(n,m)（並べた便の計算。運転手はシフトで払う）。センターは「運営の人＋建物（決まった費用）＋仕分けの人（扱う個数で増える）」。
    外の配達先はセンターに配達の料金を払う（品物の代金は入れない）。返すもの：[{n, m, carts, pieces, haiso, center, centerCost, factory, kiosk1, group}] */
@@ -59,7 +96,7 @@ function project(M,L1,hzFor,ns,m){m=m||0;const k1=L1.co.kiosk,E=M.ext||{fee:{}};
 function sumDays(list){const co={},inv={};let n=0;for(const L of list){if(!L)continue;n++;for(const k in L.co){const c=co[k]||(co[k]={in:0,out:0,net:0});c.in+=L.co[k].in;c.out+=L.co[k].out;c.net+=L.co[k].net;}
   for(const x of L.inv){const key=x.from+'|'+x.to+'|'+x.what;(inv[key]||(inv[key]={from:x.from,to:x.to,what:x.what,yen:0})).yen+=x.yen;}}
   return {n,co,inv:Object.values(inv)};}
-const api={dayLedger,sumDays,project,centerCost};
+const api={dayLedger,groupLedger,sumDays,project,centerCost};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.MoneyCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
