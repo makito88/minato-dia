@@ -364,7 +364,7 @@ function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,
 function fxCtx(res,Tn){const S=V.st,day=gDay(),c=gCond();return {res,Tn,cfg:V.cfg,st:S,cond:{wx:c.wx,season:c.season,day:c.day},port:g(()=>SEAS.portPlan,null),sd:samedayNow(S,day,c)||null,fan:!!V.fan,local:V.localDay===res.day?V.local:null,plan:V.plan||null};}
 function click(){if(innerWidth<760){V.half=V.half==='reg'?'ent':V.half==='ent'?'all':'reg';const t=document.getElementById('ksTop');if(t)t.dataset.k='';refresh();}}   // スマホ：押すと、レジ側 → 入口側 → 店ぜんぶ
 
-window.MinatoStoreView={render,panel,draw,click,get ready(){return !!V.cfg;},get state(){return V.st;},get cfg(){return V.cfg;},
+window.MinatoStoreView={render,panel,draw,click,get ready(){return !!V.cfg;},get state(){return V.st;},get cfg(){return V.cfg;},get sdPlan(){return V.sd||null;},get storeName(){return (V.M&&V.M.store&&V.M.store.name)||'港駅の店';},
   // 緑ヶ丘の店の画面（js/kiosk-view.js）が運行日の始めに呼ぶ（橋 minato-to-group）：前の日を締め、その日の注文を決めてから、注文の数を渡す
   group:{prep(day){checkDay();omToday();const S=V.st;if(!S||!V.cfg||!window.CenterCore||S.closed!==day-1)return null;if(S.om&&S.om.mode==='auto'&&S.om.day!==day)return null;
       const c=gCond(),cond={day:c.day,wx:c.wx,season:c.season};let why=V.omP&&V.omP.day===day?V.omP.why:null;

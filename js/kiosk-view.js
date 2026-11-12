@@ -1008,6 +1008,20 @@ window.minatoKiosk={get state(){return V.st;},refresh(){if(V.open)render(true);}
     const on=z(),off=z();for(let i=0;i<n;i++){const ci={...c,day:c.day+i*7};acc(on,KC.simulate(V.cfg,V.st,ci));acc(off,KC.simulate(V.cfg,V.st,{...ci,fx:undefined}));}
     return {link:linkNow(V.st.st,gCond()),n,on,off};},
   get ccfg(){return V.ccfg;},
+  /* センターの画面の「流れ」（js/center-flow.js・2026-11-12）：工場・センター・配送会社・2店が出した数を、その運行日の分だけ集めて渡す（ここでは何も計算し直さない）。
+     工場＝納品書（その夜の結果）・センター＝data/center.json の時刻表（予定）・配送会社＝HaisoCore.dayPlan（便と勤務）・店＝その日の計算の届いた出来事 */
+  flowInfo(){if(!V.st||!V.ccfg||!CC)return {err:'まだ売店がありません。売店を出すと、流れが見えます。'};const day=gDay(),lg=loadOrders(),d=lg.days.find(x=>x.day===day)||null;ensureRes();
+    const F=V.fD||null,lineOf={},start={};if(F&&window.FactoryNight){g(()=>{const m=FactoryNight.kioskMap(F);for(const p in m)lineOf[p]=m[p].line;});
+      const cf=g(()=>FactoryNight.cfgsFrom(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),{});
+      for(const L of FactoryNight.LINES){const dd=L.id==='rice'?(F.defaults||{}):((F[L.id]||{}).defaults||{}),c=cf[L.id]||{};const v=c.start??dd.start??(L.id==='rice'?F.start:null);if(v!=null)start[L.id]=v;}}
+    const hi=window.minatoKiosk.haisoInput(day),H=g(()=>minatoHaiso.cfg,null),hz=hi&&H&&window.HaisoCore?g(()=>HaisoCore.dayPlan(H,V.ccfg,CC,hi),null):null;
+    const tot=o=>Object.values(o||{}).reduce((a,b)=>a+(b||0),0),stores=[];
+    const add=(key,name,res,cfg)=>{if(!res||res.day!==day)return;stores.push({key,name,dl:res.ev.filter(e=>e.k==='delivery'&&!e.express&&!e.addOn&&!e.local).map(e=>({name:e.name,t:e.t,late:e.late||0,n:tot(e.items),sameday:!!e.sameday})),
+      bins:(cfg.deliveries||[]).map(x=>({name:x.name,t:x.t}))});};
+    add(CC.storeKey(V.st),`${stName(V.st.st)}駅${V.rcfg.places[V.st.place].name}店`,V.res,V.cfg);
+    let sd=null;if(portIn(day)){const P=MSV2().state,pc=MSV2().cfg;add(CC.storeKey(P),g(()=>MSV2().storeName,'港駅の店')||'港駅の店',g(()=>MSV2().today,null),pc||{});sd=g(()=>MSV2().sdPlan,null);}
+    return {day,now:gT(),slip:d&&d.slip&&!d.slip.err?d.slip:null,orders:d?d.orders:{},factoryNo:d&&d.factory?d.factory.no:null,lineOf,start,flow:V.ccfg.flow||{},fix:(V.ccfg.times&&V.ccfg.times.factoryFix)||1200,
+      deadline:F&&F.deadline,ship:F&&F.ship&&F.ship.depart,haiso:hz,stores,sd,fmt:fmtT};},
   get mcfg(){return V.mcfg;},
   // お金の流れの画面（js/money-view.js）：その日のまとめ。きょうは売店の計算からの見込み、前の日は dia-money
   moneyDay(day){day=day??gDay();if(day===gDay()){const r=ensureRes();return r&&r.day===day?moneyOf(r,true):null;}return loadMoney().days.find(x=>x.day===day)||null;},
