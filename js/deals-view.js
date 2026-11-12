@@ -3,7 +3,7 @@
    ・センターの画面（js/center-view.js）の2つ目のタブ。相談の一覧（受信箱）→ 中身と見込み → 返事、契約中の取引。
    ・計算は js/deals-core.js。見込みの数は minatoKiosk.flowInfo()（納品書の slip.lines・HaisoCore.dayPlan の便）から読むだけ。
    ・保存は dia-deals（{v:1,seed,d0,dec,deals}）。ここで書くのは返事をしたときだけ。
-   ・第1回は見込みだけ。工場・配送・お金にはまだ効かない（画面にもそう書く）。
+   ・第2回（2026-11-12）から販売の契約は工場とお金につながる（js/links/deals-to-factory.js・deals-to-money.js。結果は c.got）。配送の契約は第3回まで見込みだけ。
    ===================================================================== */
 (function(){
 'use strict';
@@ -88,6 +88,8 @@ const CSS=`.dw{display:grid;gap:12px;--sell:#b8621b;--haul:#1f7a8c;--okc:#2f7d4f
 .dw .ctr.sell{--k:var(--sell)}.dw .ctr.haul{--k:var(--haul)}.dw .ctr.done{opacity:.6}
 .dw .ctr .r{text-align:right;font-family:var(--f-mono);font-size:13px;white-space:nowrap}.dw .ctr small{color:var(--muted);font-size:11px;grid-column:1/-1;line-height:1.5}
 .dw .bar2{grid-column:1/-1;height:5px;border-radius:3px;background:color-mix(in srgb,var(--line) 60%,transparent);overflow:hidden}.dw .bar2 u{display:block;height:100%;background:var(--k)}
+.dw .gs{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 1px}.dw .gs span{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:7px;padding:3px 7px;background:var(--paper);white-space:nowrap}
+.dw .gs b{font-family:var(--f-mono);font-size:12.5px;color:var(--ink);font-weight:600}.dw .gs .o b{color:var(--okc)}.dw .gs .x{border-color:color-mix(in srgb,var(--ngc) 50%,transparent)}.dw .gs .x b{color:var(--ngc)}.dw .gs .l{border-style:dashed}
 .dw details{border:1px solid var(--line);border-radius:12px;padding:7px 12px;background:var(--panel)}.dw summary{cursor:pointer;font-size:13px;font-weight:700}
 .dw .src{font-size:11px;color:var(--muted);line-height:1.65}
 @media (max-width:860px){.dw .dw-main{grid-template-columns:minmax(0,1fr)}.dw .dw-det{position:static}}
@@ -97,6 +99,7 @@ const CSS=`.dw{display:grid;gap:12px;--sell:#b8621b;--haul:#1f7a8c;--okc:#2f7d4f
 function inputs(){const I=g(()=>minatoKiosk.flowInfo(),null);if(!I||I.err)return {err:I&&I.err||'売店の画面を読み込み中です'};
   const F={lines:(I.slip&&I.slip.lines)||{},start:I.start||{},deadline:I.deadline,own:{}};
   if(I.slip&&I.slip.items)for(const pid in I.slip.items){const L=I.lineOf[pid];if(L)F.own[L]=(F.own[L]||0)+(I.slip.items[pid][0]||0);}
+  F.dealIn={};if(I.slip&&I.slip.deals)for(const id in I.slip.deals)for(const pid in I.slip.deals[id].it){const L=I.lineOf[pid];if(L)F.dealIn[L]=(F.dealIn[L]||0)+(I.slip.deals[id].it[pid][0]||0);}   /* 今夜の納品書にもう入っている契約の分（第2回） */
   const P={runs:(I.haiso&&I.haiso.runs)||[],trucks:g(()=>minatoKiosk.ccfg.slip.trucks,[]),H:g(()=>minatoHaiso.cfg,null)||{}};
   return {F,P,slipNo:I.slip&&I.slip.no,day:I.day};}
 
@@ -142,7 +145,7 @@ function detail(o,inp){const C=V.cfg,we=gWe(),stn=s=>(C.stations||{})[s]||s,day=
       if(x.na)outl=`<div class="sec"><h5>工場（港浜フーズ）の見込み<span class="v na">まだ</span></h5><p class="say">${esc(x.na)}</p></div>`;
       else{const vd={ok:'間に合う',tight:'ぎりぎり',over:'足りない'}[x.fit];
         outl=`<div class="sec"><h5>工場（港浜フーズ）${esc(x.lineName)}のライン<span class="v ${x.fit}">${vd}</span></h5>${facBar(x)}
-          <p class="say">今夜の${esc(x.lineName)}は <b>${N(x.order)}</b>${x.line==='sand'?'パック':'個'}（うち自社2店 ${N(x.own)}）。最後の品が ${hm(x.last)}、あと <b>${Math.max(0,x.spareMin)}</b>分 のばせる（締め切り・人の勤務）。この速さ（1分に約${x.rate?x.rate.toFixed(1):'—'}）なら、あと約 <b>${N(x.spare)}</b> 作れる見込み${x.cm?`（引き受けた契約の ${N(x.cm)} を引いた数）`:''}。</p>
+          <p class="say">今夜の${esc(x.lineName)}は <b>${N(x.order)}</b>${x.line==='sand'?'パック':'個'}（うち自社2店 ${N(x.own)}${x.din?`・契約の取引先 ${N(x.din)}`:''}）。最後の品が ${hm(x.last)}、あと <b>${Math.max(0,x.spareMin)}</b>分 のばせる（締め切り・人の勤務）。この速さ（1分に約${x.rate?x.rate.toFixed(1):'—'}）なら、あと約 <b>${N(x.spare)}</b> 作れる見込み${x.cm?`（引き受けた契約の ${N(x.cm)} を引いた数）`:''}。</p>
           <p class="say">この相談は${we?'土日':'平日'} <b>${N(x.q)}</b>。${x.fit==='ok'?'締め切りまでに作れます。':`締め切りを約 <b>${x.overMin??'—'}</b>分 すぎる見込みです。${x.fit==='tight'?'足りない夜は、今までの取引先の分から減らせば間に合います。':'足りない夜は、契約の分も減ってしまいます。'}`}</p>
           <p class="say"><b>自社2店への影響：</b>足りない夜は 自社の売店 → 契約の取引先 → 今までの取引先 の順に作るので、自社の店の分は減りません。</p>
           <p class="say small">納品書 ${esc(inp.slipNo||'')} の結果から読んだ見込みです（工場の計算はやり直していません）。</p></div>`;}
@@ -153,11 +156,11 @@ function detail(o,inp){const C=V.cfg,we=gWe(),stn=s=>(C.stations||{})[s]||s,day=
       <dt>曜日</dt><dd>${esc(((C.haul.dow||[]).find(d=>d.id===o.dow)||{}).name||'')}</dd><dt>運賃</dt><dd>${N(o.fare)}円/日</dd><dt>期間</dt><dd>${o.days}運行日（お試しは${C.trial}日）</dd><dt>相手</dt><dd>${esc(pt.note||'')}</dd></dl>`;
     if(inp.err)outl=`<div class="sec"><h5>配送の見込み<span class="v na">まだ</span></h5><p class="say">${esc(inp.err)}</p></div>`;
     else{const x=DC().haulOutlook(C,o,inp.P,we);money={rev:x.fare,cost:x.cost,profit:x.profit};outl=haulSec(x,o,'配送（みなと川運輸）の見込み');}}
-  const mon=money?`<div class="sec"><h5>お金の見込み（1日・${o.kind==='sell'?'工場':'配送会社'}）</h5><div class="money"><div><b>${Y(money.rev)}</b><span>${o.kind==='sell'?'売上（卸値）':'運賃'}</span></div><div class="m"><b>${Y(money.cost)}</b><span>${o.kind==='sell'?'作る費用（仮の割合）':'増える燃料・運転手・応援'}</span></div><div class="${money.profit>=0?'p':'m'}"><b>${Y(money.profit)}</b><span>もうけ</span></div></div>
+  const mon=money?`<div class="sec"><h5>お金の見込み（1日・${o.kind==='sell'?'工場':'配送会社'}）</h5><div class="money"><div><b>${Y(money.rev)}</b><span>${o.kind==='sell'?'売上（卸値）':'運賃'}</span></div><div class="m"><b>${Y(money.cost)}</b><span>${o.kind==='sell'?(money.fee?`作る費用（仮の割合）＋港浜急送 ${N(money.fee)}円`:'作る費用（仮の割合）'):'増える燃料・運転手・応援'}</span></div><div class="${money.profit>=0?'p':'m'}"><b>${Y(money.profit)}</b><span>もうけ</span></div></div>
     <p class="say small">${period}日つづけると、もうけは約 ${Y(money.profit*period)}（${we?'土日':'平日'}の数で計算）。${o.kind==='sell'&&money.ownRev?`同じ数を自社の売店に出したときの工場の手取りは ${Y(money.ownRev)}。`:''}</p></div>`:'';
   const acts=`<div class="sec"><h5>返事</h5><div class="acts"><button type="button" class="go" data-act="accept" data-mode="trial">お試し${C.trial}日で引き受ける</button><button type="button" class="go2" data-act="accept" data-mode="keep">${o.days}日 続けて引き受ける</button>
     ${o.st2==='hold'?'':'<button type="button" data-act="hold">保留（期限まで）</button>'}<button type="button" class="no" data-act="decline">断る</button></div>
-    <p class="say small">契約は次の運行日から。数は前の日の ${hm(C.fixAt)} に確定する形です。<b>第1回は見込みだけ</b>で、工場・配送・お金にはまだ反映されません（第2・3回でつなぎます）。</p></div>`;
+    <p class="say small">契約は次の運行日から。数は前の日の ${hm(C.fixAt)} に確定する形です。${o.kind==='sell'?'販売の契約は、次の運行日から工場の注文（取引先・契約の行）とお金（取引先 → 工場の請求書）に入ります。':'<b>配送の契約はまだ見込みだけ</b>で、配送の便・お金には入りません（第3回でつなぎます）。'}</p></div>`;
   return `<div class="dw-det ${o.kind}"><div class="top"><h4>${esc(o.name)}</h4><p>${o.kind==='sell'?'販売の相談（工場が品を売る）':'配送の相談（みなと川運輸が荷物を運ぶ）'}・${o.via==='intro'?'問屋からの紹介':'相手からの依頼'}・第${o.day}運行日 ${hm(o.t)} に届いた</p></div>
     <div class="sec"><h5>条件</h5>${terms}</div>${outl}${mon}${acts}</div>`;}
 
@@ -167,8 +170,12 @@ function contractsHtml(S,day){const C=V.cfg,stn=s=>(C.stations||{})[s]||s,list=D
     const m=c.kind==='sell'?DC().sellMoney(C,o,we):{profit:o.fare};const st={on:'契約中',soon:'あすから',done:'終わった'}[c.state];
     const w=c.kind==='sell'?`${esc(DC().LN[o.line]||o.line)} ${o.items.map(i=>esc(i.name)).join('・')}　平日 ${N(DC().qtyOf(o,false))}・土日 ${N(DC().qtyOf(o,true))}`:`かご車 ${o.carts}台 → ${esc(stn(o.to))}駅 ${hm(o.win[0])}〜${hm(o.win[1])}`;
     return `<div class="ctr ${c.kind} ${c.state}"><span><b>${esc(o.name)}</b>　<span class="tg">${st}</span> <span class="tg">${c.trial?'お試し':'続ける'}</span></span><span class="r">${c.kind==='sell'?'もうけ':'運賃'} ${Y(m.profit)}/日</span>
-      <small>${w}<br>第${c.from}〜${c.to}運行日（${len}日・${gone}日目）・見込みのもうけ。日ごとの届けた数・足りなかった数は、工場・配送につないでから（第2・3回）</small><span class="bar2"><u style="width:${(gone/len*100).toFixed(1)}%"></u></span></div>`;}).join('')}</div>`;}
+      <small>${w}<br>第${c.from}〜${c.to}運行日（${len}日・${gone}日目）・${c.kind==='sell'?gotLine(c):'見込みの運賃。日ごとの結果は配送につないでから（第3回）'}</small><span class="bar2"><u style="width:${(gone/len*100).toFixed(1)}%"></u></span></div>`;}).join('')}</div>`;}
 
+/* 販売の契約の結果（第2回）：納品書のあとに積み上げた数（c.got）。まだ1日もなければ見込み */
+function gotLine(c){const x=c.got;if(!x||!x.n)return '見込みのもうけ。結果は契約の始まる運行日の納品書から';
+  const ld=x.ld||[0,0,0],sh=x.q-x.s,pc=x.q?x.s/x.q*100:100;
+  return `工場の納品書から（実際の結果）</small><span class="gs"><span><b>${x.n}</b>日</span><span>届けた <b>${N(x.s)}</b>／${N(x.q)}</span><span class="${sh>0?'x':'o'}">${sh>0?`足りなかった <b>${N(sh)}</b>`:'不足 <b>0</b>'}</span><span>届けた割合 <b>${pc.toFixed(pc<100?1:0)}%</b></span><span>もうけ <b>${Y(x.y)}</b></span><span class="l">第${ld[0]}運行日 ${N(ld[2])}／${N(ld[1])}</span></span><small>`;}
 function html(){if(!DC())return '<div class="card empty">窓口の計算を読み込み中です</div>';ensure();if(!V.cfg)return `<div class="card empty">${V.err?esc(V.err):'取引の相談窓口を開いています…'}</div>`;
   const S=state(),day=gDay(),now=gNow();DC().prune(V.cfg,S,day);
   const box=DC().inbox(V.cfg,V.cat,S,day,now),inp=inputs(),we=gWe();
@@ -180,7 +187,7 @@ function html(){if(!DC())return '<div class="card empty">窓口の計算を読�
   return `<div class="dw">
     <div class="dw-hero"><h3>相談の受信箱</h3><p>ほかの会社から「品を売ってほしい」「荷物を運んでほしい」という相談が届きます。工場（港浜フーズ）のラインの空きと、みなと川運輸の便のかご車の空きを見て、引き受けるか決めます。相談は運行日ごとに決まった乱数で届きます（相手の名前はすべて架空・数は仮）。</p>
       <div class="dw-kpi"><div><b>${box.length}</b><span>返事を待つ相談</span></div><div class="s"><b>${cnt('sell')}</b><span>販売の相談</span></div><div class="h"><b>${cnt('haul')}</b><span>配送の相談</span></div><div><b>${Y(prof)}</b><span>契約中・これから ${on.length}件の1日（販売のもうけ＋配送の運賃・見込み）</span></div></div></div>
-    <div class="dw-note"><b>第1回</b><span>いまは見込みだけです。引き受けても、工場の注文・配送の便・お金にはまだ入りません（販売は第2回、配送は第3回でつなぎます）。</span></div>
+    <div class="dw-note"><b>第2回</b><span>販売の契約は、工場の注文とお金につながりました（足りない夜は 自社の売店 → 契約の取引先 → 今までの取引先 の順に作ります）。配送の契約は、まだ見込みだけです（第3回でつなぎます）。</span></div>
     <div class="dw-tools"><div class="dw-seg" role="group" aria-label="絞り込み">${[['all','すべて',box.length],['sell','販売',cnt('sell')],['haul','配送',cnt('haul')],['hold','保留',cnt('hold')]].map(([k,l,n])=>`<button type="button" data-flt="${k}" aria-pressed="${V.flt===k}">${l} ${n}</button>`).join('')}</div>
       <span class="src">第${day}運行日・${we?'土日':'平日'}の数で見積もり</span></div>
     <div class="dw-main"><div class="dw-list">${shown.map(card).join('')||`<div class="dw-empty">${box.length?'この絞り込みの相談はありません。':'いま返事を待つ相談はありません。<br>相談は運行日ごとに 0〜2件 届きます。'}</div>`}</div>

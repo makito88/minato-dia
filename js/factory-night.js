@@ -34,15 +34,16 @@ function cfgsFrom(getItem){const out={};for(const L of LINES){let c={};try{c=(JS
 function madeOf(rows){const o={};for(const r of rows||[]){const n=(r.shipped||0)+(r.surplus||0)+(r.late||0)+(r.bad||0);if(n>0)o[r.id]=Math.round(n);}return o;}
 /* その夜をラインごとに回す（お弁当は頼まれた夜だけ）。o={day,no,items,season}。D は（取引先などを入れた）写し。返すもの：ラインごとと品ごとの結果 */
 function runNight(D,cfgs,o){const sp=splitItems(D,o.items),m=kioskMap(D),seed=seedOf(o.day),season=seasonOf(o.season);
-  const lines={},rows={};
+  const lines={},rows={},dl=o.deal?splitItems(D,o.deal).made:{};   // 契約の注文（取引の相談窓口 第2回・橋 deals-to-factory）。なければ前と同じ
   for(const L of LINES){const C=root[L.core];if(!C)continue;const mine={};for(const pid in sp.made)if(m[pid].line===L.id)mine[pid]=sp.made[pid];
-    if(L.opt&&!Object.keys(mine).length)continue;   // お弁当：センターから頼まれていない夜は、納品書に載せない（緑ヶ丘の店だけの記録は前と同じ）
-    const cfg=Object.assign({},cfgs&&cfgs[L.id]||{},{seed,season,center:mine,centerNo:o.no||null});
+    const dm={};for(const pid in dl)if(m[pid].line===L.id)dm[pid]=dl[pid];const hasD=Object.keys(dm).length>0,both=Object.assign({},mine);for(const pid in dm)both[pid]=(both[pid]||0)+dm[pid];
+    if(L.opt&&!Object.keys(both).length)continue;   /* お弁当：センターからも契約からも頼まれていない夜は、納品書に載せない（緑ヶ丘の店だけの記録は前と同じ） */
+    const cfg=Object.assign({},cfgs&&cfgs[L.id]||{},{seed,season,center:both,centerNo:hasD?(o.no||'発注')+'＋取引先・契約':(o.no||null)});
     const S=C.simulate(D,cfg).summary;lines[L.id]={order:S.order,shipped:S.shipped,short:S.short,lastDone:S.lastDone!=null?S.lastDone:S.lastPack!=null?S.lastPack:null};
     const byId={};for(const r of L.rows(S)||[])byId[r.id]=r;
     lines[L.id].mk=madeOf(L.rows(S));   // 原材料（第5回）：品ごとに作った数。米は炊いた釜の数とはじいた数も。計算は変えず、結果を写すだけ
     if(L.id==='rice'){lines.rice.pots=S.batches|0;lines.rice.rej=(S.rej&&S.rej.all)|0;}if(L.id==='sand')lines.sand.own=(cfg.bread||(D.sand&&D.sand.defaults||{}).bread)==='own'?1:0;
-    for(const pid in mine){const r=byId[m[pid].id];if(!r)continue;rows[pid]={line:L.id,order:r.order,shipped:r.shipped,late:Math.max(0,Math.min((r.order||0)-(r.shipped||0),r.late||0)),c:mine[pid]};}}   // late：締め切りのあとにできた数（足りない分まで）
+    for(const pid in both){const r=byId[m[pid].id];if(!r)continue;rows[pid]={line:L.id,order:r.order,shipped:r.shipped,late:Math.max(0,Math.min((r.order||0)-(r.shipped||0),r.late||0)),c:mine[pid]||0};if(dm[pid])rows[pid].k=dm[pid];}}   // c：自社の店の分・k：契約の分   // late：締め切りのあとにできた数（足りない分まで）
   return {seed,season,lines,rows,stock:sp.stock};}
 
 /* センターの分（自社の売店）の出荷：売店を最優先（docs/factory-discussion.md の方針）。工場が足りないときは、ほかの店・取引先の分から減らす。
@@ -68,22 +69,34 @@ function lateRule(D,ccfg,night){const LR=(ccfg&&ccfg.slip&&ccfg.slip.late)||null
   const run=R.map(x=>({bin:x.bin,dep:x.depart>=1440?x.depart:x.depart+1440})).find(x=>x.dep>=ready);
   return run?{mode:'chase',wait:0,extra,at,bin:run.bin,fee:LR.fee||0,end:endT}:{mode:'lost',wait:0,extra:{},end:endT};}
 function slip(D,ccfg,day,night){const f=day.factory||{},items={},stores={},S=ccfg&&ccfg.slip||{};let sn=0,sq=0;const LT=lateRule(D,ccfg,night);
-  for(const pid in night.rows){const r=night.rows[pid],e=LT.extra[pid]||0,s=centerShip(r)+(LT.mode==='wait'?e:0),ch=LT.mode==='chase'?e:0;items[pid]=ch?[r.c,s,ch]:[r.c,s];if(s+ch<r.c){sn++;sq+=r.c-s-ch;}
+  for(const pid in night.rows){const r=night.rows[pid];if(!(r.c>0))continue;const e=LT.extra[pid]||0,s=centerShip(r)+(LT.mode==='wait'?e:0),ch=LT.mode==='chase'?e:0;items[pid]=ch?[r.c,s,ch]:[r.c,s];if(s+ch<r.c){sn++;sq+=r.c-s-ch;}
     const parts={};for(const k in day.orders||{}){const q=(day.orders[k].factory||{})[pid]||0;if(q>0)parts[k]=q;}
     const got=share(s,parts),rest={};for(const k in parts)rest[k]=Math.max(0,parts[k]-(got[k]||0));const gotC=ch?share(ch,rest):{};
     for(const k in parts){const st=stores[k]||(stores[k]={no:day.orders[k].no,items:{},short:{n:0,q:0},truck:truckOf(ccfg,k)});const c2=gotC[k]||0;
       st.items[pid]=c2?[parts[k],got[k]||0,c2]:[parts[k],got[k]||0];if((got[k]||0)+c2<parts[k]){st.short.n++;st.short.q+=parts[k]-(got[k]||0)-c2;}}}
   for(const k in day.orders||{})for(const pid in night.stock){const q=(day.orders[k].factory||{})[pid]||0;if(!q)continue;const st=stores[k]||(stores[k]={no:day.orders[k].no,items:{},short:{n:0,q:0},truck:truckOf(ccfg,k)});(st.stock||(st.stock={}))[pid]=q;}
-  return {no:'N'+String(day.day).padStart(4,'0'),order:f.no||null,day:day.day,seed:night.seed,season:night.season,
-    ready:D.deadline,at:D.ship&&D.ship.depart,bin:S.bin||null,items,short:{n:sn,q:sq},late:LT.mode==='none'?null:{mode:LT.mode,wait:LT.wait,end:LT.end??null,at:LT.at??null,bin:LT.bin??null,fee:LT.fee??0},stock:night.stock,lines:night.lines,stores};}
+  const deals=dealShip(day,night);
+  const out={no:'N'+String(day.day).padStart(4,'0'),order:f.no||null,day:day.day,seed:night.seed,season:night.season,
+    ready:D.deadline,at:D.ship&&D.ship.depart,bin:S.bin||null,items,short:{n:sn,q:sq},late:LT.mode==='none'?null:{mode:LT.mode,wait:LT.wait,end:LT.end??null,at:LT.at??null,bin:LT.bin??null,fee:LT.fee??0},stock:night.stock,lines:night.lines,stores};
+  if(deals)out.deals=deals;return out;}
+/* 契約の取引先の出荷（取引の相談窓口 第2回）：足りない夜の順番は 自社の売店 → 契約の取引先 → 今までの取引先。
+   契約の分＝その品の出荷 − 自社の店の分（締め切りまでにできた数から。追いかけ便にはのせない）。契約が2つ以上なら注文の割合で割る。
+   返すもの：{契約id:{it:{品:[注文,出荷]}}}（契約の注文がない日は null＝納品書は前と同じ形） */
+function dealShip(day,night){const by=day.deal&&day.deal.by;if(!by)return null;const out={};
+  for(const pid in night.rows){const r=night.rows[pid];if(!r.k)continue;const left=Math.max(0,Math.min(r.k,(r.shipped||0)-centerShip(r))),parts={};
+    for(const id in by){const q=by[id][pid]||0;if(q>0)parts[id]=q;}const got=share(left,parts);
+    for(const id in parts)((out[id]||(out[id]={it:{}})).it)[pid]=[parts[id],got[id]||0];}
+  for(const id in by)if(!out[id])out[id]={it:Object.fromEntries(Object.entries(by[id]).map(([p,q])=>[p,[q,0]]))};   /* 工場で作っていない品の契約は届かない */
+  return out;}
 
 /* 工場の画面用：dia-orders の文字（getItem で読む）から、いちばん新しいセンターの発注を夜の条件に足す。
    画面の条件（cfg）は書きかえず、写しを返す。保存する条件には center を入れない */
 function readLog(getItem){try{const o=JSON.parse(getItem('dia-orders')||'null');return o&&o.v===1&&Array.isArray(o.days)?o:null;}catch(e){return null;}}
-function withCenter(cfg,log){const d=latest(log);if(!d)return cfg;return Object.assign({},cfg,{center:d.factory.items,centerNo:d.factory.no});}
+function withCenter(cfg,log){const d=latest(log);if(!d)return cfg;const it=Object.assign({},d.factory.items),dI=d.deal&&d.deal.items;if(dI)for(const pid in dI)it[pid]=(it[pid]||0)+dI[pid];   // 契約の注文（第2回）も足す
+  return Object.assign({},cfg,{center:it,centerNo:dI?d.factory.no+'＋取引先・契約':d.factory.no});}
 function centerNote(D,log,lineId,unit){const d=latest(log);if(!d)return '';const m=kioskMap(D);let n=0;for(const pid in d.factory.items)if(m[pid]&&m[pid].line===lineId)n+=d.factory.items[pid];
   if(!n)return `センターの発注 ${d.factory.no}（第${d.day}運行日）には、このラインの品はありません。`;
   return `センターの発注 ${d.factory.no}（第${d.day}運行日）の${n}${unit||'個'}を、20:00の注文に足しています（ほかの店・取引先の分は夜の番号どおり）。${d.slip&&!d.slip.err?`納品書 ${d.slip.no} は夜の番号 ${d.slip.seed} の夜で作りました。`:''}`;}
-root.FactoryNight={madeOf,lateRule,readLog,withCenter,centerNote,LINES,kioskMap,seasonOf,seedOf,latest,splitItems,cfgsFrom,runNight,centerShip,share,truckOf,slip};
+root.FactoryNight={dealShip,madeOf,lateRule,readLog,withCenter,centerNote,LINES,kioskMap,seasonOf,seedOf,latest,splitItems,cfgsFrom,runNight,centerShip,share,truckOf,slip};
 if(typeof module!=='undefined')module.exports=root.FactoryNight;
 })(typeof window!=='undefined'?window:globalThis);

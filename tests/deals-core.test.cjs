@@ -1,4 +1,4 @@
-// 取引の相談窓口 第1回（2026-11-12）：同じ条件なら同じ相談・保存の形と大きさ・見込みの計算・まだ工場や配送には効かない
+// 取引の相談窓口 第1回（2026-11-12）：同じ条件なら同じ相談・保存の形と大きさ・見込みの計算（第2回から、窓口を読むファイルの約束を8に）
 const assert=require('node:assert/strict');
 const DC=require('../js/deals-core.js');
 const F=require('../data/factory.json'),K=require('../data/kiosk.json'),M=require('../data/minato-store.json'),cfg=require('../data/deals.json'),H=require('../data/haiso.json'),C=require('../data/center.json');
@@ -48,7 +48,9 @@ h=DC.haulOutlook(cfg,{carts:5,to:'C',win:[330,420],cargo:'dry',dow:'all',fare:80
 h=DC.haulOutlook(cfg,{carts:1,to:'F',win:[250,320],cargo:'dry',dow:'all',fare:8000},P,false);assert.equal(h.mode,'first');assert.ok(h.ownDelay>=H.handleMin,'先に寄ると自社の店が遅れる');
 h=DC.haulOutlook(cfg,{carts:1,to:'C',win:[330,420],cargo:'frozen',dow:'all',fare:8000},P,false);assert.equal(h.mode,'other');
 h=DC.haulOutlook(cfg,{carts:1,to:'P',win:[330,420],cargo:'dry',dow:'all',fare:8000},P,false);assert.equal(h.mode,'none','便のないトラック');
-// 8) 第1回の約束：窓口はまだ工場・配送・お金に何も渡さない（ほかの計算のファイルが DealsCore も dia-deals も読まない）
+// 8) 第2回からの約束：窓口を読むのは、橋のファイル（js/links/deals-to-*.js）と、運行日の始めと納品書のあとに橋を呼ぶ kiosk-view.js だけ。
+//    配送会社・お金の計算・2店の計算のファイルは、窓口を直接読まない（配送は第3回）
 const fs=require('node:fs'),path=require('node:path');
-for(const f of fs.readdirSync(path.join(__dirname,'../js')).filter(f=>f.endsWith('.js')&&!f.startsWith('deals-')&&f!=='center-view.js')){const t=fs.readFileSync(path.join(__dirname,'../js',f),'utf8');assert.ok(!/DealsCore|dia-deals|DealsView/.test(t),f+' が窓口を読んでいる');}
+const allow=new Set(['center-view.js','kiosk-view.js']);
+for(const f of fs.readdirSync(path.join(__dirname,'../js')).filter(f=>f.endsWith('.js')&&!f.startsWith('deals-')&&!allow.has(f))){const t=fs.readFileSync(path.join(__dirname,'../js',f),'utf8');assert.ok(!/DealsCore|dia-deals|DealsView/.test(t),f+' が窓口を読んでいる');}
 console.log('deals-core.test ok');

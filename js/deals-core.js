@@ -4,7 +4,7 @@
    ・返事（引き受ける〈お試し7日／続ける〉・断る・保留）と契約を、保存 dia-deals（{v:1,...}）の形で持つ。相談そのものは保存せず、毎回作り直す。
    ・見込み：工場（ラインの空き・締め切り）と配送（便のかご車の空き・時刻・自社2店への影響）を、
      すでにある計算の結果（納品書 slip.lines・HaisoCore.dayPlan の便）から読んで出すだけ。工場や配送の計算をやり直さない。
-   ・第1回は見込みだけ。工場・配送会社・お金にはまだ何も渡さない（橋は第2回から）。
+   ・第1回は見込みだけ。第2回（2026-11-12）から、販売の契約の注文を工場へ（dayOrders）、届けた数からお金（dealMoney）。配送の契約は第3回。
    ・DOM も localStorage も使わない（node でも読める）。設定は data/deals.json（すべて仮）。
    ===================================================================== */
 (function(root){
@@ -68,17 +68,18 @@ function committed(S,line,day,we,skip){let n=0;for(const c of S.deals||[]){if(c.
 /* 工場の見込み。F＝{lines:{id:{order,shipped,short,lastDone}}, start:{id:分}, deadline:分, own:{id:自社2店の数}}（納品書と工場の設定から。読むだけ）
    空き＝（締め切り − 最後の品ができた時刻）× そのラインのその夜の速さ（出荷 ÷ 作った時間）− ほかの契約の分 */
 function sellOutlook(cfg,S,o,F,day,we){const q=qtyOf(o,we),money=sellMoney(cfg,o,we),res={q,money,line:o.line,lineName:LN[o.line]||o.line};
-  const L=F&&F.lines&&F.lines[o.line];if(!L||L.lastDone==null){res.na='今夜の工場の結果（納品書）がまだないので、ラインの空きは出せません。';return res;}
+  const L=F&&F.lines&&F.lines[o.line];if(!L||L.lastDone==null){res.na=F&&F.lines&&Object.keys(F.lines).length?`今夜は${res.lineName}のラインを動かしていません（自社の店からも契約からも頼まれていない夜）。引き受けると、契約の日はこのラインを動かします。`:'今夜の工場の結果（納品書）がまだないので、ラインの空きは出せません。';return res;}
   const st=F.start&&F.start[o.line],dl=F.deadline,run=st!=null?L.lastDone-st:null,rate=run>0?(L.shipped||0)/run:null;
-  const ext=(cfg.sell&&cfg.sell.extraMax)||120,spareMin=Math.round(Math.min(dl-L.lastDone,ext)),cm=committed(S,o.line,day,we,o.id),own=(F.own||{})[o.line]||0,others=Math.max(0,(L.order||0)-own);
+  const ext=(cfg.sell&&cfg.sell.extraMax)||120,spareMin=Math.round(Math.min(dl-L.lastDone,ext)),din=((F.dealIn||{})[o.line])||0,cm=Math.max(0,committed(S,o.line,day,we,o.id)-din),own=(F.own||{})[o.line]||0,others=Math.max(0,(L.order||0)-own-din);
   const full=(L.short||0)>Math.max(2,(L.order||0)*0.01),spare=rate&&!full?Math.max(0,Math.floor(rate*Math.max(0,spareMin))-cm):0;
-  Object.assign(res,{start:st,last:L.lastDone,deadline:dl,spareMin,rate,spare,cm,own,others,order:L.order||0,short:L.short||0});
+  Object.assign(res,{start:st,last:L.lastDone,deadline:dl,spareMin,rate,spare,cm,din,own,others,order:L.order||0,short:L.short||0});
   if(q<=spare){res.fit='ok';res.overMin=0;}
   else{const over=q-spare;res.overMin=rate?Math.ceil(over/rate):null;res.fit=over<=others?'tight':'over';res.over=over;}
   return res;}
 function sellMoney(cfg,o,we){const lc=((cfg.sell.lines||{})[o.line]||{}).cost||0.7;let rev=0,cost=0,own=0;
   for(const i of o.items){const q=we?i.we:i.wd,ref=i.ref!=null?i.ref:(i.price/0.85);rev+=q*i.price;cost+=q*ref*lc;own+=q*ref*0.85;}
-  return {rev:Math.round(rev),cost:Math.round(cost),profit:Math.round(rev-cost),ownRev:Math.round(own)};}
+  const fee=o.hand==='deliver'?((cfg.sell&&cfg.sell.deliverFee)||0):0;   /* 店まで届ける：自社の配送の契約までは港浜急送（第2回・仮） */
+  return {rev:Math.round(rev),cost:Math.round(cost+fee),fee,profit:Math.round(rev-cost-fee),ownRev:Math.round(own)};}
 
 /* 配送の見込み。P＝{runs:HaisoCore.dayPlan の runs, trucks:center.json の slip.trucks, H:data/haiso.json}（読むだけ）
    o＝{carts, to:駅, win:[早い,遅い], cargo, fare}。届け先は自社の店のあとに寄る。間に合わなければ「先に寄ると自社の店が○分遅れる」 */
@@ -104,7 +105,25 @@ function haulOutlook(cfg,o,P,we){const H=(P&&P.H)||{},res={carts:o.carts,fare:o.
   Object.assign(res,{mode:how,run:best,arrive:arr,wait:Math.max(0,W[0]-arr),addMin,km,help,ownDelay:how==='first'?best.ownDelay:0,cost,profit:res.fare-cost,opts});
   return res;}
 
-const api={hashS,rngOf,catalog,offersOn,newState,valid,inbox,decide,snap,stateOf,contracts,prune,qtyOf,committed,sellOutlook,sellMoney,haulOutlook,LN};
+/* ---------- 第2回（2026-11-12）：販売の契約を工場とお金へ（橋 deals-to-factory・deals-to-money。つなぐのは js/links/deals-to-*.js） ----------
+   その運行日の契約の注文：契約の数（平日 wd・土日 we）のまわりで、保存の種と運行日と契約の id から決まった乱数で少しゆれる（cfg.sell.wobble・仮）。
+   返すもの：{by:{契約id:{品:数}}, items:{品:合計}}（1つもなければ null） */
+function dayOrders(cfg,S,day,we){const z=((cfg&&cfg.sell)||{}).wobble??0.1,by={},items={};let n=0;if(!S)return null;
+  for(const c of S.deals||[]){if(c.kind!=='sell'||day<c.from||day>c.to)continue;const r=rngOf('dord',S.seed,day,c.id),o={};
+    for(const i of c.of.items||[]){const base=we?i.we:i.wd;const u=r();if(!(base>0))continue;const q=Math.max(0,Math.round(base*(1+(u*2-1)*z)));if(q>0){o[i.pid]=(o[i.pid]||0)+q;items[i.pid]=(items[i.pid]||0)+q;n++;}}
+    if(Object.keys(o).length)by[c.id]=o;}
+  return n?{by,items}:null;}
+/* 届けた数（納品書の slip.deals[id].it＝{品:[注文,出荷]}）からお金：売上＝出荷×卸値、作る費用＝出荷×仕入れ値×ラインの割合（仮）、
+   店まで届けるときは港浜急送の費用（cfg.sell.deliverFee・仮。自社で運ぶ配送の契約は第3回） */
+function dealMoney(cfg,c,it){const o=c.of,lc=(((cfg&&cfg.sell&&cfg.sell.lines)||{})[o.line]||{}).cost||0.7,P={};for(const i of o.items||[])P[i.pid]=i;let rev=0,cost=0,q=0,s=0;
+  for(const pid in it||{}){const a=it[pid],i=P[pid];q+=a[0]||0;s+=a[1]||0;if(!i)continue;const ref=i.ref!=null?i.ref:(i.price/0.85);rev+=(a[1]||0)*i.price;cost+=(a[1]||0)*ref*lc;}
+  const fee=o.hand==='deliver'&&s>0?((cfg&&cfg.sell&&cfg.sell.deliverFee)||0):0;
+  return {q,s,short:q-s,rev:Math.round(rev),cost:Math.round(cost),fee,profit:Math.round(rev-cost-fee)};}
+/* 契約に、その日の結果を足す（同じ日は2回足さない）。c.got＝{n:日数, q:頼まれた数, s:届けた数, y:もうけ, last:最後の日, ld:[日,頼まれた,届けた]} */
+function record(S,day,id,m){const c=(S.deals||[]).find(x=>x.id===id);if(!c)return false;const g=c.got||(c.got={n:0,q:0,s:0,y:0,last:0});if(day<=g.last)return false;
+  g.n++;g.q+=m.q;g.s+=m.s;g.y+=m.profit;g.last=day;g.ld=[day,m.q,m.s];return true;}
+
+const api={dayOrders,dealMoney,record,hashS,rngOf,catalog,offersOn,newState,valid,inbox,decide,snap,stateOf,contracts,prune,qtyOf,committed,sellOutlook,sellMoney,haulOutlook,LN};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.DealsCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
