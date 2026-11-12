@@ -18,7 +18,7 @@
 ## 機能ごとの説明（docs/features/）
 - [鉄道（路線図とダイヤ・乗客・イベント・音・乗車体験）](docs/features/rail.md)
 - [沿線くらしアンケート](docs/features/survey.md)
-- [路線のお絵かき帖](docs/features/route-editor.md)
+- [路線のお絵かき帖（描いた路線を地図の「バス・配送」で走らせる）](docs/features/route-editor.md)
 - [沿線暦と沿線だより](docs/features/ensen.md)（季節のできごとの仕組みもここ）
 - [駅ナカ リサーチ](docs/features/research.md)
 - [売店の運営](docs/features/kiosk.md)

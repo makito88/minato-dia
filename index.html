@@ -501,7 +501,7 @@ canvas{display:block;touch-action:manipulation}
   <section class="card mapcard" data-pane="run">
     <div class="maptool">
       <div class="layers" id="layers" role="group" aria-label="地図に表示するもの">
-        <button data-l="trains">列車</button><button data-l="stations">駅の利用</button><button data-l="heat">混雑ヒートマップ</button><button data-l="events">イベント</button>
+        <button data-l="trains">列車</button><button data-l="stations">駅の利用</button><button data-l="heat">混雑ヒートマップ</button><button data-l="events">イベント</button><button data-l="bus">バス・配送</button>
       </div>
       <span class="sub" id="mapnote"></span>
     </div>
@@ -1587,6 +1587,7 @@ function drawMap(){
     // waiting crowd indicator
     const w=waitingAt(s,T);if(w>20){const r=Math.min(14,2+Math.sqrt(w)/3.2);c.fillStyle=TH.warn;c.globalAlpha=0.5;c.beginPath();c.arc(lx+(c.measureText(st.name).width/2)+4+r,ly-4,r,0,Math.PI*2);c.fill();c.globalAlpha=1;}
   });
+  if(LAYERS.bus&&window.RouteRunView)RouteRunView.draw(c,T,dk);   // バス・配送（お絵かき帖の路線を時刻どおりに。見た目だけ）
   // depots count
   const inDepot={C:0,P:0},total={C:0,P:0};
   VIS=[];
@@ -1939,7 +1940,7 @@ function trafficSnapshot(T){const key=Math.floor(T*2);if(SNAP&&SNAP.D===D&&SNAP.
   return SNAP={D,key,T,hour:h,stations,segments,events};}
 
 /* ---------- 地図レイヤー ---------- */
-const LAYERS={trains:true,stations:false,heat:false,events:true};
+const LAYERS={trains:true,stations:false,heat:false,events:true,bus:true};   // bus：お絵かき帖で描いた路線（js/route-run.js。見た目だけ）
 try{const l=JSON.parse(localStorage.getItem('dia-layers')||'null');if(l)for(const k in LAYERS)if(typeof l[k]==='boolean')LAYERS[k]=l[k];}catch(e){}
 let EVHIT=[];
 function segLine(a,b,off,trim){const br=segIsBranch(a,b),n=br?NB[a+b]:NM[a+b],A=ST[a],B=ST[b],L=Math.hypot(B.x-A.x,B.y-A.y),ux=(B.x-A.x)/L,uy=(B.y-A.y)/L;
@@ -1990,6 +1991,7 @@ function renderLegend(){const L=[];
   if(LAYERS.trains||LAYERS.heat)L.push(`<span style="margin-left:6px">${LAYERS.heat?'区間の乗車率':'列車の混雑'}</span><span><i class="dot" style="background:var(--ok)"></i>〜80%</span><span><i class="dot" style="background:var(--warn)"></i>〜150%</span><span><i class="dot" style="background:var(--bad)"></i>150%〜</span>`);
   if(LAYERS.heat)L.push('<span>下＝港・温泉方面 / 上＝中央方面</span><span><span class="nodata"></span>この時間は運転なし</span><span>線の太さ＝通過人数</span>');
   if(LAYERS.stations)L.push('<span><span class="ring"></span>円の大きさ＝この1時間の乗降人数</span>');
+  if(LAYERS.bus&&window.RouteRunView)L.push(RouteRunView.legend());
   L.push('<span style="margin-left:auto">列車・駅・イベントをタップすると詳細</span>');
   $('#legend').innerHTML=L.join('');
   document.querySelectorAll('#layers button').forEach(b=>b.setAttribute('aria-pressed',String(LAYERS[b.dataset.l])));}
@@ -1998,7 +2000,7 @@ function renderMapNote(){const h=Math.min(29,Math.floor(T/60));const parts=[];
   if(LAYERS.heat||LAYERS.stations)parts.push(`${h%24}時台の値（このダイヤでのシミュレーション）`);
   if(LAYERS.events&&!ACTIVE_EV.length)parts.push('イベントは「この日の条件」で選べます');
   const t=parts.join('　');if(t!==noteKey){noteKey=t;$('#mapnote').textContent=t;}}
-$('#layers').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;LAYERS[b.dataset.l]=!LAYERS[b.dataset.l];try{localStorage.setItem('dia-layers',JSON.stringify(LAYERS));}catch(er){}renderLegend();noteKey='';renderMapNote();drawMap();});
+$('#layers').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;LAYERS[b.dataset.l]=!LAYERS[b.dataset.l];if(!LAYERS.bus&&window.RouteRunView)RouteRunView.click(-1e4,-1e4);try{localStorage.setItem('dia-layers',JSON.stringify(LAYERS));}catch(er){}renderLegend();noteKey='';renderMapNote();drawMap();});
 
 /* ---------- イベントの詳細 ---------- */
 const evState=ev=>T<ev.start?'before':T<=ev.end?'during':'after';
@@ -2370,6 +2372,7 @@ const scrub=$('#scrub');scrub.addEventListener('input',()=>{leaveLive();T=Number
 document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))return;if(e.code==='Space'){e.preventDefault();setPlay(!playing);}});
 
 map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.clientX-r.left)/MS,y=(e.clientY-r.top)/MS;
+  if(LAYERS.bus&&window.RouteRunView&&RouteRunView.click(x,y)){drawMap();return;}   // バス・配送の乗り物を押したら小さなカード
   {const h=SCPIN.find(v=>Math.hypot(v.x-x,v.y-14-y)<13);if(h){openScene(h.s);return;}}   // 場面のピン
   if(LAYERS.events){const h=EVHIT.find(v=>Math.hypot(v.x-x,v.y-y)<18);if(h){selectEvent(h.id);return;}}
   let best=null,bd=16;if(LAYERS.trains)VIS.forEach(v=>{const d=Math.hypot(v.st.x-x,v.st.y-y);if(d<bd){bd=d;best=v;}});
@@ -3498,6 +3501,9 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/away.js?v=20261110a"></script>
 <script src="js/perf-meter.js?v=20261106b"></script>
 <!-- トップページ（5つのレイヤー）：js/top.js -->
+<script src="js/route-core.js?v=20261112r"></script>
+<script src="js/route-run-core.js?v=20261112r"></script>
+<script src="js/route-run.js?v=20261112r"></script>
 <script src="js/top.js?v=20261111a"></script>
 
 </body>

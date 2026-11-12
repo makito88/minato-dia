@@ -17,6 +17,22 @@
     },
     "lines": [["C", "S", "U", "M", "K", "N", "P"], ["K", "F", "T", "O"]]
   },
+  "run": {
+    "_note": "描いた路線をゲームの地図（index.html の「バス・配送」）で走らせるときの決まり（見た目だけ。乗客や売店の計算には使わない）。計算は js/route-run-core.js、絵は js/route-run.js。unitsPerKm＝地図の1km（中央〜港の21.5kmが約792）。speed＝km/時、accel＝止まるときの減り方の目安、dwell＝停留所に止まる分（種類ごと）、dwellStop＝拠点の種類ごとの分、lay＝始発で発車の何分前から来ているか、cap＝止まれる台数（停留所ごとにお絵かき帖で変えられる）、gap＝前の車との間（地図の単位。乗り物の絵は本当より大きく描くので、間もそれに合わせて広い）。",
+    "unitsPerKm": 36.8, "dt": 0.25,
+    "speed": { "bus": 24, "truck": 30, "ship": 22, "plane": 220 },
+    "accel": { "bus": 1.6, "truck": 1.4, "ship": 0.35, "plane": 2.2 },
+    "dwell": { "bus": 0.5, "truck": 5, "ship": 10, "plane": 14 },
+    "dwellStop": { "plaza": 1.2, "center": 8, "kiosk": 6, "factory": 8, "pier": 10, "airport": 14 },
+    "lay": { "bus": 3, "truck": 4, "ship": 8, "plane": 10 },
+    "cap": { "bus": 1, "plaza": 4, "center": 3, "kiosk": 1, "factory": 2, "pier": 1, "airport": 2 },
+    "gap": { "min": 14, "slow": 25, "slot": 14, "look": 28 }
+  },
+  "ownExample": {
+    "_note": "お絵かき帖の「例を描いてみる」で描く自社の配送の時刻（例。いまの納品の流れ data/center.json の flow：工場が 27:05 ごろ出る → センター 27:20 着、センターを 28:00＝朝4:00 に出て店へ 5:30 まで）。地図の1日は 4:30〜26:00 なので、2:00〜4:30 の便は地図には出ない（時計がそこを通らない）。",
+    "factoryToCenter": { "first": "03:05", "last": "03:05", "n": 1 },
+    "centerToKiosk": { "first": "04:00", "last": "04:40", "n": 2 }
+  },
   "palette": ["#e2553f", "#f08a4b", "#e8b33a", "#8fbf3f", "#3f9b6b", "#1f8a8a", "#3aa0d8", "#2f5aa8", "#6b4fa8", "#b24f9e", "#ef7d92", "#8a5a3c", "#3b3b3b", "#ffffff", "#f6e9c9", "#9aa3a8"],
   "roadTypes": [
     { "id": "avenue", "name": "大通り", "mode": "road", "style": { "color": "#fffaf0", "width": 4.2, "casing": 1.4, "casingColor": "#a8968a", "dash": "solid", "alpha": 0.95, "glow": 0, "shadow": true } },
@@ -26,13 +42,13 @@
     { "id": "air", "name": "空路", "mode": "air", "style": { "color": "#ffffff", "width": 1.2, "casing": 0, "casingColor": "#ffffff", "dash": "dot", "alpha": 0.8, "glow": 0.5, "shadow": false } }
   ],
   "stopTypes": [
-    { "id": "bus", "name": "バス停", "shape": "circle", "fill": "#ffffff", "stroke": "#2c3a35", "size": 5, "font": "maru", "label": "halo" },
-    { "id": "plaza", "name": "駅前のりば", "shape": "pill", "fill": "#ffffff", "stroke": "#2c3a35", "size": 6, "font": "gothic", "label": "tag" },
-    { "id": "center", "name": "センター", "shape": "square", "fill": "#2c3a35", "stroke": "#ffffff", "size": 6.5, "font": "gothic", "label": "tag" },
-    { "id": "kiosk", "name": "売店", "shape": "diamond", "fill": "#e8b33a", "stroke": "#ffffff", "size": 5.5, "font": "maru", "label": "halo" },
-    { "id": "factory", "name": "工場", "shape": "hex", "fill": "#8a5a3c", "stroke": "#ffffff", "size": 6.5, "font": "gothic", "label": "tag" },
-    { "id": "pier", "name": "港の岸壁", "shape": "anchor", "fill": "#2f5aa8", "stroke": "#ffffff", "size": 6.5, "font": "mincho", "label": "halo" },
-    { "id": "airport", "name": "空港", "shape": "star", "fill": "#6b4fa8", "stroke": "#ffffff", "size": 7, "font": "mincho", "label": "halo" }
+    { "id": "bus", "cap": 1, "name": "バス停", "shape": "circle", "fill": "#ffffff", "stroke": "#2c3a35", "size": 5, "font": "maru", "label": "halo" },
+    { "id": "plaza", "cap": 4, "name": "駅前のりば", "shape": "pill", "fill": "#ffffff", "stroke": "#2c3a35", "size": 6, "font": "gothic", "label": "tag" },
+    { "id": "center", "cap": 3, "name": "センター", "shape": "square", "fill": "#2c3a35", "stroke": "#ffffff", "size": 6.5, "font": "gothic", "label": "tag" },
+    { "id": "kiosk", "cap": 1, "name": "売店", "shape": "diamond", "fill": "#e8b33a", "stroke": "#ffffff", "size": 5.5, "font": "maru", "label": "halo" },
+    { "id": "factory", "cap": 2, "name": "工場", "shape": "hex", "fill": "#8a5a3c", "stroke": "#ffffff", "size": 6.5, "font": "gothic", "label": "tag" },
+    { "id": "pier", "cap": 1, "name": "港の岸壁", "shape": "anchor", "fill": "#2f5aa8", "stroke": "#ffffff", "size": 6.5, "font": "mincho", "label": "halo" },
+    { "id": "airport", "cap": 2, "name": "空港", "shape": "star", "fill": "#6b4fa8", "stroke": "#ffffff", "size": 7, "font": "mincho", "label": "halo" }
   ],
   "lineTypes": [
     { "id": "city", "name": "市バス", "mode": "bus", "owner": "public", "style": { "color": "#2f5aa8", "width": 3.4, "casing": 1.4, "casingColor": "#ffffff", "dash": "solid", "alpha": 0.95, "glow": 0, "shadow": true } },

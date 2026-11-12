@@ -171,6 +171,7 @@ cv.addEventListener('pointerdown',ev=>{cv.setPointerCapture(ev.pointerId);S.touc
   if(P.size===2){if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;const [a,b]=[...P.values()];gest={d:Math.hypot(a[0]-b[0],a[1]-b[1]),m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};redraw();return;}
   if(P.size>2)return;
   const w=toW(...sp);const btn=ev.button;
+  if(btn===2&&S.tool==='poly'&&S.poly){op=null;endPoly();return;}   // 右クリック：最後に置いた点で線を終える（右クリックした場所には点を置かない）
   if(btn===1||btn===2||S.tool==='hand'||S.space){op={k:'pan',sp,v:[V.x,V.y]};cv.classList.add('dragging');return;}
   op={k:'tap',sp,w,moved:false};
   if(S.tool==='pen'){op.k='stroke';S.stroke={pts:[w]};S.snap=null;}
@@ -291,7 +292,13 @@ function dock(){const d=$('dock');d.innerHTML='';const s=S.sel;
     if(s.k==='stop'){const st=doc.stops[s.id];const r=el('div','row');const i=el('input','namein');i.value=st.name;i.placeholder='名前（例：緑ヶ丘駅北口）';i.oninput=()=>{st.name=i.value;redraw();};i.onchange=()=>commit();r.appendChild(i);
       const lp=el('div','lp');LP.forEach(k=>{const b=el('button',(k==='auto'?'c':'')+((st.lp||'auto')===k?' on':''),k==='auto'?'自':'');b.title=k==='auto'?'名前の位置：おまかせ':'名前の位置';b.onclick=()=>{st.lp=k;commit();};lp.appendChild(b);});r.appendChild(lp);
       const del=el('button','chip mini danger','消す');del.onclick=delSel;r.appendChild(del);d.appendChild(r);
-      d.appendChild(typeRow('stop',st.type,id=>{st.type=id;S.stopT=id;commit();}));}
+      d.appendChild(typeRow('stop',st.type,id=>{st.type=id;S.stopT=id;commit();}));
+      // 止まれる台数（地図で走らせるとき、空いていなければ手前で待つ）
+      const ty=tyOf('stop',st.type),dc=ty.cap||(DEF.run&&DEF.run.cap&&DEF.run.cap[ty.id])||1,cap=st.cap>0?st.cap:dc;
+      const rc=el('div','row');rc.appendChild(el('span','lab','止まれる'));const sg=el('div','seg capseg');
+      const mk=(t,fn,on)=>{const b=el('button',on?'on':'',t);b.onclick=fn;sg.appendChild(b);};
+      mk('−',()=>{st.cap=Math.max(1,cap-1);commit();});mk(cap+'台',()=>{delete st.cap;commit();},st.cap>0);mk('＋',()=>{st.cap=Math.min(12,cap+1);commit();});
+      rc.appendChild(sg);rc.appendChild(el('span','hint',st.cap>0?'まんなかを押すと種類のふつう（'+dc+'台）にもどる':'種類のふつう'));d.appendChild(rc);}
     else if(s.k==='edge'){const e=doc.edges[s.id];d.appendChild(typeRow('road',e.type,id=>{e.type=id;S.road=id;commit();}));
       const r=el('div','row');const sg=el('div','seg');[['なめらか',true],['かくかく',false]].forEach(([n,v])=>{const b=el('button',e.smooth===v?'on':'',n);b.onclick=()=>{e.smooth=v;commit();};sg.appendChild(b);});r.appendChild(sg);
       r.appendChild(el('span','hint','道を引っぱると曲がる・2回押すと点を足す'));const del=el('button','chip mini danger','消す');del.onclick=delSel;r.appendChild(del);d.appendChild(r);}
@@ -435,10 +442,14 @@ function example(){const R=(pts,type,smooth=true)=>C.addPath(doc,pts,{type,smoot
   L('緑ヶ丘駅バスルート1','city',[e,c,d,a,b]);
   L('コミュニティバス さくら号','community',[o,e,c,d,a,g,f,q],{freq:{unit:'h',n:1}});
   L('市バス 港線','city',[a,f,p,h,i],{style:{color:'#3aa0d8'}});
-  L('自社の配送 早朝便','own',[f,g,a,e],{freq:{unit:'d',n:2},first:'04:00',last:'13:00',round:false});
+  const OX=DEF.ownExample||{},o1=OX.centerToKiosk||{first:'04:00',last:'04:40',n:2},o2=OX.factoryToCenter||{first:'03:05',last:'03:05',n:1};
+  L('自社の配送 朝の便','own',[f,g,a,e],{freq:{unit:'d',n:o1.n},first:o1.first,last:o1.last,round:false});
+  L('自社の配送 工場→センター','own',[h,f],{freq:{unit:'d',n:o2.n},first:o2.first,last:o2.last,round:false});
+  L('自社の配送 昼前・午後の便','own',[f,g,a],{freq:{unit:'d',n:2},first:'09:15',last:'14:15',round:false});
   L('よその会社の配送','other',[h,f,a,e],{freq:{unit:'d',n:4}});
   L('ひのき島フェリー','ferry',[i,j],{freq:{unit:'d',n:6},first:'07:00',last:'19:00'});
-  L('沖ノ瀬 貨物船','cargo',[i,k],{freq:{unit:'d',n:2}});
+  L('沖ノ瀬 貨物船','cargo',[i,k],{freq:{unit:'d',n:2},first:'06:30',last:'21:40'});
+  L('深夜バス みなと号','city',[e,d,a,f,p,i],{freq:{unit:'h',n:1},first:'23:10',last:'00:40',round:false,style:{color:'#6b4fa8'}});
   L('みなと空港 遊覧便','sky',[m,n2],{freq:{unit:'d',n:3},first:'09:00',last:'16:00'});
   commit();fit();toast('例を描きました。いらなければ「元に戻す」で消せます');showLines(innerWidth>=700);}
 
