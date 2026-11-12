@@ -27,6 +27,9 @@
   },
   "basket": "basket.webp",
   "basketTake": "basket-take.webp",
+  "bagPack": "bag-pack.webp",
+  "bagWalk": "bag-walk.webp",
+  "bagging": {"src":"assume","setupSeconds":2,"unitSeconds":4,"liftSeconds":2},
   "record": {"src":"assume","rate":3,"queueGap":28,"approachMinutes":0.18,"walkPixelsPerMinute":1800},
   "exit": [[1125,705],[1191,705],[1191,811]],
   "occluders": [

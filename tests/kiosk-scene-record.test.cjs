@@ -54,7 +54,7 @@ for(const items of [[['cf_black',2]],[['cf_black',1],['dr_sports',1]],[['dr_spor
   r.pickups.forEach((stop,i)=>{r.seek(stop.pick-1e-6);assert.equal(r.loadout.contents.length,i);r.seek(stop.pick);assert.equal(r.loadout.contents.length,i+1);assert.equal(r.loadout.contents[i].id,stop.id);});
   r.seek(r.tq);const n=items.reduce((a,x)=>a+x[1],0);assert.equal(r.unpaid.reduce((a,b)=>a+b),n);
   r.seek(r.te-1e-6);assert.equal(r.paymentCount,0);r.seek(r.te);assert.equal(r.unpaid.reduce((a,b)=>a+b),0);assert.equal(r.purchased.reduce((a,b)=>a+b),n);
-  r.seek(r.end);assert.equal(r.phase,'done');assert.deepEqual([r.x,r.y],cfg.register.pack.at(-1),'stop before taking a store basket outside');
+  r.seek(r.end);assert.equal(r.phase,'done');assert.deepEqual([r.x,r.y],cfg.exit.at(-1),'leave with the shopping bag, not the store basket');
   r.reset();assert.equal(r.loadout.contents.length,0);assert.equal(r.paymentCount,0);r.seek(r.te);assert.equal(r.purchased.reduce((a,b)=>a+b),n);
   assert.equal(JSON.stringify(p),raw);assert.equal(r.setStock(0,0),false);
 }
@@ -85,3 +85,23 @@ for(const row of Object.values(require('../assets/images/kiosk-scene/frames.json
  assert.equal(row.length,4);for(const f of row){assert.ok(f.h>0&&f.anchor>0&&f.anchor<f.w);assert.ok(f.basket.cx-f.basket.w/2>=0&&f.basket.cx+f.basket.w/2<=f.w);assert.ok(f.basket.rim+f.basket.depth<f.h);}
 }
 console.log('  transfer: hand/basket conservation, exact grasp/release pose, mixed products, rewind, FPS, atlas anchors passed');
+
+// Paid items survive packing, rewinding, and leaving; location is not another sale.
+for(const items of [[['cf_black',2]],[['dr_sports',2],['cf_black',2]]]){
+ const record=KR.build({day:3,ev:[{...e,items}]},601),raw=JSON.stringify(record),r=new KR.Replay(cfg,record),n=items.reduce((a,x)=>a+x[1],0);
+ for(const stop of r.bagging){
+  for(const [t,loc,pose] of [[stop.grasp-1e-6,'basket',0],[stop.grasp,'hand',1],[stop.lower,'hand',2],[stop.release,'bag',3]]){
+   r.seek(t);assert.equal(r.loadout.contents.length,n);assert.equal(r.loadout.contents[stop.slot].location,loc);assert.equal(r.packing.pose,pose);
+   assert.ok(r.loadout.contents.every(i=>i.state==='paid'));assert.equal(r.paymentCount,1);assert.equal(r.unpaid.reduce((a,b)=>a+b),0);
+   assert.equal(r.loadout.contents.filter(i=>i.location==='bag').length,stop.slot+(loc==='bag'?1:0));
+  }
+ }
+ r.seek(r.bagReady);assert.equal(r.loadout.mode,'bag');assert.ok(r.basketReturned);assert.ok(r.loadout.contents.every(i=>i.location==='bag'));
+ r.seek(r.end);assert.equal(r.phase,'done');assert.deepEqual([r.x,r.y],cfg.exit.at(-1));
+ r.seek(r.packAt);assert.equal(r.loadout.mode,'basket');assert.ok(!r.basketReturned);assert.ok(r.loadout.contents.every(i=>i.location==='basket'));
+ r.seek(r.te-1e-6);assert.ok(r.loadout.contents.every(i=>i.state==='unpaid'));assert.equal(JSON.stringify(record),raw);
+}
+const af=require('../assets/images/kiosk-scene/frames.json');
+assert.equal(af.bagWalk.length,16);for(const row of Object.values(af.bagPack))assert.equal(row.length,4);
+for(const f of [...af.bagWalk,...Object.values(af.bagPack).flat()])assert.ok(f.w>0&&f.h>0&&f.anchor>0&&f.anchor<f.w);
+console.log('  bagging: basket/hand/bag conservation, paid state, rewind, return, exit, atlas passed');

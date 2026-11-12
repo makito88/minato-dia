@@ -10,7 +10,7 @@ jsons['data/kiosk-scene-recording.json']=JSON.parse(read('data/kiosk-scene-recor
 jsons['data/kiosk-scene-basket-recording.json']=JSON.parse(read('data/kiosk-scene-basket-recording.json'));
 jsons[config.sprites+'frames.json']=JSON.parse(read(config.sprites+'frames.json'));
 const images={};
-for(const file of [config.sprites+config.basketTake,config.sprites+config.basket,config.background,config.sprites+'walk.webp',config.sprites+'reach.webp',config.sprites+config.register.payment,...config.products.map(product=>config.sprites+product.carry)]){
+for(const file of [config.sprites+config.bagPack,config.sprites+config.bagWalk,config.sprites+config.basketTake,config.sprites+config.basket,config.background,config.sprites+'walk.webp',config.sprites+'reach.webp',config.sprites+config.register.payment,...config.products.map(product=>config.sprites+product.carry)]){
   images[file]='data:image/webp;base64,'+fs.readFileSync(path.join(root,file)).toString('base64');
 }
 let view=read('js/kiosk-scene-view.js');

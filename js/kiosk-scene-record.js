@@ -82,7 +82,16 @@ class Replay {
     this.packAt=this.te+this.packRoute.length/R.walkPixelsPerMinute;
     this.exitAt=this.packAt+config.register.packSeconds/60;
     this.outRoute=route([config.register.pack.at(-1),...config.exit]);
-    this.end=this.basket?this.packAt:this.exitAt+this.outRoute.length/R.walkPixelsPerMinute;
+    this.bagging=[];
+    if(this.basket){
+      const B=config.bagging;
+      this.bagStart=this.packAt+B.setupSeconds/60;
+      this.bagging=this.units.map((id,slot)=>{const from=this.bagStart+slot*B.unitSeconds/60,to=this.bagStart+(slot+1)*B.unitSeconds/60;
+        return {id,slot,from,to,grasp:from+(to-from)*.25,lower:from+(to-from)*.55,release:from+(to-from)*.8};});
+      this.bagReady=this.bagging.at(-1).to;
+      this.exitAt=this.bagReady+B.liftSeconds/60;
+    }
+    this.end=this.exitAt+this.outRoute.length/R.walkPixelsPerMinute;
     this.paySeconds=(this.te-this.ts)*60;
     this.reset();
   }
@@ -104,6 +113,17 @@ class Replay {
         if(t>=stop.pick&&t<stop.deposit)this.loadout.contents.at(-1).location='hand';
       }
     }
+    this.packing=null;
+    if(this.basket&&t>=this.packAt){
+      for(const stop of this.bagging){
+        const item=this.loadout.contents[stop.slot];
+        if(t>=stop.release)item.location='bag';
+        else if(t>=stop.grasp)item.location='hand';
+        if(t>=stop.from&&t<stop.to)this.packing={id:stop.id,slot:stop.slot,pose:t<stop.grasp?0:t<stop.lower?1:t<stop.release?2:3};
+      }
+      if(t>=this.bagReady)this.loadout.mode='bag';
+    }
+    this.basketReturned=this.basket&&t>=this.bagReady;
     this.held=picked?this.target:null;
     this.stock=this.config.products.map(()=>null); // Snapshot cadence cannot establish shelf pickup counts.
     this.unpaid=this.config.products.map(p=>this.loadout.contents.filter(x=>x.id===p.id&&x.state==='unpaid').length);
@@ -127,9 +147,10 @@ class Replay {
     else if(t<this.ts){this.phase='walk';at(this.approachRoute,this.approachAt,this.ts);this.reason='会計の開始時刻に合わせ、レジへ進みます。';}
     else if(t<this.te){this.phase='pay';stand(this.config.register.approach.at(-1));this.phaseTime=(t-this.ts)*60;this.reason=this.basket?'記録の会計時間です。かごを持ったまま、左手のカードで支払います。':'記録の会計時間です。飲み物を持ったまま、カードで支払います。';}
     else if(t<this.packAt){this.phase='walk';at(this.packRoute,this.te,this.packAt);this.reason='記録の会計が終了しました。レジの横へよけます。';}
-    else if(this.basket){this.phase='done';stand(this.config.register.pack.at(-1));this.direction=1;this.reason='かごの全品が会計済みになりました。袋へ移す動きは準備中のため、ここまでの再生です。';}
+    else if(this.basket&&t<this.exitAt){this.phase='bagPack';stand(this.config.register.pack.at(-1));this.direction=2;
+      this.reason=t<this.bagStart?'会計済みのかごを台に置き、袋を開きます。':t<this.bagReady?'会計済みの飲み物を1本ずつ袋へ移します。':'空のかごを台に残し、袋を持ち上げます。';}
     else if(t<this.exitAt){this.phase='pack';stand(this.config.register.pack.at(-1));this.direction=1;this.reason='会計済みの飲み物を持ち直します。';}
-    else {this.phase=t>=this.end?'done':'walk';at(this.outRoute,this.exitAt,this.end);this.reason=t>=this.end?'買い物の記録の再生が終わりました。':'飲み物を持って店を出ます。';}
+    else {this.phase=t>=this.end?'done':'walk';at(this.outRoute,this.exitAt,this.end);this.reason=t>=this.end?'買い物の記録の再生が終わりました。':(this.basket?'空かごを返し、袋を持って店を出ます。':'飲み物を持って店を出ます。');}
   }
 }
 function configName(config,id){return config.products.find(p=>p.id===id).name;}

@@ -2,7 +2,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const canvas = $('scene'), ctx = canvas.getContext('2d');
-let scene, config, frames, background, walk, reach, carry, payment, basket, basketTake, source, currentRecord;
+let scene, config, frames, background, walk, reach, carry, payment, basket, basketTake, bagPack, bagWalk, source, currentRecord;
 let paused = false, close = true, slow = false, previous = 0, accumulator = 0;
 let camera = {x: 210, y: 700, width: 620};
 const image = url => new Promise((resolve, reject) => {
@@ -56,6 +56,33 @@ function drawBasket(height){
   ctx.drawImage(sheet,f.x+b.cx-b.w/2,f.y+b.rim+2,b.w,b.depth,b.cx-b.w/2,b.rim+2,b.w,b.depth);
   ctx.restore();
 }
+// A fixed packing/return station. It never changes the business inventory.
+function packingStation(front=false){
+  if(!scene.basket)return;
+  const [x,y]=config.register.pack.at(-1),h=130+(y-251)*.13,k=h/430;
+  ctx.save();ctx.translate(x,y);ctx.scale(k,k);
+  const ready=scene.clock>=scene.packAt,bagHere=ready&&!scene.basketReturned;
+  if(!front){
+    ctx.fillStyle='#ad8b65';ctx.strokeStyle='#766953';ctx.lineWidth=2;
+    ctx.fillRect(-35,-114,225,12);ctx.strokeRect(-35,-114,225,12);
+    ctx.fillStyle='#957857';ctx.fillRect(-25,-102,10,100);ctx.fillRect(169,-102,10,100);
+    ctx.fillStyle='#dec8a5';ctx.beginPath();ctx.moveTo(-35,-114);ctx.lineTo(-10,-138);ctx.lineTo(210,-138);ctx.lineTo(190,-114);ctx.closePath();ctx.fill();ctx.stroke();
+    if(ready){
+      ctx.fillStyle='#536858';ctx.fillRect(65,-157,70,43);
+      ctx.fillStyle='#34483c';ctx.fillRect(68,-157,64,9);
+      scene.loadout.contents.filter(i=>i.location==='basket').forEach((item,i)=>bottle(79+(i%2)*22,-154+Math.floor(i/2)*5,config.products.find(p=>p.id===item.id).color,1.6));
+      ctx.fillStyle='#7e9279';ctx.fillRect(65,-147,70,33);ctx.strokeStyle='#4e6655';ctx.strokeRect(65,-157,70,43);
+      for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(71+i*11,-143);ctx.lineTo(71+i*11,-118);ctx.stroke();}
+    }
+    if(bagHere){ctx.fillStyle='#91724f';ctx.fillRect(-4,-174,57,8);}
+  }else if(bagHere){
+    // Bag front hides the bottom of the lowered drink; the fingers remain above its rim.
+    ctx.fillStyle='#c7a174';ctx.strokeStyle='#8c704e';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(-4,-166);ctx.lineTo(53,-166);ctx.lineTo(50,-114);ctx.lineTo(-1,-114);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.strokeStyle='#ab875d';ctx.beginPath();ctx.moveTo(7,-164);ctx.lineTo(10,-116);ctx.moveTo(43,-163);ctx.lineTo(39,-116);ctx.stroke();
+  }
+  ctx.restore();
+}
 function draw(dt = 0) {
   const height = 130 + Math.max(0, scene.y - 251) * .13;
   const ratio = canvas.width / canvas.height;
@@ -87,10 +114,17 @@ function draw(dt = 0) {
   const waitAt=config.checkout.at(-1);
   ctx.strokeStyle='#c1c7af';ctx.lineWidth=3;ctx.setLineDash([5,5]);
   ctx.beginPath();ctx.moveTo(waitAt[0]-16,waitAt[1]+3);ctx.lineTo(waitAt[0]+16,waitAt[1]+3);ctx.stroke();ctx.setLineDash([]);
+  packingStation();
   // Ground contact and the same down-right light direction as the painted room.
   ctx.fillStyle='#3c32222b';ctx.beginPath();ctx.ellipse(scene.x+height*.23,scene.y+height*.16,height*.36,9, .56,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#3d34252a';ctx.beginPath();ctx.ellipse(scene.x,scene.y+1,16,5,0,0,Math.PI*2);ctx.fill();
-  if(scene.loadout&&scene.loadout.mode==='basket'){
+  if(scene.loadout&&scene.loadout.mode==='bag'){
+    const f=scene.direction*4+(scene.phase==='walk'?Math.floor(scene.distance/17)%4:0);
+    sprite(bagWalk,frames.bagWalk[f],height);
+  }else if(scene.phase==='bagPack'){
+    const p=scene.packing||{id:scene.units[0],pose:0};
+    sprite(bagPack,frames.bagPack[p.id][p.pose],height);
+  }else if(scene.loadout&&scene.loadout.mode==='basket'){
     drawBasket(height);
   }else if(scene.phase==='pay' && scene.held !== null){
     const progress=scene.phaseTime/(scene.paySeconds||config.register.paySeconds);
@@ -111,6 +145,7 @@ function draw(dt = 0) {
     const frame=scene.phase==='walk' ? Math.floor(scene.distance/17)%4 : 1;
     sprite(walk,frames.walk[scene.direction*4+frame],height);
   }
+  packingStation(true);
   // Foreground parts of the existing painting hide a customer passing behind them.
   for(const shelf of config.occluders){
     if(scene.y < shelf.front && scene.x+height*.5>shelf.x && scene.x-height*.5<shelf.x+shelf.w){
@@ -127,7 +162,7 @@ function panel(){
     const label=scene.mode==='record'?'棚在庫の同期は準備中':'この試作の棚に '+count+' 本';
     if($('count'+index).textContent!==label)$('count'+index).textContent=label;
     const where=scene.loadout&&scene.loadout.mode==='basket'?'かごに':'手元に';
-    const parts=scene.loadout&&scene.loadout.mode==='basket'?['hand','basket'].map(loc=>{const n=scene.loadout.contents.filter(x=>x.id===product.id&&x.location===loc).length;return n?(loc==='hand'?'左手に':'かごに')+n+'本':'';}).filter(Boolean).join('・'):'';
+    const parts=scene.loadout&&scene.basket?['hand','basket','bag'].map(loc=>{const n=scene.loadout.contents.filter(x=>x.id===product.id&&x.location===loc).length;return n?(loc==='hand'?(scene.phase==='bagPack'?'手に':'左手に'):loc==='bag'?'袋に':'かごに')+n+'本':'';}).filter(Boolean).join('・'):'';
     const held=scene.unpaid[index]?(parts||where+scene.unpaid[index]+'本')+'・未会計':scene.purchased[index]?(parts||where+scene.purchased[index]+'本')+'・会計済み':'手元になし';
     if($('held'+index).textContent!==held)$('held'+index).textContent=held;
     const button=$('stock'+index);
@@ -146,6 +181,7 @@ function panel(){
     $('status').textContent=scene.reason+(scene.clock>=scene.tq&&scene.clock<scene.ts?' 前で順番を待つ人：'+n+'人（姿は準備中）。':'');
     $('skip').disabled=scene.clock>=scene.tq;
     $('pickup').hidden=!scene.basket;
+    $('bag-start').hidden=!scene.basket;
     return;
   }
   $('skip').disabled=scene.paymentCount>0||['queue','pay','pack','done'].includes(scene.phase)||scene.next==='pay';
@@ -199,6 +235,7 @@ async function init(){
     payment=await image(config.sprites+config.register.payment);
     basket=await image(config.sprites+config.basket);
     basketTake=await image(config.sprites+config.basketTake);
+    [bagPack,bagWalk]=await Promise.all([image(config.sprites+config.bagPack),image(config.sprites+config.bagWalk)]);
     source=snapshot();
     config.products.forEach((product,index)=>{
       const card=document.createElement('section');card.className='product';
@@ -228,6 +265,7 @@ async function init(){
     $('record-source').onclick=()=>useMode(source);
     $('timeline').oninput=()=>{scene.seek(scene.ta+Number($('timeline').value)/1000*(scene.end-scene.ta));panel();draw();};
     $('pickup').onclick=()=>{scene.seek(scene.pickups[0].arrive);panel();draw();};
+    $('bag-start').onclick=()=>{scene.seek(scene.bagStart);panel();draw();};
     $('pay-start').onclick=()=>{scene.seek(scene.ts);panel();draw();};
     $('pay-end').onclick=()=>{scene.seek(scene.te);panel();draw();};
     useMode(source&&source.v===2?source:null);
