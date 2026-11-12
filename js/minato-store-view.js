@@ -99,7 +99,7 @@ function openPaintedScene(){
   const stock=res?KC.stockAt(res,t):null;
   const values={};
   if(stock)for(const id of ['cf_black','dr_sports'])values[id]=stock[id]||0;
-  const snap=stock?{v:1,day:gDay(),t,stock:values}:null;
+  const snap=window.KioskSceneRecord&&res?KioskSceneRecord.build(res,t):(stock?{v:1,day:gDay(),t,stock:values}:null);
   const url='kiosk-scene.html'+(snap?'#'+encodeURIComponent(JSON.stringify(snap)):'');
   window.open(url,'_blank','noopener');
 }
@@ -117,7 +117,7 @@ function render(o){conceptUI();const {top,kpi,title,sub}=o;title.textContent=V.M
   const h=`<div class="ks-card ms-top"><p class="ks-note" style="margin:0">斜め上から見た店の中です。人は、売店の計算で起きた出来事（買った・見て帰った・列で帰った・セルフで迷った・イートイン）を時刻の順に描いたものです。
     <span class="ks-lst">未接続</span> センターへの記録・センターからの配送会社の便・お金の流れ</p>${omCard()}<div id="msLocal"></div>
     <div class="ms-leg">${ps.map(k=>`<span><i style="background:${P[k].icon}"></i>${esc(P[k].short)}</span>`).join('')}</div>
-    <div class="ms-half"><button type="button" class="ks-chip" data-painted-scene="1">店内画で買い物を試す</button><button type="button" class="ks-chip" data-fan="1" aria-pressed="${!!V.fan}">見える範囲（防犯）</button></div><div class="ms-half" ${innerWidth<760?'':'hidden'}><button type="button" class="ks-chip" data-h="reg" aria-pressed="${V.half==='reg'}">レジ側を大きく</button><button type="button" class="ks-chip" data-h="ent" aria-pressed="${V.half==='ent'}">入口側を大きく</button><button type="button" class="ks-chip" data-h="all" aria-pressed="${V.half==='all'}">店ぜんぶ</button></div></div>`;
+    <div class="ms-half"><button type="button" class="ks-chip" data-painted-scene="1">店内画で買い物の記録を見る</button><button type="button" class="ks-chip" data-fan="1" aria-pressed="${!!V.fan}">見える範囲（防犯）</button></div><div class="ms-half" ${innerWidth<760?'':'hidden'}><button type="button" class="ks-chip" data-h="reg" aria-pressed="${V.half==='reg'}">レジ側を大きく</button><button type="button" class="ks-chip" data-h="ent" aria-pressed="${V.half==='ent'}">入口側を大きく</button><button type="button" class="ks-chip" data-h="all" aria-pressed="${V.half==='all'}">店ぜんぶ</button></div></div>`;
   if(top.dataset.k!==h){top.innerHTML=h;top.dataset.k=h;top.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{V.half=b.dataset.h;render(o);});top.querySelector('[data-painted-scene]').onclick=openPaintedScene;const fb=top.querySelector('[data-fan]');if(fb)fb.onclick=()=>{V.fan=!V.fan;render(o);};
     top.querySelectorAll('[data-om]').forEach(b=>b.onclick=()=>{const O=V.st&&V.st.om;if(!O)return;if(b.dataset.om==='auto'||b.dataset.om==='self')O.mode=b.dataset.om;else O.aim=b.dataset.om;persist();render(o);});}
   panel(kpi);}

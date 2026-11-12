@@ -25,6 +25,7 @@
     "terminal": [919,507],
     "payment": "payment.webp"
   },
+  "record": {"src":"assume","rate":3,"queueGap":28,"approachMinutes":0.18,"walkPixelsPerMinute":1800},
   "exit": [[1125,705],[1191,705],[1191,811]],
   "occluders": [
     {"x":228,"y":265,"w":304,"h":158,"front":424},
