@@ -40,7 +40,7 @@ const CSS=`.mfv{position:fixed;inset:0;z-index:85;background:var(--paper);color:
 
 /* お金の流れの図（2026-11-12 から2店）：お客さん → 店（1つか2つ）→ センター → 工場、配送会社。外へ出るお金は各社の上に。
    pair＝{'from>to':円}（会社の間と外とのお金をまとめたもの）・keys＝会社の並び（store:… が先） */
-function flowSvg(pair,keys,label){const st=keys.filter(k=>k.startsWith('store:')),W=760,Hh=st.length>1?370:310,mid=st.length>1?170:140;
+function flowSvg(pair,keys,label){const st=keys.filter(k=>k.startsWith('store:')||k==='kiosk'),W=760,Hh=st.length>1?370:310,mid=st.length>1?170:140;
   const pos={ext:[70,mid],center:[470,mid],factory:[670,mid],haiso:[570,Hh-50]};st.forEach((k,i)=>{pos[k]=[270,st.length>1?(i?mid+70:mid-70):mid];});
   let mx=1,sales={},out={};const tot={};for(const k in pair){const [f,t]=k.split('>'),v=pair[k];if(f==='ext')sales[t]=(sales[t]||0)+v;else if(t==='ext')out[f]=(out[f]||0)+v;else tot[k]=v;mx=Math.max(mx,v);}
   const w=v=>(2+9*Math.sqrt(v/mx)).toFixed(1),BW=56,BH=24;
@@ -80,7 +80,8 @@ function groupView(mode){const G=g(()=>minatoKiosk.groupMoney(),null);if(!G)retu
   for(const L of last){Object.assign(names,L.names||{});grp+=L.grp||0;for(const k of ['in','out','net'])ext[k]+=L.ext[k]||0;for(const k in L.pair)pair[k]=(pair[k]||0)+L.pair[k];
     for(const k in L.co){const c=co[k]||(co[k]={in:0,out:0,net:0,inExt:0,inGrp:0,outExt:0,outGrp:0});for(const f in c)c[f]+=L.co[k][f]||0;}}
   return {co,pair,names,ext,grp,n:last.length,label:`最近${last.length}日の合計`};}
-function render(){const box=$('mfv');if(!box||!V.open)return;
+function render(){const box=$('mfv');if(!box||!V.open)return;try{render0(box);}catch(e){console.warn('お金の流れを描けませんでした',e);box.innerHTML=`<div class="in"><div class="hd"><div><h2>お金の流れ</h2></div><button class="x" id="mfClose">閉じる</button></div><div class="card empty">表示できませんでした（${esc(e&&e.message||e)}）。</div></div>`;bind(box);}}
+function render0(box){
   const today=g(()=>minatoKiosk.day,null),days=g(()=>minatoKiosk.moneyDays(),[])||[];
   // 前の形（緑ヶ丘店だけ）：店を増やしたらの試算と、グループの記録がまだない日に使う
   let O=null;if(V.mode==='t')O=g(()=>minatoKiosk.moneyDay(today),null);else if(V.mode==='y')O=days.find(x=>x.day===today-1)||days[days.length-1]||null;
@@ -96,7 +97,7 @@ function render(){const box=$('mfv');if(!box||!V.open)return;
   const grp=L.grp!=null?L.grp:Object.keys(L.pair).filter(k=>!k.startsWith('ext>')&&!k.endsWith('>ext')).reduce((t,k)=>t+L.pair[k],0);
   const cards=keys.map(k=>{const c=L.co[k]||{in:0,out:0,net:0},full=k.startsWith('store:')?((L.names&&L.names[k])||k):coName(k);
     const io=c.inExt!=null?`外から ${yen(c.inExt)}・グループ内から ${yen(c.inGrp)}<br>外へ ${yen(c.outExt)}・グループ内へ ${yen(c.outGrp)}`:`入った ${yen(c.in)}・出た ${yen(c.out)}`;
-    return `<div class="co"><h3>${esc(k.startsWith('store:')?'売店':KIND[k]||k)}<small>${esc(full)}</small></h3><div class="net ${c.net<0?'neg':'pos'}">${sy(c.net)}</div><div class="io">${io}</div></div>`;}).join('');
+    return `<div class="co"><h3>${esc(k.startsWith('store:')||k==='kiosk'?'売店':KIND[k]||k)}<small>${esc(full)}</small></h3><div class="net ${c.net<0?'neg':'pos'}">${sy(c.net)}</div><div class="io">${io}</div></div>`;}).join('');
   const nm=k=>k==='ext'?'グループの外':k.startsWith('store:')?label(k):KIND[k]||k;
   const rows=L.inv?L.inv.slice().sort((a,b)=>b.yen-a.yen).map(x=>`<tr><td>${x.from==='ext'?'お客さん':esc(nm(x.from))} → ${esc(nm(x.to))}</td><td>${esc(x.what)}</td><td>${yen(x.yen)}</td></tr>`).join(''):'';
   box.innerHTML=`<div class="in">${head}
