@@ -43,6 +43,8 @@ function washMin(A,from,to){return washLeft(A,from,to).length?A.wash.long:A.wash
 /* 消費期限：製造日（夜の始まりの日）の day 日後の at 分。包装の時刻では変わらない */
 function expiryAt(rule){return rule.day*1440+rule.at;}
 
+/* センターの発注（売店の商品IDごと。js/factory-night.js が dia-orders から渡す）をこのラインの品に。ないときは空 */
+function centerPart(list,c){const o={};if(c)for(const p of list)if(p.kiosk&&c[p.kiosk]>0)o[p.id]=Math.round(c[p.kiosk]);return o;}
 function orders(D,seed,season){const A=D.sand;const r=rng((seed*40503+(sk[season]||0)*131)>>>0);
   const total=Math.max(100,Math.round(A.forecast*(1+A.forecastSd*gauss(r))/10)*10);
   const out={};for(const p of A.products)out[p.id]=Math.max(0,Math.round(total*p.share*(1+A.orderSd*gauss(r))/10)*10);return out;}
@@ -60,7 +62,8 @@ function simulate(D,cfgIn){
   const S=D.seasons[cfg.season]||D.seasons.mid;
   const T0=own?Math.min(D.start,cfg.bstart):D.start,T1=D.end,N=T1-T0+1;
   const P={},K={};A.products.forEach(p=>P[p.id]=p);A.kinds.forEach((k,j)=>{K[k.id]=k;k._k=j;});
-  const od=orders(D,cfg.seed,cfg.season);const order=Object.values(od).reduce((a,b)=>a+b,0);
+  // 注文＝ほかの店・取引先の分（決まった乱数）＋センターの発注（cfg.center。あれば）
+  const od=orders(D,cfg.seed,cfg.season),cen=centerPart(A.products,cfg.center);for(const id in cen)od[id]=(od[id]||0)+cen[id];const order=Object.values(od).reduce((a,b)=>a+b,0);
   const seq=(A.orders[cfg.order]||A.orders.safe).seq.slice();
   const room=cfg.room,hand=A.room.hand[String(room)]||1,C=A.cold,PR=A.prep,QC=A.qc;
   const ev=[];const log=(t,k,msg)=>ev.push({t,k,msg});
@@ -138,6 +141,7 @@ function simulate(D,cfgIn){
   for(let i=0;i<N;i++){const t=T0+i,j=t-D.start;
     if(loaf){if(t===D.orderConfirm)loaf.confirm(t);loaf.step(t);}
     if(t===D.orderConfirm)log(t,'order',`注文が確定：${order.toLocaleString()}パック（${A.products.map(p=>p.name.replace('サンド','')+od[p.id]).join('・')}）。仕込みと組み立ての数を合わせ直します。`);
+    if(t===D.orderConfirm){const cTot=Object.values(cen).reduce((a,b)=>a+b,0);if(cTot)log(t,'order',`注文確定：センターから${cTot.toLocaleString()}パック（${cfg.centerNo||'発注'}・${A.products.filter(p=>cen[p.id]).map(p=>p.name.replace('サンド','')+cen[p.id]).join('・')}）。ほかの店・取引先の分に足して作ります。`);}
     /* ---- 品質確認の人 ---- */
     if(qcBusy&&t>=qcBusy.until){qcBusy.task.done(t);qcBusy=null;}
     if(!qcBusy&&qcq.length){qcq.sort((a,b)=>a.pri-b.pri||a.t0-b.t0);const task=qcq.shift();qcBusy={task,until:t+task.dur};qcLog[task.kind]++;qcLog.busy+=task.dur;}

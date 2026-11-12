@@ -142,6 +142,7 @@
   "k": 0.08
  },
  "packLine": {
+  "mat": {"_note": "原材料の使う量（第5回・第1段は表示と記録だけ。製造の計算は変えない）。数字はすべて仮。米は炊いた釜の数×1釜の米（riceKg）。ほかは作った数（出荷・余り・遅れ・はじいた分）あたり", "perPot": {"rice": 10}, "perUnit": {"nori": 1, "salt": 0.0006, "label": 1, "crate": 0.0001}, "perProduct": {"sake": {"sake": 0.015}, "tuna": {"tuna": 0.018}, "ume": {"ume": 0.008}, "konbu": {"gu": 0.01}, "mentai": {"gu": 0.012}, "hesiko": {"gu": 0.01}, "yakisaba": {"gu": 0.015}, "soboro": {"gu": 0.03}}},
   "_note": "成形・包装は機械のライン2本（A・B）。ご飯を板（飯シート）にして具を包み、三角にして、両面に塩を振り、海苔のフィルムで包む。2本とも同じ具を作る。数字はすべてゲームのための仮の目安",
   "lines": 2,
   "lineRate": 60,
@@ -193,10 +194,33 @@
     "kiosk": "oni_tuna"
    },
    {
+    "id": "soboro",
+    "name": "大きいおにぎり（そぼろとたまご）",
+    "share": 0,
+    "rice": 1.5,
+    "allergen": [
+     "卵"
+    ],
+    "kiosk": "oni_big",
+    "only": "minato",
+    "_note": "港駅の売店をつくる回の6回目（2026-11-10）。港駅の店だけの具（share 0：ほかの店・取引先からの注文はなく、センターの発注があった夜だけ作る）。ご飯は1.5倍（rice）。味の濃さはツナマヨと明太子のあいだ（仮）"
+   },
+   {
     "id": "mentai",
     "name": "明太子",
     "share": 0.11,
     "kiosk": "oni_mentai"
+   },
+   {
+    "id": "yakisaba",
+    "name": "焼き鯖ほぐし",
+    "share": 0,
+    "allergen": [
+     "さば"
+    ],
+    "kiosk": "oni_yakisaba",
+    "only": "minato",
+    "_note": "港駅の売店をつくる回の6回目（2026-11-10）。港駅の店だけの具（share 0）。鯖は港浜フーズのふ頭の第1工場から（お弁当のラインの焼き鯖と同じ切り身をほぐす）。味の濃さは明太子とへしこのあいだ（仮）"
    },
    {
     "id": "hesiko",
@@ -206,7 +230,7 @@
     "kiosk": "oni_hesiko_n"
    }
   ],
-  "_fillings": "上から味が薄い順。売店の品（data/kiosk.json の oni_*）に合わせた。雫＝にったの雫の米を使う釜",
+  "_fillings": "上から味が薄い順。売店の品（data/kiosk.json の oni_*）に合わせた。雫＝にったの雫の米を使う釜。2026-11-10 に港駅の店だけの具を2つ足して9種類（share 0・only minato。センターの発注があった夜だけ作る。ほかの店・取引先の注文の乱数は前と同じ）",
   "orderSd": 0.12,
   "spare": 0.03,
   "_spare": "米を仕込むときの予備（はじく分のぶん）。3%多めに炊く",
@@ -454,6 +478,7 @@
   ]
  },
  "bread": {
+  "mat": {"_note": "パン1個あたり（仮）。こしあん・カスタード・カレーなどの中身は、まだ原材料の一覧に入れていない", "perUnit": {"flour": 0.05, "yeast": 0.001, "butter": 0.004, "bag": 1, "label": 1, "crate": 0.0001}},
   "_note": "パンのライン（試作）。米のラインの隣。仕込み（こねる）→ 一次発酵 → 分割・丸め → ベンチタイム → 成形（人の手）→ ホイロ（二次発酵）→ 焼成（オーブン。カレーパンはフライヤー）→ 粗熱取り → 包装。数字はすべてゲームのための仮の目安で、実在の工場やレシピの数字ではありません",
   "line": "パンのライン（菓子パン・惣菜パン）",
   "forecast": 1800,
@@ -774,6 +799,7 @@
   }
  },
  "sand": {
+  "mat": {"_note": "1パックあたりと、1切れ（products の pieces）あたり（仮）。自社で食パンを焼く夜（defaults の bread が own）は、仕入れの食パンのかわりに、パンの粉を1切れ 0.025kg 使う。豚カツ・ソース・マヨネーズなどは、まだ一覧に入れていない", "perUnit": {"bag": 1, "label": 1, "crate": 0.0001}, "perPiece": {"sbread": 1}, "own": {"sbread": 0, "flour": 0.025}, "perKind": {"egg": {"egg": 1}, "tuna": {"stuna": 0.025}, "ham": {"ham": 2, "lettuce": 0.015}, "fruit": {"fruit": 0.035, "cream": 0.025}}},
   "_note": "サンドイッチのライン（試作・チルド・機械のライン）。具材の仕込み（卵＝スチーマー→冷水→殻むき機→人の確認→和える／レタス＝人が選ぶ→洗い槽・殺菌→脱水機／カツ／フルーツ）→ 冷蔵庫 → 組み立てのベルト（食パンの供給機・たまごサラダとクリームの盛り付け機・人がのせる持ち場）→ 締め → カット（機械）→ 三角パックに詰める（人）→ 2:30。数字はすべてゲームのための仮の目安で、実際の食品衛生の基準や実在の工場・機械の数字ではありません",
   "line": "サンドイッチのライン（チルド・機械）",
   "forecast": 1200,
@@ -1535,120 +1561,299 @@
   }
  },
  "donut": {
-  "line": "ドーナッツのライン",
-  "note": "3品ともイースト生地。生ドーナツはクリームなしの柔らかい生地で、十分に揚げる。数字と品質の線はゲームの仮定。冷却棚はこの段階では十分ある扱い。",
-  "defaults": {
-    "season": "mid",
-    "seed": 1,
-    "start": 1080,
-    "fryers": 2,
-    "oilT": 175,
-    "oilEvery": 720,
-    "finishers": 3
-  },
-  "ranges": {
-    "seed": [
-      1,
-      9999
-    ],
-    "start": [
-      960,
-      1320
-    ],
-    "fryers": [
-      1,
-      3
-    ],
-    "oilT": [
-      155,
-      195
-    ],
-    "oilEvery": [
-      240,
-      2400
-    ],
-    "finishers": [
-      1,
-      6
-    ]
-  },
+  "line": "ケーキドーナツのライン（個包装）",
+  "note": "2026-11-11 にイースト生地のラインから置きかえた。ケーキ生地をホッパーからリング状に押し出し、連続フライヤーで揚げ、蜜（シュガーグレーズ）のカーテン、スパイラルクーラー、チョコのカーテン（任意）、金属検出、横ピロー包装、箱詰め、出荷の順に1個ずつ流れる。数字と品質の線はゲームの仮定",
+  "defaults": {"season": "mid", "seed": 1, "start": 1080, "speed": 12, "oilT": 180, "boxers": 1},
+  "ranges": {"seed": [1, 9999], "start": [960, 1320], "speed": [6, 20], "oilT": [160, 200], "boxers": [1, 3]},
+  "_ranges": "speed は押し出しの速さ（1分に何個）。boxers は箱詰めの人数",
   "forecast": 1440,
   "orderMin": 0.9,
   "orderSpread": 0.2,
   "batch": 120,
+  "weigh": 6,
   "mix": 10,
-  "shapeRate": 24,
-  "fermentQ10": 1.5,
-  "fermentRef": 19,
-  "fryCap": 30,
-  "oilChange": 12,
-  "proofGrace": 20,
-  "proofPenalty": 0.8,
-  "tempGrace": 5,
-  "tempPenalty": 2,
-  "oilGood": 960,
-  "oilPenalty": 0.06,
-  "coolMinFactor": 0.7,
-  "coolRef": 19,
-  "coolSeason": 0.05,
-  "packRate": 30,
-  "pass": 55,
+  "pour": 4,
+  "hopper": 240,
+  "_batch": "1回の仕込みは120個ぶん。計量6分 → ミキサー10分 → ホッパーへ投入4分。ホッパーは240個ぶんまで（入りきらないときは、ミキサーの生地が待つ）",
+  "flow": {"oil": 1.5, "fry": 2.5, "glaze": 1.5, "choco": 3, "insp": 1, "pack": 1},
+  "_flow": "押し出してからの時間（分）。油に落ちて裏返すまで1.5・裏返して揚げ、油を切るまで2.5・蜜のカーテン1.5・（冷却は季節で変わる）・チョコのカーテン3・検査1・包装1。コンベアなので全部の品が同じ道を通り、追い越さない（蜜やチョコのない品は、カーテンを止めて通る）",
+  "cool": {"winter": 16, "mid": 20, "summer": 26},
+  "_cool": "スパイラルクーラーの中にいる分。部屋が暑いほど長い",
+  "tempGrace": 6,
+  "tempBad": 0.03,
+  "badMax": 0.6,
+  "metal": 0.003,
+  "_quality": "油の温度が品の向いている温度から6℃をこえてずれると、1℃ごとに3%を検査ではじく（最大60%）。金属検出機は0.3%ほど反応してはじく",
+  "box": 12,
+  "place": 0.05,
+  "close": 0.5,
+  "load": 0.2,
+  "_box": "1箱12個。1人が1個置くのに0.05分（1分に20個）。箱を閉じるのに0.5分。品が変わるときは端数でも閉じる。トラックへは1箱0.2分",
   "expiry": 2760,
   "end": 1740,
-  "staff": 3,
+  "staff": 4,
   "wage": 1300,
   "nightFactor": 1.18,
   "oilCost": 2400,
-  "fryerCost": 6000,
+  "fryerCost": 9000,
+  "machineCost": 16000,
+  "_staff": "計量とミキサー・フライヤー・検査・包装機に各1人（4人）＋箱詰めの人。機械はフライヤーのほか、スパイラルクーラー・カーテン2台・金属検出機・包装機の一晩の費用",
+  "recipeNote": "配合は粉を100としたときの重さの割合（ベーカーズパーセント）。ゲームのための仮の配合で、実在の店や工場のレシピではありません。",
+  "stations": [
+   {"n": "1", "name": "計量", "machine": "台ばかり", "crew": 1, "role": "仕込みの係", "task": "配合どおりに粉・砂糖・卵・牛乳・油脂・ベーキングパウダーを量る"},
+   {"n": "2", "name": "ミキサー", "machine": "縦型ミキサー", "crew": 0, "role": "", "task": "ケーキ生地を混ぜる（仕込みの係が見る）"},
+   {"n": "3", "name": "生地投入", "machine": "ボウルリフト・ホッパー", "crew": 0, "role": "", "task": "ボウルを持ち上げて傾け、生地をホッパーへ入れる"},
+   {"n": "4", "name": "成形・フライ", "machine": "押し出し機・連続フライヤー", "crew": 1, "role": "フライヤーの係", "task": "ホッパーの生地をリング状に押し出し、熱い油へ落とす"},
+   {"n": "5", "name": "フライ・油切り", "machine": "連続フライヤー・メッシュコンベア", "crew": 0, "role": "", "task": "油の中で自動で裏返し、網のコンベアで油を切る"},
+   {"n": "6", "name": "蜜かけ", "machine": "グレーズカーテン", "crew": 0, "role": "", "task": "運びながら蜜をカーテン状にかける（シュガーグレーズの品だけ）"},
+   {"n": "7", "name": "冷却", "machine": "スパイラルクーラー", "crew": 0, "role": "", "task": "らせんのコンベアで室温まで冷ます"},
+   {"n": "＋", "name": "チョココーティング", "machine": "チョコカーテン", "crew": 0, "role": "", "task": "チョコの品だけ、チョコをかける（任意工程）"},
+   {"n": "8", "name": "検査", "machine": "金属検出機", "crew": 1, "role": "検査の係", "task": "形・色・割れを見て、金属検出機を通す。反応した品ははじく"},
+   {"n": "9", "name": "包装", "machine": "横ピロー包装機", "crew": 1, "role": "包装機の係", "task": "1個ずつフィルムで包み、消費期限を印字する"},
+   {"n": "10", "name": "箱詰め", "machine": "段ボール箱", "crew": "boxers", "role": "箱詰めの係", "task": "12個ずつ箱に並べ、閉じる"},
+   {"n": "11", "name": "出荷", "machine": "トラック", "crew": 0, "role": "", "task": "閉じた箱をトラックに積み、センターへ"}
+  ],
   "products": [
-    {
-      "id": "sugar",
-      "kiosk": "don_sugar",
-      "name": "シュガードーナツ",
-      "share": 0.4,
-      "ferment": 45,
-      "proof": 30,
-      "fry": 4,
-      "oilT": 175,
-      "cool": 20,
-      "finish": "砂糖をまぶす",
-      "finishRate": 7,
-      "set": 0,
-      "cost": 32,
-      "color": "#e8bf7c"
-    },
-    {
-      "id": "choco",
-      "kiosk": "don_choco",
-      "name": "チョコドーナツ",
-      "share": 0.35,
-      "ferment": 45,
-      "proof": 30,
-      "fry": 4,
-      "oilT": 175,
-      "cool": 35,
-      "finish": "チョコをかける",
-      "finishRate": 5,
-      "set": 15,
-      "cost": 42,
-      "color": "#6b4329"
-    },
-    {
-      "id": "nama",
-      "kiosk": "don_nama",
-      "name": "生ドーナツ",
-      "share": 0.25,
-      "ferment": 55,
-      "proof": 35,
-      "fry": 5,
-      "oilT": 170,
-      "cool": 25,
-      "finish": "砂糖で仕上げる",
-      "finishRate": 4,
-      "set": 0,
-      "cost": 58,
-      "color": "#f3e0b9"
-    }
+   {"id": "glaze", "kiosk": "don_sugar", "name": "シュガーグレーズドーナツ", "share": 0.4, "oilT": 180, "glaze": true, "choco": false, "finish": "蜜のカーテン", "cost": 30, "color": "#e8bf7c", "recipe": {"dough": "ケーキ生地（イーストを使わず、ベーキングパウダーでふくらませる）", "ratio": [["薄力粉", 100], ["砂糖", 35], ["全卵", 40], ["牛乳", 35], ["ショートニング", 15], ["ベーキングパウダー", 4], ["塩", 1]], "shape": "ホッパーからリング状に押し出し、そのまま油に落とす", "points": ["揚げてすぐ、まだ温かいうちに蜜をかけると、冷めると薄く固まる"]}},
+   {"id": "choco", "kiosk": "don_choco", "name": "チョコドーナツ", "share": 0.35, "oilT": 180, "glaze": false, "choco": true, "finish": "チョコのカーテン", "cost": 38, "color": "#6b4329", "recipe": {"dough": "ケーキ生地（イーストを使わず、ベーキングパウダーでふくらませる）", "ratio": [["薄力粉", 100], ["砂糖", 35], ["全卵", 40], ["牛乳", 35], ["ショートニング", 15], ["ベーキングパウダー", 4], ["塩", 1]], "shape": "ホッパーからリング状に押し出し、そのまま油に落とす", "points": ["冷ましてからチョコをかける（熱いうちだと流れる）"]}},
+   {"id": "plain", "kiosk": "don_nama", "name": "プレーンドーナツ", "share": 0.25, "oilT": 180, "glaze": false, "choco": false, "finish": "なし", "cost": 24, "color": "#b9773c", "recipe": {"dough": "ケーキ生地（イーストを使わず、ベーキングパウダーでふくらませる）", "ratio": [["薄力粉", 100], ["砂糖", 35], ["全卵", 40], ["牛乳", 35], ["ショートニング", 15], ["ベーキングパウダー", 4], ["塩", 1]], "shape": "ホッパーからリング状に押し出し、そのまま油に落とす", "points": ["蜜もチョコもかけない。表面のさっくりした食感を残す"]}}
+  ],
+  "_products": "売店の商品IDは前のまま（don_sugar・don_choco・don_nama）。生ドーナツはカフェのラインができたら戻す案（アイデア帳）。don_nama は売店でプレーンドーナツになった",
+  "mat": {"_note": "生地は1個 50g（仮）。粉と砂糖は、各品の配合（recipe の ratio）から出す。シュガーグレーズは蜜の砂糖、チョコはかけるチョコを足す。揚げ油は1個あたり吸う量（仮）", "doughG": 50, "recipe": {"強力粉": "dflour", "薄力粉": "dflour", "砂糖": "sugar"}, "perUnit": {"oil": 0.008, "bag": 1, "label": 1, "crate": 0.0001}, "perProduct": {"glaze": {"sugar": 0.008}, "choco": {"choco": 0.012}}},
+  "expiryNote": "消費期限は出荷日の22:00（その夜の製造で固定）"
+ },
+ "bento": {
+  "mat": {"_note": "お弁当1個あたり（仮）。おかずの材料は、まだ一覧に入れていない", "perUnit": {"rice": 0.2, "label": 1, "crate": 0.0001}},
+  "line": "お弁当のライン",
+  "since": "2026-11-10",
+  "note": "港駅の売店（みなとスタンド 港駅改札前店）のために作った5本目のライン（港駅の売店をつくる回の5回目）。おかずを作る → ご飯を詰める・おかずを詰める → 急速冷却 → ふたと包装。チルド（5℃）で出荷する。数字と品質の線はすべてゲームの仮定で、実際の食品衛生の基準ではありません。",
+  "defaults": {
+   "season": "mid",
+   "seed": 1,
+   "start": 1260,
+   "fillers": 4,
+   "chillers": 2
+  },
+  "ranges": {
+   "seed": [
+    1,
+    9999
+   ],
+   "start": [
+    1140,
+    1380
+   ],
+   "fillers": [
+    2,
+    8
+   ],
+   "chillers": [
+    1,
+    3
+   ]
+  },
+  "forecast": 240,
+  "forecastNote": "ほかの店・取引先の分（グループのほかの売店・港の会社の社員食堂の夜食など。仮）。センターの発注（港駅の店の分）は、これに足す",
+  "orderMin": 0.9,
+  "orderSpread": 0.2,
+  "batch": 40,
+  "batchNote": "ひと組＝番重4枚ぶん（1枚に10個）。仮",
+  "machines": {
+   "fryer": {
+    "name": "フライヤー（お弁当用）",
+    "n": 1
+   },
+   "grill": {
+    "name": "焼き台（コンベアのグリル）",
+    "n": 1
+   }
+  },
+  "rice": {
+   "lead": 60,
+   "rate": 8,
+   "note": "ご飯は、このラインの炊飯器（連続式・仮）。炊き始めから60分で最初のご飯が出て、そのあとは1分に8食ぶん。米は米のラインと同じ「にったの雫」"
+  },
+  "fillRate": 2.5,
+  "fillNote": "詰める人1人が1分に詰める数（ご飯を量って入れ、おかずを並べる）。ベルトの両側に立つ",
+  "holdGrace": 30,
+  "holdPenalty": 1.2,
+  "holdNote": "おかずができてから詰めるまで30分をこえると、衣がしんなりして身が固くなる（1分ごとに1.2点）",
+  "chill": {
+   "base": 30,
+   "seasonK": 0.02,
+   "limit": 30,
+   "note": "急速冷却の機械（ブラストチラー）1台にひと組ずつ。詰めてから入れるまで30分をこえて部屋で待ったひと組は、衛生の線をこえたとして出さない（不合格）。冷える時間は部屋の温度で変わる"
+  },
+  "lidRate": 12,
+  "lidNote": "ふたとラベルの機械（1分に12個）。消費期限を印字する",
+  "pass": 55,
+  "expiry": 2940,
+  "expiryNote": "消費期限は出荷日の25:00（翌1:00）。チルドのまま運び、港駅の店で売る。その夜の製造で決まる",
+  "end": 1740,
+  "staff": 3,
+  "staffNote": "おかずの係2人（揚げ・焼き）と、ふた・包装の係1人。詰める人は夕方に決める",
+  "wage": 1300,
+  "nightFactor": 1.18,
+  "chillCost": 1500,
+  "machineCost": 5000,
+  "share": "ほかのラインとの取り合い（今回は書くだけ）：①ご飯：いまはこのラインの炊飯器で炊く扱い。米のライン（おにぎり）の釜から分けると、おにぎりの釜が足りない夜が増える。②人：夜の工場の人は、米のラインの包装の人と同じ時間に働く。足りない夜にどちらへ回すかは、一人ずつのシフト（アイデア帳 18. の②）で決める。③冷蔵庫と出荷：チルドの部屋とトラックのチルドの部屋は、サンドイッチと同じところを使う。④鯖：焼き鯖は港浜フーズのふ頭の第1工場から（へしこの鯖とは別の、冷凍の切り身）",
+  "stations": [
+   {
+    "name": "おかずを作る",
+    "machine": "フライヤー・焼き台",
+    "crew": 2,
+    "role": "おかずの係",
+    "task": "唐揚げ・白身フライ・ちくわの磯辺揚げを揚げる。鯖の切り身を焼き台のコンベアに並べる"
+   },
+   {
+    "name": "ご飯を炊く",
+    "machine": "連続式の炊飯器",
+    "crew": 0,
+    "role": "",
+    "task": "人は付かず、洗った米を流しこむと、炊けたご飯が出てくる（洗米と水の量は米のラインの人が見る）"
+   },
+   {
+    "name": "詰める",
+    "machine": "ベルト・ご飯を量る機械",
+    "crew": "fillers",
+    "role": "詰める係",
+    "task": "量ったご飯を容器に入れ、おかず・漬けもの・のりを決まった場所に並べる"
+   },
+   {
+    "name": "急速冷却",
+    "machine": "ブラストチラー",
+    "crew": 0,
+    "role": "",
+    "task": "温かいままふたをすると水滴がつき、菌も増えやすい。冷たい風で一気に冷ます"
+   },
+   {
+    "name": "ふたと包装",
+    "machine": "ふた・ラベルの機械",
+    "crew": 1,
+    "role": "包装の係",
+    "task": "ふたをして、消費期限とアレルゲンのラベルを貼る。チルドの番重に入れる"
+   },
+   {
+    "name": "出荷",
+    "machine": "チルドの部屋",
+    "crew": null,
+    "role": "",
+    "task": "2:30までにチルドの部屋へ。サンドイッチと同じトラックのチルドの部屋で、川辺のセンターへ"
+   }
+  ],
+  "products": [
+   {
+    "id": "karaage",
+    "kiosk": "bt_karaage",
+    "name": "唐揚げ弁当",
+    "share": 0.4,
+    "okazu": "fryer",
+    "cook": 24,
+    "cost": 175,
+    "sell": 298,
+    "color": "#c97a3a",
+    "menu": [
+     "唐揚げ4個",
+     "ごはん（にったの雫）",
+     "たくあん",
+     "ゆでキャベツ"
+    ],
+    "allergen": [
+     "小麦",
+     "大豆",
+     "鶏肉"
+    ]
+   },
+   {
+    "id": "saba",
+    "kiosk": "bt_saba",
+    "name": "焼き鯖弁当",
+    "share": 0.3,
+    "okazu": "grill",
+    "cook": 30,
+    "cost": 205,
+    "sell": 341,
+    "color": "#8a9aa8",
+    "menu": [
+     "焼き鯖（半身）",
+     "ごはん（にったの雫）",
+     "ひじき煮",
+     "しば漬け"
+    ],
+    "allergen": [
+     "さば",
+     "大豆"
+    ]
+   },
+   {
+    "id": "nori",
+    "kiosk": "bt_nori",
+    "name": "のり弁",
+    "share": 0.3,
+    "okazu": "fryer",
+    "cook": 20,
+    "cost": 140,
+    "sell": 252,
+    "color": "#2f3a2a",
+    "menu": [
+     "白身フライ",
+     "ちくわの磯辺揚げ",
+     "おかか",
+     "のり",
+     "ごはん（にったの雫）"
+    ],
+    "allergen": [
+     "小麦",
+     "卵",
+     "乳",
+     "大豆"
+    ]
+   }
   ]
-}
+ },
+ "sameday": {
+  "_note": "工場の朝の便（できたての便・港駅の売店の7回目・2026-11-10・すべて仮）。夜の米のラインとは別に、朝の小さな組（2人・釜1つ）が 6:00 から、港駅の店の昼前の分のおにぎりを炊いて握り、8:00 に出荷する。夜のラインの計算・乱数・費用には入れていない（取り合いは書くだけ）。数は港駅の店の前の夜の発注（19:30 に確定）の昼前の分まで、品ごとに cap まで。trouble：保存の種と運行日で決まる「朝の釜の遅れ」の日（その日は出荷が late 分遅れ、作れる数が mul 倍）",
+  "start": 360,
+  "ship": 480,
+  "crew": 2,
+  "pots": 1,
+  "cap": {
+   "oni_shio_n": 14,
+   "oni_sake": 12,
+   "oni_yakisaba": 10,
+   "oni_big": 8
+  },
+  "trouble": {
+   "p": 0.07,
+   "late": 25,
+   "mul": 0.7
+  },
+  "share": "港駅の店の設定（data/minato-store.json の sameday）が、どの品を・昼前の便の何割をこの便にするかを決める。工場はその数を、cap までの範囲で作る",
+  "src": "assume"
+ },
+ "materials": {"_note": "工場の原材料（第5回・第1段：表示と記録だけ。足りなくなりそうでも、製造の計算は変えない）。仕入れ先・数字はすべて架空・仮。入荷の日 days は、運行日の番号を7で割った余り（センターの問屋の発注と同じ数え方）。t は届く時刻（0時からの分）。qty は1回に届く量（届く単位 packQty の倍数）。置ける量 cap をこえる分は、仕入れ先がその回の量を減らす（仮）。life は届いてからの日持ち（日）。使う量は各ラインの mat（packLine・bread・sand・donut・bento）", "src": "assume", "keepDays": 30, "maxNights": 30, "initNights": 3, "lowNights": 2, "warnNights": 4, "store": {"room": "常温", "chill": "冷蔵", "frozen": "冷凍"}, "lines": {"rice": "🍙 米", "bread": "🍞 パン", "sand": "🥪 サンド", "donut": "🍩 ドーナッツ", "pack": "📦 包材"}, "suppliers": {"kome": "浜手米穀", "hozai": "みお包材", "suisan": "港浜水産", "oroshi": "川辺食品卸", "tsuke": "北河原漬物", "shio": "浜手製塩", "seifun": "港浜製粉", "nyugyo": "白波乳業", "pan": "ひばりベーカリー卸", "yokei": "ひばり養鶏", "seika": "みどり青果", "yushi": "みなと油脂", "shizai": "港浜物流資材"}, "items": [
+  {"id": "rice", "name": "米（精米）", "line": "rice", "sup": "kome", "unit": "kg", "pack": "30kg袋", "packQty": 30, "life": 30, "store": "room", "cap": 3600, "days": [1, 4], "t": 600, "qty": 1500, "code": "KM"},
+  {"id": "nori", "name": "海苔フィルム", "line": "rice", "sup": "hozai", "unit": "枚", "pack": "1箱 2,000枚", "packQty": 2000, "life": 90, "store": "room", "cap": 60000, "days": [2, 5], "t": 600, "qty": 26000, "code": "NF"},
+  {"id": "sake", "name": "具の鮭（ほぐし）", "line": "rice", "sup": "suisan", "unit": "kg", "pack": "10kg箱", "packQty": 10, "life": 60, "store": "frozen", "cap": 300, "days": [1, 4], "t": 600, "qty": 90, "code": "SK"},
+  {"id": "tuna", "name": "具のツナ（マヨあえ用）", "line": "rice", "sup": "oroshi", "unit": "kg", "pack": "5kg缶", "packQty": 5, "life": 365, "store": "room", "cap": 200, "days": [1, 4], "t": 600, "qty": 90, "code": "TN"},
+  {"id": "ume", "name": "具の梅（ねり梅）", "line": "rice", "sup": "tsuke", "unit": "kg", "pack": "5kg樽", "packQty": 5, "life": 180, "store": "chill", "cap": 120, "days": [3], "t": 600, "qty": 60, "code": "UM"},
+  {"id": "gu", "name": "具（昆布・明太子・へしこ ほか）", "line": "rice", "sup": "oroshi", "unit": "kg", "pack": "5kg箱", "packQty": 5, "life": 7, "store": "chill", "cap": 120, "days": [0, 2, 4], "t": 1020, "qty": 55, "code": "GU"},
+  {"id": "salt", "name": "塩", "line": "rice", "sup": "shio", "unit": "kg", "pack": "25kg袋", "packQty": 25, "life": 365, "store": "room", "cap": 150, "days": [6], "t": 600, "qty": 50, "code": "SO"},
+  {"id": "flour", "name": "粉（パン用の強力粉）", "line": "bread", "sup": "seifun", "unit": "kg", "pack": "25kg袋", "packQty": 25, "life": 90, "store": "room", "cap": 1200, "days": [1, 4], "t": 600, "qty": 625, "code": "FL"},
+  {"id": "yeast", "name": "イースト", "line": "bread", "sup": "seifun", "unit": "kg", "pack": "500g×24", "packQty": 12, "life": 30, "store": "chill", "cap": 36, "days": [2], "t": 600, "qty": 24, "code": "YS"},
+  {"id": "butter", "name": "バター", "line": "bread", "sup": "nyugyo", "unit": "kg", "pack": "10kg箱", "packQty": 10, "life": 60, "store": "chill", "cap": 60, "days": [1, 4], "t": 1020, "qty": 30, "code": "BT"},
+  {"id": "sbread", "name": "食パン（サンド用・仕入れ）", "line": "sand", "sup": "pan", "unit": "枚", "pack": "1本 24枚", "packQty": 24, "life": 3, "store": "room", "cap": 7000, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 2880, "code": "SB", "onlyBuy": true},
+  {"id": "egg", "name": "卵", "line": "sand", "sup": "yokei", "unit": "個", "pack": "1箱 180個", "packQty": 180, "life": 14, "store": "chill", "cap": 3000, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 1080, "code": "EG"},
+  {"id": "lettuce", "name": "レタス", "line": "sand", "sup": "seika", "unit": "kg", "pack": "4kg箱", "packQty": 4, "life": 3, "store": "chill", "cap": 30, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 12, "code": "LT"},
+  {"id": "stuna", "name": "ツナ（サンド用）", "line": "sand", "sup": "oroshi", "unit": "kg", "pack": "5kg缶", "packQty": 5, "life": 365, "store": "room", "cap": 80, "days": [1, 4], "t": 600, "qty": 30, "code": "ST"},
+  {"id": "ham", "name": "ハム（スライス）", "line": "sand", "sup": "oroshi", "unit": "枚", "pack": "1パック 100枚", "packQty": 100, "life": 10, "store": "chill", "cap": 10000, "days": [1, 4], "t": 1020, "qty": 5400, "code": "HM"},
+  {"id": "fruit", "name": "フルーツ（いちご・キウイ・みかん）", "line": "sand", "sup": "seika", "unit": "kg", "pack": "1kg×13", "packQty": 13, "life": 3, "store": "chill", "cap": 30, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 13, "code": "FR"},
+  {"id": "cream", "name": "生クリーム", "line": "sand", "sup": "nyugyo", "unit": "L", "pack": "1L×9", "packQty": 9, "life": 5, "store": "chill", "cap": 30, "days": [0, 1, 2, 3, 4, 5, 6], "t": 1020, "qty": 9, "code": "CR"},
+  {"id": "dflour", "name": "粉（ドーナッツ用 強力粉・薄力粉）", "line": "donut", "sup": "seifun", "unit": "kg", "pack": "25kg袋", "packQty": 25, "life": 90, "store": "room", "cap": 400, "days": [1, 4], "t": 600, "qty": 150, "code": "DF"},
+  {"id": "sugar", "name": "砂糖", "line": "donut", "sup": "oroshi", "unit": "kg", "pack": "30kg袋", "packQty": 30, "life": 365, "store": "room", "cap": 180, "days": [3], "t": 600, "qty": 90, "code": "SG"},
+  {"id": "choco", "name": "チョコ（かける用）", "line": "donut", "sup": "oroshi", "unit": "kg", "pack": "5kg箱", "packQty": 5, "life": 180, "store": "room", "cap": 60, "days": [1, 4], "t": 600, "qty": 25, "code": "CH"},
+  {"id": "oil", "name": "揚げ油", "line": "donut", "sup": "yushi", "unit": "L", "pack": "18L缶", "packQty": 18, "life": 120, "store": "room", "cap": 180, "days": [5], "t": 840, "qty": 90, "code": "OL"},
+  {"id": "bag", "name": "袋（パン・サンド・ドーナッツ）", "line": "pack", "sup": "hozai", "unit": "枚", "pack": "1箱 1,000枚", "packQty": 1000, "life": 365, "store": "room", "cap": 40000, "days": [2, 5], "t": 600, "qty": 18000, "code": "BG"},
+  {"id": "label", "name": "ラベル", "line": "pack", "sup": "hozai", "unit": "枚", "pack": "1巻 1,000枚", "packQty": 1000, "life": 365, "store": "room", "cap": 100000, "days": [2, 5], "t": 600, "qty": 45000, "code": "LB"},
+  {"id": "crate", "name": "番重（こわれた分の入れかえ）", "line": "pack", "sup": "shizai", "unit": "個", "pack": "1個", "packQty": 1, "life": 3650, "store": "room", "cap": 60, "days": [0], "t": 600, "qty": 10, "code": "BJ"}]}
 }

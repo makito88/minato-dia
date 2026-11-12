@@ -353,7 +353,7 @@ function clerkInfo(id){const KS=kkKiosk(),CL=DATA.kakei.clerk,B=KCFG&&KCFG.crew?
   const people=KS&&KS.crew?KS.crew.people.filter(p=>p.leave==null):[];
   const p=people.find(x=>x.id===id)||people[0]||null;
   if(!p){const S=CL.sample;return {people,p:null,name:S.name,kind:S.kind,kindName:(kinds.find(k=>k.id===S.kind)||{}).name,wage:S.wage,week:S.week,year:S.wage*S.week*52,src:'例の数字',kinds};}
-  let week=0;for(const t in wd)for(const b of ((KS.crew.shift[t]||{})[p.id]||[])){const x=blocks.find(y=>y.id===b);if(x)week+=(x.to-x.from)*wd[t];}
+  let week=0;for(const t in wd)for(const b of ((KS.crew.shift[t]||{})[p.id]||[])){const x=blocks.find(y=>y.id===b)||(/^h\d+$/.test(b)?{from:+b.slice(1),to:+b.slice(1)+1}:null);if(x)week+=(x.to-x.from)*wd[t];}
   const H=(KS.hist||[]).slice(-30),days=H.filter(h=>h.crew).length,earned=H.reduce((a,h)=>a+((h.crew||[]).find(c=>c[0]===p.id)||[0,0])[1],0);
   const year=days>=14?earned/days*365:p.wage*week*52;   // 2週間分たまるまでは、時給×シフトの時間×52週
   const sales=days?H.filter(h=>h.crew).reduce((a,h)=>a+h.sales,0)/days:null,cust=days?H.filter(h=>h.crew).reduce((a,h)=>a+h.cust,0)/days:null,staff=days?H.filter(h=>h.crew).reduce((a,h)=>a+(h.staff||0),0)/days:null;

@@ -105,6 +105,13 @@ button{cursor:pointer}
 .jump{border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:5px 9px;font-size:12px}
 
 .scrubrow{display:flex;gap:10px;align-items:center}
+/* 画面のタブ（2026-11-09）：走らせる／ダイヤを組む／成績を見る。見えていないタブの地図・ダイヤグラムは描かない */
+.mtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mtabs button{font:inherit;font-weight:700;font-size:15px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 10px;min-height:48px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;text-align:left}
+.mtabs button small{font-weight:400;font-size:11px;color:var(--muted);line-height:1.35}
+.mtabs button[aria-selected="true"]{border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel))}
+@media (max-width:560px){.mtabs button{font-size:14px;padding:6px 8px}.mtabs button small{display:none}}
+[data-pane][hidden]{display:none!important}
 .scrubrow input{flex:1;min-width:0;accent-color:var(--accent)}
 .scrubrow span{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
 
@@ -113,9 +120,15 @@ button{cursor:pointer}
 .kpi b{display:block;font-family:var(--f-mono);font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi span{font-size:11.5px;color:var(--muted);letter-spacing:.04em}
 .kpi b.neg{color:var(--bad)} .kpi b.pos{color:var(--ok)}
+@media (max-width:560px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi{padding:6px 8px}.kpi b{font-size:15px}.kpi span{font-size:10.5px;letter-spacing:0}}
 
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
 .cardhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.diactl{display:flex;flex-wrap:wrap;gap:6px}
+.dialeg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:11.5px;color:var(--muted);margin:-2px 0 6px}
+.dialeg[hidden]{display:none}
+.dialeg .dl{display:inline-flex;align-items:center;gap:4px;font-family:"JetBrains Mono",monospace}
+.dialeg .dl i{display:inline-block;width:22px;background:var(--t-rapid);border-radius:1px}
 .sub{color:var(--muted);font-size:12px}
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .mapcard{padding:0;overflow:hidden}
@@ -131,9 +144,20 @@ canvas{display:block;touch-action:manipulation}
 .minibar{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--led-bg);padding:calc(env(safe-area-inset-top,0px) + 6px) 16px 6px;box-shadow:0 2px 10px rgb(0 0 0 / .25)}
 .minibar-in{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:10px}
 .mclock{font-size:26px}
+.minibar-in>button,.minibar-in .mspeed{white-space:nowrap;flex:0 0 auto}
+@media (max-width:560px){.mclock{font-size:19px;letter-spacing:.02em}.minibar-in{gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.minibar-in::-webkit-scrollbar{display:none}.minibar-in .mspeed{padding:5px 7px;font-size:12px}}
 .mband{font-family:var(--f-led);color:var(--led-g);font-size:12px;line-height:1.25;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .minibar .play{min-width:0;padding:6px 12px}
-.sndbox{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;flex-basis:100%}
+.sndbox{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+/* 上の帯のまとめ（2026-11-09）：速さ・時刻と音量は ▾ の中へ */
+.hmore{position:relative}.hmore>summary{list-style:none;cursor:pointer;border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:6px 10px;font-size:13px;white-space:nowrap;min-height:34px;display:flex;align-items:center;gap:6px}
+.hmore>summary::-webkit-details-marker{display:none}.hmore>summary::after{content:'▾';color:var(--muted)}.hmore[open]>summary{border-color:var(--accent)}
+.hmore>summary b{font-family:var(--f-mono);font-weight:700}
+.hpop{position:absolute;z-index:30;top:calc(100% + 6px);left:0;min-width:240px;max-width:min(92vw,420px);background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px;display:grid;gap:8px;box-shadow:0 8px 24px rgb(0 0 0 / .18)}
+.hplab{font-size:11.5px;color:var(--muted)}.hpop .jumps{display:flex;flex-wrap:wrap;gap:6px}.hpop .sndvol input{width:120px}
+.livebtn{border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:6px 10px;font-size:13px;min-height:34px;white-space:nowrap}
+.livebtn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink,#fff)}
+@media (max-width:560px){.hpop{position:fixed;left:12px;right:12px;top:auto;max-width:none}}
 .sndbtn{border:1px solid var(--line2);background:var(--panel);border-radius:999px;padding:5px 14px;font-size:12.5px;color:var(--muted)}
 .sndbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .sndbtn:disabled{opacity:.5;cursor:default}
@@ -396,21 +420,32 @@ canvas{display:block;touch-action:manipulation}
     <div class="clockbox" aria-live="off"><div class="led" id="clock">07:00</div><div class="band" id="band">朝ラッシュ</div></div>
     <div class="ctrl">
       <button class="play" id="play">❚❚ 一時停止</button>
+      <button class="livebtn" id="liveBtn" type="button" title="本当の時計と同じ速さで、いまの時刻を走らせる">×1 いま</button>
+      <details class="hmore" id="spdMore"><summary>速さ・時刻 <b id="spdNow"></b></summary>
+        <div class="hpop">
+          <div class="hplab">速さ</div>
       <div class="seg" id="speed" role="group" aria-label="速さ">
-        <button data-v="0.5">×30</button><button data-v="1">×60</button><button data-v="3">×180</button><button data-v="10">×600</button>
+        <button data-v="live" title="本当の時計と同じ速さで、いまの時刻を走らせる">×1 いま</button><button data-v="0.5">×30</button><button data-v="1">×60</button><button data-v="3">×180</button><button data-v="10">×600</button>
       </div>
+          <div class="hplab">時刻へ（「×1 いま」からはなれます）</div>
+          <div class="jumps">
       <button class="jump" data-t="330">始発</button>
       <button class="jump" data-t="460">朝ラッシュ</button>
       <button class="jump" data-t="720">昼</button>
       <button class="jump" data-t="1090">夕方</button>
       <button class="jump" data-t="1430">終電前</button>
+          </div>
+        </div>
+      </details>
     </div>
     <div class="sndbox" id="sndbox">
       <button class="sndbtn" id="snd" aria-pressed="false">♪ 音 OFF</button>
+      <details class="hmore"><summary>音量</summary><div class="hpop">
       <label class="sndvol" for="vol"><span>音量</span><input type="range" id="vol" min="0" max="100" step="1" value="40"></label>
       <label class="sndvol" for="volTrain"><span>電車</span><input type="range" id="volTrain" min="0" max="100" step="1" value="50"></label>
       <label class="sndvol" for="volSea"><span>波</span><input type="range" id="volSea" min="0" max="100" step="1" value="50"></label>
       <span class="sndwhere" id="sndwhere"></span>
+      </div></details>
     </div>
   </header>
   <div class="minibar" id="minibar" hidden>
@@ -423,9 +458,14 @@ canvas{display:block;touch-action:manipulation}
     </div>
   </div>
 
+  <nav class="mtabs" id="mtabs" role="tablist" aria-label="画面">
+    <button type="button" role="tab" data-pane="run">走らせる<small>地図・ダイヤグラム</small></button>
+    <button type="button" role="tab" data-pane="plan">ダイヤを組む<small>この日の条件・運行パターン・1日の成績</small></button>
+    <button type="button" role="tab" data-pane="stats">成績を見る<small>利用目的・乗車率・駅の様子・運転記録</small></button>
+  </nav>
   <div class="scrubrow"><span>4:30</span><input type="range" id="scrub" min="270" max="1560" step="1" aria-label="時刻"><span>26:00</span></div>
 
-  <section class="card cond" aria-label="運行日の条件">
+  <section class="card cond" data-pane="plan" aria-label="運行日の条件">
     <div class="condrow">
       <h2>この日の条件</h2>
       <div class="condsel" id="condsel"></div>
@@ -448,7 +488,7 @@ canvas{display:block;touch-action:manipulation}
     <div class="impact" id="impact"></div>
   </section>
 
-  <section class="kpis" aria-label="現在の状況">
+  <section class="kpis" data-pane="run" aria-label="現在の状況">
     <div class="kpi"><b id="k-run">0</b><span>運転中の列車</span></div>
     <div class="kpi"><b id="k-sets">0</b><span>出庫中の編成</span></div>
     <div class="kpi"><b id="k-onb">0</b><span>いま乗っている人</span></div>
@@ -458,10 +498,10 @@ canvas{display:block;touch-action:manipulation}
     <div class="kpi"><b id="k-ab">0</b><span>待ちきれず帰った人</span></div>
   </section>
 
-  <section class="card mapcard">
+  <section class="card mapcard" data-pane="run">
     <div class="maptool">
       <div class="layers" id="layers" role="group" aria-label="地図に表示するもの">
-        <button data-l="trains">列車</button><button data-l="stations">駅の利用</button><button data-l="heat">混雑ヒートマップ</button><button data-l="events">イベント</button>
+        <button data-l="trains">列車</button><button data-l="stations">駅の利用</button><button data-l="heat">混雑ヒートマップ</button><button data-l="events">イベント</button><button data-l="bus">バス・配送</button>
       </div>
       <span class="sub" id="mapnote"></span>
     </div>
@@ -470,15 +510,19 @@ canvas{display:block;touch-action:manipulation}
     <div class="evstrip" id="evstrip"></div>
   </section>
 
-  <div class="grid2">
+  <div class="grid2" data-pane="run">
     <div class="leftcol">
     <section class="card">
       <div class="cardhead">
         <div><h2>ダイヤグラム</h2><div class="sub">横が時刻、縦が駅。赤い縦線がいまの時刻です</div></div>
+        <div class="diactl">
+        <div class="seg" id="diaw" role="group" aria-label="スジの太さ"><button data-v="type">種別</button><button data-v="load">乗車率</button></div>
         <div class="seg" id="span" role="group" aria-label="表示幅">
-          <button data-v="120">2時間</button><button data-v="240">4時間</button><button data-v="1290">全日</button>
+          <button data-v="30">30分</button><button data-v="60">1時間</button><button data-v="120">2時間</button><button data-v="240">4時間</button><button data-v="1290">全日</button>
+        </div>
         </div>
       </div>
+      <div class="dialeg" id="dialeg" hidden>スジの太さ＝駅間の乗車率（定員比）<span class="dl"><i style="height:2.5px"></i>30%</span><span class="dl"><i style="height:4.8px"></i>70%</span><span class="dl"><i style="height:6.5px"></i>100%</span><span class="dl"><i style="height:9.5px"></i>150%〜</span><span>（全日は6割の太さ）</span></div>
       <div class="scroll" id="diawrap"><canvas id="dia" aria-label="ダイヤグラム"></canvas></div>
     </section>
     <section class="card" id="ttcard">
@@ -494,7 +538,7 @@ canvas{display:block;touch-action:manipulation}
     <aside class="card" id="info" aria-live="polite"></aside>
   </div>
 
-  <div class="grid3">
+  <div class="grid3" data-pane="plan">
     <section class="card">
       <div class="cardhead">
         <div><h2 id="edTitle">運行パターン</h2><div class="sub" id="edSub">種別・区間・時間帯・間隔を決めると、待避や交換を考えたダイヤが自動で組まれます</div></div>
@@ -536,7 +580,7 @@ canvas{display:block;touch-action:manipulation}
     </section>
   </div>
 
-  <section class="card pcard">
+  <section class="card pcard" data-pane="stats">
     <div class="cardhead">
       <div><h2>利用目的と時間帯</h2><div class="sub">どの時間に、どんな目的の人が、どれだけ駅を使っているか</div></div>
       <div class="ttctl"><select id="pst" aria-label="駅"></select>
@@ -557,7 +601,7 @@ canvas{display:block;touch-action:manipulation}
     </div>
   </section>
 
-  <section class="card" id="flowcard">
+  <section class="card" id="flowcard" data-pane="stats">
     <div class="cardhead">
       <div><h2>区間ごとの乗車率</h2><div class="sub">乗客ひとりひとりの「乗った駅→降りる駅」を積み上げて、各区間を通る人数と輸送力（定員×本数）を比べます</div></div>
       <div class="ttctl"><div class="seg" id="fhour" role="group" aria-label="時間帯"><button data-v="-1" aria-label="前の時間帯">‹</button><button data-v="now" id="fhlabel">いまの時間帯</button><button data-v="1" aria-label="次の時間帯">›</button><button data-v="day">1日</button></div></div>
@@ -571,7 +615,7 @@ canvas{display:block;touch-action:manipulation}
     <div class="tablewrap"><table class="odt" id="odt"></table></div>
   </section>
 
-  <div class="grid3">
+  <div class="grid3" data-pane="stats">
     <section class="card">
       <div class="cardhead"><div><h2>駅の様子</h2><div class="sub">いまの時刻までの累計。行をタップすると発車標を表示</div></div></div>
       <div class="tablewrap"><table class="stt"><thead><tr><th>駅</th><th>待っている人</th><th>乗った人</th><th>降りた人</th><th>乗換</th><th>目的の内訳</th></tr></thead><tbody id="sttbody"></tbody></table></div>
@@ -612,6 +656,9 @@ canvas{display:block;touch-action:manipulation}
   </div>
 </div>
 
+<script src="js/season-core.js?v=20261110a"></script>
+<script src="js/port-core.js?v=20261110a"></script>
+<script src="js/links/port-to-all.js?v=20261110a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -862,7 +909,24 @@ function ensDayFactors(day){const C=ENS.cfg.econ,ec=econAt(day),N=NSt;
   let late=ENS.cfg.newFlows.factory.late;for(const o of live)if(o.def.late!=null)late=o.def.late;
   return {day,e:ec.e,phase:ec.phase,cost:ec.cost,shocks,T,late};}
 function ecoApply(o,s,d,t){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=ECO.T[b+p];}
-function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;}
+function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;seasRefresh();}
+/* ---- 季節のできごと（計算は js/season-core.js、設定は data/seasonal.json と data/seasonal-extra.json） ----
+   いつ・どこで起きるかは「保存の種＋暦の日付」だけで決まる。景気が固定でも起きる（暦の行事なので）。
+   その日のイベント（プレイヤーが選ぶもの）と同じ駅なら止める（二重に数えない）。効き目は保存しない */
+const SEAS={cfg:null,dateI:null,list:[],T:null,hold:true,port:null,L:null,portPlan:null};   // port・L・portPlan：港（客船の日）の島の設定・橋の一覧・きょうの橋の結果（港駅の売店の8回目）   // dateI：留守の日をまとめて進めるとき、js/away.js がその日の番号を入れる。hold：留守の分を進め終わるまで、きょうの便りを待つ（順番が逆にならないように）
+function seasDayI(){return SEAS.dateI!=null?SEAS.dateI:SeasonCore.opIndex(Date.now());}
+function seasRefresh(){SEAS.list=[];SEAS.T=null;if(!SEAS.cfg||typeof SeasonCore==='undefined')return;
+  const evPlaces=new Set((ACTIVE_EV||[]).map(e=>e.place));
+  SEAS.list=SeasonCore.today(SEAS.cfg,ENS.seed,seasDayI()).filter(o=>!(o.st&&evPlaces.has(o.st)));
+  // 客船の日（橋 port-to-all）：保存の種と暦の日付だけで決まる。季節のできごとと同じ形の1件として足す（鉄道の倍率・売店のジャンル・沿線だよりは同じ道）
+  SEAS.portPlan=null;if(SEAS.port&&typeof PortToAll!=='undefined'){try{SEAS.portPlan=PortToAll.plan(SEAS.L,SEAS.port,ENS.seed,seasDayI());}catch(e){SEAS.portPlan=null;}if(SEAS.portPlan)SEAS.list.push(SEAS.portPlan.item);}
+  if(SEAS.list.length){const R=SeasonCore.railRules(SEAS.cfg,SEAS.list),N=NSt,T=new Float32Array(N*N*30*4).fill(1);
+    for(let si=0;si<N;si++)for(let di=0;di<N;di++){if(si===di)continue;for(let h=4;h<30;h++)for(let p=0;p<4;p++)T[((si*N+di)*30+h)*4+p]=Math.max(0.4,Math.min(2.5,SeasonCore.railFactor(R,ALL[si],ALL[di],h,p)));}
+    SEAS.T=T;}
+  try{ENSEN_UI.seasLetters();}catch(e){}}   // 沿線だよりがまだ用意できていないときは、あとで init のときに届く
+function seasApply(o,s,d,t){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=SEAS.T[b+p];}
+// 売店が読む：その駅の、きょうのできごとで売れやすくなるジャンルの倍率（なければ null）
+function seasKioskGenre(st){return SEAS.cfg&&SEAS.list.length?SeasonCore.kioskFx(SEAS.cfg,SEAS.list,st):null;}
 // 新しい街の流れ（試作）：港の工場への通勤・大学病院への通院・温泉の到着と出発の時間
 function newFlowsBase(o,s,d,t,ps,pd){const F=ENS.cfg.newFlows;
   if(NEWD.factory){const f=F.factory,w=f.from[d==='P'?s:d]||0;
@@ -1010,6 +1074,7 @@ function rateParts(s,d,t,noSvc){
   if(s==='C'&&d!=='C') o[3]+=1.2*pd*g(t,1000,110);
   if(ENS.cfg)newFlowsBase(o,s,d,t,ps,pd);
   for(let p=0;p<4;p++)o[p]*=CX.m[p];
+  if(SEAS.T)seasApply(o,s,d,t);             // 季節のできごと（暦の行事。その日だけ）
   if(ECO)ecoApply(o,s,d,t);                 // 沿線暦：景気の波と地域の小さな波（イベントの上乗せより前に掛けるので、イベント分は二重に変わらない）
   if(ENS.cfg)newFlowsAfter(o,s,d,t,ps,pd);
   if(ACTIVE_EV.length)addEventDemand(o,s,d,t);
@@ -1261,6 +1326,7 @@ function summarize(trips,sets,sim,events){
 </script>
 <script>
 const $=s=>document.querySelector(s);
+const fmtS=t=>{const s=Math.floor(t*60+1e-6),h=Math.floor(s/3600)%24,m=Math.floor(s/60)%60,x=s%60;return [h,m,x].map(v=>String(v).padStart(2,'0')).join(':');};   // 秒まで（上の帯の時計とダイヤグラムの赤い線）
 const fmt=t=>{t=Math.floor(t+1e-6);const h=Math.floor(t/60)%24,m=((t%60)+60)%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');};
 const fmtN=n=>Math.round(n).toLocaleString('ja-JP');
 const yen=n=>(n<0?'−':'')+'¥'+Math.round(Math.abs(n)).toLocaleString('ja-JP');
@@ -1314,8 +1380,10 @@ const CUS={on:false,slot:0,slots:[[],[],[],[]],form:{type:'L',cars:6,from:'C',to
 try{const c=JSON.parse(localStorage.getItem('dia-custom')||'null');if(c&&Array.isArray(c.slots)){CUS.on=!!c.on;CUS.slot=Math.max(0,Math.min(3,c.slot|0));c.slots.slice(0,4).forEach((l,i)=>{if(Array.isArray(l))CUS.slots[i]=l.filter(x=>x&&TYPES[x.type]&&ST[x.from]&&ST[x.to]&&Number.isFinite(x.t));});if(c.form)Object.assign(CUS.form,c.form);}}catch(e){}
 const cusList=()=>CUS.slots[CUS.slot];
 function cusSave(){try{localStorage.setItem('dia-custom',JSON.stringify({on:CUS.on,slot:CUS.slot,slots:CUS.slots,form:CUS.form}));}catch(e){}}
-let D=null,T=440,playing=true,speed=1,diaSpan=240,sel={kind:'station',st:'C'};
-try{const v=Number(localStorage.getItem('dia-speed'));if(v)speed=v;}catch(e){}
+let D=null,T=440,playing=true,speed=1,LIVE=false,diaSpan=60,sel={kind:'station',st:'C'};
+// 「×1 いま」（2026-11-09）：本当の時計と同じ速さで、いまの時刻を走らせる（speed は 1/60、T は毎コマ本当の時刻に合わせる）。
+// はじめて開いたとき（この版から）は「×1 いま」にする。ほかの速さを選んだら、それを覚える
+try{const raw=localStorage.getItem('dia-speed');if(raw==='live'||Math.abs(Number(raw)*60-1)<1e-9||!localStorage.getItem('dia-live1')){LIVE=true;speed=1/60;localStorage.setItem('dia-live1','1');localStorage.setItem('dia-speed','live');}else{const v=Number(raw);if(v)speed=v;}}catch(e){}
 try{const c=JSON.parse(localStorage.getItem('dia-cond')||'null');if(c&&typeof c==='object')setCond(c);}catch(e){}
 function save(){try{localStorage.setItem('dia-patterns',JSON.stringify(PAT.map(({id,...r})=>r)));}catch(e){}}
 function rebuild(){
@@ -1387,6 +1455,12 @@ function band(t){const m=t%1440;if(t>=1440||m<300)return '深夜';if(m<420)retur
 
 /* ---------- map drawing ---------- */
 const map=$('#map'),mctx=map.getContext('2d');let MS=1,MW=0,MH=0;
+/* 軽くする 段階2（2026-11-06）：③再生中は地図とダイヤグラムの画素の細かさを2倍までにする（3倍の端末で塗る画素が約半分）。止めると端末の細かさに戻す。
+   ②再生中の描き直しの回数を速さに合わせる（×1は1秒に5回ほど・×180は30回。雨と雪の日は12回以上。触っている0.6秒は30回）。
+   index.html?quality=full で、今までどおり（毎回描く・端末の細かさ）にもどせる（この端末だけ覚える）。ゲームの時間と計算はどちらでも同じ */
+const QFULL=(()=>{try{const q=new URLSearchParams(location.search).get('quality');if(q==='full')localStorage.setItem('minato-quality','full');if(q==='auto')localStorage.removeItem('minato-quality');return localStorage.getItem('minato-quality')==='full';}catch(e){return false;}})();
+let CDPR=window.devicePixelRatio||1;
+function wantDpr(){const d=window.devicePixelRatio||1;return (!QFULL&&playing&&d>2)?2:d;}
 function rng(seed){return ()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};}
 const BLOCKS=[];(()=>{const r=rng(7);
   const zone=(x0,y0,x1,y1,n,sz)=>{for(let i=0;i<n;i++){const w=sz*(0.6+r()*0.8),h=sz*(0.5+r()*0.7);BLOCKS.push({x:x0+r()*(x1-x0-w),y:y0+r()*(y1-y0-h),w,h,lit:r()});}};
@@ -1483,7 +1557,7 @@ function staticMap(dpr){const key=[map.width,map.height,MS,dpr,TH.land,MAPBG.com
     g.fillStyle=TH.land;g.fillRect(0,0,cv.width,cv.height);g.setTransform(MS*dpr,0,0,MS*dpr,0,0);g.imageSmoothingQuality='high';drawTerrain(g);drawTracks(g);SMAP.key=key;}
   return SMAP.cv;}
 function drawMap(){
-  if(!D)return;const c=mctx;const dpr=window.devicePixelRatio||1;
+  if(!D)return;const c=mctx;const dpr=CDPR;
   c.setTransform(1,0,0,1,0,0);c.drawImage(staticMap(dpr),0,0);
   c.setTransform(MS*dpr,0,0,MS*dpr,0,0);
   const dk=darkness(T);
@@ -1491,8 +1565,10 @@ function drawMap(){
     c.fillStyle=TH.glow;BLOCKS.forEach(b=>{if(b.lit<0.55*dk){c.globalAlpha=0.7;c.fillRect(b.x+b.w*0.3,b.y+b.h*0.3,1.6,1.6);c.fillRect(b.x+b.w*0.65,b.y+b.h*0.6,1.6,1.6);}});c.globalAlpha=1;}
   if(COND.wx==='rain'||COND.wx==='snow'){const now=performance.now()/1000,sn=COND.wx==='snow';
     c.fillStyle=sn?'#ffffff':TH.muted;c.globalAlpha=sn?0.16:0.06;c.fillRect(-20,-20,1040,460);c.globalAlpha=sn?0.9:0.5;c.lineWidth=1;c.strokeStyle=sn?TH.muted:TH.water;c.fillStyle='#ffffff';
-    for(let i=0;i<(sn?110:150);i++){const y=((i*71.3)%430+now*(sn?20:240))%440-10;let x=((i*137.5)%1000+(sn?Math.sin(now*0.8+i)*8:-y*0.25)+1000)%1000;
-      c.beginPath();if(sn){c.arc(x,y,1.6,0,6.3);c.fill();c.lineWidth=0.4;c.stroke();}else{c.moveTo(x,y);c.lineTo(x-3,y+10);c.stroke();}}c.globalAlpha=1;}
+    // 雨粒・雪の粒は、1本ずつではなく1つの道すじにまとめて1回で描く（見た目は同じ。2026-11-06：雨の日は1回の描き直しが晴れの7〜8倍重かった）
+    c.beginPath();for(let i=0;i<(sn?110:150);i++){const y=((i*71.3)%430+now*(sn?20:240))%440-10;let x=((i*137.5)%1000+(sn?Math.sin(now*0.8+i)*8:-y*0.25)+1000)%1000;
+      if(sn){c.moveTo(x+1.6,y);c.arc(x,y,1.6,0,6.3);}else{c.moveTo(x,y);c.lineTo(x-3,y+10);}}
+    if(sn){c.fill();c.lineWidth=0.4;c.stroke();}else c.stroke();c.globalAlpha=1;}
   drawClouds(c,dk);   // 薄い雲（天気で量と色が変わる）
   const snap=trafficSnapshot(T);
   if(LAYERS.heat)drawHeat(c,snap);
@@ -1511,6 +1587,7 @@ function drawMap(){
     // waiting crowd indicator
     const w=waitingAt(s,T);if(w>20){const r=Math.min(14,2+Math.sqrt(w)/3.2);c.fillStyle=TH.warn;c.globalAlpha=0.5;c.beginPath();c.arc(lx+(c.measureText(st.name).width/2)+4+r,ly-4,r,0,Math.PI*2);c.fill();c.globalAlpha=1;}
   });
+  if(LAYERS.bus&&window.RouteRunView)RouteRunView.draw(c,T,dk);   // バス・配送（お絵かき帖の路線を時刻どおりに。見た目だけ）
   // depots count
   const inDepot={C:0,P:0},total={C:0,P:0};
   VIS=[];
@@ -1538,7 +1615,7 @@ function diaGeom(){const top=22,bottom=26,gap=24;const avail=DH-top-bottom-gap;c
   let v0,v1;if(diaSpan>=1290){v0=START;v1=END;}else{v0=T-diaSpan*0.35;v1=v0+diaSpan;if(v0<START){v0=START;v1=START+diaSpan;}if(v1>END){v1=END;v0=END-diaSpan;}}
   DIA={top,mh,bh,btop:top+mh+gap,v0,v1,x:t=>DL+(t-v0)/(v1-v0)*(DW-DL-12),ym:k=>top+k/21.5*mh,yb:k=>top+mh+gap+k/12.9*bh};return DIA;}
 function drawDia(){
-  if(!D)return;const c=dctx,dpr=window.devicePixelRatio||1;c.setTransform(dpr,0,0,dpr,0,0);
+  if(!D)return;const c=dctx,dpr=CDPR;c.setTransform(dpr,0,0,dpr,0,0);
   c.fillStyle=TH.panel;c.fillRect(0,0,DW,DH);const G=diaGeom();
   // night & rush shading
   const shade=(a,b,col,al)=>{const x0=Math.max(DL,G.x(a)),x1=Math.min(DW-12,G.x(b));if(x1>x0){c.fillStyle=col;c.globalAlpha=al;c.fillRect(x0,G.top-8,x1-x0,G.btop+G.bh-G.top+12);c.globalAlpha=1;}};
@@ -1555,7 +1632,8 @@ function drawDia(){
   c.save();c.beginPath();c.rect(DL,0,DW-DL-12,DH);c.clip();
   const ss=selSet();
   const W={L:1,R:1.4,E:1.8,X:1.8};
-  D.trips.forEach(tr=>{if(tr.arr.at(-1)<G.v0||tr.dep[0]>G.v1)return;const isS=ss&&tr.set===ss;const isT=sel.kind==='trip'&&sel.trip===tr;
+  if(DIAW==='load')drawDiaLoad(c,G,ss,span);
+  else D.trips.forEach(tr=>{if(tr.arr.at(-1)<G.v0||tr.dep[0]>G.v1)return;const isS=ss&&tr.set===ss;const isT=sel.kind==='trip'&&sel.trip===tr;
     c.strokeStyle=TH[tr.type];c.lineWidth=(W[tr.type])*(isS?1.6:1)*(isT?1.4:1)*(span>600?0.75:1);c.globalAlpha=ss&&!isS?0.38:(tr.type==='L'?0.85:1);
     if(tr.mpts.length){c.beginPath();tr.mpts.forEach(([t,k],i)=>{const x=G.x(t),y=G.ym(k);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();}
     if(tr.bpts.length){c.beginPath();tr.bpts.forEach(([t,k],i)=>{const x=G.x(t),y=G.yb(k);i?c.lineTo(x,y):c.moveTo(x,y);});c.stroke();}
@@ -1574,8 +1652,28 @@ function drawDia(){
   D.trips.forEach(tr=>{if(T<tr.dep[0]||T>tr.arr.at(-1))return;const pt=(pts,yf)=>{if(!pts.length)return;if(T<pts[0][0]||T>pts.at(-1)[0])return;for(let i=0;i<pts.length-1;i++){if(T>=pts[i][0]&&T<=pts[i+1][0]){const u=pts[i+1][0]>pts[i][0]?(T-pts[i][0])/(pts[i+1][0]-pts[i][0]):0;const k=pts[i][1]+(pts[i+1][1]-pts[i][1])*u;c.fillStyle=TH[tr.type];c.beginPath();c.arc(xn,yf(k),3.6,0,Math.PI*2);c.fill();c.strokeStyle=TH.panel;c.lineWidth=1.2;c.stroke();return;}}};
     pt(tr.mpts,G.ym);pt(tr.bpts,G.yb);});
   c.restore();
-  c.fillStyle=TH.E;c.font='700 11px "JetBrains Mono",monospace';c.textAlign='center';if(xn>=DL&&xn<=DW-12){c.fillText(fmt(T),Math.min(DW-30,Math.max(DL+20,xn)),G.btop-8);}
+  c.fillStyle=TH.E;c.font='700 11px "JetBrains Mono",monospace';c.textAlign='center';if(xn>=DL&&xn<=DW-12){c.fillText(fmtS(T),Math.min(DW-34,Math.max(DL+28,xn)),G.btop-8);}
 }
+/* 乗車率でスジの太さを変える（2026-11-08）。数は乗客の計算の結果 tr.loadAfter（駅を出たときの人数）÷ tr.cap（定員）。
+   描くだけで、計算は変えない。同じ色・同じ太さ・同じ濃さの区間を1本の道すじにまとめて描く（区間ごとに描くと重いので）。 */
+let DIAW='type';try{const v=localStorage.getItem('dia-diaw');if(v==='load')DIAW='load';}catch(e){}
+const diaLoadW=r=>Math.min(9.5,0.8+5.7*Math.max(0,r));
+function drawDiaLoad(c,G,ss,span){
+  const f=span>600?0.6:1,groups=new Map(),add=(key,col,w,al,x0,y0,x1,y1)=>{let g=groups.get(key);if(!g){g={col,w,al,p:new Path2D()};groups.set(key,g);}g.p.moveTo(x0,y0);g.p.lineTo(x1,y1);};
+  D.trips.forEach(tr=>{if(tr.arr.at(-1)<G.v0||tr.dep[0]>G.v1)return;const isS=ss&&tr.set===ss;const isT=sel.kind==='trip'&&sel.trip===tr;const dim=ss&&!isS;
+    const al=dim?0.3:(tr.type==='L'?0.8:0.9),col=TH[tr.type],n=tr.seq.length;
+    // 駅にいるあいだ（横の線）は細く
+    for(let i=0;i<n;i++){if(tr.dep[i]<=tr.arr[i])continue;const s=tr.seq[i];if(isMain(s)){const y=G.ym(ST[s].km);add(tr.type+'|s|'+al,col,1,al,G.x(tr.arr[i]),y,G.x(tr.dep[i]),y);}if(isBr(s)){const y=G.yb(ST[s].bkm);add(tr.type+'|s|'+al,col,1,al,G.x(tr.arr[i]),y,G.x(tr.dep[i]),y);}}
+    for(let i=0;i<n-1;i++){const a=tr.seq[i],b=tr.seq[i+1];let y0,y1;
+      if(isMain(a)&&isMain(b)){y0=G.ym(ST[a].km);y1=G.ym(ST[b].km);}else if(isBr(a)&&isBr(b)){y0=G.yb(ST[a].bkm);y1=G.yb(ST[b].bkm);}else continue;
+      const r=tr.cap>0?(tr.loadAfter[i]||0)/tr.cap:0;let w=Math.round(diaLoadW(r)*f*2)/2;if(isT)w+=1.2;
+      add(tr.type+'|'+w+'|'+al,col,w,al,G.x(tr.dep[i]),y0,G.x(tr.arr[i+1]),y1);}
+  });
+  c.lineCap='butt';c.lineJoin='round';
+  [...groups.values()].sort((a,b)=>a.w-b.w).forEach(g=>{c.strokeStyle=g.col;c.lineWidth=g.w;c.globalAlpha=g.al;c.stroke(g.p);});
+  c.globalAlpha=1;}
+function setDiaW(v){DIAW=v==='load'?'load':'type';try{localStorage.setItem('dia-diaw',DIAW);}catch(e){}markDiaW();drawDia();}
+function markDiaW(){$('#diaw').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===DIAW)));$('#dialeg').hidden=DIAW!=='load';}
 function diaHit(px,py){const G=DIA;const t=G.v0+(px-DL)/(DW-DL-12)*(G.v1-G.v0);let best=null,bd=8;
   D.trips.forEach(tr=>{[[tr.mpts,G.ym],[tr.bpts,G.yb]].forEach(([pts,yf])=>{for(let i=0;i<pts.length-1;i++){const [t0,k0]=pts[i],[t1,k1]=pts[i+1];const x0=G.x(t0),x1=G.x(t1),y0=yf(k0),y1=yf(k1);
     const dx=x1-x0,dy=y1-y0,l2=dx*dx+dy*dy;let u=l2?((px-x0)*dx+(py-y0)*dy)/l2:0;u=Math.max(0,Math.min(1,u));const d=Math.hypot(px-(x0+u*dx),py-(y0+u*dy));if(d<bd){bd=d;best=tr;}}});});return best;}
@@ -1673,6 +1771,13 @@ function renderStation(s){
   ${board(true,down)}${board(false,up)}
   <div class="odh">この駅で降りた人は、どこから来たか</div>${odBars(odSide(SI[s],false),'')}<div class="odh">この駅から乗った人は、どこへ行くか</div>${odBars(odSide(SI[s],true),'to')}`;}
 let lastInfo='';
+/* 画面のタブ */
+let PANE='run';
+function setPane(p){if(!['run','plan','stats'].includes(p))p='run';const was=PANE;PANE=p;
+  document.querySelectorAll('.app [data-pane]').forEach(e=>{if(e.tagName!=='BUTTON')e.hidden=e.dataset.pane!==p;});
+  document.querySelectorAll('#mtabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.pane===p)));
+  if(p==='run'&&was!=='run'){resize();}refreshPanels(true);}
+document.getElementById('mtabs').addEventListener('click',e=>{const b=e.target.closest('button[data-pane]');if(b)setPane(b.dataset.pane);});
 function refreshPanels(force){
   if(!D)return;
   let html='';const tr=curTrip();
@@ -1696,7 +1801,7 @@ function refreshPanels(force){
   const items=[];for(let i=e;i>=0&&items.length<9;i--){const x=ev[i];items.push(`<li><time>${fmt(x.t)}</time><span><span class="k ${x.k}">${lab[x.k]}</span>${x.txt}</span></li>`);}
   $('#log').innerHTML=items.join('')||'<li><time></time><span class="sub">まだ記録はありません。始発を待っています</span></li>';
 }
-$('#sttbody').addEventListener('click',e=>{const tr=e.target.closest('tr');if(!tr)return;sel={kind:'station',st:tr.dataset.st};ttStation(tr.dataset.st);psStation(tr.dataset.st);refreshPanels(true);});
+$('#sttbody').addEventListener('click',e=>{const tr=e.target.closest('tr');if(!tr)return;if(PANE!=='run')setPane('run');sel={kind:'station',st:tr.dataset.st};ttStation(tr.dataset.st);psStation(tr.dataset.st);refreshPanels(true);});
 
 
 /* ---------- purposes ---------- */
@@ -1835,7 +1940,7 @@ function trafficSnapshot(T){const key=Math.floor(T*2);if(SNAP&&SNAP.D===D&&SNAP.
   return SNAP={D,key,T,hour:h,stations,segments,events};}
 
 /* ---------- 地図レイヤー ---------- */
-const LAYERS={trains:true,stations:false,heat:false,events:true};
+const LAYERS={trains:true,stations:false,heat:false,events:true,bus:true};   // bus：お絵かき帖で描いた路線（js/route-run.js。見た目だけ）
 try{const l=JSON.parse(localStorage.getItem('dia-layers')||'null');if(l)for(const k in LAYERS)if(typeof l[k]==='boolean')LAYERS[k]=l[k];}catch(e){}
 let EVHIT=[];
 function segLine(a,b,off,trim){const br=segIsBranch(a,b),n=br?NB[a+b]:NM[a+b],A=ST[a],B=ST[b],L=Math.hypot(B.x-A.x,B.y-A.y),ux=(B.x-A.x)/L,uy=(B.y-A.y)/L;
@@ -1859,12 +1964,15 @@ const CLOUDSPR=(()=>{const out=[];for(let k=0;k<4;k++){const cv=document.createE
     const gr=g.createRadialGradient(cx,cy,0,cx,cy,rad);gr.addColorStop(0,'rgba(255,255,255,.55)');gr.addColorStop(0.6,'rgba(255,255,255,.28)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.beginPath();g.arc(cx,cy,rad,0,6.3);g.fill();}
   const sh=document.createElement('canvas');sh.width=320;sh.height=150;const gs=sh.getContext('2d');gs.drawImage(cv,0,0);gs.globalCompositeOperation='source-in';gs.fillStyle='#1d2a33';gs.fillRect(0,0,320,150);   // 影用の暗い雲（毎回色を変えると重いので先に作る）
   cv.shadow=sh;out.push(cv);}return out;})();
+/* 暗くした雲の絵を取っておく（明るさを0.05きざみに）。前は雨の日と夜に、雲を描くたびに filter:brightness をかけていて、1回の描き直しが晴れの日の約8倍重かった（2026-11-06 測定） */
+function cloudDim(sp,br){const k=Math.round(br*20)/20;if(k>=1)return sp;const m=sp.__dim||(sp.__dim={});
+  if(!m[k]){const cv=document.createElement('canvas');cv.width=sp.width;cv.height=sp.height;const g=cv.getContext('2d');g.filter=`brightness(${k})`;g.drawImage(sp,0,0);m[k]=cv;}return m[k];}
 function drawClouds(c,dk){const wx=COND.wx,n=wx==='sun'?5:wx==='cld'?11:12,a=wx==='sun'?0.6:wx==='cld'?0.7:0.75,t=performance.now()/1000;
   c.save();
   for(let i=0;i<n;i++){const sp=CLOUDSPR[i%4],sc=0.9+((i*37)%10)/10*0.9,w=320*sc,h=150*sc,
       x=((i*263.7+t*(3+(i%3)))%(1000+w+200))-w-100,y=((i*97.3)%420)-h*0.4;
     c.globalAlpha=a*0.12*(1-dk*0.5);c.drawImage(sp.shadow,x+26,y+30,w,h);   // 地面に落ちる薄い影
-    c.globalAlpha=a*(1-dk*0.6);if(wx==='rain'||dk>0.3)c.filter=`brightness(${wx==='rain'?0.82:1-dk*0.4})`;c.drawImage(sp,x,y,w,h);c.filter='none';}
+    c.globalAlpha=a*(1-dk*0.6);c.drawImage((wx==='rain'||dk>0.3)?cloudDim(sp,wx==='rain'?0.82:1-dk*0.4):sp,x,y,w,h);}
   c.restore();}
 function drawEventIcons(c,snap,dk){EVHIT=[];const now=performance.now()/1000;
   snap.events.forEach(({ev,state})=>{const p=evPos(ev);EVHIT.push({id:ev.id,x:p.x,y:p.y});
@@ -1883,6 +1991,7 @@ function renderLegend(){const L=[];
   if(LAYERS.trains||LAYERS.heat)L.push(`<span style="margin-left:6px">${LAYERS.heat?'区間の乗車率':'列車の混雑'}</span><span><i class="dot" style="background:var(--ok)"></i>〜80%</span><span><i class="dot" style="background:var(--warn)"></i>〜150%</span><span><i class="dot" style="background:var(--bad)"></i>150%〜</span>`);
   if(LAYERS.heat)L.push('<span>下＝港・温泉方面 / 上＝中央方面</span><span><span class="nodata"></span>この時間は運転なし</span><span>線の太さ＝通過人数</span>');
   if(LAYERS.stations)L.push('<span><span class="ring"></span>円の大きさ＝この1時間の乗降人数</span>');
+  if(LAYERS.bus&&window.RouteRunView)L.push(RouteRunView.legend());
   L.push('<span style="margin-left:auto">列車・駅・イベントをタップすると詳細</span>');
   $('#legend').innerHTML=L.join('');
   document.querySelectorAll('#layers button').forEach(b=>b.setAttribute('aria-pressed',String(LAYERS[b.dataset.l])));}
@@ -1891,7 +2000,7 @@ function renderMapNote(){const h=Math.min(29,Math.floor(T/60));const parts=[];
   if(LAYERS.heat||LAYERS.stations)parts.push(`${h%24}時台の値（このダイヤでのシミュレーション）`);
   if(LAYERS.events&&!ACTIVE_EV.length)parts.push('イベントは「この日の条件」で選べます');
   const t=parts.join('　');if(t!==noteKey){noteKey=t;$('#mapnote').textContent=t;}}
-$('#layers').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;LAYERS[b.dataset.l]=!LAYERS[b.dataset.l];try{localStorage.setItem('dia-layers',JSON.stringify(LAYERS));}catch(er){}renderLegend();noteKey='';renderMapNote();drawMap();});
+$('#layers').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;LAYERS[b.dataset.l]=!LAYERS[b.dataset.l];if(!LAYERS.bus&&window.RouteRunView)RouteRunView.click(-1e4,-1e4);try{localStorage.setItem('dia-layers',JSON.stringify(LAYERS));}catch(er){}renderLegend();noteKey='';renderMapNote();drawMap();});
 
 /* ---------- イベントの詳細 ---------- */
 const evState=ev=>T<ev.start?'before':T<=ev.end?'during':'after';
@@ -1900,7 +2009,7 @@ let stripKey='';
 function renderEvStrip(){const key=ACTIVE_EV.map(e=>e.id+evState(e)).join('|')+(sel.kind==='event'?sel.id:'');if(key===stripKey)return;stripKey=key;
   $('#evstrip').innerHTML=ACTIVE_EV.map(e=>{const st=evState(e);return `<button class="${st}" data-ev="${e.id}" aria-pressed="${sel.kind==='event'&&sel.id===e.id}"><b class="ic">${e.icon}</b><span>${e.name}<br><span class="st">${ST[e.place].name}・${fmt(e.start)}〜${fmt(e.end)}・${EVST[st]}</span></span></button>`;}).join('');}
 $('#evstrip').addEventListener('click',e=>{const b=e.target.closest('button');if(b)selectEvent(b.dataset.ev);});
-function selectEvent(id){sel={kind:'event',id};stripKey='';refreshPanels(true);drawDia();if(innerWidth<=980)$('#info').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
+function selectEvent(id){if(PANE!=='run')setPane('run');sel={kind:'event',id};stripKey='';refreshPanels(true);drawDia();if(innerWidth<=980)$('#info').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
 function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '<p class="sub">集計しています…</p>';const st=evState(ev),snap=trafficSnapshot(T);
   const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
@@ -2237,21 +2346,33 @@ $('#cClear').addEventListener('click',()=>{if(!cusList().length)return;CUS.slots
 
 /* ---------- controls ---------- */
 const playBtn=$('#play');
-function setPlay(v){const was=playing;playing=v;if(was!==v&&typeof SND!=='undefined')SND.onPlay(v);playBtn.textContent=v?'❚❚ 一時停止':'▶ 運転開始';$('#mplay').textContent=v?'❚❚ 一時停止':'▶ 運転開始';}
+function setPlay(v){const was=playing;playing=v;if(was!==v&&wantDpr()!==CDPR)resize();if(was!==v&&typeof SND!=='undefined')SND.onPlay(v);playBtn.textContent=v?'❚❚ 一時停止':'▶ 運転開始';$('#mplay').textContent=v?'❚❚ 一時停止':'▶ 運転開始';}
 $('#mplay').addEventListener('click',()=>setPlay(!playing));
 playBtn.addEventListener('click',()=>setPlay(!playing));
 function markSeg(el,v){el.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.v)===v)));}
-function setSpeed(v){speed=v;markSeg($('#speed'),speed);const b=document.querySelector(`#speed button[data-v="${v}"]`);$('#mspeed').textContent=b?b.textContent:'×'+v*60;try{localStorage.setItem('dia-speed',speed);}catch(er){}}
-$('#speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setSpeed(Number(b.dataset.v));});
-$('#mspeed').addEventListener('click',()=>{const L=[...document.querySelectorAll('#speed button')].map(b=>Number(b.dataset.v));setSpeed(L[(L.indexOf(speed)+1)%L.length]);});
+function setSpeed(v){LIVE=v==='live';speed=LIVE?1/60:v;if(LIVE&&!RIDE.on)T=liveTf();markSpeed();try{localStorage.setItem('dia-speed',LIVE?'live':speed);}catch(er){}}
+function markSpeed(){const key=LIVE?'live':String(speed);$('#speed').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===key)));{const lb=$('#liveBtn');if(lb)lb.setAttribute('aria-pressed',String(LIVE));const sn=$('#spdNow');if(sn)sn.textContent=LIVE?'いま':'×'+Math.round(speed*60);}
+  const b=document.querySelector(`#speed button[data-v="${key}"]`);$('#mspeed').textContent=b?b.textContent:'×'+Math.round(speed*60);}
+// いまの時刻（分・秒まで）。運行していない 2:00〜4:30 は始発の時刻で止める
+function liveTf(){const p=jstParts(Date.now());let m=Number(p.hour)*60+Number(p.minute)+(Date.now()%60000)/60000;if(m<START)m+=1440;return m>END?START:m;}
+// 「×1 いま」で時刻を動かしたら、ふつうの ×1 にする（本当の時刻からはなれる）
+function leaveLive(){if(!LIVE)return;LIVE=false;speed=1/60;markSpeed();try{localStorage.setItem('dia-speed',speed);}catch(er){}}
+$('#liveBtn').addEventListener('click',()=>setSpeed('live'));
+// ▾ の外を押したら閉じる
+document.addEventListener('click',e=>{document.querySelectorAll('.hmore[open]').forEach(d=>{if(!d.contains(e.target))d.open=false;});});
+document.querySelectorAll('.hpop .jump').forEach(b=>b.addEventListener('click',()=>{const d=b.closest('details');if(d)d.open=false;}));
+$('#speed').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setSpeed(b.dataset.v==='live'?'live':Number(b.dataset.v));});
+$('#mspeed').addEventListener('click',()=>{const L=[...document.querySelectorAll('#speed button')].map(b=>b.dataset.v),i=L.indexOf(LIVE?'live':String(speed)),n=L[(i+1)%L.length];setSpeed(n==='live'?n:Number(n));});
 try{new IntersectionObserver(es=>{$('#minibar').hidden=es[0].isIntersecting;}).observe(document.querySelector('.top'));}catch(e){}
+$('#diaw').addEventListener('click',e=>{const b=e.target.closest('button');if(b)setDiaW(b.dataset.v);});
 $('#span').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;diaSpan=Number(b.dataset.v);markSeg($('#span'),diaSpan);drawDia();});
-markSeg($('#speed'),speed);markSeg($('#span'),diaSpan);{const b=document.querySelector(`#speed button[data-v="${speed}"]`);if(b)$('#mspeed').textContent=b.textContent;}
-document.querySelectorAll('.jump').forEach(b=>b.addEventListener('click',()=>{T=Number(b.dataset.t);refreshPanels(true);}));
-const scrub=$('#scrub');scrub.addEventListener('input',()=>{T=Number(scrub.value);refreshPanels(true);drawDia();});
+markSpeed();markSeg($('#span'),diaSpan);markDiaW();
+document.querySelectorAll('.jump').forEach(b=>b.addEventListener('click',()=>{leaveLive();T=Number(b.dataset.t);refreshPanels(true);}));
+const scrub=$('#scrub');scrub.addEventListener('input',()=>{leaveLive();T=Number(scrub.value);refreshPanels(true);drawDia();});
 document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textarea'))return;if(e.code==='Space'){e.preventDefault();setPlay(!playing);}});
 
 map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.clientX-r.left)/MS,y=(e.clientY-r.top)/MS;
+  if(LAYERS.bus&&window.RouteRunView&&RouteRunView.click(x,y)){drawMap();return;}   // バス・配送の乗り物を押したら小さなカード
   {const h=SCPIN.find(v=>Math.hypot(v.x-x,v.y-14-y)<13);if(h){openScene(h.s);return;}}   // 場面のピン
   if(LAYERS.events){const h=EVHIT.find(v=>Math.hypot(v.x-x,v.y-y)<18);if(h){selectEvent(h.id);return;}}
   let best=null,bd=16;if(LAYERS.trains)VIS.forEach(v=>{const d=Math.hypot(v.st.x-x,v.st.y-y);if(d<bd){bd=d;best=v;}});
@@ -2265,7 +2386,7 @@ dia.addEventListener('click',e=>{const r=dia.getBoundingClientRect();const tr=di
   if(tr){sel={kind:'trip',trip:tr};refreshPanels(true);drawDia();}});
 
 /* ---------- sizing ---------- */
-function resize(){const dpr=window.devicePixelRatio||1;
+function resize(){const dpr=wantDpr();CDPR=dpr;
   const mw=Math.max($('#mapwrap').clientWidth,760);MW=mw;MH=Math.round(mw*0.42);MS=mw/1000;map.style.width=mw+'px';map.style.height=MH+'px';map.width=Math.round(mw*dpr);map.height=Math.round(MH*dpr);
   const dw=Math.max($('#diawrap').clientWidth,620);DW=dw;DH=420;dia.style.width=dw+'px';dia.style.height=DH+'px';dia.width=Math.round(dw*dpr);dia.height=Math.round(DH*dpr);
   drawMap();drawDia();if(D){pKey='';renderPurpose(true);}}
@@ -3090,7 +3211,7 @@ const st=personStyle(o,s,T),pal=PAL[st],col=pal[Math.floor(o.r2*pal.length)],b=P
   /* --- 入る・出る --- */
   function markSpd(){document.querySelectorAll('#rideSpd button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.m)===R.mult)));}
   async function enter(tr){if(!tr||R.on||T>=tr.arr.at(-1))return;
-    R.on=true;R.it=null;R.mode='ride';el('rideSide').hidden=false;el('platSide').hidden=true;el('rideCv').style.aspectRatio='';R.tr=tr;R.prevSpeed=speed;R.msg='';el('ride').hidden=false;document.documentElement.style.overflow='hidden';
+    R.on=true;R.it=null;R.mode='ride';el('rideSide').hidden=false;el('platSide').hidden=true;el('rideCv').style.aspectRatio='';R.tr=tr;R.prevSpeed=LIVE?'live':speed;R.msg='';el('ride').hidden=false;document.documentElement.style.overflow='hidden';
     el('rideTitle').innerHTML=`${TYPES[tr.type].name} ${tr.num}<small>${ST[tr.seq.at(-1)].name}行・${tr.cars}両</small>`;
     el('rideLoad').hidden=false;el('rideLoad').textContent='素材を読み込んでいます…';el('rideCv').style.visibility='hidden';
     speed=R.mult/60;markSpd();sel={kind:'trip',trip:tr};
@@ -3156,14 +3277,23 @@ const ENSEN_UI=(()=>{
   function persist(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
   async function init(){const first=load();
     try{const r=await fetch('data/ensen.json');if(!r.ok)throw new Error('HTTP '+r.status);ENS.cfg=await r.json();}catch(e){ENS.cfg=null;renderAll();return;}
+    try{const [a,b]=await Promise.all(['data/seasonal.json?v=20261110a','data/seasonal-extra.json'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.cfg=a&&typeof SeasonCore!=='undefined'?SeasonCore.merge(a,b):null;}catch(e){SEAS.cfg=null;}
+    try{const [pj,lj]=await Promise.all(['data/port.json?v=20261110a','data/links.json?v=20261112k'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.port=pj;SEAS.L=lj;}catch(e){SEAS.port=null;}   // 港（客船の日）（読めなくても、ほかはいつもどおり）   // 季節のできごと（読めなくても、ほかはいつもどおり）
     ensReset(st.seed);ENS.day=st.day;NEWD={...st.newd};
     if(first&&COND.econ!=='auto'&&COND.econ==='mid')COND.econ='auto';   // はじめて使うときは景気を「自動」に
+    setTimeout(()=>{if(SEAS.hold){SEAS.hold=false;seasLetters();}},25000);   // js/away.js が動かなかったときの予備
     ready=true;setCond({...COND});saveCond();renderCondUI();rebuild();renderAll();}
   // 26:00 を過ぎて自然に次の日へ進んだとき（巻き戻しや時刻バーでは呼ばれない）
   function dayEnd(force){if(!ready||!D)return;const minPlay=120;
     if(!force&&played<minPlay){played=0;return;}   // 少ししか進めていない日は数えない（時刻を終わり近くへ動かしてから日をまたぐだけでは、運行日を進めない）
     st=ensEndDay(st,D);ENS.day=st.day;played=0;persist();setCond({...COND});rebuild();renderAll();}
   const tick=(dt)=>{if(playing)played+=speed*dt;};
+  // 季節のできごと：起きた朝に、初めて便りで知らせる（前もっては出さない）。同じ日・同じできごとは1通だけ
+  function seasLetters(){if(!ready||!SEAS.list.length||(SEAS.hold&&SEAS.dateI==null))return;let add=0;
+    for(const o of SEAS.list){const key='seas:'+o.ymd+':'+o.id,L=o.ev.letter;if(!L||(st.letters||[]).some(l=>l.key===key))continue;
+      const r=SeasonCore.rng(SeasonCore.hash(st.seed,key)),pick=a=>Array.isArray(a)?a[Math.floor(r()*a.length)]:a,d={st:o.st&&ST[o.st]?ST[o.st].name:'沿線'};
+      st.letters=[...(st.letters||[]),{id:st.day+'-'+key,day:st.day,st:o.st||null,kind:'season',key,tplId:o.id,who:ensFill(pick(L.who),d),src:L.src,title:ensFill(pick(L.title),d),body:ensFill(pick(L.body),d),read:false,dev:{ymd:o.ymd,mag:o.mag}}].slice(-ENS.cfg.letters.keep);add++;}
+    if(add){persist();renderBadge();if(open){renderFilter();renderList();}}}
   function unread(){return (st&&st.letters||[]).filter(l=>!l.read).length;}
   function renderBadge(){const n=unread();for(const id of ['tayoriBtn','mtayori']){const b=el(id);if(!b)continue;const d=b.querySelector('.dot');if(d){d.hidden=!n;d.textContent=n>9?'9+':String(n);}b.setAttribute('aria-label',`沿線だより${n?`（新着${n}件）`:''}`);}
     const od=el('opday');if(od)od.textContent=ready?`第${st.day}運行日`:'';}
@@ -3185,6 +3315,7 @@ const ENSEN_UI=(()=>{
     box.innerHTML=`<h4>開発用（#dev のときだけ表示）</h4>
       <p>種 ${st.seed}・第${st.day}運行日・景気 ${COND.econ==='auto'?'自動':'固定（'+CONDS.econ.opts[COND.econ].n+'）'}</p>
       <p>景気の値 e=${ec.e.toFixed(3)}（${ec.phase}・第${ec.phaseStart}日から）・費用係数 ${ec.cost.toFixed(3)}${E?'':'　※固定中は補正なし'}</p>
+      <p>季節のできごと（きょうの分だけ。先の予定は出さない）：${SEAS.list.map(o=>`${o.ev.name}［${o.st?ST[o.st].name:'沿線全体'}・強さ${o.mag}］`).join(' ')||'なし'}${SEAS.cfg?`（用意 ${SEAS.cfg.list.length}件）`:'（設定を読めていない）'}</p>
       <p>小さな波：${sh.map(o=>`${shockDef(o.id).name}［予告${o.announce??'なし'}・${o.start}〜${o.end}日・${(o.mag*100).toFixed(1)}%${E&&E.shocks.find(x=>x.id===o.id&&x.start===o.start&&x.suppressed)?'・イベントと重なり停止':''}］`).join(' ')||'なし'}</p>
       <details><summary>着駅×目的の平均補正（6〜23時、今日）</summary>${tbl||'（固定中）'}</details>
       <details><summary>前の日の判定の候補（${(st.lastCand||[]).length}件）</summary><pre>${esc(JSON.stringify(st.lastCand||[],null,1))}</pre></details>
@@ -3234,11 +3365,12 @@ const ENSEN_UI=(()=>{
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&open)setOpen(false);});
     addEventListener('hashchange',()=>{if(open)renderDev();});}
   mount();renderBadge();
-  return {init,dayEnd,tick,renderEval,renderAll,get state(){return st;},get ready(){return ready;},setOpen,resetAll,dev};
+  return {init,dayEnd,tick,renderEval,renderAll,seasLetters,get state(){return st;},get ready(){return ready;},setOpen,resetAll,dev};
 })();
 
 /* ---------- loop ---------- */
 let lastTs=0,acc=0,rideAcc=0;
+let PERF=null;   // 負荷メーター（index.html?perf=1 のときだけ js/perf-meter.js が入れる）
 /* 一時停止中は、何かが変わったときだけ地図とダイヤグラムを描き直す（電池の節約）。
    変わったとみなすのは：時刻・ダイヤの計算結果・選んでいる物・場面の数が変わったとき、画面を触った・押した・キーを押した・大きさが変わったとき（そこから0.6秒）。
    念のため、それ以外でも3秒に1回は描き直す */
@@ -3249,19 +3381,26 @@ try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',wake);}
 document.addEventListener('visibilitychange',wake);
 // スマホ（指で操作する画面）では、再生中も絵は1秒に30回まで（時刻と列車の位置の計算は毎回進める）
 const PHONE=(()=>{try{return matchMedia('(pointer: coarse)').matches;}catch(e){return false;}})();let lastDrawAt=0;
-function needDraw(now){if(playing||RIDE.on){if(PHONE&&now-lastDrawAt<32)return false;lastDrawAt=now;return true;}
+function drawGap(now){if(RIDE.on||QFULL)return PHONE?32:0;if(now<wakeUntil)return 32;
+  let fps=Math.min(30,Math.max(5,Math.sqrt(Math.max(0,speed)*60)*2.2));if(COND.wx==='rain'||COND.wx==='snow')fps=Math.max(fps,12);return 1000/fps-2;}
+function needDraw(now){if(playing||RIDE.on){if(now-lastDrawAt<drawGap(now))return false;lastDrawAt=now;return true;}
   const k=T+'|'+(D&&D.trips?D.trips.length:0)+'|'+(typeof SCENES!=='undefined'?SCENES.length:0);
   const changed=k!==idleKey||D!==needDraw.d||sel!==needDraw.s;idleKey=k;needDraw.d=D;needDraw.s=sel;
   if(changed||now<wakeUntil||now-idleAt>3000){idleAt=now;return true;}return false;}
-function frame(ts){const dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
-  if(playing&&D){T+=speed*dt;ENSEN_UI.tick(dt);if(T>END){T=START+30;ENSEN_UI.dayEnd(false);}}   // 運行日は、再生して26:00を過ぎたときだけ進む
+/* 画面に書くのは、中身が変わったときだけ（同じ文字を書いても、ブラウザは配置を計算し直すため。2026-11-06 測定：何もしていなくても配置の計算が1秒60回あった） */
+const setTxt=(e,v)=>{if(e&&e.__v!==v){e.__v=v;e.textContent=v;}};
+/* ゲームの時間を進めることと、絵を描くことは分ける。描くのが遅い端末でも、時間は設定どおりに進む（前は1コマ0.1秒で切り捨てていたので、描くのが重いと時間が半分ほどしか進まなかった）。
+   2秒より長くあいたとき（画面が裏にいた・スリープ）は、今までどおり0.1秒だけ進める（運行日と売店は本当の暦で進むので、ここでは追いかけない） */
+function frameDt(ts){if(!lastTs)return 0;const raw=(ts-lastTs)/1000;return raw<=2?Math.max(0,raw):0.1;}
+function frame(ts){const dt=frameDt(ts);lastTs=ts;PERF&&PERF.f0();
+  if(playing&&D){if(LIVE&&!RIDE.on)T=liveTf();else T+=speed*dt;ENSEN_UI.tick(dt);if(T>END){T=START+30;}}   // 26:00を過ぎたら同じ運行日の朝に戻る。運行日は暦の朝4:30でだけ進む（js/away.js が進める）
   if(RIDE.on){rideAcc+=dt;if(!PHONE||rideAcc>=1/30-0.002){RIDE.tick(rideAcc);rideAcc=0;}}
-  $('#clock').textContent=fmt(T);if(!$('#minibar').hidden){$('#mclock').textContent=fmt(T);const mb=band(T)+'・'+condLabel();if($('#mband').textContent!==mb)$('#mband').textContent=mb;}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
-  if(document.activeElement!==scrub)scrub.value=Math.round(T);
-  const covered=!!document.querySelector('.rsv:not([hidden]),.ksv:not([hidden]),.topv:not([hidden])');   // リサーチ・売店の画面が全体をおおっているあいだは、見えない地図とダイヤグラムを描かない（電池の節約）
-  const draw=!covered&&needDraw(ts);
-  if(draw)drawMap();if(SND.S.on)SND.tick(ts);acc+=dt;if(draw&&(acc>0.15||!playing&&acc>0.3)){acc=0;drawDia();refreshPanels(false);}
-  requestAnimationFrame(frame);}
+  const covered=!!document.querySelector('.rsv:not([hidden]),.ksv:not([hidden]),.topv:not([hidden])');   // リサーチ・売店・トップの画面が全体をおおっているあいだは、見えない地図・ダイヤグラム・時計を描かない（時間と沿線暦は上で進めている）
+  if(!covered){const ft=fmtS(T);setTxt($('#clock'),ft);if(!$('#minibar').hidden){setTxt($('#mclock'),ft);setTxt($('#mband'),band(T)+'・'+condLabel());}{const bt=band(T)+'|'+condLabel();const be=$('#band');if(be.dataset.v!==bt){be.dataset.v=bt;be.innerHTML=band(T)+'<br>'+condLabel();}}
+    const sv=String(Math.round(T));if(document.activeElement!==scrub&&scrub.value!==sv)scrub.value=sv;}
+  const draw=!covered&&PANE==='run'&&needDraw(ts);   // 「ダイヤを組む」「成績を見る」のあいだは、地図とダイヤグラムを描かない（時間は進める）
+  if(draw){drawMap();PERF&&PERF.n('map');}if(SND.S.on)SND.tick(ts);acc+=dt;if(draw&&(acc>0.15||!playing&&acc>0.3)){acc=0;drawDia();refreshPanels(false);}else if(!covered&&PANE!=='run'&&acc>0.5){acc=0;refreshPanels(false);}
+  PERF&&PERF.f1();requestAnimationFrame(frame);}
 /* ---------- 場面（コレクション）：data/scenes.json の場面を地図のピンにし、押すと小窓で開く ---------- */
 let SCENES=[],SCPIN=[];
 fetch('data/scenes.json').then(r=>r.ok?r.json():null).then(d=>{if(d&&Array.isArray(d.scenes))SCENES=d.scenes;}).catch(()=>{});
@@ -3287,21 +3426,31 @@ function openScene(sc){let box=document.getElementById('sceneBox');
 function jstParts(ms){return Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit'}).formatToParts(new Date(ms)).map(x=>[x.type,x.value]));}
 function liveT(){const p=jstParts(Date.now());let m=Number(p.hour)*60+Number(p.minute);if(m<START)m+=1440;return m>END?START:m;}
 // 曜日・季節・天気。運行日は朝4:30で切りかわる（深夜1時は前の日の運行）。天気は Open-Meteo、祝日は holidays-jp（どちらも無料・登録なし）
+// 天気はその運行日の「1日の天気」（立川市の予報・実績）。日付ごとに最初に取れた値を dia-wxlog に覚え、あとから変えない（引き継ぎコードにも入る）。
+// 祝日は dia-holidays に覚える。どちらも js/away.js が、留守にしていた日の条件に使う
+const WXK='dia-wxlog',HOLK='dia-holidays';
+const wxOf=w=>w<=1?'sun':w<=48?'cld':(w>=71&&w<=77)||w===85||w===86?'snow':'rain';   // WMO の天気コード → 晴れ・くもり・雨・大雪
+function wxLog(){try{return JSON.parse(localStorage.getItem(WXK)||'{}')||{};}catch(e){return {};}}
+function holLog(){try{return JSON.parse(localStorage.getItem(HOLK)||'null');}catch(e){return null;}}
+async function fetchCal(){const out={wx:wxLog(),hol:holLog()};
+  const [wr,hr]=await Promise.allSettled([
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6939&longitude=139.4194&daily=weather_code,temperature_2m_max,temperature_2m_min&past_days=14&forecast_days=1&timezone=Asia%2FTokyo').then(r=>r.ok?r.json():Promise.reject(r.status)),
+    fetch('https://holidays-jp.github.io/api/v1/date.json').then(r=>r.ok?r.json():Promise.reject(r.status))]);
+  if(wr.status==='fulfilled'&&wr.value.daily){const d=wr.value.daily;d.time.forEach((ymd,i)=>{if(!out.wx[ymd]&&d.weather_code[i]!=null)out.wx[ymd]={wx:wxOf(d.weather_code[i]),hi:d.temperature_2m_max[i],lo:d.temperature_2m_min[i]};});
+    const keys=Object.keys(out.wx).sort();for(const k of keys.slice(0,Math.max(0,keys.length-90)))delete out.wx[k];try{localStorage.setItem(WXK,JSON.stringify(out.wx));}catch(e){}}
+  if(hr.status==='fulfilled'&&hr.value){out.hol=hr.value;try{localStorage.setItem(HOLK,JSON.stringify(hr.value));}catch(e){}}
+  return out;}
 async function liveCond(){const note=document.getElementById('liveNote');
   const p=jstParts(Date.now()-START*60000),ymd=`${p.year}-${p.month}-${p.day}`,mo=Number(p.month);
   const c={season:mo>=3&&mo<=5?'spr':mo>=6&&mo<=8?'sum':mo>=9&&mo<=11?'aut':'win',day:p.weekday==='Sat'?'sat':p.weekday==='Sun'?'hol':'wd'};
-  const [wr,hr]=await Promise.allSettled([
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=35.6939&longitude=139.4194&current=weather_code,temperature_2m&timezone=Asia%2FTokyo').then(r=>r.ok?r.json():Promise.reject(r.status)),
-    fetch('https://holidays-jp.github.io/api/v1/date.json').then(r=>r.ok?r.json():Promise.reject(r.status))]);
-  let hol='';if(hr.status==='fulfilled'&&hr.value[ymd]){hol=hr.value[ymd];c.day='hol';}
-  let wtxt='天気は取得できませんでした';
-  if(wr.status==='fulfilled'&&wr.value.current){const w=wr.value.current.weather_code,tc=wr.value.current.temperature_2m;
-    // WMO の天気コード → 晴れ・くもり・雨・大雪
-    c.wx=w<=1?'sun':w<=48?'cld':(w>=71&&w<=77)||w===85||w===86?'snow':'rain';
-    wtxt=`${CONDS.wx.opts[c.wx].n}${c.wx==='snow'?'（雪）':''} ${Math.round(tc)}℃`;}
+  const cal=await fetchCal();
+  let hol='';if(cal.hol&&cal.hol[ymd]){hol=cal.hol[ymd];c.day='hol';}
+  let wtxt='天気は取得できませんでした';const w=cal.wx[ymd];
+  if(w){c.wx=w.wx;wtxt=`${CONDS.wx.opts[c.wx].n}${c.wx==='snow'?'（雪）':''}${w.hi!=null?` 最高${Math.round(w.hi)}℃・最低${Math.round(w.lo)}℃`:''}`;}
+  else{const r=window.minatoAway&&minatoAway.condFor(minatoAway.opIndex(Date.now()));if(r)c.wx=r.wx;}   // 取れないときは、日ごとに決まった天気
   setCond({...COND,...c});saveCond();renderCondUI();rebuildSoon();
-  if(note)note.textContent=`いまの立川市：${wtxt}・${CONDS.day.opts[c.day].n}${hol?'（'+hol+'）':''}（起動時に自動で設定。下のボタンで変えられます）`;}
-function start(data){if(data&&typeof data.T==='number')T=data.T;else T=liveT();liveCond().catch(()=>{});renderCondUI();renderLegend();renderEditor();rebuild();renderMode();resize();setPlay(true);requestAnimationFrame(frame);ENSEN_UI.init();}
+  if(note)note.textContent=`きょうの立川市：${wtxt}・${CONDS.day.opts[c.day].n}${hol?'（'+hol+'）':''}（その日の天気を一度だけ取り、ほかの端末とそろえます。下のボタンで変えられますが、変えると売店の売れ方も変わります）`;}
+function start(data){if(data&&typeof data.T==='number')T=data.T;else T=liveT();liveCond().catch(()=>{});renderCondUI();renderLegend();renderEditor();rebuild();renderMode();setPane('run');resize();setPlay(true);requestAnimationFrame(frame);ENSEN_UI.init();}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
 </script>
@@ -3309,15 +3458,58 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/research-core.js"></script>
 <script src="js/research-view.js"></script>
 <!-- 売店運営（第2段）：計算は js/kiosk-core.js、表示は js/kiosk-view.js、設定は data/kiosk.json -->
-<script src="js/kiosk-staff.js"></script>
-<script src="js/kiosk-core.js"></script>
-<script src="js/kiosk-view.js?v=20261103-news"></script>
+<script src="js/kiosk-staff.js?v=20261112h"></script>
+<script src="js/kiosk-walk.js?v=20261111a7"></script>
+<script src="js/kiosk-core.js?v=20261112a"></script>
+<script src="js/survey-core.js"></script>
+<script src="js/links/survey-to-kiosk.js?v=20261109a"></script>
+<script src="js/center-core.js?v=20261112d"></script>
+<!-- 工場の夜の計算（納品書を作り、売店に届く工場の品の数を決める。発注と配送 第3回） -->
+<script src="js/factory-core.js?v=20261110a"></script>
+<script src="js/bread-core.js?v=20261107a"></script>
+<script src="js/sand-loaf.js"></script>
+<script src="js/sand-core.js?v=20261107a"></script>
+<script src="js/donut-core.js?v=20261111b"></script>
+<script src="js/bento-core.js?v=20261110a"></script>
+<script src="js/factory-pl.js?v=20261112m"></script>
+<script src="js/factory-night.js?v=20261112j"></script>
+<!-- 工場の原材料（第5回）：運行日の締めで、その夜に使った量と入荷を dia-materials に記録する（計算だけ。画面は factory.html#material） -->
+<script src="js/material-core.js?v=20261111a"></script>
+<!-- 荷物の行方（注文を追いかける。アイデア帳 6.）の計算 -->
+<script src="js/track-core.js?v=20261112n"></script>
+<!-- 港駅の売店（2つ目の店・歩く店）：設定 js/minato-store-core.js・人の動きの段取り js/minato-store-anim.js・絵 js/minato-store-view.js（売店の画面の「港駅改札前店」） -->
+<script src="js/minato-store-core.js?v=20261112h"></script>
+<script src="js/minato-store-anim.js?v=20261111w4"></script>
+<script src="js/links/local-to-kiosk.js?v=20261110d"></script>
+<script src="js/links/factory-to-kiosk-sameday.js?v=20261110a"></script>
+<script src="js/links/minato-to-group.js?v=20261112d"></script>
+<script src="js/links/deals-to-factory.js?v=20261112m"></script>
+<script src="js/links/deals-to-money.js?v=20261112m"></script>
+<script src="js/links/deals-to-haiso.js?v=20261112m"></script>
+<script src="js/minato-store-fx.js?v=20261111a3"></script>
+<!-- 港駅の売店：きょう売れたもの（棚 × 時間・いつもと比べる）：計算 js/minato-sales-core.js・画面 js/minato-sales-view.js -->
+<script src="js/minato-sales-core.js?v=20261111a"></script>
+<script src="js/minato-sales-view.js?v=20261111u"></script>
+<script src="js/minato-store-view.js?v=20261112paint1"></script>
+<script src="js/kiosk-view.js?v=20261112n"></script>
+<script src="js/center-flow.js?v=20261112k"></script>
+<script src="js/deals-core.js?v=20261112m"></script>
+<script src="js/deals-view.js?v=20261112n"></script>
+<script src="js/center-view.js?v=20261112d"></script>
+<script src="js/haiso-core.js?v=20261112k"></script>
+<script src="js/haiso-view.js?v=20261112k"></script>
+<script src="js/money-core.js?v=20261112m"></script>
+<script src="js/money-view.js?v=20261112i"></script>
 <!-- 保存と引き継ぎ（一時保存・別の端末への引き継ぎコード） -->
-<script src="js/save.js"></script>
+<script src="js/save.js?v=20261109l"></script>
 <!-- 留守のあいだ：開いたとき・戻ったときに、閉じていたあいだの運行日をまとめて進める -->
-<script src="js/away.js"></script>
+<script src="js/away.js?v=20261110a"></script>
+<script src="js/perf-meter.js?v=20261106b"></script>
 <!-- トップページ（5つのレイヤー）：js/top.js -->
-<script src="js/top.js?v=20261102"></script>
+<script src="js/route-core.js?v=20261112r"></script>
+<script src="js/route-run-core.js?v=20261112r"></script>
+<script src="js/route-run.js?v=20261112r"></script>
+<script src="js/top.js?v=20261111a"></script>
 
 </body>
 </html>

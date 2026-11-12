@@ -2,8 +2,8 @@
    おにぎり工場（試作）の収支：4つのライン（米・パン・サンド・ドーナッツ）をまとめた1晩と1か月の見積もり
    ・それぞれのラインの計算（FactoryCore・BreadCore・SandCore）を、いま保存してある夕方の条件で
      何夜か回して平均し、売上（売店の仕入れ値 ×（1 − センターの取り分））と費用を並べる。
-   ・おにぎりの新しい取引先と、増やすための設備をここで選ぶ。選ぶと、米のラインの見込み・番重の行き先・設備も変わる
-     （FactoryPL.apply を米のラインの画面が使う）。
+   ・増やすための設備をここで選ぶ。おにぎりの新しい取引先は、2026-11-12（取引の相談窓口 第4回）から窓口で選ぶ（ここは結果だけ）。
+     dia-factory-pl の customers は今までどおり米のラインの見込み・番重の行き先に効く（FactoryPL.apply を米のラインの画面と納品書が使う）。
    ・設定は data/factory.json の pl。選んだものはブラウザの dia-factory-pl。数字はすべてゲームの仮の目安。
    ===================================================================== */
 (function(root){
@@ -30,7 +30,8 @@ function compute(D0,K,s){const P=D0.pl;s=s||settings(D0);const cost=id=>{const p
   const rcfg=Object.assign({},cfgOf('dia-factory'));rcfg.batches=Math.max(rcfg.batches||0,suggestBatches(D));
   const bcfg=cfgOf('dia-factory-bread'),scfg=cfgOf('dia-factory-sand'),dcfg=cfgOf('dia-factory-donut');
   const L={rice:{n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0},bread:{n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0},sand:{n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0}};
-  L.donut={n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0};
+  L.donut={n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0};L.bento={n:0,order:0,short:0,rev:0,labor:0,mat:0,mach:0,cost:0};
+  const ecfg=cfgOf('dia-factory-bento');
   const add=(x,o)=>{for(const k in o)x[k]+=o[k]/n;};
   for(let seed=1;seed<=n;seed++){
     {const S=root.FactoryCore.simulate(D,Object.assign({},rcfg,{seed})).summary,y=S.yen;let rev=0;
@@ -46,13 +47,17 @@ function compute(D0,K,s){const P=D0.pl;s=s||settings(D0);const cost=id=>{const p
       add(L.sand,{n:S.shipped,order:S.order,short:S.short,rev,labor:lab,mat,mach:y.total-lab-mat,cost:y.total});}
     {const S=root.DonutCore.simulate(D,Object.assign({},dcfg,{seed})).summary,y=S.yen;
       const rev=S.prods.reduce((n,p)=>n+p.shipped*cost(p.kiosk)*keep,0);
-      add(L.donut,{n:S.shipped,order:S.order,short:S.short,rev,labor:y.labor,mat:y.material+y.oil,mach:y.machine,cost:y.total});}}
+      add(L.donut,{n:S.shipped,order:S.order,short:S.short,rev,labor:y.labor,mat:y.material+y.oil,mach:y.machine,cost:y.total});}
+    // お弁当（2026-11-10）：売上は港駅の店の仕入れ値（data/factory.json の bento.products[].sell。kiosk.json にはない品）
+    if(D.bento&&root.BentoCore){const S=root.BentoCore.simulate(D,Object.assign({},ecfg,{seed})).summary,y=S.yen;
+      const rev=S.prods.reduce((n,p)=>{const bp=D.bento.products.find(x=>x.id===p.id);return n+p.shipped*((bp&&bp.sell)||0)*keep;},0);
+      add(L.bento,{n:S.shipped,order:S.order,short:S.short,rev,labor:y.labor,mat:y.material,mach:y.chill+y.machine,cost:y.total});}}
 
-  const F=P.fixed,labor=L.rice.labor+L.bread.labor+L.sand.labor+L.donut.labor;
+  const F=P.fixed,labor=L.rice.labor+L.bread.labor+L.sand.labor+L.donut.labor+L.bento.labor;
   const over=[['社会保険など（人件費の'+Math.round(F.socialRate*1000)/10+'%）',labor*F.socialRate],['工場長・事務・検査の人',F.admin],[`建物と設備（月${(s.building/10000).toLocaleString()}万円）`,s.building/P.days],
     ['水道・電気・ガスの基本分',F.utility],['工場→センターのトラック',F.truck],['洗浄・衛生用品・ごみ',F.clean]];
   if(s.equip)over.push([`足した設備（${P.equip.name}）`,P.equip.yen]);
-  const rev=L.rice.rev+L.bread.rev+L.sand.rev+L.donut.rev,lineCost=L.rice.cost+L.bread.cost+L.sand.cost+L.donut.cost,overSum=over.reduce((a,x)=>a+x[1],0);
+  const rev=L.rice.rev+L.bread.rev+L.sand.rev+L.donut.rev+L.bento.rev,lineCost=L.rice.cost+L.bread.cost+L.sand.cost+L.donut.cost+L.bento.cost,overSum=over.reduce((a,x)=>a+x[1],0);
   return {L,over,rev,lineCost,overSum,profit:rev-lineCost-overSum,days:P.days,s,extra:extraUnits(D,s),forecast:D.forecast,batches:rcfg.batches,fan:rcfg.fan||D.defaults.fan,ownBread:(Object.assign({},D.sand.defaults,scfg).bread)==='own'};}
 
 /* ---------------- 画面 ---------------- */
@@ -65,16 +70,15 @@ function build(){const box=$('plBox');if(!box||!D.pl)return;const P=D.pl,s=setti
   box.innerHTML=`<div class="plan">
     <div><label>配送センターの取り分</label>${seg('plTake',P.take.opts.map(x=>[x,Math.round(x*100)+'%']),s.take)}<div class="hint">工場の手取りは、売店の仕入れ値×（1−取り分）</div></div>
     <div><label>建物と設備（1か月）</label>${seg('plBld',P.building.opts.map(x=>[x,(x/10000)+'万円']),s.building)}<div class="hint">家賃・償却。1晩あたりは÷${P.days}</div></div>
-    <div><label>おにぎりの新しい取引先</label><div class="plcust">${P.customers.map(c=>`<label class="plck"><input type="checkbox" data-c="${c.id}" ${s.customers.includes(c.id)?'checked':''}> ${c.name}（${c.station}）${c.units.toLocaleString()}個</label>`).join('')}</div><div class="hint">選ぶと米のラインの見込みが増え、番重の行き先にも出る</div></div>
+    <div><label>おにぎりの新しい取引先（結果だけ）</label><div class="plcust">${P.customers.map(c=>`<span class="plck">${s.customers.includes(c.id)?'● 作っている':'○ 窓口の相談'}　${c.name}（${c.station}）${c.units.toLocaleString()}個</span>`).join('')}</div><div class="hint">2026-11-12 から、取引先を選ぶのは「取引の相談窓口」（配送センターの画面のタブ）。作っている取引先は窓口に今までの形の契約として並び、やめるのも窓口から。作っていない取引先は、窓口の受信箱に最初の相談として届く</div></div>
     <div><label>おにぎりを増やす設備</label>${seg('plEq',[[0,'足さない'],[1,'足す']],s.equip?1:0)}<div class="hint">${P.equip.name}・1晩${yen(P.equip.yen)}。3,000個増やすなら、設備を足して冷却を「強」にすると間に合う</div></div>
   </div>
   <div class="row" style="margin-top:10px"><button class="primary" id="plRun">見積もる（${P.nights}夜の平均）</button><span class="small muted" id="plInfo"></span></div>
-  <div id="plOut" class="small muted" style="margin-top:8px">「見積もる」を押すと、4つのラインをいま保存してある夕方の条件で${P.nights}夜回して、平均の収支を出します。</div>`;
+  <div id="plOut" class="small muted" style="margin-top:8px">「見積もる」を押すと、5つのライン（お弁当は2026-11-10から）をいま保存してある夕方の条件で${P.nights}夜回して、平均の収支を出します。</div>`;
   const set=(k,v)=>{const x=settings(D);x[k]=v;save(x);build();changed(k);};
   for(const b of $('plTake').children)b.onclick=()=>set('take',+b.dataset.v);
   for(const b of $('plBld').children)b.onclick=()=>set('building',+b.dataset.v);
   for(const b of $('plEq').children)b.onclick=()=>set('equip',b.dataset.v==='1');
-  for(const c of box.querySelectorAll('[data-c]'))c.onchange=()=>{const x=settings(D);x.customers=[...box.querySelectorAll('[data-c]')].filter(e=>e.checked).map(e=>e.dataset.c);save(x);build();changed('customers');};
   $('plRun').onclick=()=>{$('plOut').textContent='計算しています…';setTimeout(()=>show(compute(D,K)),30);};}
 /* 取引先と設備が変わったら、米のラインの画面も作り直す */
 function changed(k){if((k==='customers'||k==='equip')&&root.FactoryRice&&root.FactoryRice.reapply)root.FactoryRice.reapply(k==='customers');}
@@ -84,8 +88,8 @@ function show(r){const L=r.L,P=D.pl,dd=r.days;
   $('plOut').innerHTML=`
    <p class="big">1晩のもうけ <b class="num ${r.profit>=0?'up':'down'}">${yen(r.profit)}</b>　1か月（${dd}晩）<b class="num ${r.profit>=0?'up':'down'}">${man(r.profit*dd)}</b></p>
    <div class="tw"><table><thead><tr><th>ライン</th><th class="r">出荷</th><th class="r">売上（手取り）</th><th class="r">人件費</th><th class="r">材料・包材</th><th class="r">機械・電気・ガス</th><th class="r">ラインの費用</th><th class="r">ラインのもうけ</th><th class="r">1個の費用</th></tr></thead><tbody>
-    ${line('おにぎり',L.rice,'個')}${line('パン',L.bread,'個')}${line('サンド',L.sand,'パック')}${line('ドーナッツ',L.donut,'個')}
-    <tr><th>合計</th><td></td><td class="r num"><b>${yen(r.rev)}</b></td><td class="r num">${yen(L.rice.labor+L.bread.labor+L.sand.labor+L.donut.labor)}</td><td class="r num">${yen(L.rice.mat+L.bread.mat+L.sand.mat+L.donut.mat)}</td><td class="r num">${yen(L.rice.mach+L.bread.mach+L.sand.mach+L.donut.mach)}</td><td class="r num"><b>${yen(r.lineCost)}</b></td><td class="r num ${r.rev-r.lineCost>=0?'up':'down'}"><b>${yen(r.rev-r.lineCost)}</b></td><td></td></tr>
+    ${line('おにぎり',L.rice,'個')}${line('パン',L.bread,'個')}${line('サンド',L.sand,'パック')}${line('ドーナッツ',L.donut,'個')}${L.bento.n||L.bento.cost?line('お弁当',L.bento,'個'):''}
+    <tr><th>合計</th><td></td><td class="r num"><b>${yen(r.rev)}</b></td><td class="r num">${yen(L.rice.labor+L.bread.labor+L.sand.labor+L.donut.labor+L.bento.labor)}</td><td class="r num">${yen(L.rice.mat+L.bread.mat+L.sand.mat+L.donut.mat+L.bento.mat)}</td><td class="r num">${yen(L.rice.mach+L.bread.mach+L.sand.mach+L.donut.mach+L.bento.mach)}</td><td class="r num"><b>${yen(r.lineCost)}</b></td><td class="r num ${r.rev-r.lineCost>=0?'up':'down'}"><b>${yen(r.rev-r.lineCost)}</b></td><td></td></tr>
    </tbody></table></div>
    <div class="tw"><table class="fills"><thead><tr><th>ラインの外の費用（1晩・仮）</th><th class="r"></th></tr></thead><tbody>
     ${r.over.map(([k,v])=>`<tr><th>${k}</th><td class="r num">${yen(v)}</td></tr>`).join('')}<tr><th>合計</th><td class="r num"><b>${yen(r.overSum)}</b></td></tr></tbody></table></div>

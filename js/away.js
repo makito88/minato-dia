@@ -18,32 +18,42 @@ const $=id=>document.getElementById(id);
 const opIndex=ms=>Math.floor((ms+JST-START_MS)/DAY);          // 日本時間の朝4:30で区切った「何日目」
 const opDate=i=>new Date(i*DAY+START_MS-JST+12*3600000);       // その運行日の昼ごろ（曜日・月を見るため）
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){return null;}}
-function save(){if(V.busy)return;try{localStorage.setItem(KEY,JSON.stringify({at:Date.now(),day:g(()=>ENS.day,1),cond:g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null)}));}catch(e){}}
+function save(){if(V.busy||window.__diaRestoring)return;   // 引き継ぎを書きこんで読み直す途中は上書きしない（pagehide で「いま見ていた」にされると、留守の日が進まない）
+  try{localStorage.setItem(KEY,JSON.stringify({at:Date.now(),day:g(()=>ENS.day,1),cond:g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null)}));}catch(e){}}
 const V={busy:false};
 
 function hash(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h;}
 /* 留守にしていた日の条件：曜日と季節は実際の暦、天気は日ごとに決まった乱数 */
+function ymdOf(i){return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit'}).format(opDate(i));}
+const J=k=>{try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}};
+// 天気は覚えておいた立川市の1日の天気（dia-wxlog）。ない日だけ日ごとに決まった乱数。祝日は dia-holidays
 function condFor(i){const d=opDate(i),wd=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',weekday:'short'}).format(d),mo=Number(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tokyo',month:'numeric'}).format(d));
-  const season=mo>=3&&mo<=5?'spr':mo>=6&&mo<=8?'sum':mo>=9&&mo<=11?'aut':'win',day=wd==='Sat'?'sat':wd==='Sun'?'hol':'wd';
+  const season=mo>=3&&mo<=5?'spr':mo>=6&&mo<=8?'sum':mo>=9&&mo<=11?'aut':'win',ymd=ymdOf(i),hol=J('dia-holidays'),day=(hol&&hol[ymd])||wd==='Sun'?'hol':wd==='Sat'?'sat':'wd';
+  const log=J('dia-wxlog');if(log&&log[ymd])return {day,season,wx:log[ymd].wx};
   const r=(hash('wx'+i)%1000)/1000,w=season==='win'?[0.5,0.25,0.12,0.13]:[0.55,0.25,0.2,0];let k=0,a=0;for(;k<4;k++){a+=w[k];if(r<a)break;}
   return {day,season,wx:['sun','cld','rain','snow'][Math.min(3,k)]};}
 const label=c=>({wd:'平日',sat:'土曜',hol:'日曜'}[c.day]||'')+'・'+({sun:'晴れ',cld:'くもり',rain:'雨',snow:'大雪'}[c.wx]||'');
 
 /* 進める：最後に見ていた日（そのときの条件）→ 留守の日（暦の条件）を1日ずつ締める */
-async function catchUp(reason){const a=load();if(!a){save();return;}
-  const from=opIndex(a.at),now=opIndex(Date.now()),missed=now-from;if(missed<=0){save();return;}
+// 季節のできごと：留守の分を進め終わってから、きょうの便りを出す（index.html の SEAS.hold）
+const seasGo=()=>g(()=>{if(SEAS.hold){SEAS.hold=false;ENSEN_UI.seasLetters();}});
+async function catchUp(reason){const a=load();if(!a){save();seasGo();return;}
+  const from=opIndex(a.at),now=opIndex(Date.now()),missed=now-from;if(missed<=0){save();seasGo();return;}
   if(V.busy)return;V.busy=true;
+  try{await Promise.race([fetchCal(),new Promise(r=>setTimeout(r,4000))]);}catch(e){}   // 留守の日の天気・祝日を先に取っておく
   const n=Math.min(missed,MAXD),skip=missed-n,ksBefore=g(()=>minatoKiosk.state&&minatoKiosk.state.hist.length,0),rsBefore=g(()=>minatoResearch.state.studies.reduce((s,x)=>s+x.recs.length,0),0),day0=g(()=>ENS.day,1);
   const ov=overlay();const keepCond=g(()=>({...COND}),null),days=[];
   for(let k=0;k<n;k++){const i=k===0?from:now-(n-k);const c=k===0&&a.cond?a.cond:condFor(i);
     ov.textContent=`留守のあいだの運行日を進めています… ${k+1}／${n}（${label(c)}）`;await new Promise(r=>setTimeout(r,30));
+    g(()=>{SEAS.dateI=i;});   // 季節のできごとは、その日の暦の日付で決める
     try{setCond({...COND,...c});rebuild();g(()=>minatoKiosk.sync());g(()=>minatoResearch.sync());   // その日のダイヤで売店・調査の1日分を出しておく
       ENSEN_UI.dayEnd(true);                                                                      // 沿線暦を次の運行日へ（ここで売店・調査がその日を締める）
       g(()=>minatoKiosk.sync());g(()=>minatoResearch.sync());days.push(c);}catch(e){console.warn('留守の運行日を進められませんでした',e);break;}}
+  g(()=>{SEAS.dateI=null;});
   // きょうの条件に戻す（曜日・季節は暦、天気はあとで実際の天気を取りに行く）
   try{const c=condFor(now);setCond({...(keepCond||COND),day:c.day,season:c.season});saveCond();renderCondUI();rebuild();}catch(e){}
   try{T=liveT();}catch(e){}g(()=>liveCond().catch(()=>{}));
-  V.busy=false;save();ov.remove();
+  V.busy=false;save();ov.remove();seasGo();
   // まとめ
   const ks=g(()=>minatoKiosk.state,null),hist=ks?ks.hist.slice(ksBefore):[];
   const sales=hist.reduce((s,h)=>s+h.sales,0),profit=hist.reduce((s,h)=>s+h.profit,0),cust=hist.reduce((s,h)=>s+h.cust,0);
@@ -63,7 +73,7 @@ function show(o){if(!o.n)return;const box=document.createElement('div');box.clas
     <p class="away-note">留守にしていた日の曜日と季節は実際の暦から、天気はその日ごとに決めています。棚割り・値段・仕入れは、最後の設定のままです。</p>
     <div class="away-btns">${g(()=>minatoKiosk.state,null)?'<button type="button" id="awayKs">売店を見る</button>':''}<button type="button" id="awayOk" class="pri">閉じる</button></div></div>`;
   document.body.appendChild(box);const close=()=>box.remove();$('awayOk').onclick=close;box.addEventListener('click',e=>{if(e.target===box)close();});
-  if($('awayKs'))$('awayKs').onclick=()=>{close();g(()=>minatoKiosk.open());};$('awayOk').focus();}
+  if($('awayKs'))$('awayKs').onclick=()=>{close();g(()=>minatoTop.close());g(()=>minatoKiosk.openTab('news'));};$('awayOk').focus();}
 const CSS=`.away-busy{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;background:var(--ink);color:var(--paper);font-size:13px;padding:8px 14px;border-radius:999px;box-shadow:0 4px 14px rgb(0 0 0 / .25)}
 .away{position:fixed;inset:0;z-index:85;background:rgb(0 0 0 / .45);display:flex;align-items:center;justify-content:center;padding:16px}
 .away-in{background:var(--paper);color:var(--ink);border-radius:14px;width:min(560px,100%);max-height:88vh;overflow:auto;padding:16px 18px;display:grid;gap:8px;font-size:13.5px;line-height:1.65}
@@ -79,7 +89,8 @@ const CSS=`.away-busy{position:fixed;left:50%;top:14px;transform:translateX(-50%
 (function wait(n){const ok=g(()=>ENSEN_UI.ready,false)&&g(()=>minatoKiosk.ready,true)&&g(()=>minatoResearch.ready,true)&&g(()=>!!D,false);
   if(ok||n>60){setTimeout(()=>catchUp('open'),300);return;}setTimeout(()=>wait(n+1),250);})(0);
 // 開いているあいだは、見ていた時刻を覚えておく。スマホで裏に回して戻ったときも、留守の分を進めて時刻を今に合わせる
-setInterval(save,20000);
+// 開いたまま朝4:30を過ぎたら、その場で運行日を進める（運行日は暦でだけ進む）
+setInterval(()=>{const a=load();if(a&&!V.busy&&opIndex(Date.now())>opIndex(a.at))catchUp('live');else save();},20000);
 let hiddenAt=0;
 document.addEventListener('visibilitychange',()=>{if(document.hidden){hiddenAt=Date.now();save();return;}
   if(hiddenAt&&Date.now()-hiddenAt>3*60000){const a=load();if(a&&opIndex(Date.now())>opIndex(a.at))catchUp('resume');else{try{T=liveT();}catch(e){}save();}}hiddenAt=0;});

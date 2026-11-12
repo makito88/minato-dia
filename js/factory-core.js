@@ -47,9 +47,11 @@ function fillOrder(D,rule){const F=D.packLine.fillings.slice();
   if(rule==='big')F.sort((a,b)=>b.share-a.share);               // 注文の多い順
   else if(rule==='nitta')F.sort((a,b)=>(b.brand?1:0)-(a.brand?1:0)); // 雫の具を先にまとめて（あとは薄い順）
   return F.map(f=>f.id);}                                         // light：薄い味から濃い味へ
+/* センターの発注（売店の商品IDごと。js/factory-night.js が dia-orders から渡す）をこのラインの品に。ないときは空 */
+function centerPart(list,c){const o={};if(c)for(const p of list)if(p.kiosk&&c[p.kiosk]>0)o[p.id]=Math.round(c[p.kiosk]);return o;}
 /* 具ごとの本当の注文（20:00に分かる）。合計は actualOrder のまわりでばらつく */
 function fillOrders(D,seed,season){const total=actualOrder(D,seed,season);const r=rng((seed*15485863+({winter:1,mid:2,summer:3}[season]||0)*31)>>>0);
-  const out={};for(const f of D.packLine.fillings)out[f.id]=Math.max(0,Math.round(total*f.share*(1+D.packLine.orderSd*gauss(r))/10)*10);return out;}
+  const out={};for(const f of D.packLine.fillings)out[f.id]=f.share>0?Math.max(0,Math.round(total*f.share*(1+D.packLine.orderSd*gauss(r))/10)*10):0;return out;}   // share 0 の具（港駅の店だけ・2026-11-10）は乱数を引かない（ほかの具の注文は前と同じ）
 /* 米の種類：雫の具は雫の米（n）、ほかはふつうの米（r） */
 function riceKind(D,id){const f=D.packLine.fillings.find(x=>x.id===id);return f&&f.brand?'n':'r';}
 /* 夕方に仕込む釜の並び：具を作る順に、要る米の種類の釜を並べる（見込みと予備で数える） */
@@ -75,7 +77,8 @@ function simulate(D,cfgIn){
   const PL=D.packLine;const FILL={};PL.fillings.forEach(f=>FILL[f.id]=f);
   // 消費期限は、その夜の製造に決まった期限（包装が遅れても延びない）。古い設定は包装から labelHours 時間
   const XR=PL.expiry,EXP=XR?XR.day*1440+XR.at:null;
-  const fo=fillOrders(D,cfg.seed,cfg.season);const order=Object.values(fo).reduce((a,b)=>a+b,0);
+  // 注文＝ほかの店・取引先の分（決まった乱数）＋センターの発注（cfg.center。あれば）。20:00より前は今どおり見込みで仕込む
+  const fo=fillOrders(D,cfg.seed,cfg.season),cen=centerPart(PL.fillings,cfg.center);for(const id in cen)fo[id]=(fo[id]||0)+cen[id];const order=Object.values(fo).reduce((a,b)=>a+b,0);
   const seq=fillOrder(D,cfg.order);
   const ev=[];const log=(t,k,msg,b)=>ev.push({t,k,msg,b:b==null?null:b});
 
@@ -156,9 +159,10 @@ function simulate(D,cfgIn){
     if(t===D.orderConfirm){
       const need=Math.ceil(order/D.batchUnits);
       const live=batches.filter(b=>b.st!==ST.CANCEL);
-      log(t,'order',`注文が確定：${order.toLocaleString()}個。見込みより${order>=D.forecast?'+':''}${(order-D.forecast).toLocaleString()}個（${seq.map(id=>FILL[id].name+fo[id]).join('・')}）。`);
+      log(t,'order',`注文が確定：${order.toLocaleString()}個。見込みより${order>=D.forecast?'+':''}${(order-D.forecast).toLocaleString()}個（${seq.filter(id=>FILL[id].share>0||fo[id]>0).map(id=>FILL[id].name+fo[id]).join('・')}）。`);
+      const cTot=Object.values(cen).reduce((a,b)=>a+b,0);if(cTot)log(t,'order',`注文確定：センターから${cTot.toLocaleString()}個（${cfg.centerNo||'発注'}・${seq.filter(id=>cen[id]).map(id=>FILL[id].name+cen[id]).join('・')}）。ほかの店・取引先の分に足して作ります。`);
       const msg=[];
-      for(const k of ['r','n']){let u=0;for(const id of seq)if(riceKind(D,id)===k)u+=fo[id];if(!u&&!batches.some(b=>b.kind===k))continue;
+      for(const k of ['r','n']){let u=0;for(const id of seq)if(riceKind(D,id)===k)u+=fo[id]*(FILL[id].rice||1);   // 大きいおにぎりはご飯1.5倍（rice）if(!u&&!batches.some(b=>b.kind===k))continue;
         const need=Math.ceil(u*(1+PL.spare)/D.batchUnits);const mine=batches.filter(b=>b.kind===k&&b.st!==ST.CANCEL);
         if(mine.length<need){for(let j=mine.length;j<need;j++)addBatch(true,k);msg.push(`${kindName(k)}を${need-mine.length}釜追加で洗います（列の最後に並ぶので遅くなります）`);}
         else if(mine.length>need){let extra=mine.length-need,c=0;
@@ -230,7 +234,7 @@ function simulate(D,cfgIn){
         const capL=runL.map(l=>Math.min(LR,film[l]));const cap=capL.reduce((a,x)=>a+x,0);
         const r0=PL.weightReject+PL.wrapReject;
         const need=Math.max(0,tgt(curFill,t)-got[curFill]);
-        const n=Math.min(b.left,cap,need/(1-r0)+0.01);rate=n;
+        const rf=FILL[curFill].rice||1,n=Math.min(b.left/rf,cap,need/(1-r0)+0.01);rate=n;   // rf：1個に使うご飯（大きいおにぎりは1.5個分）
         let rwT=0,rpT=0,rmT=0,goodT=0;
         runL.forEach((l,j)=>{const u=n*capL[j]/cap;uL[l]=u;film[l]-=u;
           let rw=u*PL.weightReject,rp=u*PL.wrapReject,rm=0;
@@ -241,7 +245,7 @@ function simulate(D,cfgIn){
             lstop[l]={code:LN.METAL,t0:t+1,until:t+1+PL.metal.stop,ln:l};stops.push(lstop[l]);visit(t+1,t+1+PL.metal.stop,'qc','insp','金属の反応を確かめる',l);
             log(t,'bad',`ライン${LNAME(l)}の検品で金属の反応（${FILL[curFill].name}・釜${b.no}）。この1分の${Math.round(u)}個をはじき、ライン${LNAME(l)}を${PL.metal.stop}分止めて確かめます（もう1本は動きます）。`,b.id);}
           const g=u-rw-rp-rm;madeL[l]+=g;goodT+=g;rwT+=rw;rpT+=rp;rmT+=rm;});
-        b.left-=n;b.formed+=n;b.made+=goodT;made+=goodT;formedAll+=n;formedNow=n;got[curFill]+=goodT;
+        b.left-=n*rf;b.formed+=n;b.made+=goodT;made+=goodT;formedAll+=n;formedNow=n;got[curFill]+=goodT;
         b.parts[curFill]=(b.parts[curFill]||0)+goodT;if(t<D.deadline){b.madeBy+=goodT;b.partsBy[curFill]=(b.partsBy[curFill]||0)+goodT;}
         b.rej.weight+=rwT;b.rej.wrap+=rpT;b.rej.metal+=rmT;rejT.weight+=rwT;rejT.wrap+=rpT;rejT.metal+=rmT;rejAll+=rwT+rpT+rmT;
         b.T+=(S.room-b.T)*D.hold.k;
@@ -357,7 +361,7 @@ function simulate(D,cfgIn){
   const neck=waits.slice().sort((a,b)=>b[1]-a[1])[0];
   const gMax=Math.max(0,...live.filter(b=>b.gAtCheck!=null).map(b=>b.gAtCheck));
   const summary={order,forecast:D.forecast,planned:cfg.batches,batches:batches.filter(b=>b.tWash!=null).length,shipped,short,surplus:Math.max(0,surplus)+Math.round(riceLeft),riceLeft:Math.round(riceLeft),planDone,late,bad:Math.round(bad),unfinished:Math.round(unfinished),
-    fills:seq.map(id=>fills[id]),people:Object.assign(pp,{line:C.lineStaff,cook:C.cookStaff,relief:!!cfg.relief,drift:{n:pp.drift.n,extra:Math.round(pp.drift.extra)}}),lines:NL,stores,crates:stores.reduce((a,x)=>a+x.crates,0),rej:{weight:Math.round(rejT.weight),wrap:Math.round(rejT.wrap),metal:Math.round(rejT.metal),label:Math.round(rejT.label||0),all:Math.round(rejAll)},lineStops,
+    fills:seq.filter(id=>FILL[id].share>0||fo[id]>0).map(id=>fills[id]),   /* 港駅の店だけの具は、頼まれた夜だけ並べる */people:Object.assign(pp,{line:C.lineStaff,cook:C.cookStaff,relief:!!cfg.relief,drift:{n:pp.drift.n,extra:Math.round(pp.drift.extra)}}),lines:NL,stores,crates:stores.reduce((a,x)=>a+x.crates,0),rej:{weight:Math.round(rejT.weight),wrap:Math.round(rejT.wrap),metal:Math.round(rejT.metal),label:Math.round(rejT.label||0),all:Math.round(rejAll)},lineStops,
     ranks,firstForm,lastDone,gMax,waits,neck,soakNeed:soakNeed(D,S.water),
     yen:{labor:Math.round(labor),rice,other:Math.round(other),cool:coolYen,machine,total,perUnit:shipped?Math.round(total/shipped):null},
     expiry:XR?{at:EXP,label:XR.label,maxH:XR.maxH,longest:firstForm!=null?(EXP-firstForm)/60:null}:null};

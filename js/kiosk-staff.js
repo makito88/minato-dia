@@ -13,7 +13,37 @@ function hash(...a){let h=2166136261>>>0;const s=a.join('|');for(let i=0;i<s.len
 function rng(seed){let a=seed>>>0;return ()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
 const poisson=(l,r)=>{let n=0,p=Math.exp(-l),s=p;const u=r();while(u>s&&n<50){n++;p*=l/n;s+=p;}return n;};
 const B=cfg=>cfg.crew.blocks;
-const blk=(cfg,id)=>B(cfg).find(b=>b.id===id);
+// 区切り：朝・昼・夕方・夜（m・d・e・n）のほかに、1時間の区切り h6〜h22（6時〜7時 … 22時〜23時）
+const blk=(cfg,id)=>{const m=/^h(\d+)$/.exec(id);if(m){const h=+m[1];return {id,name:h+'時',from:h,to:h+1,hour:true};}return B(cfg).find(b=>b.id===id);};
+/* その日に入る時間（何時台か）の一覧。区切りを1時間ずつに直す */
+function hoursOf(cfg,list){const s=new Set();for(const id of list||[]){const b=blk(cfg,id);if(b)for(let h=b.from;h<b.to;h++)s.add(h);}return [...s].sort((a,c)=>a-c);}
+/* その時間に入れる人か（入れる時間は朝・昼・夕方・夜の区切りで持っている） */
+const availH=(cfg,p,t,h)=>(p.avail[t]||[]).some(id=>{const b=blk(cfg,id);return b&&h>=b.from&&h<b.to;});
+/* 1日の組み方：続いている時間のかたまり・合計・中抜けの回数・休憩・組めるか */
+function dayPlan(cfg,list,p){const H=cfg.crew.hourly||{minDay:0,maxGaps:9,breaks:[]},hs=hoursOf(cfg,list),spans=[];
+  for(const h of hs){const l=spans[spans.length-1];if(l&&l[1]===h)l[1]=h+1;else spans.push([h,h+1]);}
+  const total=hs.length,gaps=Math.max(0,spans.length-1),ext=!!(cfg.crew.work||cfg.crew.minor);
+  // 港駅の店（2026-11-11）：実際にいる時間（開店前・閉店後の作業でのばす・18歳未満は22時〜5時を外す）で、休憩と働く時間を決める
+  const ms=ext?realSpans(cfg,spans,p):null,T=ms?ms.reduce((s,[a,b])=>s+(b-a),0)/60:total;let brk=brkOf(H,T);
+  // 中抜け（港駅の店・breakRule）：あいだが休憩の長さ以上あいていれば、それを休憩とみる（店を離れている・給料なし）。ほかに休憩は取らない
+  if(H.breakRule&&brk&&ms&&ms.length>1){let gmax=0;for(let i=1;i<ms.length;i++)gmax=Math.max(gmax,ms[i][0]-ms[i-1][1]);if(gmax>=brk)brk=0;}
+  const work=T-brk/60;
+  const why=[];if(total&&(H.breakRule?work:total)<H.minDay)why.push(`${H.minDay}時間に足りない`);if(gaps>H.maxGaps)why.push(`中抜けが${gaps}回`);
+  const over=!!(H.maxDay&&work>H.maxDay+1e-9);if(over)why.push(`${H.maxDay}時間をこえる`);
+  return {hours:hs,spans,total,gaps,brk,ok:!why.length,why,over,work:why.length?0:work,ms,T};}
+/* 休憩（分）：breakRule があれば「free 時間まではなし・それより長ければ short 分・休憩を引いて longWork 時間以上働くなら long 分」。なければ前の breaks（その日の時間が over を超えると min 分） */
+function brkOf(H,T){const R=H.breakRule;if(R){if(T<=R.free+1e-9)return 0;return T-R.short/60>=R.longWork-1e-9?R.long:R.short;}let b=0;for(const [over,min] of H.breaks||[])if(T>over)b=min;return b;}
+/* 18歳未満か（crew.minor があるときだけ）：p.minor があればそれ、なければ種類（学生）のうち人の番号で決まる割合（高校生） */
+function minorOf(cfg,p){const MN=cfg.crew.minor;if(!MN||!p)return false;if(p.minor!=null)return !!p.minor;return (MN.kinds||[]).includes(p.kind)&&hash('minor',p.id)/4294967296<(MN.p??0.5);}
+/* 実際にいる時間（分）：開店前・閉店後の作業（crew.work。いちばん早い区切りから入る人は work.from から・終わりは work.to まで）と、18歳未満の働けない時間（crew.minor の from〜to の外） */
+/* 18歳未満の人が、その区切りの全部には入れないか（夜の区切り・開店前の準備のある朝の区切り）。おまかせのシフトでは、そういう区切りに入れない */
+const clipped=(cfg,b,p)=>{const len=L=>L.reduce((x,[a,c])=>x+c-a,0);return len(realSpans(cfg,[[b.from,b.to]],p))<len(realSpans(cfg,[[b.from,b.to]],null));};
+/* その人が、その型の日のその区切りに入れるか（as：港駅の店の「午前」は朝に入れる人・18歳未満の人は全部には入れない区切りに入れない） */
+function canB(cfg,p,t,b){return (p.avail[t].includes(b.id)||!!b.as&&p.avail[t].includes(b.as))&&!(cfg.crew.minor&&minorOf(cfg,p)&&clipped(cfg,b,p));}
+function realSpans(cfg,spansH,p){let sp=spansH.map(([a,b])=>[a*60,b*60]);const WK=cfg.crew.work,MN=cfg.crew.minor;
+  if(WK){const b0=Math.min(...B(cfg).map(x=>x.from))*60,f=WK.from*60,e=WK.to*60;sp=sp.map(([a,b])=>[a===b0&&f<a?f:a,Math.min(b,e)]);}
+  if(MN&&minorOf(cfg,p))sp=sp.map(([a,b])=>[Math.max(a,MN.from*60),Math.min(b,MN.to*60)]);
+  return sp.filter(([a,b])=>b>a);}
 const TYPES=['wd','sat','hol'];
 
 /* やる気と慣れが仕事に効く倍率 */
@@ -45,15 +75,42 @@ function create(cfg,seed,day,n){const r=rng(hash('crew',seed)),C=cfg.crew,used=[
   return crew;}
 /* 割り振り：時間帯ごとに need(型,時間帯) 人を入れる。入れる人のうち、希望に足りない時間が多く・入れる時間が少ない人から。
    希望の over 倍を超える人は、ほかにいなければ入れる。mode='cost' のときは、同じくらいなら時給の安い人から */
-function assign(cfg,people,need,mode){const C=cfg.crew,sh={},hrs={},nAv=p=>TYPES.reduce((s,t)=>s+p.avail[t].length,0)||1;
+function assign(cfg,people,need,mode){const C=cfg.crew,sh={},hrs={},nAv=p=>TYPES.reduce((s,t)=>s+p.avail[t].length,0)||1;   // can の as：港駅の店の区切り「午前」は、朝に入れる人が入れる
   for(const t of TYPES){sh[t]={};for(const p of people)sh[t][p.id]=[];}
   const score=p=>(p.want-(hrs[p.id]||0))/nAv(p)-(mode==='cost'?((p.wageNext??p.wage)-C.market)/200:0);
   // 入れる人が少ない時間帯から先に決める（先に埋めないと、だれもいなくなる）
-  const slots=[];for(const t of TYPES)for(const b of B(cfg))slots.push({t,b,n:people.filter(p=>p.avail[t].includes(b.id)).length});
+  const can=(p,t,b)=>canB(cfg,p,t,b);   // 18歳未満の人は、全部には入れない区切りに入れない（港駅の店）
+  const slots=[];for(const t of TYPES)for(const b of B(cfg))slots.push({t,b,n:people.filter(p=>can(p,t,b)).length});
   slots.sort((a,c)=>a.n-c.n);
   for(const {t,b} of slots){const add=(b.to-b.from)*C.weekDays[t],k=need(t,b);
-    const cand=people.filter(p=>p.avail[t].includes(b.id)).sort((a,c)=>{const oa=(hrs[a.id]||0)+add>a.want*C.morale.over,oc=(hrs[c.id]||0)+add>c.want*C.morale.over;return (oa-oc)||(score(c)-score(a));});
+    const cand=people.filter(p=>can(p,t,b)&&!(C.hourly&&C.hourly.maxDay&&dayPlan(cfg,[...sh[t][p.id],b.id],p).over)).sort((a,c)=>{const oa=(hrs[a.id]||0)+add>a.want*C.morale.over,oc=(hrs[c.id]||0)+add>c.want*C.morale.over;return (oa-oc)||(score(c)-score(a));});
     for(const p of cand.slice(0,k)){sh[t][p.id].push(b.id);hrs[p.id]=(hrs[p.id]||0)+add;}}
+  // 直し（港駅の店・hourly.maxDay があるときだけ）：開いている時間にだれもいない時刻（区切りに人がいない・1人の休憩）が残ったら、
+  // その区切りに人を足す（入れる人がそのまま足せればそれ、だめなら、ほかの区切りから移す。移した区切りは2人以上いるか、代わりに入れる人がいるときだけ）
+  if(C.hourly&&C.hourly.maxDay)for(const t of TYPES)for(let it=0;it<12;it++){
+    const W=dayWorkers(cfg,people,sh[t]);let gap=-1;for(let m=cfg.open[0]*60;m<cfg.open[1]*60;m+=5)if(!W.some(w=>onAt(w,m))){gap=m;break;}if(gap<0)break;
+    const b=B(cfg).find(x=>gap>=x.from*60&&gap<x.to*60);if(!b)break;
+    const cnt=id=>people.filter(q=>sh[t][q.id].includes(id)).length,okP=(q,L)=>dayPlan(cfg,L,q).ok;let fixed=false;
+    done:for(const p of people){if(!can(p,t,b)||sh[t][p.id].includes(b.id))continue;const cur=sh[t][p.id];
+      if(okP(p,[...cur,b.id])){cur.push(b.id);fixed=true;break;}
+      for(const b2 of cur){const np=[...cur.filter(x=>x!==b2),b.id];if(!okP(p,np))continue;let rep=null;
+        if(cnt(b2)<2){const bb=B(cfg).find(x=>x.id===b2);rep=people.find(q=>q!==p&&can(q,t,bb)&&!sh[t][q.id].includes(b2)&&okP(q,[...sh[t][q.id],b2]));if(!rep)continue;}
+        sh[t][p.id]=np;if(rep)sh[t][rep.id].push(b2);fixed=true;break done;}}
+    if(!fixed)break;}
+  // さらに直す（港駅の店）：だれもいない時間（分）が減る入れかえを、決まった乱数で探す（足す・外す・ほかの人に移す）。同じなら、働く時間の合計が減るときだけ
+  if(C.hourly&&C.hourly.maxDay){const rr=rng(hash('shiftfix',people.map(p=>p.id).join(',')));
+    const gapMin=t=>{const W=dayWorkers(cfg,people,sh[t]);let n=0;for(let m=cfg.open[0]*60;m<cfg.open[1]*60;m+=5)if(!W.some(w=>onAt(w,m)))n+=5;return n;};
+    const hrsOf=t=>people.reduce((a,p)=>a+hoursOf(cfg,sh[t][p.id]).length,0);
+    for(const t of TYPES){let g=gapMin(t);if(!g)continue;let h=hrsOf(t);
+      for(let it=0;it<400&&g>0;it++){const p=people[Math.floor(rr()*people.length)],b=B(cfg)[Math.floor(rr()*B(cfg).length)],mv=rr(),old={};
+        const L=sh[t][p.id];let q=null;
+        if(L.includes(b.id)){if(mv<0.5){q=people[Math.floor(rr()*people.length)];if(q===p||!canB(cfg,q,t,b)||sh[t][q.id].includes(b.id))continue;}}
+        else if(!canB(cfg,p,t,b))continue;
+        old[p.id]=L.slice();if(q)old[q.id]=sh[t][q.id].slice();
+        if(L.includes(b.id)){sh[t][p.id]=L.filter(x=>x!==b.id);if(q)sh[t][q.id]=[...sh[t][q.id],b.id];}else sh[t][p.id]=[...L,b.id];
+        const ok=[p,q].filter(Boolean).every(x=>!sh[t][x.id].length||dayPlan(cfg,sh[t][x.id],x).ok);
+        const g2=ok?gapMin(t):Infinity,h2=ok?hrsOf(t):Infinity;
+        if(g2<g||(g2===g&&h2<h)){g=g2;h=h2;}else for(const id in old)sh[t][id]=old[id];}}}
   for(const t of TYPES)for(const id in sh[t])sh[t][id].sort((a,c)=>B(cfg).findIndex(x=>x.id===a)-B(cfg).findIndex(x=>x.id===c));
   return sh;}
 /* おまかせシフト：mode='cost' は各時間帯1人。'cover' は、1人あたり1時間の会計が busy 人を超えないように（最大3人）。
@@ -61,23 +118,48 @@ function assign(cfg,people,need,mode){const C=cfg.crew,sh={},hrs={},nAv=p=>TYPES
 function autoShift(cfg,crew,day,mode,perH){const people=crew.people.filter(p=>p.leave==null&&active(p,day+1)),C=cfg.crew;
   const need=(t,b)=>mode==='cost'?1:Math.max(1,Math.min(3,Math.ceil(((perH[t]||[])[B(cfg).indexOf(b)]||0)/(C.morale.busy*0.9))));
   return assign(cfg,people,need,mode);}
-function migrate(cfg,state){if(state.crew)return state.crew;state.crew=create(cfg,state.seed||1,state.openedDay||1,Math.max(1,state.staff||1));return state.crew;}
+function migrate(cfg,state){if(state.crew){wageFloor(cfg,state.crew);return state.crew;}state.crew=create(cfg,state.seed||1,state.openedDay||1,Math.max(1,state.staff||1));wageFloor(cfg,state.crew);return state.crew;}
+/* 最低賃金（crew.minWage）より低い時給は、その額まで上げる（2026-11-11・東京都の最低賃金 1,280円。前の保存の人も） */
+function wageFloor(cfg,crew){const m=cfg.crew.minWage||0;for(const p of crew.people||[]){if(p.wage<m)p.wage=m;if(p.wageNext!=null&&p.wageNext<m)p.wageNext=m;if(p.expect<m)p.expect=m;}for(const a of crew.applicants||[])if(a.wage<m)a.wage=m;}
 
 /* その人がその日に働くか（雇った日の次の日から・辞める日の前の日まで） */
 const active=(p,day)=>(p.from==null||p.from<=day)&&(p.leave==null||p.leave>day);
 /* 週のシフト時間 */
-function weekHours(cfg,crew,id,useNext){const sh=useNext&&crew.shiftNext||crew.shift;let h=0;for(const t of TYPES)for(const b of (sh[t]&&sh[t][id])||[]){const x=blk(cfg,b);if(x)h+=(x.to-x.from)*cfg.crew.weekDays[t];}return h;}
+// 社会保険に入るか：週のシフトが minWeek 時間以上で、学生（exclude）でない。2か月を超えて働く見込みは全員ある扱い
+function insuredOf(cfg,crew,p,useNext){const I=cfg.crew.insure;if(!I||!crew)return !!p.insured;return weekHours(cfg,crew,p.id,useNext)>=I.minWeek&&!(I.exclude||[]).includes(p.kind);}
+// 週の所定労働時間：組めない日（3時間に足りない・中抜けが多い）は0、休憩は引く
+function weekHours(cfg,crew,id,useNext){const sh=useNext&&crew.shiftNext||crew.shift;let h=0;const p=(crew.people||[]).find(q=>q.id===id);for(const t of TYPES)h+=dayPlan(cfg,sh[t]&&sh[t][id],p).work*cfg.crew.weekDays[t];return Math.round(h*100)/100;}
 /* きょう働く人：[{p, spans:[[from分,to分]...]}]。crew が無い古い保存は、人数ぶんの「1日中いる人」 */
 function today(cfg,state,type,day){const crew=state.crew;
   if(!crew){const n=Math.max(1,state.staff||1),o=[];for(let i=0;i<n;i++)o.push({p:{id:'x'+i,name:'店員',skill:{reg:1,stock:1,care:1},morale:60,days:30,wage:cfg.wage},spans:[[cfg.open[0]*60,cfg.open[1]*60]]});return o;}
-  const sh=crew.shift[type]||{},o=[];
-  for(const p of crew.people){if(!active(p,day))continue;const bs=(sh[p.id]||[]).map(id=>blk(cfg,id)).filter(Boolean).sort((a,b)=>a.from-b.from);if(!bs.length)continue;
-    const spans=[];for(const b of bs){const last=spans[spans.length-1];if(last&&last[1]===b.from*60)last[1]=b.to*60;else spans.push([b.from*60,b.to*60]);}o.push({p,spans});}
+  return helpFill(cfg,dayWorkers(cfg,crew.people.filter(p=>active(p,day)),crew.shift[type]||{}));}
+/* 本部の応援（2026-11-12・港駅の店。設定 crew.help があるときだけ。緑ヶ丘の店は前と同じ）：
+   店員の時間（crew.work）の中で、だれもいない時間が minGap 分以上つづくところに、グループの本部から応援の人が入る（時給は高め・仮）。
+   店が丸ごと閉まって、届いた品（できたての便など）が置きっぱなしになるのを防ぐ。募集はそのまま続く */
+function helpFill(cfg,o){const H=cfg.crew&&cfg.crew.help;if(!H||!H.on)return o;const WK=cfg.crew.work||{},a0=Math.round((WK.from??cfg.open[0])*60),a1=Math.round((WK.to??cfg.open[1])*60),mg=H.minGap||30,gaps=[];let s0=null;
+  for(let t=a0;t<a1;t+=5){const on=o.some(w=>w.spans.some(([a,b])=>t>=a&&t<b));if(!on&&s0==null)s0=t;if(on&&s0!=null){if(t-s0>=mg)gaps.push([s0,t]);s0=null;}}
+  if(s0!=null&&a1-s0>=mg)gaps.push([s0,a1]);if(!gaps.length)return o;
+  const k=H.skill??0.9;o.push({p:{id:'help',name:H.name||'本部の応援',help:true,skill:{reg:k,stock:k,care:k},morale:60,days:H.days||60,wage:H.wage||1600,commute:H.commute||0},spans:gaps,gaps:gaps.length-1,brk:null});return o;}
+/* その日の型のシフト（{id:[区切り]}）から、働く人と時間（休憩を入れたあと）。today と、おまかせのシフトの直しで使う */
+function dayWorkers(cfg,people,sh){const o=[];
+  for(const p of people){const pl=dayPlan(cfg,sh[p.id],p);if(!pl.total||!pl.ok)continue;   // 組めない日は休み
+    let spans=pl.ms?pl.ms.map(x=>x.slice()):pl.spans.map(([a,b])=>[a*60,b*60]),bm=pl.brk;if(!spans.length)continue;
+    // 開店前・閉店後の作業・18歳未満の時間（港駅の店・2026-11-11）は realSpans で。休憩も、のびた分を入れた時間で dayPlan が決める
+    o.push({p,spans,gaps:pl.gaps,brk:null,bm});}
+  // 休憩：いちばん長いかたまりの真ん中あたり（15分きざみ）。そのあいだは店にいない・給料なし。
+  // ほかの人がだれもいなくなる時刻は避ける（真ん中から15分ずつ前後にずらして探す。見つからなければ真ん中）
+  const onX=(w,t)=>w.spans.some(([a,b])=>t>=a&&t<b);
+  for(const w of o){const bm=w.bm;delete w.bm;if(!bm)continue;const S=w.spans;let k=0;S.forEach((s,i)=>{if(s[1]-s[0]>S[k][1]-S[k][0])k=i;});const [a,b]=S[k],mid=a+Math.round(((b-a)-bm)/2/15)*15;
+    const others=o.filter(x=>x!==w),okAt=m=>{for(let t=m;t<m+bm;t+=5)if(!others.some(x=>onX(x,t)))return false;return true;};
+    const anyOther=!!(cfg.crew.hourly&&cfg.crew.hourly.breakRule)&&others.some(x=>x.spans.some(([c,d])=>c<b&&d>a));let m=mid;   // ずらすのは港駅の店（breakRule）だけ。緑ヶ丘の店は前と同じ真ん中
+    if(anyOther)for(let d=0;d<=(b-a);d+=15){const c1=mid-d,c2=mid+d;if(c1>=a+30&&c1+bm<=b-30&&okAt(c1)){m=c1;break;}if(c2>=a+30&&c2+bm<=b-30&&okAt(c2)){m=c2;break;}}
+    w.brk=[m,m+bm];S.splice(k,1,[a,m],[m+bm,b]);}
   return o;}
 const onAt=(w,t)=>w.spans.some(([a,b])=>t>=a&&t<b);
 const nextStart=(w,t)=>{let best=Infinity;for(const [a,b] of w.spans){if(t<b)best=Math.min(best,Math.max(a,t));}return best;};
 /* 1日の人件費（22時からは割増） */
-function payOf(cfg,w,O0,O1){const N=cfg.crew.night;let yen=0,h=0;for(const [a,b] of w.spans){const s=Math.max(a,O0),e=Math.min(b,O1);if(e<=s)continue;const nt=Math.max(0,e-Math.max(s,N.from*60));h+=(e-s)/60;yen+=((e-s)/60)*w.p.wage+(nt/60)*w.p.wage*(N.rate-1);}return {yen,h};}
+// 割増：N.from 時から（と、N.before があれば N.before 時より前も）。時給は最低賃金（crew.minWage）より下げない
+function payOf(cfg,w,O0,O1){const N=cfg.crew.night,wage=Math.max(w.p.wage,cfg.crew.minWage||0);let yen=0,h=0;for(const [a,b] of w.spans){const s=Math.max(a,O0),e=Math.min(b,O1);if(e<=s)continue;const nt=Math.max(0,e-Math.max(s,N.from*60))+(N.before?Math.max(0,Math.min(e,N.before*60)-s):0);h+=(e-s)/60;yen+=((e-s)/60)*wage+(nt/60)*wage*(N.rate-1);}return {yen,h};}
 
 /* 応募 */
 function adsOpen(cfg,crew,day){return (crew.ads||[]).filter(a=>day-a.day<cfg.crew.ad.days);}
@@ -85,10 +167,11 @@ function adsOpen(cfg,crew,day){return (crew.ads||[]).filter(a=>day-a.day<cfg.cre
 /* 運行日を締める：やる気・慣れ・昇給の相談・辞める人・応募・あすからのシフトと時給 */
 function close(cfg,st,res,day,say){const C=cfg.crew,M=C.morale,crew=migrate(cfg,st),r=rng(hash('crewday',st.seed,day));
   const work={};for(const w of (res.crew||[]))work[w.id]=w;
-  for(const p of crew.people){if(!active(p,day))continue;const w=work[p.id],notes=[];let d=0;
+  for(const p of crew.people){if(!active(p,day))continue;p.insured=insuredOf(cfg,crew,p);const w=work[p.id],notes=[];let d=0;   // 社会保険はその日のシフトで決める（街のカルテの手取りが読む）
     const pay=clamp((p.wage-p.expect)/50*M.pay,M.payMin,M.payMax);d+=pay;if(pay<-1)notes.push('時給が希望より低い');
     const wh=weekHours(cfg,crew,p.id);if(wh>p.want*M.over){d-=M.overHit;notes.push('シフトが多すぎる');}else if(wh<p.want*M.under){d-=M.underHit;notes.push('シフトが少ない（もっと稼ぎたい）');}
     if(w&&w.h>0){const load=w.served/w.h;if(load>M.busy){d-=M.busyHit*(load>M.busy*1.4?1.6:1);notes.push('忙しすぎる');}p.days=(p.days||0)+1;p.lastServed=w.served;p.lastH=+w.h.toFixed(1);}else{p.lastServed=0;p.lastH=0;}
+    if(w&&w.gaps>0&&C.hourly){d-=C.hourly.splitHit;notes.push('中抜けがある');}
     if(p.ask&&p.wage<p.ask){d-=M.raiseHit;notes.push('昇給の返事を待っている');}
     d+=(M.home-p.morale)*(M.pull||0.15)+(r()-0.5)*3;p.morale=clamp(Math.round((p.morale+d)*10)/10,0,100);p.notes=notes;
     // 昇給の相談
@@ -114,8 +197,29 @@ function close(cfg,st,res,day,say){const C=cfg.crew,M=C.morale,crew=migrate(cfg,
   crew.ads=(crew.ads||[]).filter(a=>day-a.day<C.ad.days);
   if(nNew)say('crew',`募集に${nNew}人の応募があった`,`「店員」で会って、採用するか決められます（${C.ad.keep}日たつと、ほかで決まっていなくなります）。`);
   if(left)say('crew',`応募していた${left}人が、ほかで決まった`,'');
+  if(C.autoHire)autoHire(cfg,st,crew,day,say);
   return crew;}
+/* 足りない店員の自動の募集（港駅の店・crew.autoHire・2026-11-11 ユーザー）：締めのたびに、あすからのシフトでだれもいない時刻があるかを見る。
+   ①組み直す → ②応募している人のうち、足りない区切りに入れる人を採用して組み直す → ③まだ足りず、募集が出ていなければ、あすから募集を出す（1回 ad.fee 円・時給は相場か最低賃金の高いほう） */
+function gapsOf(cfg,crew,day){const ppl=crew.people.filter(p=>active(p,day));const sh=crew.shiftNext||crew.shift,out=[];
+  for(const t of TYPES){const W=dayWorkers(cfg,ppl,sh[t]||{});for(let m=cfg.open[0]*60;m<cfg.open[1]*60;m+=5)if(!W.some(w=>onAt(w,m))){const b=B(cfg).find(x=>m>=x.from*60&&m<x.to*60);if(b&&!out.some(o=>o.t===t&&o.b===b))out.push({t,b,m});}}
+  return out;}
+function autoHire(cfg,st,crew,day,say){const C=cfg.crew,A=C.autoHire,d1=day+1,need=()=>Math.max(1,st.staff||A.staff||2);
+  const reshape=()=>{const ppl=crew.people.filter(p=>active(p,d1)),sh=assign(cfg,ppl,need,'even');for(const t of TYPES)for(const p of crew.people)if(!sh[t][p.id])sh[t][p.id]=[];crew.shift=sh;delete crew.shiftNext;};   // 締めのあと（あすの分のシフト）なので、そのまま crew.shift に
+  let g=gapsOf(cfg,crew,d1);if(!g.length&&crew.people.filter(p=>p.leave==null).length>=(A.min||0))return;
+  if(g.length){reshape();g=gapsOf(cfg,crew,d1);}
+  // 応募している人から採用（足りない区切りに入れる人・時給の安い人から）
+  const hired=[];
+  while(g.length&&crew.people.filter(p=>p.leave==null).length<C.max){const a=crew.applicants.filter(x=>g.some(o=>canB(cfg,x,o.t,o.b))).sort((x,y)=>x.wage-y.wage)[0];if(!a)break;
+    crew.applicants=crew.applicants.filter(x=>x!==a);a.from=d1;delete a.until;delete a.came;crew.people.push(a);for(const t of TYPES){crew.shift[t][a.id]=[];}hired.push(a);reshape();g=gapsOf(cfg,crew,d1);}
+  // 人数が少ないとき（autoHire.min 人より少ない）は、足りない区切りに入れなくても、入れる時間の多い人から採用する（休み・辞める人が出ても回るように）
+  const nAct=()=>crew.people.filter(p=>p.leave==null).length,avN=p=>TYPES.reduce((a,t)=>a+p.avail[t].length*C.weekDays[t],0);
+  while(nAct()<(A.min||0)&&nAct()<C.max&&crew.applicants.length){const a=crew.applicants.slice().sort((x,y)=>avN(y)-avN(x)||x.wage-y.wage)[0];
+    crew.applicants=crew.applicants.filter(x=>x!==a);a.from=d1;delete a.until;delete a.came;crew.people.push(a);for(const t of TYPES)crew.shift[t][a.id]=[];hired.push(a);reshape();g=gapsOf(cfg,crew,d1);}
+  if(hired.length)say('crew',`${hired.map(a=>a.name+'さん').join('・')}を採用した（おまかせ）`,`店員が足りない時間があったので、応募していた人を採用しました。あすからシフトに入ります（時給${hired.map(a=>a.wage.toLocaleString()+'円').join('・')}）。`);
+  if((g.length||nAct()<(A.min||0))&&!adsOpen(cfg,crew,d1).length&&nAct()<C.max){const w=Math.max(C.minWage||0,C.market+(A.plus||0));crew.ads=(crew.ads||[]).concat([{day:d1,wage:w,auto:true}]);
+    const TN=C.dayTypes||{};say('crew','店員が足りないので、募集を出した（おまかせ）',g.length?`${g.slice(0,3).map(o=>(TN[o.t]||o.t)+'の'+o.b.name).join('・')}${g.length>3?'など':''}に入れる人がいません。あすから${C.ad.days}日間、時給${w.toLocaleString()}円で募集します（${C.ad.fee.toLocaleString()}円）。だれもいない時間は、店を閉めます。`:`店員が${nAct()}人に減りました（${A.min}人はほしい）。あすから${C.ad.days}日間、時給${w.toLocaleString()}円で募集します（${C.ad.fee.toLocaleString()}円）。`);}}
 
-root.KioskStaff={create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,active,close,adsOpen,TYPES,blk};
+root.KioskStaff={helpFill,gapsOf,autoHire,wageFloor,canB,dayWorkers,minorOf,realSpans,brkOf,create,assign,autoShift,migrate,person,today,onAt,nextStart,payOf,speed,careOf,moraleF,expF,traits,moodWord,weekHours,insuredOf,hoursOf,availH,dayPlan,active,close,adsOpen,TYPES,blk};
 if(typeof module!=='undefined')module.exports=root.KioskStaff;
 })(typeof window!=='undefined'?window:globalThis);

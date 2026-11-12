@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>港駅の店内アニメ｜みなと川ダイアリー</title>
+<link rel="stylesheet" href="css/kiosk-scene.css">
+</head>
+<body>
+<main>
+<header><a href="index.html">みなと川ダイアリーへ</a><span>描画の試作</span></header>
+<h1>一人の買い物を追う</h1>
+<p class="intro">飲料棚へ歩き、手を伸ばし、商品を持ってレジへ。途中で品切れにすると、選び直します。</p>
+<div class="stage" aria-busy="true">
+<canvas id="scene" width="1100" height="680" aria-label="港駅の売店で飲み物を選ぶ客"></canvas>
+<p id="loading" role="status">店内画と人物を読み込んでいます…</p>
+</div>
+<div class="toolbar"><button id="play" disabled>一時停止</button><button id="zoom" disabled aria-pressed="true">店ぜんぶを見る</button><button id="slow" disabled aria-pressed="false">ゆっくり見る</button><button id="reset" disabled>入口からもう一度</button></div>
+<p id="status" role="status" aria-live="polite"></p>
+<div id="products" class="products"></div>
+<p id="source" class="note"></p>
+<details><summary>この試作について</summary><p>動くのは冷蔵棚を見に行く客一人です。背景の人は完成イメージの絵です。歩行と手を伸ばす姿勢にはAIで描いた素材を使っています。歩く道と品切れへの反応はプログラムが決めます。レジ前の列に着くと止まります。</p><p>商品の数はこの試作の中で変わります。元の売店の在庫・売上・保存への反映は、次の接続段階です。背景の看板の時刻はイメージです。</p></details>
+<noscript>このアニメーションにはJavaScriptが必要です。</noscript>
+</main>
+<script src="js/kiosk-scene-core.js"></script><script src="js/kiosk-scene-view.js"></script>
+</body></html>

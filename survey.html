@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>沿線くらしアンケート</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* 調査報告の紙：生成りの紙に墨の文字、駅ごとの帯。数字は等幅。色は答えの種類だけに使う */
+:root{
+  --paper:#f3efe6;--sheet:#fffdf8;--ink:#1d2430;--muted:#6a6f78;--faint:#9a9ea5;--line:#ddd6c8;--line2:#ebe5d9;--accent:#b0402f;--focus:#2f5d8a;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--bar:#2a78d6;--ref:#1d2430;--grid:#e8e2d6;
+  --f-disp:"Dela Gothic One","Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#15171b;--sheet:#1c1f24;--ink:#ece8df;--muted:#a8a69f;--faint:#7c7b76;--line:#33363c;--line2:#272a30;--accent:#e2735f;--focus:#8fb6e0;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--bar:#3987e5;--ref:#ece8df;--grid:#2a2d33;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#15171b;--sheet:#1c1f24;--ink:#ece8df;--muted:#a8a69f;--faint:#7c7b76;--line:#33363c;--line2:#272a30;--accent:#e2735f;--focus:#8fb6e0;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--bar:#3987e5;--ref:#ece8df;--grid:#2a2d33;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.6}
+.wrap{max-width:1080px;margin:0 auto;padding:18px 16px 70px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:flex-end;justify-content:space-between;border-bottom:3px double var(--ink);padding-bottom:10px}
+header .kicker{font-size:12px;letter-spacing:.2em;color:var(--accent);font-weight:700}
+header h1{font-family:var(--f-disp);font-weight:400;font-size:clamp(24px,5vw,34px);line-height:1.15;margin:2px 0 0}
+header p{margin:4px 0 0;color:var(--muted);font-size:12.5px;max-width:560px}
+.when{display:flex;align-items:center;gap:12px}
+.when .yr{font-family:var(--f-disp);font-size:clamp(34px,7vw,52px);line-height:1;letter-spacing:.02em}
+.when .yr small{font-family:var(--f-body);font-size:13px;color:var(--muted);margin-left:2px}
+.play{width:42px;height:42px;border-radius:50%;border:1.5px solid var(--ink);background:var(--sheet);color:var(--ink);font-size:15px;cursor:pointer}
+.scrub{display:flex;align-items:center;gap:10px;margin:14px 0 4px}
+.scrub input{flex:1;accent-color:var(--accent)}
+.scrub.ticks{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin:-6px 4px 0}
+.qs{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 6px}
+.qs button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--sheet);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.qs button[aria-pressed="true"]{background:var(--ink);color:var(--sheet);border-color:var(--ink)}
+.ask{font-size:15px;margin:10px 0 0}
+.ask b{font-family:var(--f-disp);font-weight:400;font-size:20px;margin-right:8px}
+.card{background:var(--sheet);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:14px}
+.card h2{font-size:13px;letter-spacing:.12em;color:var(--muted);margin:0 0 10px;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 10px}
+.legend button{font:inherit;font-size:12.5px;display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--ink);padding:3px 2px;cursor:pointer;border-bottom:2px solid transparent}
+.legend button[aria-pressed="true"]{border-bottom-color:var(--ink);font-weight:700}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.rows{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center}
+.rows .nm{font-weight:700;white-space:nowrap;cursor:pointer}
+.rows .nm small{display:block;font-weight:400;font-size:10.5px;color:var(--faint);line-height:1.2}
+.rows .nm[aria-current="true"]{color:var(--accent)}
+.rows .v{font-size:12.5px;text-align:right;white-space:nowrap}
+.rows .all{border-top:1px solid var(--line);padding-top:6px}
+.bar{position:relative;height:22px;border-radius:4px;background:var(--line2);overflow:visible;display:flex;gap:2px;cursor:pointer}
+.bar span{display:block;height:100%;transition:width .45s ease;min-width:0}
+.bar span:first-child{border-radius:4px 0 0 4px}.bar span:last-child{border-radius:0 4px 4px 0}
+.bar .one{border-radius:4px}
+.bar .refmark{position:absolute;top:-4px;bottom:-4px;width:0;border-left:2px dashed var(--ref);opacity:.75}
+.mini{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.mini figure{margin:0;border:1px solid var(--line2);border-radius:10px;padding:8px 10px 4px;cursor:pointer;background:var(--sheet)}
+.mini figure[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.mini figcaption{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700}
+.mini figcaption .num{font-weight:500}
+.mini svg{display:block;width:100%;height:auto;overflow:visible}
+.ages{display:grid;grid-template-columns:auto 1fr auto;gap:8px 10px;align-items:center}
+.notes{display:grid;gap:8px}
+.notes p{margin:0}
+.hint{font-size:14.5px;line-height:1.8}
+.hint li{margin:2px 0}
+.tip{position:fixed;z-index:9;pointer-events:none;background:var(--ink);color:var(--sheet);font-size:12px;padding:6px 9px;border-radius:6px;max-width:260px;line-height:1.45;box-shadow:0 4px 12px #0003}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th,.tbl td{padding:4px 6px;border-bottom:1px solid var(--line2);text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tw{overflow-x:auto}
+details summary{cursor:pointer;color:var(--muted);font-size:12.5px;margin-top:8px}
+.src{font-size:12px;color:var(--muted)}
+.src a{color:var(--focus)}
+a.back{color:var(--focus);font-size:12.5px}
+@media (max-width:560px){.rows{grid-template-columns:auto 1fr;}.rows .v{grid-column:2;text-align:left;margin-top:-4px}.mini{grid-template-columns:repeat(2,1fr)}}
+@media (prefers-reduced-motion:reduce){.bar span{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <div class="kicker">みなと川沿線　定点調査</div>
+    <h1>沿線くらしアンケート</h1>
+    <p>駅ごとのまわりに住む人（15歳以上）に、毎年10月に同じことを聞いています。駅の性格や年代によって、答えの変わり方がちがいます。<a class="back" href="index.html">← 沿線へ</a></p>
+  </div>
+  <div class="when"><button class="play" id="play" type="button" aria-label="2019年から順に見る">▶</button><div class="yr num" id="yr">2026<small>年10月</small></div></div>
+</header>
+<div class="scrub"><input type="range" id="year" min="2019" max="2026" step="1" aria-label="調査の年"></div>
+<div class="scrub ticks num" id="ticks"></div>
+<nav class="qs" id="qs" aria-label="質問"></nav>
+<p class="ask" id="ask"></p>
+
+<section class="card"><h2>駅ごとにくらべる</h2><div class="legend" id="legend"></div><div class="rows" id="rows"></div>
+  <details><summary>表で見る</summary><div class="tw" id="table"></div></details></section>
+<section class="card"><h2 id="trendTitle">うつりかわり</h2><div class="mini" id="mini"></div><p class="src" id="refNote"></p></section>
+<section class="card"><h2 id="ageTitle">年代でくらべる</h2><div class="ages" id="ages"></div><p class="src">年代ごとの人数は少ないので、答えのぶれが大きくなります。</p></section>
+<section class="card"><h2>読みとりメモ</h2><ul class="hint" id="hint"></ul></section>
+<section class="card notes"><h2>この調査について</h2><p class="src" id="about"></p><p class="src" id="sources"></p></section>
+</div>
+<div class="tip" id="tip" hidden></div>
+<script src="js/survey-core.js?v=20261106a"></script>
+<script src="js/survey-view.js?v=20261106a"></script>
+</body>
+</html>

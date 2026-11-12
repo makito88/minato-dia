@@ -10,8 +10,11 @@
 const F=window.FactoryCore,ST=F.ST,hm=F.hm;
 const $=id=>document.getElementById(id);
 const KEY='dia-factory';
-let D=null,cfg=null,R=null,prev=null,cur=0,playing=false,speed=300,selected=null,lastFrame=0,hits=[],resultShown=false;
-const SPEEDS=[[1,'×1'],[60,'×60'],[300,'×300'],[900,'×900']];
+let D=null,cfg=null,R=null,prev=null,cur=0,playing=true,speed='live',selected=null,lastFrame=0,hits=[],resultShown=false;
+const SPEEDS=FactoryLive.SPEEDS,FL=FactoryLive,WS=FL.sec;   // 速さ：いま（本当の時刻・×1）・×60・×300・×900
+let lastDraw=0;
+/* 速さのボタンの下のひとこと */
+function liveNote(){const e=$('liveNote');if(e&&R)e.textContent=FL.note(R.T0,R.T0+R.N-1,speed==='live',playing);}
 const ST_COLOR={1:'#7fb0de',2:'#4f86b8',3:'#d9822b',4:'#e0a84a',5:'#c23b3b',6:'#5aa0a8',7:'#9b7cc0',8:'#2e7d4f',9:'#9aa6b1'};
 
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||'null');return s||{};}catch(e){return {};}}
@@ -56,9 +59,10 @@ function buildPlan(){
     const bs=SF.break.at[cfg.breakAt],be=bs+SF.break.min*F.ROLES.length;
     $('breakHint').textContent=`${hm(bs)}〜${hm(be)}に、ラインの係・包装の係・検品の係・品質管理の順に休む。${cfg.relief?'交代の人が入るので穴はあかない（そのぶんの時給）':`そのあいだ休んでいる人の仕事はほかの係が見るので、詰まりを直すのに${SF.wrap.jamAway.join('〜')}分（いれば${SF.wrap.jam.join('〜')}分）、フィルムを足すのが遅れ、重さのずれに気づくのに${SF.drift.detectAway}分、品質管理の抜き取りは見送り`}`;
     $('labelHint').textContent=cfg.labelCheck?`切り替えのたびに品質管理が${SF.label.check}分かけて品名・期限・原材料を確かめる`:`切り替えが${SF.label.check}分ずつ早い。ただし${Math.round(SF.label.miss*100)}%の確率でラベルが前の具のまま→見つかるまでの分を貼り直す（卵が表示にないときは捨てる）`;
-    const seq=F.fillOrder(D,cfg.order).map(id=>D.packLine.fillings.find(f=>f.id===id));
+    const only=D.packLine.fillings.filter(f=>!(f.share>0));   // 港駅の店だけの具（2026-11-10）：センターの発注がある夜だけ
+    const seq=F.fillOrder(D,cfg.order).map(id=>D.packLine.fillings.find(f=>f.id===id)).filter(f=>f.share>0);
     let ws=0,wl=0;for(let k=1;k<seq.length;k++){const m=F.washMin(D,seq[k-1].id,seq[k].id);m===D.packLine.wash.up?ws++:wl++;}
-    $('orderHint').textContent=`${seq.map(f=>f.name+(f.brand?'〔'+f.brand+'〕':'')).join('→')}。掃除は短い${ws}回・長い${wl}回（注文が増えた具は最後にもう一度）`;
+    $('orderHint').textContent=`${seq.map(f=>f.name+(f.brand?'〔'+f.brand+'〕':'')).join('→')}。掃除は短い${ws}回・長い${wl}回（注文が増えた具は最後にもう一度）${only.length?`。港駅の店だけの具（${only.map(f=>f.name).join('・')}）は、センターから頼まれた夜だけ、味の濃さの順に入る（そのぶん切り替えが増える）`:''}`;
   };
   $('season').onchange=e=>{cfg.season=e.target.value;sync();};
   $('batches').onchange=e=>{cfg.batches=clampInt(e.target.value,g.batches);sync();};
@@ -76,10 +80,10 @@ function clampInt(v,[a,b]){v=Math.round(+v);if(!isFinite(v))v=a;return Math.max(
 /* ---------------- 回す ---------------- */
 function run(keepTime){
   if(R){prev={cfg:R.cfg,summary:R.summary};}
-  R=F.simulate(D,cfg);resultShown=false;
+  R=F.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));resultShown=false;
   $('scrub').max=R.N-1;if(!keepTime)cur=0;cur=Math.min(cur,R.N-1);resetBelt();
   if(selected!=null&&!R.batches[selected])selected=null;
-  $('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`;
+  $('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'rice','個'):'');
   $('result').hidden=true;$('resultWait').hidden=false;
   save();drawAll(true);
 }
@@ -87,20 +91,23 @@ function run(keepTime){
 /* ---------------- 再生 ---------------- */
 function buildPlay(){
   $('speeds').innerHTML=SPEEDS.map(([v,l])=>`<button data-v="${v}">${l}</button>`).join('');
-  for(const b of $('speeds').children)b.onclick=()=>{speed=+b.dataset.v;markSpeed();};
+  for(const b of $('speeds').children)b.onclick=()=>{const v=b.dataset.v;speed=v==='live'?'live':+v;playing=true;if(cur>=R.N-1&&speed!=='live')cur=0;lastFrame=performance.now();markSpeed();markPlay();};
   markSpeed();
-  $('playBtn').onclick=()=>{playing=!playing;if(playing&&cur>=R.N-1)cur=0;markPlay();lastFrame=performance.now();};
-  $('scrub').oninput=e=>{cur=+e.target.value;resetBelt();drawAll(true);};
+  $('playBtn').onclick=()=>{playing=!playing;if(playing&&cur>=R.N-1&&speed!=='live')cur=0;markPlay();lastFrame=performance.now();};
+  $('scrub').oninput=e=>{cur=+e.target.value;if(speed==='live'&&playing){playing=false;markPlay();}resetBelt();drawAll(true);};
   $('peek').onclick=()=>showResult();
 }
-function markSpeed(){for(const b of $('speeds').children){const on=+b.dataset.v===speed;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}}
-function markPlay(){$('playBtn').textContent=playing?'❚❚ 止める':'▶ 再生';$('playBtn').setAttribute('aria-label',playing?'止める':'再生');}
+function markSpeed(){liveNote();for(const b of $('speeds').children){const on=String(b.dataset.v)===String(speed);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}}
+function markPlay(){liveNote();$('playBtn').textContent=playing?'❚❚ 止める':'▶ 再生';$('playBtn').setAttribute('aria-label',playing?'止める':'再生');}
 function tick(now){
-  if(playing&&R){const dt=Math.min(0.25,(now-lastFrame)/1000);const m0=beltM.map((_,l)=>madeAt(cur,l));cur+=dt*speed/60;
-    if(cur>=R.N-1){cur=R.N-1;playing=false;markPlay();}
+  if(playing&&R){const dt=Math.min(0.25,(now-lastFrame)/1000);
+    if(speed==='live'){const want=FL.liveAt(R.T0,R.T0+R.N-1)-R.T0;if(Math.abs(want-cur)>1){cur=want;resetBelt();}}   // いま：本当の時刻に合わせる（大きくずれたらベルトも合わせ直す）
+    const m0=beltM.map((_,l)=>madeAt(cur,l));
+    if(speed==='live')cur=FL.liveAt(R.T0,R.T0+R.N-1)-R.T0;else cur+=dt*speed/60;
+    if(cur>=R.N-1&&speed!=='live'){cur=R.N-1;playing=false;markPlay();}
     // ベルトの上のおにぎりは、ラインごとに実際に包んだ数だけ流す。1秒に BELT_MAX 個を超える速さでは目で追えないので、そこで頭打ちにする
     beltFast=false;beltM.forEach((_,l)=>{const dm=madeAt(cur,l)-m0[l];if(dm>dt*BELT_MAX+1e-9)beltFast=true;beltM[l]+=Math.min(dm,dt*BELT_MAX);});
-    drawAll(false);}
+    if(speed!=='live'||now-lastDraw>=50){lastDraw=now;drawAll(false);}}   // いまの速さでは絵は1秒20回（軽く）
   lastFrame=now;requestAnimationFrame(tick);
 }
 let lastSide=-1;
@@ -112,7 +119,7 @@ function drawAll(force){
   const i=Math.floor(cur);
   $('scrub').value=i;$('clock').textContent=hm(R.T0+i);
   drawStage();
-  if(force||i!==lastSide){lastSide=i;drawClocks(i);drawEvents(i);drawGantt();drawBatch();
+  if(force||i!==lastSide){lastSide=i;liveNote();drawClocks(i);drawEvents(i);drawGantt();drawBatch();
     if(i>=R.N-1&&!resultShown)showResult();}
 }
 
@@ -179,7 +186,7 @@ function drawWash(c,[x,y,w,h],i,t){
   const now=R.batches.find(b=>b.hs[i]===ST.WASH);const queue=R.batches.filter(b=>b.hs[i]===ST.WAIT).length;
   const cx=x+w/2,cy=y+h/2+4,r=Math.min(w,h)/2-28;
   c.fillStyle=css('--water');c.strokeStyle=css('--steel');c.lineWidth=3;c.beginPath();c.arc(cx,cy,r,0,7);c.fill();c.stroke();c.lineWidth=1;
-  if(now){const a=t*1.7;c.strokeStyle=css('--water2');c.lineWidth=2;for(let k=0;k<3;k++){c.beginPath();c.arc(cx,cy,r*0.6,a+k*2.1,a+k*2.1+1.2);c.stroke();}c.lineWidth=1;
+  if(now){const a=WS()*2.4;c.strokeStyle=css('--water2');c.lineWidth=2;for(let k=0;k<3;k++){c.beginPath();c.arc(cx,cy,r*0.6,a+k*2.1,a+k*2.1+1.2);c.stroke();}c.lineWidth=1;
     c.fillStyle=css('--rice');c.beginPath();c.arc(cx,cy,r*0.35,0,7);c.fill();
     txt(c,'釜'+now.no,cx,cy+4,{align:'center',bold:true});hit(cx-r,cy-r,2*r,2*r,now);selRing(c,cx-r,cy-r,2*r,2*r,now);}
   else txt(c,t<cfg.start?`${hm(cfg.start)}から`:queue?'待ち':'洗い終わり',cx,cy+4,{align:'center',color:css('--muted'),size:11});
@@ -191,7 +198,7 @@ function drawTanks(c,[x,y,w,h],i,cols){
   for(let k=0;k<n;k++){const tx=x+8+(k%cols)*gw+3,ty=y+26+Math.floor(k/cols)*gh+2,tw=gw-6,th=gh-6;
     c.strokeStyle=css('--steel');c.fillStyle=css('--sheet');c.lineWidth=1.5;rr(c,tx,ty,tw,th,4);c.fill();c.stroke();c.lineWidth=1;
     const b=inT[k];if(!b)continue;const f=b.hf[i];const soakMin=i-(b.tSoak-R.T0);
-    c.fillStyle=css('--water');c.fillRect(tx+2,ty+th*0.25,tw-4,th*0.75-2);
+    c.fillStyle=css('--water');c.fillRect(tx+2,ty+th*0.25,tw-4,th*0.75-2);FactoryLive.bubbles(c,tx+3,ty+th*0.3,tw-6,th*0.3,2);/* 水の中の泡 */
     const rh=(th*0.45)*(0.55+0.45*f);c.fillStyle=css('--rice');c.fillRect(tx+2,ty+th-2-rh,tw-4,rh);
     // 吸水の帯
     const bw=tw-8;c.fillStyle=css('--line');c.fillRect(tx+4,ty+4,bw,5);
@@ -213,9 +220,9 @@ function drawPots(c,[x,y,w,h],i,t){
     if(!b){txt(c,'空き',px+pw/2,py+ph/2,{align:'center',color:css('--muted'),size:11});continue;}
     const s=b.hs[i],T=b.hT[i];
     c.fillStyle=tempColor(T);c.globalAlpha=0.35;rr(c,px+5,py+5,pw-10,ph-24,8);c.fill();c.globalAlpha=1;
-    if(s===ST.COOK){for(let q=0;q<4;q++){const fx=px+pw*(0.2+q*0.2),fl=6+4*Math.sin(t*3+q);c.fillStyle='#e0782b';c.beginPath();c.moveTo(fx-5,py+ph+2);c.lineTo(fx,py+ph+2-fl-6);c.lineTo(fx+5,py+ph+2);c.fill();}
+    if(s===ST.COOK){for(let q=0;q<4;q++){const fx=px+pw*(0.2+q*0.2),fl=6+4*Math.sin(WS()*9+q);c.fillStyle='#e0782b';c.beginPath();c.moveTo(fx-5,py+ph+2);c.lineTo(fx,py+ph+2-fl-6);c.lineTo(fx+5,py+ph+2);c.fill();}
       const p=Math.min(1,(R.T0+i-b.tCook)/D.cook.min);c.fillStyle=css('--warn');c.fillRect(px+5,py+ph-14,(pw-10)*p,5);}
-    if(s===ST.STEAM||s===ST.POT){c.strokeStyle=css('--muted');c.globalAlpha=0.6;for(let q=0;q<3;q++){const sx=px+pw*(0.3+q*0.2),ph2=((t*0.9+q*0.37)%1);c.beginPath();c.arc(sx+4*Math.sin(t+q),py-4-ph2*26,4+ph2*4,0,7);c.stroke();}c.globalAlpha=1;}
+    if(s===ST.STEAM||s===ST.POT){c.strokeStyle=css('--muted');c.globalAlpha=0.6;for(let q=0;q<3;q++){const sx=px+pw*(0.3+q*0.2),ph2=((WS()*0.7+q*0.37)%1);c.beginPath();c.arc(sx+4*Math.sin(WS()*1.5+q),py-4-ph2*26,4+ph2*4,0,7);c.stroke();}c.globalAlpha=1;}
     if(s===ST.POT){c.strokeStyle=css('--bad');c.lineWidth=3;rr(c,px,py,pw,ph,10);c.stroke();c.lineWidth=1;
       txt(c,`冷却待ち ${R.T0+i-b.tPotWait}分`,px+pw/2,py+ph+16,{align:'center',color:css('--bad'),size:11,bold:true});}
     txt(c,'釜'+b.no,px+pw/2,py+ph/2-6,{align:'center',bold:true});
@@ -228,7 +235,7 @@ function drawCooler(c,[x,y,w,h],i){
   const bx=x+12,bw=w-24,by=y+h/2+10;
   c.fillStyle=css('--steel');c.fillRect(bx,by,bw,8);for(let k=0;k<=12;k++){c.beginPath();c.arc(bx+k*bw/12,by+12,3,0,7);c.fill();}
   // 冷たい風
-  c.strokeStyle=css('--water2');c.globalAlpha=0.5;for(let k=0;k<6;k++){const wx=bx+((k/6+cur*0.05*({weak:1,mid:1.6,strong:2.4}[cfg.fan]))%1)*bw;c.beginPath();c.moveTo(wx,y+34);c.lineTo(wx-8,y+50);c.stroke();}c.globalAlpha=1;
+  c.strokeStyle=css('--water2');c.globalAlpha=0.5;for(let k=0;k<6;k++){const wx=bx+((k/6+WS()*0.25*({weak:1,mid:1.6,strong:2.4}[cfg.fan]))%1)*bw;c.beginPath();c.moveTo(wx,y+34);c.lineTo(wx-8,y+50);c.stroke();}c.globalAlpha=1;
   const inC=R.batches.filter(b=>b.hs[i]===ST.COOL);
   for(const b of inC){const T=b.hT[i];const p=Math.max(0,Math.min(1,(D.cook.temp-T)/(D.cook.temp-D.cool.target)));
     const tw=58,th=34,tx=bx+p*(bw-tw),ty=by-th-2;
@@ -253,7 +260,7 @@ function drawHold(c,[x,y,w,h],i){
   txt(c,inH.length?`${inH.length}釜が待っている（部屋${R.season.room}℃）`:'待っている米はない',x+8,y+h-10,{size:11,color:inH.length>2?css('--warn'):css('--muted')});
 }
 /* 成形・包装のライン：7つの持ち場を1本のベルトでつなぐ（スマホは2段で折り返す） */
-const FILL_COLOR={shio:'#d9d3c1',konbu:'#3f4b2c',ume:'#c2445e',sake:'#e8835a',tuna:'#d4b26f',mentai:'#cf4a3f',hesiko:'#7c6a4e'};
+const FILL_COLOR={shio:'#d9d3c1',konbu:'#3f4b2c',ume:'#c2445e',sake:'#e8835a',tuna:'#d4b26f',mentai:'#cf4a3f',hesiko:'#7c6a4e',soboro:'#e2b84a',yakisaba:'#9a8a72'};
 const STATIONS=['シート成形','巻き成形','塩振り','包装機','ラベル','検品','急冷','段積み'];
 const ST_OF={sheet:0,roll:1,salt:2,wrap:3,label:4,relabel:4,insp:5,chill:6,crate:7};
 function nittaTag(c,x,y){c.fillStyle=(D.packLine&&'#0F6E56');c.fillRect(x,y,11,11);txt(c,'雫',x+5.5,y+9.5,{align:'center',size:8.5,bold:true,color:'#fff'});}
@@ -297,6 +304,8 @@ function drawForm(c,box,i,t,rows){const [x,y,w,h]=box;
     const dist=([px,py])=>{let best=0,bd=1e9;for(const [s0,L,a,b2] of segs){const u=Math.max(0,Math.min(1,((px-a[0])*(b2[0]-a[0])+(py-a[1])*(b2[1]-a[1]))/(L*L)));const qx=a[0]+(b2[0]-a[0])*u,qy=a[1]+(b2[1]-a[1])*u;const dd=Math.hypot(px-qx,py-qy);if(dd<bd){bd=dd;best=s0+u*L;}}return best;};
     const dS=pos.map(dist);
     c.strokeStyle=css('--steel');c.lineWidth=6;c.lineJoin='round';c.beginPath();path.forEach(([px,py],k)=>k?c.lineTo(px,py):c.moveTo(px,py));c.stroke();c.lineWidth=1;
+    // ベルトの表面の目印：動いているラインだけ、本当の秒で流れる（×1 でも動きがわかるように）
+    if(code===LN.RUN){c.strokeStyle='rgba(255,255,255,.75)';c.lineWidth=2;c.setLineDash([3,11]);c.lineDashOffset=-((WS()*36)%14);c.beginPath();path.forEach(([px,py],k)=>k?c.lineTo(px,py):c.moveTo(px,py));c.stroke();c.setLineDash([]);c.lineDashOffset=0;c.lineWidth=1;}
     // ラインの札（A・B）。動いている＝緑、待つ＝灰、止まっている＝赤、切り替え＝黄
     {const [lx,ly]=path[0];const col=code===LN.RUN?css('--ok'):code===LN.IDLE?css('--muted'):code===LN.CHANGE?css('--warn'):css('--bad');
       c.fillStyle=col;c.beginPath();c.arc(lx-18,ly,10,0,7);c.fill();txt(c,'AB'[l],lx-18,ly+4.5,{align:'center',size:12,bold:true,color:'#fff'});}
@@ -528,7 +537,7 @@ async function init(){
   $('stage').addEventListener('click',onStageClick);
   window.addEventListener('resize',()=>drawAll(true));
   const mq=window.matchMedia('(prefers-color-scheme: dark)');if(mq.addEventListener)mq.addEventListener('change',()=>{legends();drawAll(true);});
-  R=F.simulate(D,cfg);resetBelt();$('scrub').max=R.N-1;$('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`;
+  R=F.simulate(D,(window.FactoryNight?FactoryNight.withCenter(cfg,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}})):cfg));resetBelt();$('scrub').max=R.N-1;$('nightInfo').textContent=`夜の番号 ${cfg.seed}（同じ番号なら同じ注文。条件だけ変えて比べられます）`+(window.FactoryNight?' '+FactoryNight.centerNote(D,FactoryNight.readLog(k=>{try{return localStorage.getItem(k);}catch(e){return null;}}),'rice','個'):'');
   drawAll(true);requestAnimationFrame(t=>{lastFrame=t;tick(t);});
 }
 init();
