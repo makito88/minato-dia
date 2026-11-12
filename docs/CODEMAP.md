@@ -90,9 +90,9 @@ hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() 
 
 公開 KioskScene …120
 
-## js/kiosk-scene-view.js（139行）
+## js/kiosk-scene-view.js（141行）
 
-json() …11・snapshot() …16・sprite() …25・bottle() …32・draw() …37・panel() …84・resize() …95・frame() …100・init() …111
+json() …11・snapshot() …16・sprite() …25・bottle() …32・draw() …37・panel() …85・resize() …96・frame() …101・init() …112
 
 ## js/kiosk-staff.js（226行）
 

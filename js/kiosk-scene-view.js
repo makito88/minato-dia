@@ -2,7 +2,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const canvas = $('scene'), ctx = canvas.getContext('2d');
-let scene, config, frames, background, walk, reach;
+let scene, config, frames, background, walk, reach, carry;
 let paused = false, close = true, slow = false, previous = 0, accumulator = 0;
 let camera = {x: 210, y: 700, width: 620};
 const image = url => new Promise((resolve, reject) => {
@@ -59,7 +59,12 @@ function draw(dt = 0) {
   // Ground contact and the same down-right light direction as the painted room.
   ctx.fillStyle='#3c32222b';ctx.beginPath();ctx.ellipse(scene.x+height*.23,scene.y+height*.16,height*.36,9, .56,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#3d34252a';ctx.beginPath();ctx.ellipse(scene.x,scene.y+1,16,5,0,0,Math.PI*2);ctx.fill();
-  if(['reach','retract','take','browse'].includes(scene.phase)){
+  if(scene.held !== null){
+    // The carrying arm and the drink are painted together, so they cannot drift apart.
+    const product=config.products[scene.held];
+    const frame=scene.phase==='walk' ? Math.floor(scene.distance/17)%4 : 1;
+    sprite(carry[scene.held],frames.carry[product.id][scene.direction*4+frame],height);
+  }else if(['reach','retract','take','browse'].includes(scene.phase)){
     const position = scene.phase === 'take' ? 2+Math.min(1,scene.phaseTime/1.2) : scene.reach*2;
     const a=Math.floor(position), b=Math.min(3,a+1), fraction=position-a;
     sprite(reach,frames.reach[a],height);
@@ -67,10 +72,6 @@ function draw(dt = 0) {
   }else{
     const frame=scene.phase==='walk' ? Math.floor(scene.distance/17)%4 : 1;
     sprite(walk,frames.walk[scene.direction*4+frame],height);
-  }
-  if(scene.held !== null){
-    const atShelf=scene.phase==='take';
-    bottle(scene.x+height*(atShelf?.25:.18),scene.y-height*(atShelf?.72:.43),config.products[scene.held].color);
   }
   // Foreground parts of the existing painting hide a customer passing behind them.
   for(const shelf of config.occluders){
@@ -112,6 +113,7 @@ async function init(){
   try{
     config=await json('data/kiosk-scene.json');
     [frames,background,walk,reach]=await Promise.all([json(config.sprites+'frames.json'),image(config.background),image(config.sprites+'walk.webp'),image(config.sprites+'reach.webp')]);
+    carry=await Promise.all(config.products.map(product=>image(config.sprites+product.carry)));
     const source=snapshot();
     scene=new KioskScene(config,source);
     config.products.forEach((product,index)=>{
