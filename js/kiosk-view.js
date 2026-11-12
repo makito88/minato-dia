@@ -37,7 +37,7 @@ Promise.all([fetch('data/kiosk.json?v=20261111w3').then(r=>{if(!r.ok)throw new E
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
 // 工場の設定（納品書を作るのに使う。読めなくても売店はいつもどおり）
 if(window.FactoryNight)fetch('data/factory.json').then(r=>r.ok?r.json():null).then(d=>{V.fD=d;setTimeout(()=>{try{queueSlips();}catch(e){}try{if(!V.slipBusy)matSync();}catch(e){}},500);}).catch(()=>{});
-if(CC)fetch('data/center.json?v=20261112d').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
+if(CC)fetch('data/center.json?v=20261112n').then(r=>r.ok?r.json():null).then(c=>{V.ccfg=c;if(V.open&&V.st)render(true);setTimeout(()=>{try{queueSlips();}catch(e){}},500);}).catch(()=>{});
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(V.st));}catch(e){}}
 const ix=()=>KC.index(V.cfg);
 const fareOf=(a,b)=>a===b?0:g(()=>fare(a,b),0);   // 片道の運賃（ゲーム本体の運賃表）
@@ -155,6 +155,22 @@ function haulOn(){return !!(window.DealsCore&&window.DealsToHaiso&&V.dcfg&&V.hcf
 function haulPut(lg,day,cond){if(!haulOn())return;const S=loadDeals();if(!S)return;try{DealsToHaiso.put(DealsCore,V.dcfg,S,lg,day,cond,V.ccfg,V.hcfg);}catch(e){console.warn('配送の契約の荷物を足せませんでした',e);}}
 function haulClose(day){if(!haulOn()||!window.HaisoCore)return;const d=loadOrders().days.find(x=>x.day===day);if(!d||!d.haul)return;const S=loadDeals();if(!S)return;
   try{const hi=window.minatoKiosk.haisoInput(day),P=hi?HaisoCore.dayPlan(V.hcfg,V.ccfg,CC,hi):null;if(P&&DealsToHaiso.close(DealsCore,S,day,d,P,V.dcfg))localStorage.setItem(DKEY,JSON.stringify(S));}catch(e){console.warn('配送の契約の結果を残せませんでした',e);}}
+/* 荷物の行方の取引先の分（取引の相談窓口 第5回・2026-11-12）：その運行日の dia-orders（deal・slip.deals・haul）と、配送会社の便の計算から、
+   契約ごとの数と時刻を集める（TrackCore.dealTimeline に渡す形）。数は計算し直さない（便の計算は1日に1回だけ作って覚えておく） */
+function dealTrack(day){const S=loadDeals();if(!S||!window.DealsCore)return [];const d=loadOrders().days.find(x=>x.day===day);if(!d)return [];
+  const sd=d.slip&&!d.slip.err&&d.slip.deals||null,by=(d.deal&&d.deal.by)||{},hl=d.haul||{},C=V.dcfg||{},stn=s=>(C.stations||{})[s]||s,LN=DealsCore.LN||{};
+  const ck=day+'|'+(d.slip&&d.slip.no||'')+'|'+Object.keys(hl).join(',')+'|'+(day===gDay()?'t':'p');
+  if(V.dtK!==ck){V.dtK=ck;V.dtR={};const need=Object.values(hl).some(x=>!x.o&&x.b);
+    if(need&&haulOn()&&window.HaisoCore)try{const hi=window.minatoKiosk.haisoInput(day),P=hi?HaisoCore.dayPlan(V.hcfg,V.ccfg,CC,hi):null;if(P)V.dtR=DealsCore.haulResults(hl,P);}catch(e){V.dtR={};}}
+  const R=V.dtR||{},out=[],seen=new Set();
+  for(const id of [...Object.keys(by),...Object.keys(sd||{})]){if(seen.has(id))continue;seen.add(id);const c=S.deals.find(x=>x.id===id),o=c&&c.of;if(!o)continue;
+    const it=sd&&sd[id]?sd[id].it:null,q=it?Object.values(it).reduce((a,v)=>a+(v[0]||0),0):Object.values(by[id]||{}).reduce((a,v)=>a+v,0),s=it?Object.values(it).reduce((a,v)=>a+(v[1]||0),0):null;
+    const h=hl[id],r=R[id]||{};
+    out.push({id,kind:'sell',name:o.name,fixAt:C.fixAt,line:o.line,lineName:LN[o.line]||o.line,hand:o.hand,handT:o.handT,st:o.st,q,s,slip:d.slip&&d.slip.no,
+      to:o.st,toName:stn(o.st)+'駅',w:h?h.w:null,bin:h&&o.hand==='deliver'?h.b:null,arr:r.arr??null,late:r.late||0,help:r.help||0,miss:h?!!r.miss:false});}
+  for(const id in hl){const x=hl[id];if(x.k!=='haul')continue;const c=S.deals.find(v=>v.id===id),o=(c&&c.of)||{},r=R[id]||{},cg=((C.haul||{}).cargo||[]).find(v=>v.id===o.cargo);
+    out.push({id,kind:'haul',name:x.n||o.name,fixAt:C.fixAt,carts:x.c,from:o.from||'',cargo:cg?cg.name:'',other:!!x.o,to:x.to,toName:stn(x.to)+'駅',w:x.w,bin:x.b,arr:r.arr??null,late:r.late||0,help:r.help||0,miss:!!r.miss&&!x.o});}
+  return out;}
 // 2店の品の設定を合わせたもの（センターの倉庫が、港駅の店にしかない品のジャンルもわかるように）。港駅の店がないときは緑ヶ丘の設定のまま
 function gcfg(){const pc=portOn()?g(()=>MSV2().cfg,null):null;if(!pc)return V.cfg;if(V.gcK===pc&&V.gcB===V.cfg)return V.gc;
   const ids=new Set(V.cfg.products.map(p=>p.id)),gids=new Set(V.cfg.genres.map(x=>x.id));V.gc={...V.cfg,products:[...V.cfg.products,...pc.products.filter(p=>!ids.has(p.id))],genres:[...V.cfg.genres,...pc.genres.filter(x=>!gids.has(x.id))]};delete V.gc._cix;V.gcK=pc;V.gcB=V.cfg;return V.gc;}
@@ -348,7 +364,7 @@ const CSS=`
 .trk-bar{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 0}.trk-bar span{font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--paper)}.trk-bar span.done{background:color-mix(in srgb,var(--accent) 18%,var(--paper));color:var(--ink)}.trk-bar span.now{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
 .trk-nos{display:flex;flex-wrap:wrap;gap:6px}.trk-nos .ks-chip{font-size:12px}.trk-nos .ks-chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 .trk-grid{display:grid;gap:10px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}@media (max-width:760px){.trk-grid{grid-template-columns:minmax(0,1fr)}}
-.trk-cust{display:grid;gap:6px;margin-top:6px}.trk-cust div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;border-bottom:1px solid var(--line);padding:5px 0;font-size:13px}.trk-cust div small{color:var(--muted);font-size:11.5px}
+.trk-deal{color:#1f7a8c;font-size:11.5px}.trk-cust{display:grid;gap:6px;margin-top:6px}.trk-cust div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;border-bottom:1px solid var(--line);padding:5px 0;font-size:13px}.trk-cust div small{color:var(--muted);font-size:11.5px}
 .ks-note{font-size:11.5px;color:var(--muted);margin:6px 0 0;line-height:1.65}
 .ks-scroll{overflow-x:auto}
 .ks-alert{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.ks-alert>span{color:var(--muted);margin-right:4px}
@@ -656,9 +672,11 @@ function renderTrack(b,res){const T=TK();if(!T||!CC||!V.ccfg||!V.ccfg.track){b.i
   // 時刻の順の一覧
   const st=(t,t2)=>now>=(t2??t)?'done':now>=t?'now':'';
   const stepsHTML=tl.steps.map((s,i)=>{const nx=tl.steps[i+1],end=nx?nx.t:tl.sortEnd;return `<li class="${st(s.t,end)}"><span class="tm">${F(s.t)}</span><span class="mk"></span><span><b>${esc(s.label)}</b>（${esc(s.place)}）<small>${esc(s.note||s.text)}</small></span></li>`;}).join('');
+  const dtr=est?[]:g(()=>dealTrack(sel),[]),dOn=x=>tl.truck&&x.bin&&!x.other&&T.truck(V.ccfg,x.to)&&T.truck(V.ccfg,x.to).id===tl.truck.id;   /* 同じトラック・同じ便の取引先の荷物（第5回） */
+  const dLine=bin=>{const a=dtr.filter(x=>x.bin===bin&&dOn(x));return a.length?`<br><span class="trk-deal">同じ便に取引先の荷物：${a.map(x=>`${esc(x.name)}（${x.kind==='sell'?x.q+'個':x.carts+'台'}）`).join('・')}。この店のあとに寄るので、着く時刻は変わりません</span>`:'';};
   const runHTML=tl.runs.map((r,i)=>{if(i&&!r.n)return `<li class="sep">${esc(r.bin)}：${est?'どの品をこの便にのせるかは、運行日の初め（朝4:30）に決まります（見込みでは朝の便にまとめています）':'工場の品・センター在庫の品はのらない'}</li>`;
     const f=Object.values(r.f).reduce((a,b)=>a+b,0),cut=r.cut?Object.values(r.cut).reduce((a,b)=>a+b,0):0;
-    return `<li class="sep">${esc(r.bin)}：工場の品${f}・センター在庫${r.c}・直送${r.d}${cut?`・<b>工場の不足で${cut}個届かない</b>`:''}</li>`+
+    return `<li class="sep">${esc(r.bin)}：工場の品${f}・センター在庫${r.c}・直送${r.d}${cut?`・<b>工場の不足で${cut}個届かない</b>`:''}${dLine(r.bin)}</li>`+
       (i&&r.hold?`<li class="${st(tl.sortEnd,r.depart)}"><span class="tm">${F(tl.sortEnd)}</span><span class="mk"></span><span><b>センターの部屋で待つ</b>（センター）<small>${esc(r.hold)}</small></span></li>`:'')+
       `<li class="${st(r.depart,r.soon)}"><span class="tm">${F(r.depart)}</span><span class="mk"></span><span><b>配送中（センター→売店）</b>（${esc(tl.truck?tl.truck.name:'トラック')}）</span></li>`+
       `<li class="${st(r.soon,r.arrive)}"><span class="tm">${F(r.soon)}</span><span class="mk"></span><span><b>もうすぐ到着</b></span></li>`+
@@ -1063,7 +1081,8 @@ window.minatoKiosk={get state(){return V.st;},refresh(){if(V.open)render(true);}
     return {day,now:gT(),slip:d&&d.slip&&!d.slip.err?d.slip:null,orders:d?d.orders:{},factoryNo:d&&d.factory?d.factory.no:null,lineOf,start,flow:V.ccfg.flow||{},fix:(V.ccfg.times&&V.ccfg.times.factoryFix)||1200,
       deadline:F&&F.deadline,ship:F&&F.ship&&F.ship.depart,haiso:hz,stores,sd,fmt:fmtT};},
   get mcfg(){return V.mcfg;},
-  haulOn(){return haulOn();},   // 取引の相談窓口の画面が読む：配送の契約が便につながっているか（橋 deals-to-haiso）
+  haulOn(){return haulOn();},
+  dealTrack(day){try{return dealTrack(day??gDay());}catch(e){return [];}},   /* 荷物の行方の取引先の分（第5回）：窓口の画面と荷物の行方のタブが読む */   // 取引の相談窓口の画面が読む：配送の契約が便につながっているか（橋 deals-to-haiso）
   // お金の流れの画面（js/money-view.js）：その日のまとめ。きょうは売店の計算からの見込み、前の日は dia-money
   moneyDay(day){day=day??gDay();if(day===gDay()){const r=ensureRes();return r&&r.day===day?moneyOf(r,true):null;}return loadMoney().days.find(x=>x.day===day)||null;},
   moneyDays(){return loadMoney().days;},

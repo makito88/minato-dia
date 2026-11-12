@@ -5,6 +5,7 @@
    ・保存は dia-deals（{v:1,seed,d0,dec,deals}）。ここで書くのは返事をしたときだけ。
    ・第2回（2026-11-12）から販売の契約は工場とお金につながる（js/links/deals-to-factory.js・deals-to-money.js。結果は c.got）。
    ・第3回（2026-11-12）から配送の契約と「店まで届ける」は配送会社の便とお金につながる（js/links/deals-to-haiso.js。配送の結果も c.got）。
+   ・第5回（2026-11-12）：取引先の荷物の行方（TrackCore.dealTimeline・数は minatoKiosk.dealTrack から読むだけ）。
    ・第4回（2026-11-12）：自分から動く営業（費用はお金へ）・相手ごとの信用・値段の交渉・更新と解約・工場の収支の4つの取引先の移しかえ（開いたときに1回）。
    ===================================================================== */
 (function(){
@@ -114,6 +115,23 @@ const CSS=`.dw{display:grid;gap:12px;--sell:#b8621b;--haul:#1f7a8c;--okc:#2f7d4f
 .dw .cta .rn{border-color:var(--k);color:var(--k);font-weight:700}.dw .cta .cx{color:var(--ngc)}.dw .cta .why{font-size:11px;color:var(--muted);align-self:center}
 .dw .flash{border-radius:12px;padding:9px 12px;font-size:12.5px;line-height:1.6;border:1px solid var(--line);background:var(--panel);display:flex;gap:8px;align-items:flex-start}.dw .flash.ok{border-color:var(--okc);background:color-mix(in srgb,var(--okc) 8%,var(--panel))}.dw .flash.ng{border-color:var(--ngc);background:color-mix(in srgb,var(--ngc) 7%,var(--panel))}
 .dw .flash button{margin-left:auto;font:inherit;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+.dw .tk{display:grid;gap:8px}.dw .tk-days{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.dw .tk-days .src{margin-left:auto}
+.dw .tkr{border:1px solid var(--line);border-left:5px solid var(--k);border-radius:12px;padding:9px 12px 8px;background:var(--panel);display:grid;gap:6px;min-width:0}
+.dw .tkr.sell{--k:var(--sell)}.dw .tkr.haul{--k:var(--haul)}.dw .tkr.fin{background:color-mix(in srgb,var(--okc) 5%,var(--panel))}.dw .tkr.bad{border-left-color:var(--ngc)}
+.dw .tkh{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:baseline}.dw .tkh b.nm{font-size:13.5px}.dw .tkh .tg{margin-left:4px}
+.dw .tkh .now{font-size:12.5px;color:var(--k);font-weight:700;text-align:right;white-space:nowrap}.dw .tkh .now small{font-weight:400;color:var(--muted);margin-left:6px;font-family:var(--f-mono)}.dw .tkh .eta{grid-column:1/-1;font-size:11.5px;color:var(--muted)}.dw .tkh .eta b{font-family:var(--f-mono);color:var(--ink);font-size:13px}
+.dw .tkh .eta .x{color:var(--ngc)}.dw .tkh .eta .o{color:var(--okc)}
+.dw .rail{position:relative;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));padding-top:4px}
+.dw .rail::before{content:"";position:absolute;left:calc(50%/var(--n));right:calc(50%/var(--n));top:10px;height:3px;border-radius:2px;background:color-mix(in srgb,var(--line) 80%,transparent)}
+.dw .rail .fill{position:absolute;left:calc(50%/var(--n));top:10px;height:3px;border-radius:2px;background:var(--k);width:calc((100% - 100%/var(--n))*var(--p))}
+.dw .rail span{position:relative;display:grid;justify-items:center;gap:1px;font-size:10px;color:var(--muted);text-align:center;line-height:1.25;min-width:0}
+.dw .rail span i{width:11px;height:11px;border-radius:50%;border:2px solid color-mix(in srgb,var(--line) 90%,var(--ink));background:var(--paper);margin-bottom:3px;box-sizing:border-box}
+.dw .rail span.d i{background:var(--k);border-color:var(--k)}.dw .rail span.c i{border-color:var(--k);box-shadow:0 0 0 4px color-mix(in srgb,var(--k) 22%,transparent);background:var(--panel)}
+.dw .rail span.c{color:var(--ink);font-weight:700}.dw .rail span em{font-style:normal;font-family:var(--f-mono);font-size:11px;color:var(--ink)}.dw .rail span u{text-decoration:none;font-size:9px;opacity:.8}
+.dw .rail span.bad i{border-color:var(--ngc)}.dw .rail span.bad em{color:var(--ngc)}
+.dw .tkr details{border:0;padding:0;background:transparent}.dw .tkr summary{font-size:11.5px;font-weight:400;color:var(--muted)}
+.dw .tkl{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:2px}.dw .tkl li{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;font-size:12px;line-height:1.5}
+.dw .tkl li>span:first-child{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);text-align:right}.dw .tkl li small{display:block;color:var(--muted);font-size:11px}.dw .tkl li.d b{color:var(--muted);font-weight:500}.dw .tkl li.c b{color:var(--k)}
 @media (max-width:860px){.dw .dw-main{grid-template-columns:minmax(0,1fr)}.dw .dw-det{position:static}}
 @media (max-width:520px){.dw .dw-kpi{grid-template-columns:repeat(2,minmax(0,1fr))}.dw .money{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dw .money div:last-child{grid-column:1/-1}.dw .stamp{width:42px;height:42px;font-size:9px}.dw .stamp b{font-size:11px}}`;
 
@@ -222,6 +240,26 @@ function gotLine(c){const x=c.got;if(!x||!x.n)return '見込みのもうけ。�
 function haulGot(c){const x=c.got;if(!x||!x.n)return hOn()?'見込みの運賃。結果は契約の始まる運行日を締めたあと、配送会社の便から':'見込みの運賃（配送の便にはつないでいません）';
   const ld=x.ld||[0,null,0],lt=x.lt||0;
   return `配送会社の便から（実際の結果）</small><span class="gs"><span><b>${x.n}</b>日</span><span>運んだ <b>${x.s}</b>／${x.q}台</span><span class="${lt?'x':'o'}">${lt?`遅れた日 <b>${lt}</b>（最大${x.lm}分）`:'遅れ <b>0</b>'}</span><span>運賃 <b>${Y(x.y)}</b></span><span class="l">第${ld[0]}運行日 ${ld[1]!=null?hm(ld[1])+' 着':'港浜急送'}${ld[2]?`・${ld[2]}分遅れ`:''}</span></span><small>`;}
+/* 取引先の荷物の行方（第5回・2026-11-12）：数と時刻は minatoKiosk.dealTrack（dia-orders と配送会社の便の計算から集めたもの）、並べるのは TrackCore.dealTimeline */
+function trackHtml(){const T=window.TrackCore,today=gDay();if(!T||!T.dealTimeline)return '';const sel=V.tday!=null?V.tday:today,list=g(()=>minatoKiosk.dealTrack(sel),[])||[],ccfg=g(()=>minatoKiosk.ccfg,null);
+  const now=(today-sel)*1440+gNow(),F=T.fmt,days=[[today,'きょう'],[today-1,'きのう']].filter(x=>x[0]>=1);
+  const tabs=`<div class="tk-days dw-seg" role="group" aria-label="運行日">${days.map(([d,l])=>`<button type="button" data-tday="${d}" aria-pressed="${sel===d}">${l}（第${d}運行日）</button>`).join('')}<span class="src">時刻はすべて仮（data/center.json の track）</span></div>`;
+  if(!ccfg)return tabs+'<div class="dw-empty">売店の画面を読み込み中です。</div>';
+  if(!list.length)return tabs+`<div class="dw-empty">${sel===today?'きょう':'この日'}運ぶ取引先の荷物はありません。<br>契約の数は運行日の始めに決まり、ここで工場から届け先までを追いかけられます。</div>`;
+  const tm=t=>{const d=Math.floor(t/1440),m=((Math.round(t)%1440)+1440)%1440;return `${d<0?'<u>前日</u>':d>0?'<u>翌日</u>':''}<em>${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}</em>`;};
+  const SH={fix:'確定',add:'工場へ',make:'製造',pack:'包装',go1:'工場発',ctr:'センター',dep:'出発',load:'積む',end:'着く'};
+  const SHN={fix:'数が決まった',add:'工場の注文に',make:'製造中',pack:'包装・検品',go1:'センターへ',ctr:'仕分け',dep:'走っている',load:'積んでいる'};
+  const rows=list.map(o=>{const tl=T.dealTimeline(ccfg,o),w=T.dealWhere(tl,now),S=tl.steps,n=S.length,bad=tl.miss||tl.late>0;
+    const endLbl=o.kind==='sell'&&o.hand==='pickup'?'受け取り':o.kind==='sell'&&o.hand==='via'?'問屋へ':SH.end;
+    let p=0;if(w.done)p=1;else if(w.i>=0&&n>1){const a=S[w.i].t,b=S[w.i+1].t;p=(w.i+Math.min(1,Math.max(0,(now-a)/Math.max(1,b-a))))/(n-1);}
+    const rail=`<div class="rail" style="--n:${n}" aria-hidden="true"><div class="fill" style="--p:${p.toFixed(3)}"></div>${S.map((x,i)=>`<span class="${i<w.i||w.done?'d':i===w.i?'c':''}${x.id==='end'&&bad?' bad':''}"><i></i>${x.id==='end'?endLbl:SH[x.id]||x.id}<br>${tm(x.t)}</span>`).join('')}</div>`;
+    const tag=o.kind==='sell'?`<span class="tg">販売・${esc({pickup:'取りに来る',via:'問屋の便',deliver:'店まで届ける'}[o.hand]||o.hand)}</span>`:`<span class="tg sl">配送${o.cargo?'・'+esc(o.cargo):''}</span>`;
+    const last=S[n-1],qty=o.kind==='sell'?(o.s!=null?`届ける ${o.s}／${o.q}個`:`${o.q}個`):`かご車 ${o.carts}台`;
+    const eta=last?`${qty}・${w.done?(tl.miss?'<span class="x">便にのらなかった</span>':'済み'):'終わり'} <b>${F(last.t)}</b>${tl.w?`（はば ${F(tl.w[0])}〜${F(tl.w[1])}）`:''}${tl.late>0?` <span class="x">${tl.late}分遅れ</span>`:tl.w&&!tl.miss&&last.t<=tl.w[1]?' <span class="o">間に合う</span>':''}${tl.est?'・目安':''}`:qty;
+    const li=S.map((x,i)=>`<li class="${i<w.i||w.done?'d':i===w.i?'c':''}"><span>${F(x.t)}</span><span><b>${esc(x.label)}</b>${x.place?`（${esc(x.place)}）`:''}<small>${esc(x.note)}</small></span></li>`).join('');
+    return `<div class="tkr ${o.kind}${w.done&&!bad?' fin':''}${bad?' bad':''}"><div class="tkh"><span><b class="nm">${esc(o.name)}</b>${tag}</span><span class="now" title="${esc(w.label)}">${w.done?esc(w.label):w.i<0?'まだ':`いま：${esc(SHN[S[w.i].id]||S[w.i].id)}${w.next!=null?`<small>次 ${F(w.next)}</small>`:''}`}</span><span class="eta">${eta}</span></div>${rail}
+      <details${V.topen===o.id?' open':''} data-topen="${esc(o.id)}"><summary>時刻の順に見る</summary><ol class="tkl">${li}</ol></details></div>`;}).join('');
+  return tabs+`<div class="tk">${rows}</div>`;}
 function html(){if(!DC())return '<div class="card empty">窓口の計算を読み込み中です</div>';ensure();if(!V.cfg)return `<div class="card empty">${V.err?esc(V.err):'取引の相談窓口を開いています…'}</div>`;
   const S=state(),day=gDay(),now=gNow();DC().prune(V.cfg,S,day);
   if(!S.m4&&V.pl&&DC().migrate(V.cfg,V.cat,S,day,V.pl,g(()=>FactoryPL.load().customers,[])||[]))save(S);   /* 工場の収支の4つの取引先を移す（1回だけ・第4回） */
@@ -239,12 +277,13 @@ function html(){if(!DC())return '<div class="card empty">窓口の計算を読�
     <div class="dw-sales"><div><h4>自分から動く（営業）</h4><p>動くと1〜3日あとに相談が届きます。費用はその日のお金に入ります（グループの収支）。1運行日に1回ずつ。</p></div>
       <div class="gauge"><span>窓口の信用（取引した相手の平均）</span><b>${ra.toFixed(2)}</b><div class="meter" aria-hidden="true"><u style="left:${V.cfg.rep.quit*100}%"></u><i style="left:${ra*100}%"></i></div></div>
       <div class="sbtn">${sl.map(x=>`<button type="button" data-sales="${x.id}" ${x.done?'disabled':''}><span class="ic" aria-hidden="true">${ICON[x.id]||'•'}</span><b>${esc(x.name)}${x.done?'（きょうは済み）':''}</b><span class="yen">${N(x.yen)}円</span><small>${esc(x.note||'')}・${x.payer==='factory'?'工場':'センター'}が払う</small></button>`).join('')}</div></div>
-    <div class="dw-note"><b>第4回</b><span>営業・信用・値段の交渉・更新と解約が入りました。相談を選ぶと、相手からの信用と「条件を変えて返す」が出ます。契約中の取引からは、終わりの3日前から更新を頼めて、いつでも解約できます。工場の収支の「おにぎりの新しい取引先」4つは、ここに移しました（作っていたものは今までの形の契約、作っていなかったものは最初の相談）。</span></div>
+    <div class="dw-note"><b>第5回</b><span>取引先の荷物も、工場から届け先まで時刻の順に追いかけられるようになりました（下の「取引先の荷物の行方」）。営業・信用・値段の交渉・更新と解約は第4回から。相談を選ぶと、相手からの信用と「条件を変えて返す」が出ます。工場の収支の「おにぎりの新しい取引先」4つは、ここに移しました。</span></div>
     <div class="dw-tools"><div class="dw-seg" role="group" aria-label="絞り込み">${[['all','すべて',box.length],['sell','販売',cnt('sell')],['haul','配送',cnt('haul')],['hold','保留',cnt('hold')]].map(([k,l,n])=>`<button type="button" data-flt="${k}" aria-pressed="${V.flt===k}">${l} ${n}</button>`).join('')}</div>
       <span class="src">第${day}運行日・${we?'土日':'平日'}の数で見積もり</span></div>
     <div class="dw-main"><div class="dw-list">${shown.map(card).join('')||`<div class="dw-empty">${box.length?'この絞り込みの相談はありません。':'いま返事を待つ相談はありません。<br>相談は運行日ごとに 0〜2件 届きます。'}</div>`}</div>
       <div>${cur?detail(cur,inp):'<div class="dw-empty">相談を選ぶと、中身と見込みが出ます。</div>'}</div></div>
     <section><h3 style="font-size:14.5px;margin:6px 0 8px">契約中の取引</h3>${contractsHtml(S,day)}</section>
+    <section><h3 style="font-size:14.5px;margin:6px 0 8px">取引先の荷物の行方</h3>${trackHtml()}</section>
     ${recent.length?`<details><summary>最近の返事（${recent.length}）</summary><table><tbody>${recent.map(([id,d])=>{const c=S.deals.find(x=>x.id===id);return `<tr><td>相談 ${esc(id)}${c?`・${esc(c.of.name)}`:''}</td><td>${{ok:'引き受けた',no:'断った',nx:'交渉を断られた',gone:'相手が引っこめた'}[d[0]]||d[0]}</td><td>第${d[1]}運行日</td></tr>`;}).join('')}</tbody></table></details>`:''}
     <p class="src">数の出どころ：相談の条件と工場の費用の割合・運賃は仮（data/deals.json）。ラインの空きは納品書（その夜の工場の結果）、便とかご車は配送会社の1日の計算（HaisoCore.dayPlan）から読んだ、ゲームの中の数（内）。信用・交渉の見込み・営業の費用の数は仮（data/deals.json の rep・nego・sales）。保存は dia-deals（返事・契約・営業の記録・相手ごとの回数だけ。信用の数は毎回計算）。</p>
   </div>`;}
@@ -266,6 +305,8 @@ function bind(box,rerender){V.rerender=rerender;
   box.querySelectorAll('.dw [data-cx]').forEach(b=>b.onclick=()=>{const id=b.dataset.cx;if(V.cxAsk!==id){V.cxAsk=id;rerender();return;}V.cxAsk=null;const S=state(),day=gDay(),c=DC().cancel(V.cfg,S,id,day);if(!c)return;
     if(c.leg&&c.pl)g(()=>{const x=FactoryPL.load();x.customers=(x.customers||[]).filter(k=>k!==c.pl);FactoryPL.save(x);});   /* 今までの形：工場の見込みから外す（dia-factory-pl） */
     save(S);V.msg=['ok',`${esc(c.of.name)}との契約を解約しました（第${Math.max(c.to,day)}運行日で終わり）。`];rerender();});
+  box.querySelectorAll('.dw [data-tday]').forEach(b=>b.onclick=()=>{V.tday=+b.dataset.tday;rerender();});   /* 荷物の行方（第5回） */
+  box.querySelectorAll('.dw [data-topen]').forEach(d=>d.ontoggle=()=>{if(d.open)V.topen=d.dataset.topen;else if(V.topen===d.dataset.topen)V.topen=null;});
   box.querySelectorAll('.dw [data-msgx]').forEach(b=>b.onclick=()=>{V.msg=null;rerender();});}
 function count(){if(DC())ensure();if(!V.cfg||!DC())return null;const S=load();if(!S)return null;return DC().inbox(V.cfg,V.cat,S,gDay(),gNow(),V.pl).length;}
 {const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);}

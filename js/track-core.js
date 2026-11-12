@@ -75,6 +75,48 @@ function shelfTimes(o){const out=[],D=o.deliveries||[];
   carry.forEach((d,i)=>out.push({day:1,t:d.t,q:i===0?o.tomorrowQ??null:null,bin:d.name}));
   return out;}
 
-root.TrackCore={fmt,stepT,runT,truck,timeline,phases,where,shelfTimes};
+/* ---------- 取引先の分（取引の相談窓口の契約・第5回・2026-11-12。docs/deals-plan.md） ----------
+   契約1つの、その運行日の荷物の流れ。数は dia-orders（deal・slip.deals・haul）と、配送会社の便の計算（HaisoCore.dayPlan から契約ごとの着いた時刻）で
+   もう決まったものを、呼ぶ側（js/kiosk-view.js の minatoKiosk.dealTrack）が集めて渡す。ここでは時刻の順に並べるだけ（数を計算し直さない）。
+   o={id, kind:'sell'|'haul', name, fixAt（前の日の確定の時刻・分。data/deals.json の fixAt）,
+      sell：line, lineName, hand:'pickup'|'via'|'deliver', handT, st, q（頼まれた数）, s（届けた数・納品書の前は null）, slip（納品書の番号）
+      haul：carts, from, cargo, other（自社で運べない・港浜急送）
+      どちらも：to（駅）, toName, w:[はば], bin（積む便）, arr（着いた・着く時刻・便の計算から）, late（はばの終わりからの遅れ・分）, help（応援便）, miss（便にのらなかった）}
+   返すもの：{id, kind, name, steps:[{id,t,place,label,note}], end（終わりの時刻）, w, late, miss, est（着く時刻が目安）} */
+function dealTimeline(ccfg,o){const F=ccfg.flow||{},K=ccfg.track||{},D=K.deal||{},S0=K.steps||[],at=id=>{const s=S0.find(x=>x.id===id);return s?stepT(s.t):null;};
+  const steps=[],add=(id,t,place,label,note)=>{if(t!=null)steps.push({id,t,place,label,note:note||''});};
+  const run=(F.runs||[]).find(r=>r.bin===o.bin)||null,dep=run?runT(run.depart):null,tr=o.to?truck(ccfg,o.to):null,hd=15;
+  const fixT=(o.fixAt??1080)-1440,wTxt=o.w?`${fmt(o.w[0])}〜${fmt(o.w[1])}`:'';
+  let arr=o.arr,est=false;if(arr==null&&dep!=null&&!o.other&&!o.miss){arr=dep+(tr?tr.min:0)+hd*2;est=true;}if(arr==null&&o.miss&&o.w)arr=o.w[1];   /* 便にのらなかった日は、はばの終わりで「届けられなかった」 */   /* 便の計算がないとき（目安）：出発＋駅までの分＋積みおろし2回（窓口の便の選び方と同じ） */
+  const arrNote=()=>o.miss?'この日の便にのらなかった（届けられない）':`はば ${wTxt}${o.late>0?`・${o.late}分遅れ`:arr!=null&&o.w&&arr<=o.w[1]?'・間に合う':''}${o.help?'・かご車があふれた分は港浜急送の応援便':''}${est?'・時刻は目安':''}`;
+  if(o.kind==='sell'){
+    add('fix',fixT,'窓口',`${o.name}の注文の数が確定`,`${o.lineName||''} ${o.q||0}個（契約の数のまわりで少しゆれる）`);
+    add('add',at('fix'),'工場','工場の注文に足した','センターの発注とは別の行（取引先・契約）');
+    add('make',at('make'),'工場',`製造中（${o.lineName||'ライン'}）`,'人・材料・機械の時間は、自社の店の分といっしょに');
+    add('pack',at('pack'),'工場','包装の締め切り・検品',o.s==null?'届ける数は納品書で決まる':o.s<o.q?`出荷 ${o.s}/${o.q}・${o.q-o.s}個足りない（足りない夜は自社の店が先）`:`出荷 ${o.s}/${o.q}・そろった`);
+    if(o.hand==='pickup')add('end',o.handT,'工場',`${o.name}が工場へ取りに来る`,'ここで受け渡し');
+    else if(o.hand==='via')add('end',o.handT,'工場','問屋の便が工場を出る','ここから先は問屋の便');
+    else if(o.bin&&dep!=null){add('go1',at('go1'),'道','工場を出る（センターへ）','自社の店の品と同じトラック');
+      add('ctr',at('ctr'),'センター','センターで仕分け',`${o.bin}にのせる`);
+      add('dep',dep,'道',`${o.bin}が出発`,`${tr?tr.name:'トラック'}・自社の店をぜんぶ回ったあとに寄る`);
+      add('end',arr,o.toName||'',`${o.name}に着く`,arrNote());}
+    else add('end',o.handT,o.toName||'','港浜急送が届ける','自社の便につないでいないとき（費用は工場）');}
+  else{
+    add('fix',fixT,'窓口',`${o.name}の荷物の量が確定`,`かご車 ${o.carts}台${o.cargo?`・${o.cargo}`:''}`);
+    if(o.other){const t0=o.w?o.w[0]-(D.other??90):null;add('load',t0,o.from||'','港浜急送が積む','自社の2トントラックでは運べない荷物（費用は配送会社）');
+      add('end',o.w?o.w[1]:null,o.toName||'',`${o.toName||''}に着く（港浜急送）`,`はば ${wTxt}・時刻は港浜急送まかせ（目安）`);est=true;}
+    else{add('load',dep!=null?dep-(D.load??30):null,o.from||'','荷物を積む',/センター/.test(o.from||'')?'荷主が持ち込み、センターで仕分け（仕分け料）':'となりの倉庫から');
+      add('dep',dep,'道',`${o.bin||'便'}が出発`,`${tr?tr.name:'トラック'}・自社の店をぜんぶ回ったあとに寄る`);
+      add('end',arr,o.toName||'',`${o.toName||''}に着く`,arrNote());}}
+  steps.sort((a,b)=>a.t-b.t);const last=steps[steps.length-1];
+  return {id:o.id,kind:o.kind,name:o.name,steps,end:last?last.t:null,w:o.w||null,late:o.late||0,miss:!!o.miss,est};}
+/* いまどこか：now＝その運行日の0:00からの分。{i（いまの工程・−1＝まだ）, label, place, done, next（次の工程の時刻）} */
+function dealWhere(tl,now){const S=tl.steps;if(!S.length)return {i:-1,label:'—',place:'',done:false,next:null};
+  if(now<S[0].t)return {i:-1,label:'まだ数が決まる前',place:'',done:false,next:S[0].t};
+  const L=S.length-1;if(now>=S[L].t)return {i:L,label:tl.miss?'届けられなかった':'受け渡しが済んだ',place:S[L].place,done:true,next:null};
+  let i=0;for(let k=0;k<S.length;k++)if(S[k].t<=now)i=k;
+  return {i,label:S[i].label,place:S[i].place,done:false,next:S[i+1].t};}
+
+root.TrackCore={fmt,stepT,runT,truck,timeline,phases,where,shelfTimes,dealTimeline,dealWhere};
 if(typeof module!=='undefined')module.exports=root.TrackCore;
 })(typeof window!=='undefined'?window:globalThis);
