@@ -28,6 +28,9 @@ function shortest(S,from,to,extra){
     for(const [a,b] of E){const v=a===u?b:b===u?a:null;if(v===null||!left.has(v))continue;const nd=d[u]+len(u,v);if(nd<d[v]){d[v]=nd;prev[v]=u;}}}
   if(d[to]===Infinity)return [N[from].slice(),N[to].slice()];
   const out=[];for(let k=to;k!==undefined;k=prev[k])out.unshift(N[k].slice());return out;}
+/* 歩く速さ（絵の上の点/ゲームの分）＝ 1秒の歩数 cadence × 歩幅（背の高さに対する割合 stride）× 基準の背の高さ hRef ×60 ÷ 再生の速さ rate */
+function personDef(S,ps){return (S.people||[]).find(p=>(p.ps||[]).includes(ps))||(S.people||[])[0]||{};}
+function walkPxOf(S,ps,def){const d=def||personDef(S,ps),st=d.stride||S.strideDefault||0.3;return S.cadence?S.cadence*st*(S.hRef||170)*60/(S.rate||3):(S.walkPxPerMin||1500);}
 function near(S,p){let b=null,bd=Infinity;for(const k in S.nodes){const n=S.nodes[k],d=Math.hypot(n[0]-p[0],n[1]-p[1]);if(d<bd){bd=d;b=k;}}return b;}
 function route(points){let length=0;const seg=[];
   for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],dd=Math.hypot(b[0]-a[0],b[1]-a[1]);if(dd>0.01){seg.push({a,b,d:dd,from:length});length+=dd;}}
@@ -74,7 +77,7 @@ function plan(S,e,o){
   if(stops.length>1){const main=stops.find(x=>x.items.includes(items.find(it=>!it.staff)))||stops[0],rest=stops.filter(x=>x!==main),ord=[main];let c0=main.p;
     while(rest.length){let bi=0,bd=Infinity;rest.forEach((x,i)=>{const dd=Math.hypot(x.p[0]-c0[0],x.p[1]-c0[1]);if(dd<bd){bd=dd;bi=i;}});const x=rest.splice(bi,1)[0];ord.push(x);c0=x.p;}stops.length=0;stops.push(...ord);}
   /* 道：入口 → 棚 → … → 列（または直接レジ） */
-  const W=S.walkPxPerMin||1500,segs=[];let cur='in0';
+  const W=o.walkPx||walkPxOf(S,e.ps),segs=[];let cur='in0';   /* 歩く速さ：絵の歩幅 × 1秒の歩数（2026-11-13・足がすべらないように） */
   const legs=[],extraNodes=stops.map((st,i)=>({id:'_s'+i,p:st.p,on:st.on}));
   stops.forEach((st,i)=>{const id='_s'+i;legs.push(route(natural(S,shortest(S,cur,id,extraNodes),R,'L'+i)));cur=id;});
   const reg=lane==='s'?S.self:S.register,qBase=reg.queue,qStep=reg.queueStep||[-34,0],qMax=reg.queueMax||4;
@@ -203,11 +206,14 @@ function drawPerson(c,pl,o,miss){const S=U.S,{P,sub}=personFor(pl.ps),h=sizeAt(o
   if(ck&&!P.sh[ck]){ck=null;other=other||drink;drink=null;}   /* 飲み物を持つ絵がない人は、ほかの品と同じ「持つ」絵で */
   if(drink&&ck&&ck!=='carry:'+drink.pid)miss.add(drink.name+'を持つ絵（'+(ck.endsWith('cf_black')?'缶コーヒー':'スポーツドリンク')+'で代わり）');
   if(other&&!P.sh.hold)miss.add((other.name||'品')+'を持つ絵');
-  const step=[0,1,1,2,3,3][Math.floor((o.dist||0)/11)%6];   /* 足をそろえたコマを長めに（店の中は小股に見せる・2026-11-13） */
+  const st0=P.def.stride||U.S.strideDefault||0.3,step=Math.floor((o.dist||0)/Math.max(4,st0*h/2))%4;   /* 歩幅と進む距離を合わせる：4コマで2歩（1コマで半歩ぶん進む）（2026-11-13） */
   c.fillStyle='rgba(60,50,34,.17)';c.beginPath();c.ellipse(o.x+h*.23,o.y+h*.16,h*.36,9,.56,0,7);c.fill();
   c.fillStyle='rgba(61,52,37,.16)';c.beginPath();c.ellipse(o.x,o.y+1,16,5,0,0,7);c.fill();
   const ph=o.ph;
-  if((ph==='sit'||ph==='eat')&&P.sh[ph==='sit'?'sit':'eat']){sprite(c,fr(ph==='sit'?'sit':'eat',Math.floor((o.u||0)*40)%2),o.x,o.y,h);return;}   /* 座る・食べる絵（届いたら） */
+  if((ph==='sit'||ph==='eat')&&P.sh[ph==='sit'?'sit':'eat']){const k2=ph==='sit'?'sit':'eat',E2=U.S.eatAnim||{},sg=o.seg||{},real=(o.u||0)*Math.min((sg.b-sg.a)*60/(U.S.rate||3),U.S.standMaxSec||6);
+    /* 食べる速さ（2026-11-13）：画面の秒で、手をおろしてかむ down 秒 → ゆっくり口へ up 秒 → 口もとで mouth 秒 → ゆっくりおろす。2コマ（0 口もと・1 おろす）を重ねてなめらかに */
+    const dn=E2.down??2.2,up=E2.up??0.7,mo=E2.mouth??0.8,cyc=dn+up+mo+up,q=(real+(hash(pl.key)*cyc))%cyc,w=q<dn?0:q<dn+up?(q-dn)/up:q<dn+up+mo?1:1-(q-dn-up-mo)/up;
+    const sm=w*w*(3-2*w);sprite(c,fr(k2,1),o.x,o.y,h);if(sm>0.02)sprite(c,fr(k2,0),o.x,o.y,h,sm);return;}   /* 座る・食べる絵 */
   if(ph==='sit'||ph==='eat')miss.add(ph==='sit'?'座って食べる絵':'立って食べる絵');
   if(ph==='pay'&&pl.lane==='s'&&!P.sh['pay-self']&&P.sh.reach){const u=o.u||0,pos=u<.25?u/.25:u<.75?1:Math.max(0,1-(u-.75)/.25);   /* セルフレジ：画面にふれる（手を伸ばす絵で代わり） */
     miss.add('セルフレジで払う絵（画面にふれる絵で代わり）');sprite(c,fr('reach',0),o.x,o.y,h);if(pos>0)sprite(c,fr('reach',1),o.x,o.y,h,pos);return;}
@@ -281,7 +287,7 @@ function next(res,Tn,cfg){const ev=res&&res.ev;if(!ev){U.pl=null;return;}
   const i=choose(ev,Tn,U.played);if(i<0){U.pl=null;return;}
   U.played.add(i);const P={};for(const p of cfg.products||[])P[p.id]=p;
   U.psName={};for(const p of cfg.personas||[])U.psName[p.id]=p.name||p.short||p.id;
-  const pl=plan(U.S,ev[i],{idx:i,day:res.day,ev,genreOf:id=>P[id]&&P[id].genre,nameOf:id=>P[id]?P[id].name:id});
+  const pd=personFor(ev[i].ps).P.def,pl=plan(U.S,ev[i],{idx:i,day:res.day,ev,walkPx:walkPxOf(U.S,ev[i].ps,pd),genreOf:id=>P[id]&&P[id].genre,nameOf:id=>P[id]?P[id].name:id});   /* 歩く速さは、じっさいに描く人の絵の歩幅から */
   if(!pl){U.pl=null;return;}U.pl=pl;U.clock=pl.ta;U.cam=null;}
 
 /* ---------- 外から呼ぶもの ---------- */

@@ -45,7 +45,8 @@
         "carry:dr_sports": "carry-sports.webp",
         "pay:cf_black": "payment.webp",
         "pay:dr_sports": "payment.webp"
-      }
+      },
+      "stride": 0.37
     },
     {
       "id": "kaishain_f",
@@ -78,7 +79,8 @@
         "sit": "kaishain_f-sit.webp",
         "eat": "kaishain_f-eat.webp"
       },
-      "note": "2026-11-13 ユーザーが ChatGPT で描いた絵（もとの絵は docs/ref/scene-src/）を、256x384・足元(128,368)・頭から足315 にそろえた"
+      "note": "2026-11-13 ユーザーが ChatGPT で描いた絵（もとの絵は docs/ref/scene-src/）を、256x384・足元(128,368)・頭から足315 にそろえた",
+      "stride": 0.15
     },
     {
       "id": "gakusei",
@@ -633,8 +635,8 @@
     ],
     "standDir": 2,
     "sit": [
-      1305,
-      292
+      1320,
+      270
     ],
     "sitDir": 0,
     "via": "E1",
@@ -813,5 +815,16 @@
       300,
       45
     ]
-  ]
+  ],
+  "cadence": 1.8,
+  "hRef": 170,
+  "strideDefault": 0.3,
+  "cadenceNote": "歩く速さは絵に合わせて決める（2026-11-13）：画面の1秒に cadence 歩（人の店内のふつうは1.6〜2歩・仮）、1歩の長さ＝ stride（その人の歩く絵で測った、背の高さに対する歩幅の割合）× 背の高さ。hRef＝ふつうの背の高さ（絵の上の点）。walkPxPerMin は使わない（cadence がないときだけ）",
+  "eatAnim": {
+    "down": 2.2,
+    "up": 0.7,
+    "mouth": 0.8,
+    "note": "食べる・座って食べる2コマの速さ（画面の秒）：手をおろしてかむ → ゆっくり口へ → 口もと → ゆっくりおろす"
+  },
+  "strideNote": "people[].stride：歩く絵の横向きのコマで、足を開いたときと閉じたときの足元の幅の差 ÷ 背の高さ（会社員 男性 0.37・女性 0.15。女性の絵は小股）"
 }
