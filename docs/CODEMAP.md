@@ -86,9 +86,9 @@ CSS …17・render() …44・bindDays() …68・open() …69・close() …70・s
 
 hash() …13・rng() …14・■ 下ごしらえ …21・index() …22・life() …24・shelfInfo() …26・defaultOrder() …31・■ 状態 …32・create() …33・■ 1日を動かす …39・simulate() …42・review() …303・■ 運行日を締める：評判・SNSの話題・常連・ブーム・在庫の持ちこし・知らせ …313・closeDay() …314・■ 移転：別の駅・場所へ移す（次の運行日から） …364・relocate() …369・migratePrices() …382・backAt() …387・stockAt() …388・idxAt() …389・soFar() …391・公開 KioskCore …395
 
-## js/kiosk-scene.js（310行）
+## js/kiosk-scene.js（314行）
 
-hash() …18・■ 通り道（点と線のつながりで、いちばん短い道） …21・shortest() …22・near() …31・route() …32・natural() …43・■ 1人の買い物を、見せるための段取りにする（計算の出来事は変えない） …56・plan() …59・pose() …144・choose() …159・API …163・loadImg() …173・load() …174・frameOf() …189・personFor() …193・■ 描く …195・sizeAt() …196・sprite() …197・drawPerson() …198・drawStaff() …232・draw() …237・PAYN …265・caption() …266・■ 次の人を選ぶ …274・next() …275・■ 外から呼ぶもの …283・mount() …284・unmount() …297・tick() …299・公開 KioskScene …308
+hash() …18・■ 通り道（点と線のつながりで、いちばん短い道） …21・shortest() …22・near() …31・route() …32・natural() …43・■ 1人の買い物を、見せるための段取りにする（計算の出来事は変えない） …56・plan() …59・pose() …145・choose() …160・API …164・loadImg() …174・load() …175・frameOf() …190・personFor() …194・■ 描く …196・sizeAt() …197・sprite() …198・drawPerson() …199・drawStaff() …236・draw() …241・PAYN …269・caption() …270・■ 次の人を選ぶ …278・next() …279・■ 外から呼ぶもの …287・mount() …288・unmount() …301・tick() …303・公開 KioskScene …312
 
 ## js/kiosk-staff.js（226行）
 

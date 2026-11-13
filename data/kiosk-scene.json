@@ -66,16 +66,18 @@
       },
       "sheets": {
         "walk": "kaishain_f-walk.webp",
-        "reach": "kaishain_f-reach.webp",
+        "walk-look": "kaishain_f-walk-look.webp",
         "hold": "kaishain_f-hold.webp",
+        "reach": "kaishain_f-reach.webp",
+        "look": "kaishain_f-look.webp",
         "pay": "kaishain_f-pay.webp",
-        "sit": "kaishain_f-sit.webp",
-        "eat": "kaishain_f-eat.webp",
         "pay-cash": "kaishain_f-pay-cash.webp",
         "pay-phone": "kaishain_f-pay-phone.webp",
         "pay-self": "kaishain_f-pay-self.webp",
-        "look": "kaishain_f-look.webp"
-      }
+        "sit": "kaishain_f-sit.webp",
+        "eat": "kaishain_f-eat.webp"
+      },
+      "note": "2026-11-13 ユーザーが ChatGPT で描いた絵（もとの絵は docs/ref/scene-src/）を、256x384・足元(128,368)・頭から足315 にそろえた"
     },
     {
       "id": "gakusei",

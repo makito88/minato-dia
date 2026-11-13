@@ -220,6 +220,7 @@ function drawPerson(c,pl,o,miss){const S=U.S,{P,sub}=personFor(pl.ps),h=sizeAt(o
   if((ph==='reach'||ph==='take')&&!P.sh.reach)miss.add('手を伸ばす絵');
   if(ph==='tempt'&&o.dir!==0)miss.add('横の棚の品を手に取る絵');
   if(o.gaze&&o.mv)miss.add('歩きながら横を見る絵（吹き出しで代わり）');
+  if((ph==='browse'||ph==='queue'||ph==='wait')&&o.dir===0&&P.sh.look&&!ck&&!(o.seg&&o.seg.hes)){sprite(c,fr('look',Math.floor((o.u||0)*4+hash(pl.key)*4)%4),o.x,o.y,h);return;}   /* 棚の前で見回す（届いた絵） */
   if((ph==='tempt'||ph==='browse')&&o.dir===0&&P.sh.reach&&!ck){const sg=o.seg||{},u=o.u||0,w=(sg.touch||sg.hes)?Math.sin(Math.PI*clamp((u-.3)/.45,0,1)):0;   /* 寄り道で手に取って戻す・買う棚で迷う */
     sprite(c,fr('reach',0),o.x,o.y,h);if(w>0)sprite(c,fr('reach',1),o.x,o.y,h,w);return;}
   if((ph==='reach'||ph==='take'||(ph==='browse'&&!ck))&&o.dir===0&&P.sh.reach){const pos=ph==='take'?2+Math.min(1,o.u||0):ph==='reach'?(o.reach||0)*2:0,a=Math.floor(pos),b=Math.min(3,a+1),f=pos-a;
@@ -228,7 +229,9 @@ function drawPerson(c,pl,o,miss){const S=U.S,{P,sub}=personFor(pl.ps),h=sizeAt(o
   const moving=!!o.mv,i=o.dir*4+(moving?step:1);
   if(ck){sprite(c,fr(ck,o.dir*4+(moving?step:1)),o.x,o.y,h);return;}
   if(other&&P.sh.hold){sprite(c,fr('hold',i),o.x,o.y,h);return;}
-  sprite(c,fr('walk',i),o.x,o.y,h);
+  /* 歩きながら、顔をときどき横へ（2026-11-13 ユーザー：半分くらいは横・正面のくり返し）。気になる棚のそばでは横のまま。急ぐ人は前だけ */
+  const lookK=moving&&P.sh['walk-look']&&(o.gaze||(!pl.e.rush&&Math.floor((o.dist||0)/80+hash(pl.key)*2)%2===1))?'walk-look':'walk';
+  sprite(c,fr(lookK,i),o.x,o.y,h);
   if(other){c.fillStyle='rgba(255,255,255,.9)';c.strokeStyle='#5b6b66';c.lineWidth=1.2;const bx=o.x+(o.dir===3?-h*.2:h*.14),by=o.y-h*.42;c.beginPath();c.roundRect(bx-6,by-7,12,13,2);c.fill();c.stroke();}}
 function drawStaff(c,pl,o){const P=U.staff;if(!P||!P.sh.idle||U.bgName===U.S.background[U.S.background.length-1])return;
   const d=P.def,h=sizeAt(d.at[1]);let k='idle',i=0;
