@@ -18,7 +18,8 @@
 ## 機能ごとの説明（docs/features/）
 - [鉄道（路線図とダイヤ・乗客・イベント・音・乗車体験）](docs/features/rail.md)
 - [沿線くらしアンケート](docs/features/survey.md)
-- [路線のお絵かき帖（描いた路線を地図の「バス・配送」で走らせる）](docs/features/route-editor.md)
+- [路線のお絵かき帖（描いた路線を地図の「バス・配送」で走らせる・線路の形を直す）](docs/features/route-editor.md)
+- 地図の列車（第7回）：1両ずつ線路の上でカーブを曲がる見下ろしの絵（`js/train-art.js`・色は `data/train-style.json`）。列車を押すと地図の下に編成のパネル（横から見た編成・車両の種類・種別・両数・行き先）。
 - [沿線暦と沿線だより](docs/features/ensen.md)（季節のできごとの仕組みもここ）
 - [駅ナカ リサーチ](docs/features/research.md)
 - [売店の運営](docs/features/kiosk.md)
