@@ -80,19 +80,22 @@ function openStore(){const day=gDay(),st=MS.create(V.K,V.M,KC,{seed:(Date.now()%
 
 /* ---------- 売店の画面の上の欄 ---------- */
 const PSN=()=>{const o={};for(const p of V.cfg.personas)o[p.id]=p;return o;};
-/* 完成イメージと比べる（ユーザーの絵・2026-11-11）：アニメの下か横に、assets/images/minato-store-concept.webp を出す。どちらに出すかは、この端末に覚える */
-const CIMG='assets/images/minato-store-concept.webp',CIMG_S='assets/images/minato-store-concept-s.webp';
+/* 完成イメージと比べる（ユーザーの絵・2026-11-11）：アニメの下か横に出す。どちらに出すかは、この端末に覚える
+   2026-11-13：止まった絵を「動く試作」（js/kiosk-scene.js・ユーザーが ChatGPT に描いてもらった絵）に置きかえた。止まった絵は試作の中のボタンで見られる */
+const KSC=()=>window.KioskScene&&window.KioskScene.mount?window.KioskScene:null;
 function conceptUI(){const box=document.getElementById('msConcept'),stage=document.querySelector('.ks-stage');if(!box||!stage)return;
-  let m=innerWidth>=900?'side':'below';try{m=localStorage.getItem('minato-concept')||m;}catch(e){}   // はじめは、PC は横・スマホは下
+  let m=innerWidth>=900?'side':'below';try{m=localStorage.getItem('minato-concept')||m;}catch(e){}   /* はじめは、PC は横・スマホは下 */
   const k='m:'+m;box.hidden=false;
-  const side=stage.querySelector('img.ms-cimg');stage.classList.toggle('ms-side',m==='side');
-  if(m==='side'&&!side){const im=document.createElement('img');im.className='ms-cimg';im.src=CIMG;im.alt='港駅の売店の完成イメージ（ユーザーの絵）';im.loading='lazy';stage.appendChild(im);}
+  const side=stage.querySelector('.ms-cimg');stage.classList.toggle('ms-side',m==='side');
+  if(m==='side'&&!side){const d=document.createElement('div');d.className='ms-cimg ms-scene';stage.appendChild(d);if(KSC())KSC().mount(d);}
   if(m!=='side'&&side)side.remove();
   if(box.dataset.k===k)return;box.dataset.k=k;
   const btn=(v,t)=>`<button type="button" class="ks-chip" data-cm="${v}" aria-pressed="${m===v}">${t}</button>`;
-  box.innerHTML=`<div class="ms-cbar"><b>完成イメージと比べる</b>${btn('off','アニメだけ')}${btn('below','下に並べる')}${btn('side','横に並べる')}</div>`+
-    (m==='below'?`<figure><img src="${CIMG}" srcset="${CIMG_S} 814w, ${CIMG} 1628w" sizes="(max-width: 899px) 100vw, 1180px" alt="港駅の売店の完成イメージ（ユーザーの絵）" loading="lazy"><figcaption>完成イメージ（ユーザーが用意した絵・2026-11-11）。めざす見た目の参考で、計算や時刻とはつながっていません。</figcaption></figure>`:
-     m==='side'?`<p class="ks-note" style="margin:6px 0 0">右（スマホでは下）が完成イメージ（ユーザーが用意した絵・参考）。</p>`:'');
+  box.innerHTML=`<div class="ms-cbar"><b>動く試作と比べる</b>${btn('off','アニメだけ')}${btn('below','下に並べる')}${btn('side','横に並べる')}</div>`+
+    (m==='below'?`<div class="ms-scene"></div>`:'')+
+    (m!=='off'?`<p class="ks-note" style="margin:6px 0 0">${m==='side'?'右（スマホでは下）':'上'}は、ユーザーが ChatGPT に描いてもらった絵の<b>動く試作</b>です。この店の計算の記録から、さっき会計を終えたお客さんを1人ずつ再生します（見せ方だけ。売上・在庫・保存は変えません）。動くのは1人だけで、まわりの人と店員は背景の絵です。</p>`:'');
+  if(m==='below'&&KSC())KSC().mount(box.querySelector('.ms-scene'));
+  if(m==='off'&&KSC())KSC().unmount();
   box.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{try{localStorage.setItem('minato-concept',b.dataset.cm);}catch(e){}box.dataset.k='';conceptUI();});}
 function render(o){conceptUI();const {top,kpi,title,sub}=o;title.textContent=V.M?V.M.store.name:'港駅の店';
   if(!V.cfg){top.innerHTML=`<div class="ks-card"><p>${V.err?'港駅の店の設定を読み込めませんでした（'+esc(V.err)+'）':'準備しています…'}</p></div>`;sub.textContent='';kpi.innerHTML='';return;}
@@ -328,7 +331,8 @@ function clerkDo(c,k,Tn){const x=k.x,y=k.y,a=k.act;
 function view(){const n=innerWidth<760;if(!n||V.half==='all')return null;return V.half==='ent'?{x:20,y:80,w:600}:{x:400,y:96,w:600};}
 function draw(c,dt){const Tn=gT();if(!V.cfg){c.fillStyle='#2a2f33';c.fillRect(0,0,1000,600);return;}
   if(!V.st){c.drawImage(bg(),0,0,1000,600);c.fillStyle='rgba(20,24,28,.55)';c.fillRect(0,0,1000,600);c.fillStyle='#fff';c.font='700 20px sans-serif';c.textAlign='center';c.fillText('港駅・改札口の前に、まだ店がありません',500,300);return;}
-  const res=ensureRes(),vw=view();BX=vw?[vw.x+4,vw.x+vw.w-4]:[34,966];c.save();if(vw){const s=1000/vw.w;c.scale(s,s);c.translate(-vw.x,-vw.y);}
+  const res=ensureRes(),vw=view();if(KSC())g(()=>KSC().tick(dt||0,Tn,res,V.cfg),null);   /* 動く試作（比べる用・js/kiosk-scene.js）：開いているときだけ描く */
+  BX=vw?[vw.x+4,vw.x+vw.w-4]:[34,966];c.save();if(vw){const s=1000/vw.w;c.scale(s,s);c.translate(-vw.x,-vw.y);}
   c.drawImage(bg(),0,0,1000,600);if(res)c.drawImage(shelfLayer(res,Tn),0,0,1000,600);
   const FX=window.MinatoFx,FF=res&&FX?fxCtx(res,Tn):null;   // 絵の第2段（js/minato-store-fx.js）：重ねて描くだけ
   if(FF){if(V.actsRes!==res){V.acts=A.build(res,V.cfg,V.st.layout);V.actsRes=res;}FF.acts=V.acts;FX.under(c,FF);}

@@ -1,0 +1,650 @@
+{
+  "v": 2,
+  "src": "assume",
+  "note": "港駅の店の『動く試作』（ユーザーが ChatGPT に描いてもらった絵・2026-11-13 に docs/ref/kiosk-scene-demo.html から取り出した）。絵の上の通り道・棚の場所・速さ・払い方の割合はすべて仮（assume）。売店の計算・在庫・売上・保存は変えない（見せ方だけ）。絵を足すときは docs/scene-art-order.md を見る。",
+  "dir": "assets/images/kiosk-scene/",
+  "width": 1628,
+  "height": 966,
+  "background": [
+    "background-empty.webp",
+    "background-checkout.webp"
+  ],
+  "backgroundNote": "上から順に読めたものを使う。background-empty.webp（人のいない背景）が届いたら、置くだけで差しかわる。",
+  "rate": 3,
+  "standMaxSec": 6,
+  "walkPxPerMin": 1500,
+  "reachMin": 0.12,
+  "takeMin": 0.06,
+  "packMin": 0.1,
+  "approachMin": 0.15,
+  "size": {
+    "base": 130,
+    "y0": 251,
+    "k": 0.13
+  },
+  "pay": {
+    "src": "assume",
+    "cash": 0.3,
+    "card": 0.35,
+    "phone": 0.35,
+    "note": "払い方は表示用（仮）。計算にはまだない。運行日と客の番号から決まった乱数で選ぶ"
+  },
+  "people": [
+    {
+      "id": "kaishain_m",
+      "name": "会社員（男性）",
+      "ps": [
+        "salM"
+      ],
+      "frames": "frames.json",
+      "sheets": {
+        "walk": "walk.webp",
+        "reach": "reach.webp",
+        "carry:cf_black": "carry-coffee.webp",
+        "carry:dr_sports": "carry-sports.webp",
+        "pay:cf_black": "payment.webp",
+        "pay:dr_sports": "payment.webp"
+      }
+    },
+    {
+      "id": "kaishain_f",
+      "name": "会社員（女性）",
+      "ps": [
+        "salF",
+        "smn"
+      ],
+      "grid": {
+        "cell": [
+          256,
+          384
+        ],
+        "foot": [
+          128,
+          368
+        ],
+        "body": 315
+      },
+      "sheets": {
+        "walk": "kaishain_f-walk.webp",
+        "reach": "kaishain_f-reach.webp",
+        "hold": "kaishain_f-hold.webp",
+        "pay": "kaishain_f-pay.webp",
+        "sit": "kaishain_f-sit.webp",
+        "eat": "kaishain_f-eat.webp",
+        "pay-cash": "kaishain_f-pay-cash.webp",
+        "pay-phone": "kaishain_f-pay-phone.webp"
+      }
+    },
+    {
+      "id": "gakusei",
+      "name": "学生",
+      "ps": [
+        "stu",
+        "jk"
+      ],
+      "grid": {
+        "cell": [
+          256,
+          384
+        ],
+        "foot": [
+          128,
+          368
+        ],
+        "body": 315
+      },
+      "sheets": {
+        "walk": "gakusei-walk.webp",
+        "reach": "gakusei-reach.webp",
+        "hold": "gakusei-hold.webp",
+        "pay": "gakusei-pay.webp",
+        "sit": "gakusei-sit.webp",
+        "eat": "gakusei-eat.webp",
+        "pay-cash": "gakusei-pay-cash.webp",
+        "pay-phone": "gakusei-pay-phone.webp"
+      }
+    },
+    {
+      "id": "sagyougi",
+      "name": "作業着の人",
+      "ps": [
+        "shf",
+        "mkt"
+      ],
+      "grid": {
+        "cell": [
+          256,
+          384
+        ],
+        "foot": [
+          128,
+          368
+        ],
+        "body": 315
+      },
+      "sheets": {
+        "walk": "sagyougi-walk.webp",
+        "reach": "sagyougi-reach.webp",
+        "hold": "sagyougi-hold.webp",
+        "pay": "sagyougi-pay.webp",
+        "sit": "sagyougi-sit.webp",
+        "eat": "sagyougi-eat.webp",
+        "pay-cash": "sagyougi-pay-cash.webp",
+        "pay-phone": "sagyougi-pay-phone.webp"
+      }
+    }
+  ],
+  "peopleNote": "ps＝この絵で描く客層（data/kiosk.json と data/minato-store.json の personas の id）。絵のファイルがまだない人・客層は、いちばん上の人の絵で代わりに描き、『まだ絵がない』と小さく出す。grid の人は、1コマ cell の大きさで左上から並べた絵（足元は foot）。frames の人は frames.json の切り出し位置。",
+  "staff": {
+    "id": "tenin",
+    "name": "店員",
+    "grid": {
+      "cell": [
+        256,
+        384
+      ],
+      "foot": [
+        128,
+        368
+      ],
+      "body": 315
+    },
+    "at": [
+      985,
+      520
+    ],
+    "dir": 1,
+    "sheets": {
+      "idle": "tenin-idle.webp",
+      "scan": "tenin-scan.webp",
+      "bag": "tenin-bag.webp",
+      "hot": "tenin-hot.webp",
+      "stock": "tenin-stock.webp"
+    },
+    "note": "店員の絵が届いたら、人のいない背景のときだけレジの後ろに描く（いまの背景には店員が描きこまれている）。cover＝店員の上にかぶせるカウンターの前の面（x,y,幅,高さ）。絵が届いたら合わせる",
+    "cover": [
+      872,
+      470,
+      340,
+      96
+    ]
+  },
+  "carryAs": {
+    "coffee": "cf_black",
+    "hotdrink": "cf_black",
+    "alcohol": "cf_black",
+    "energy": "cf_black",
+    "colddrink": "dr_sports"
+  },
+  "carryAsNote": "飲み物は、絵のある2本（缶コーヒー・スポーツドリンク）のどちらかで代わりに描く。その品の絵（carry:品のid）が人の sheets にあれば、それを使う",
+  "nodes": {
+    "in0": [
+      230,
+      802
+    ],
+    "in1": [
+      218,
+      720
+    ],
+    "in2": [
+      210,
+      610
+    ],
+    "L1": [
+      180,
+      485
+    ],
+    "L0": [
+      180,
+      251
+    ],
+    "T1": [
+      550,
+      251
+    ],
+    "T2": [
+      850,
+      255
+    ],
+    "M1": [
+      550,
+      488
+    ],
+    "R1": [
+      850,
+      488
+    ],
+    "R2": [
+      850,
+      640
+    ],
+    "S0": [
+      1230,
+      640
+    ],
+    "E0": [
+      1405,
+      600
+    ],
+    "E1": [
+      1405,
+      335
+    ],
+    "X0": [
+      1191,
+      705
+    ],
+    "X1": [
+      1191,
+      811
+    ]
+  },
+  "edges": [
+    [
+      "in0",
+      "in1"
+    ],
+    [
+      "in1",
+      "in2"
+    ],
+    [
+      "in2",
+      "L1"
+    ],
+    [
+      "L1",
+      "L0"
+    ],
+    [
+      "L0",
+      "T1"
+    ],
+    [
+      "T1",
+      "T2"
+    ],
+    [
+      "T1",
+      "M1"
+    ],
+    [
+      "L1",
+      "M1"
+    ],
+    [
+      "M1",
+      "R1"
+    ],
+    [
+      "T2",
+      "R1"
+    ],
+    [
+      "R1",
+      "R2"
+    ],
+    [
+      "R2",
+      "S0"
+    ],
+    [
+      "S0",
+      "E0"
+    ],
+    [
+      "E0",
+      "E1"
+    ],
+    [
+      "S0",
+      "X0"
+    ],
+    [
+      "X0",
+      "X1"
+    ]
+  ],
+  "spots": {
+    "bento": {
+      "x": [
+        150,
+        205
+      ],
+      "y": 251,
+      "on": [
+        "L0",
+        "T1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "colddrink": {
+      "x": [
+        300,
+        470
+      ],
+      "y": 251,
+      "on": [
+        "L0",
+        "T1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "coffee": {
+      "x": [
+        240,
+        320
+      ],
+      "y": 251,
+      "on": [
+        "L0",
+        "T1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "hotdrink": {
+      "x": [
+        240,
+        300
+      ],
+      "y": 251,
+      "on": [
+        "L0",
+        "T1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "energy": {
+      "x": [
+        440,
+        520
+      ],
+      "y": 251,
+      "on": [
+        "L0",
+        "T1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "alcohol": {
+      "x": [
+        500,
+        545
+      ],
+      "y": 251,
+      "on": [
+        "L0",
+        "T1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "onigiri": {
+      "x": [
+        270,
+        360
+      ],
+      "y": 452,
+      "on": [
+        "L1",
+        "M1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "sand": {
+      "x": [
+        330,
+        420
+      ],
+      "y": 452,
+      "on": [
+        "L1",
+        "M1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "bread": {
+      "x": [
+        380,
+        480
+      ],
+      "y": 452,
+      "on": [
+        "L1",
+        "M1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "donut": {
+      "x": [
+        440,
+        510
+      ],
+      "y": 452,
+      "on": [
+        "L1",
+        "M1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "cupmen": {
+      "x": [
+        610,
+        680
+      ],
+      "y": 452,
+      "on": [
+        "M1",
+        "R1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "snack": {
+      "x": [
+        650,
+        760
+      ],
+      "y": 452,
+      "on": [
+        "M1",
+        "R1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "gummy": {
+      "x": [
+        700,
+        780
+      ],
+      "y": 452,
+      "on": [
+        "M1",
+        "R1"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "omiyage": {
+      "x": [
+        700,
+        830
+      ],
+      "y": 262,
+      "on": [
+        "T1",
+        "T2"
+      ],
+      "dir": 0,
+      "reach": true
+    },
+    "daily": {
+      "x": [
+        148,
+        152
+      ],
+      "y": [
+        330,
+        420
+      ],
+      "on": [
+        "L0",
+        "L1"
+      ],
+      "dir": 3,
+      "reach": false
+    },
+    "umbrella": {
+      "x": [
+        148,
+        152
+      ],
+      "y": [
+        520,
+        560
+      ],
+      "on": [
+        "L1",
+        "in2"
+      ],
+      "dir": 3,
+      "reach": false
+    },
+    "paper": {
+      "x": [
+        148,
+        152
+      ],
+      "y": [
+        300,
+        340
+      ],
+      "on": [
+        "L0",
+        "L1"
+      ],
+      "dir": 3,
+      "reach": false
+    },
+    "magazine": {
+      "x": [
+        148,
+        152
+      ],
+      "y": [
+        300,
+        360
+      ],
+      "on": [
+        "L0",
+        "L1"
+      ],
+      "dir": 3,
+      "reach": false
+    },
+    "hot": {
+      "staff": "hot"
+    },
+    "tobacco": {
+      "staff": "tobacco"
+    }
+  },
+  "spotsNote": "品のジャンルごとに、客が立つ床の点（x・y は範囲なら品と客で決まった場所に）・向き dir（0 奥・1 手前・2 右・3 左）・手を伸ばす絵を使うか。on＝その点がのっている通り道の2点。staff は店員が取る品（客は棚へ行かない）",
+  "register": {
+    "queue": [
+      880,
+      640
+    ],
+    "queueStep": [
+      -34,
+      0
+    ],
+    "queueMax": 4,
+    "stand": [
+      968,
+      590
+    ],
+    "pack": [
+      1085,
+      640
+    ],
+    "via": "R2",
+    "note": "会計の位置：stand は有人レジのカウンターのすぐ前（前の試作より約60手前に寄せた）。queue は床の印"
+  },
+  "self": {
+    "queue": [
+      1180,
+      640
+    ],
+    "queueStep": [
+      -34,
+      0
+    ],
+    "stand": [
+      1292,
+      588
+    ],
+    "via": "R2"
+  },
+  "eat": {
+    "stand": [
+      1420,
+      330
+    ],
+    "standDir": 2,
+    "sit": [
+      1305,
+      292
+    ],
+    "sitDir": 0,
+    "via": "E1"
+  },
+  "exit": "X1",
+  "occluders": [
+    {
+      "x": 228,
+      "y": 265,
+      "w": 304,
+      "h": 158,
+      "front": 424
+    },
+    {
+      "x": 584,
+      "y": 264,
+      "w": 214,
+      "h": 159,
+      "front": 424
+    },
+    {
+      "x": 561,
+      "y": 594,
+      "w": 271,
+      "h": 105,
+      "front": 700
+    },
+    {
+      "x": 878,
+      "y": 282,
+      "w": 410,
+      "h": 120,
+      "front": 402
+    },
+    {
+      "x": 872,
+      "y": 400,
+      "w": 340,
+      "h": 166,
+      "front": 566
+    }
+  ]
+}
