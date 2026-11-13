@@ -23,8 +23,8 @@ let dirty=true;const redraw=()=>{dirty=true;};
 function save(){try{localStorage.setItem(KEY,cur);}catch(e){}}
 function commit(){const s=JSON.stringify(doc);if(s===cur)return;UNDO.push(cur);if(UNDO.length>120)UNDO.shift();REDO=[];cur=s;save();ui();redraw();}
 function revert(){doc=JSON.parse(cur);redraw();}
-function undo(){if(!UNDO.length)return;REDO.push(cur);cur=UNDO.pop();doc=JSON.parse(cur);fixSel();save();ui();redraw();}
-function redo(){if(!REDO.length)return;UNDO.push(cur);cur=REDO.pop();doc=JSON.parse(cur);fixSel();save();ui();redraw();}
+function undo(){if(S.tool==='rail'&&window.RailEdit){RailEdit.undo();return;}if(!UNDO.length)return;REDO.push(cur);cur=UNDO.pop();doc=JSON.parse(cur);fixSel();save();ui();redraw();}
+function redo(){if(S.tool==='rail'&&window.RailEdit){RailEdit.redo();return;}if(!REDO.length)return;UNDO.push(cur);cur=REDO.pop();doc=JSON.parse(cur);fixSel();save();ui();redraw();}
 function fixSel(){const s=S.sel;if(s&&!(s.k==='node'?doc.nodes[s.id]:s.k==='edge'?doc.edges[s.id]:doc.stops[s.id]))S.sel=null;
   if(S.line&&!doc.lines[S.line])S.line=null;if(S.poly&&!doc.nodes[S.poly])S.poly=null;
   if(!doc.types.road.find(t=>t.id===S.road))S.road=doc.types.road[0]&&doc.types.road[0].id;
@@ -110,7 +110,8 @@ function drawSheet(c,k){const W=DEF.world.w,H=DEF.world.h;
   c.save();c.shadowColor='rgba(40,50,45,.28)';c.shadowBlur=26*k.z*k.dpr;c.shadowOffsetY=8*k.z*k.dpr;c.fillStyle='#f5f1e4';c.fillRect(-3,-3,W+6,H+6);c.restore();
   if(MAP.complete&&MAP.naturalWidth){c.save();c.globalAlpha=doc.view.mapAlpha;c.imageSmoothingQuality='high';c.drawImage(MAP,0,0,W,H);c.restore();}
   c.strokeStyle='rgba(255,255,255,.85)';c.lineWidth=1.6;c.strokeRect(-0.8,-0.8,W+1.6,H+1.6);}
-function drawRail(c,k){if(!doc.view.rail)return;const R=DEF.rail,P=s=>[R.stations[s].x,R.stations[s].y];
+function drawRail(c,k){if(window.RailEdit&&(doc.view.rail||S.tool==='rail')){RailEdit.drawRail(c,k,S.tool==='rail');return;}   // 第7回：線路は「線路」の層の形で（js/rail-edit.js）
+  if(!doc.view.rail)return;const R=DEF.rail,P=s=>[R.stations[s].x,R.stations[s].y];
   const polys=R.lines.map(L=>L.map(P));
   [['#e9ebe4',4.4,[],1],['#a87a5f',3.1,[],1],['#f4efe2',1.6,[2.6,2.6],1]].forEach(([col,w,d])=>{c.save();c.strokeStyle=col;c.lineWidth=w;c.lineJoin='round';c.lineCap=d.length?'butt':'round';c.setLineDash(d);c.beginPath();polys.forEach(p=>{c.moveTo(...p[0]);p.slice(1).forEach(q=>c.lineTo(...q));});c.stroke();c.restore();});
   c.textAlign='center';c.textBaseline='middle';
@@ -146,6 +147,7 @@ function drawScene(c,k,o){o=o||{};
   stops.forEach(([id,s])=>{const n=doc.nodes[s.node];if(!n)return;const ty=Object.assign({},tyOf('stop',s.type),s.style||{});drawMarker(c,ty,n.x,n.y,k,!o.export&&S.sel&&S.sel.k==='stop'&&S.sel.id===id);});
   stops.forEach(([id,s])=>{const n=doc.nodes[s.node];if(!n)return;const ty=Object.assign({},tyOf('stop',s.type),s.style||{});drawLabel(c,s,ty,n.x,n.y,k,boxes);});
   if(o.export)return;
+  if(S.tool==='rail'&&window.RailEdit){RailEdit.drawOverlay(c,k);return;}   // 線路の層：つかめる点
   // 描いている途中
   if(S.stroke&&S.stroke.pts.length>1){strokeStyled(c,[S.stroke.pts],tyOf('road',S.road).style,k);}
   if(S.poly&&doc.nodes[S.poly]&&S.hover){const n=doc.nodes[S.poly];const st=Object.assign({},tyOf('road',S.road).style);st.alpha=0.55;strokeStyled(c,[[[n.x,n.y],S.hover]],st,k);
@@ -168,11 +170,13 @@ const P=new Map();let op=null,gest=null,lastTap={t:0,x:0,y:0};
 function pos(ev){const r=cv.getBoundingClientRect();return [ev.clientX-r.left,ev.clientY-r.top];}
 cv.addEventListener('pointerdown',ev=>{cv.setPointerCapture(ev.pointerId);S.touch=ev.pointerType!=='mouse';closePops();
   const sp=pos(ev);P.set(ev.pointerId,sp);
-  if(P.size===2){if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;const [a,b]=[...P.values()];gest={d:Math.hypot(a[0]-b[0],a[1]-b[1]),m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};redraw();return;}
+  if(P.size===2){if(op&&op.k==='rail')RailEdit.cancel();else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;const [a,b]=[...P.values()];gest={d:Math.hypot(a[0]-b[0],a[1]-b[1]),m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};redraw();return;}
   if(P.size>2)return;
   const w=toW(...sp);const btn=ev.button;
-  if(btn===2&&S.tool==='poly'&&S.poly){op=null;endPoly();return;}   // 右クリック：最後に置いた点で線を終える（右クリックした場所には点を置かない）
+  if(btn===2&&S.tool==='poly'&&S.poly){op=null;endPoly();return;}
+  if(btn===2&&S.tool==='rail'&&window.RailEdit&&RailEdit.drawing){op=null;RailEdit.endDraw();return;}   // 側線：右クリックで終わる   // 右クリック：最後に置いた点で線を終える（右クリックした場所には点を置かない）
   if(btn===1||btn===2||S.tool==='hand'||S.space){op={k:'pan',sp,v:[V.x,V.y]};cv.classList.add('dragging');return;}
+  if(S.tool==='rail'&&window.RailEdit){const r=RailEdit.down(w,tol());op=r?{k:'rail',sp,w,r,live:true,moved:false}:{k:'pan',sp,v:[V.x,V.y],tapEmpty:true,rail:true};return;}   // 線路の層
   op={k:'tap',sp,w,moved:false};
   if(S.tool==='pen'){op.k='stroke';S.stroke={pts:[w]};S.snap=null;}
   else if(S.tool==='select'){const h=hitHandle(w);if(h!=null){op={k:'pt',sp,w,i:h,live:true};return;}
@@ -186,6 +190,7 @@ cv.addEventListener('pointermove',ev=>{const sp=pos(ev);if(P.has(ev.pointerId))P
   const w=toW(...sp);
   if(!op){S.hover=w;if(S.tool==='poly'&&S.poly)redraw();hoverCursor(w);return;}
   const mv=Math.hypot(sp[0]-op.sp[0],sp[1]-op.sp[1]);if(mv>4)op.moved=true;
+  if(op.k==='rail'){if(op.moved&&op.r.k!=='drawtap'){RailEdit.move(op.r,w);redraw();}return;}
   if(op.k==='tap'&&op.moved){op={k:'pan',sp:op.sp,v:[V.x,V.y]};}
   if(op.k==='pan'){if(op.moved||Math.hypot(sp[0]-op.sp[0],sp[1]-op.sp[1])>4){V.x=op.v[0]-(sp[0]-op.sp[0])/V.z;V.y=op.v[1]-(sp[1]-op.sp[1])/V.z;cv.classList.add('dragging');redraw();}return;}
   if(op.k==='stroke'){const L=S.stroke.pts[S.stroke.pts.length-1];if(Math.hypot(w[0]-L[0],w[1]-L[1])>1.2/V.z){S.stroke.pts.push(w);const n=hitNode(w);S.snap=n?[doc.nodes[n].x,doc.nodes[n].y]:null;redraw();}return;}
@@ -196,7 +201,8 @@ cv.addEventListener('pointermove',ev=>{const sp=pos(ev);if(P.has(ev.pointerId))P
 });
 function endPointer(ev){const had=P.has(ev.pointerId);P.delete(ev.pointerId);if(gest){if(P.size<2)gest=null;op=null;return;}if(!had||!op)return;
   const o=op;op=null;cv.classList.remove('dragging');const w=toW(...pos(ev));
-  if(o.k==='pan'){if(o.tapEmpty&&!o.moved){S.sel=null;ui();redraw();}return;}
+  if(o.k==='rail'){RailEdit.up(o.r,w,o.moved,dbl(o.sp));return;}
+  if(o.k==='pan'){if(o.tapEmpty&&!o.moved){if(o.rail){RailEdit.tapEmpty(w,dbl(o.sp));return;}S.sel=null;ui();redraw();}return;}
   if(o.k==='stroke'){const raw=S.stroke.pts;S.stroke=null;S.snap=null;
     if(raw.length>2&&C.polyLen(raw.map(p=>({x:p[0],y:p[1]})))>6/V.z){const pts=C.simplify(raw,1.6/V.z);C.addPath(doc,pts,{type:S.road,smooth:true,snap:12/V.z});commit();}
     else tapPen(w);redraw();return;}
@@ -210,14 +216,14 @@ function endPointer(ev){const had=P.has(ev.pointerId);P.delete(ev.pointerId);if(
   if(o.k==='tap'&&!o.moved){if(S.tool==='poly')tapPoly(w,o.sp);else if(S.tool==='stop')tapStop(w);else if(S.tool==='line')tapLine(w);}
 }
 function dbl(sp){const t=performance.now(),r=t-lastTap.t<380&&Math.hypot(sp[0]-lastTap.x,sp[1]-lastTap.y)<14;lastTap=r?{t:0,x:0,y:0}:{t,x:sp[0],y:sp[1]};return r;}
-cv.addEventListener('pointerup',endPointer);cv.addEventListener('pointercancel',ev=>{P.delete(ev.pointerId);if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;gest=null;redraw();});
+cv.addEventListener('pointerup',endPointer);cv.addEventListener('pointercancel',ev=>{P.delete(ev.pointerId);if(op&&op.k==='rail'){RailEdit.cancel();}else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;gest=null;redraw();});
 cv.addEventListener('pointerleave',()=>{if(!op){S.hover=null;redraw();}});
 cv.addEventListener('wheel',ev=>{ev.preventDefault();const sp=pos(ev);
   if(ev.shiftKey&&!ev.ctrlKey){V.x+=(ev.deltaY||ev.deltaX)/V.z;redraw();return;}
   if(!ev.ctrlKey&&Math.abs(ev.deltaX)>Math.abs(ev.deltaY)){V.x+=ev.deltaX/V.z;V.y+=ev.deltaY/V.z;redraw();return;}
   const dy=ev.deltaY*(ev.deltaMode===1?33:1);zoomAt(Math.exp(-dy*(ev.ctrlKey?0.01:0.0016)),sp[0],sp[1]);},{passive:false});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
-function hoverCursor(w){if(S.tool!=='select'){cv.style.cursor='';return;}cv.style.cursor=hitHandle(w)!=null||hitStop(w)||hitNode(w)?'move':hitEdge(w)?'pointer':'';}
+function hoverCursor(w){if(S.tool==='rail'&&window.RailEdit){cv.style.cursor=RailEdit.hover(w,tol());redraw();return;}if(S.tool!=='select'){cv.style.cursor='';return;}cv.style.cursor=hitHandle(w)!=null||hitStop(w)||hitNode(w)?'move':hitEdge(w)?'pointer':'';}
 
 function tapPen(w){const st=hitStop(w);if(st){S.sel={k:'stop',id:st};setTool('select');}}
 function tapPoly(w,sp){const ty=S.road;
@@ -243,10 +249,12 @@ addEventListener('keydown',ev=>{const tag=(ev.target.tagName||'').toLowerCase();
   if(mod&&ev.key.toLowerCase()==='y'&&!typing){ev.preventDefault();redo();return;}
   if(typing){if(ev.key==='Enter'||ev.key==='Escape')ev.target.blur();return;}
   if(ev.key===' '){S.space=true;cv.classList.add('panning');ev.preventDefault();return;}
+  if(S.tool==='rail'&&window.RailEdit&&(ev.key==='Escape'||ev.key==='Enter')&&RailEdit.drawing){RailEdit.endDraw();return;}
+  if(S.tool==='rail'&&window.RailEdit&&(ev.key==='Delete'||ev.key==='Backspace')){RailEdit.del();ev.preventDefault();return;}
   if(ev.key==='Escape'){if(S.poly)endPoly();else{S.sel=null;closePops();ui();redraw();}return;}
   if(ev.key==='Enter'&&S.poly){endPoly();return;}
   if(ev.key==='Delete'||ev.key==='Backspace'){delSel();ev.preventDefault();return;}
-  const m={v:'select',b:'pen',p:'poly',s:'stop',l:'line',h:'hand'}[ev.key.toLowerCase()];if(m&&!mod)setTool(m);
+  const m={v:'select',b:'pen',p:'poly',s:'stop',l:'line',h:'hand',r:'rail'}[ev.key.toLowerCase()];if(m&&!mod)setTool(m);
   if(ev.key==='0'&&!mod)fit();if(ev.key==='+'||ev.key==='=')zoomAt(1.25,V.w/2,V.h/2);if(ev.key==='-')zoomAt(0.8,V.w/2,V.h/2);});
 addEventListener('keyup',ev=>{if(ev.key===' '){S.space=false;cv.classList.remove('panning');}});
 function delSel(){const s=S.sel;if(!s)return;if(s.k==='node')C.deleteNode(doc,s.id);else if(s.k==='edge')C.deleteEdge(doc,s.id);else if(s.k==='stop'){const n=doc.stops[s.id].node;C.deleteStop(doc,s.id);C.dropOrphan(doc,n);}S.sel=null;commit();}
@@ -263,12 +271,12 @@ function swatch(cvs,kind,obj){const d=Math.min(2,window.devicePixelRatio||1),W=c
 const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function chip(label,on,fn,sw){const b=el('button','chip'+(on?' on':''));if(sw){const c=el('canvas');b.appendChild(c);requestAnimationFrame(()=>swatch(c,sw[0],sw[1]));}b.appendChild(document.createTextNode(label));b.onclick=fn;return b;}
-function setTool(t){if(S.poly&&t!=='poly')endPoly();S.tool=t;cv.className='t-'+t;if(t!=='select'&&S.sel&&!(t==='stop'&&S.sel.k==='stop'))S.sel=null;closePops();ui();redraw();}
+function setTool(t){if(S.poly&&t!=='poly')endPoly();if(S.tool==='rail'&&t!=='rail'&&window.RailEdit&&RailEdit.drawing)RailEdit.endDraw();S.tool=t;cv.className='t-'+t;if(t!=='select'&&S.sel&&!(t==='stop'&&S.sel.k==='stop'))S.sel=null;closePops();ui();redraw();}
 document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>setTool(b.dataset.t));
 function focusName(){requestAnimationFrame(()=>{const i=document.querySelector('#dock .namein');if(i&&!S.touch){i.focus();i.select();}});}
 
 function ui(){document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tool));
-  $('undo').disabled=!UNDO.length;$('redo').disabled=!REDO.length;dock();lineList();dots();
+  const RL=S.tool==='rail'&&window.RailEdit;$('undo').disabled=RL?!RailEdit.canUndo:!UNDO.length;$('redo').disabled=RL?!RailEdit.canRedo:!REDO.length;dock();lineList();dots();
   $('railLbl').textContent=doc.view.rail?'線路と駅をかくす':'線路と駅を見せる';$('mapAlpha').value=doc.view.mapAlpha;}
 function dots(){const d=$('ldots');d.innerHTML='';doc.order.slice(0,5).forEach(id=>{const i=el('i');i.style.background=C.lineStyle(doc,doc.lines[id]).color;d.appendChild(i);});if(!doc.order.length){const i=el('i');i.style.background='#c9c3b4';d.appendChild(i);}}
 
@@ -278,6 +286,7 @@ function typeRow(kind,curId,pick){const r=el('div','row');const arr=doc.types[ki
   const ad=el('button','chip mini add','＋ 種類');ad.onclick=()=>{const base=arr.find(t=>t.id===curId)||arr[0];const n=C.clone(base);n.id=C.uid(doc,kind[0]+'t');n.name='新しい'+({road:'道',stop:'拠点',line:'種類'}[kind]);if(n.style)n.style.color=DEF.palette[(arr.length*5)%DEF.palette.length];else n.fill=DEF.palette[(arr.length*5)%DEF.palette.length];arr.push(n);pick(n.id);commit();openStyle(kind,n.id);};r.appendChild(ad);
   return r;}
 function dock(){const d=$('dock');d.innerHTML='';const s=S.sel;
+  if(S.tool==='rail'&&window.RailEdit){RailEdit.dock(d,el,chip);d.hidden=!d.children.length;return;}   // 線路の層の棚
   if(S.tool==='pen'||S.tool==='poly'){d.appendChild(typeRow('road',S.road,id=>{S.road=id;ui();}));if(S.poly){const r=el('div','row');r.appendChild(chip('✓ ここで終わる',false,endPoly));d.appendChild(r);}}
   else if(S.tool==='stop'&&!(s&&s.k==='stop'))d.appendChild(typeRow('stop',S.stopT,id=>{S.stopT=id;ui();}));
   else if(S.tool==='line'){const r=el('div','row');doc.order.forEach(id=>{const l=doc.lines[id];r.appendChild(chip(l.name,id===S.line,()=>{S.line=id;ui();redraw();if(innerWidth>=700)showLines(true);},['line',C.lineStyle(doc,l)]));});
@@ -458,7 +467,8 @@ async function init(){try{DEF=await fetch('data/routes.json',{cache:'no-cache'})
   MAP.onload=redraw;MAP.src=DEF.world.bg;
   let saved=null;try{saved=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}
   doc=C.normalize(saved,DEF);cur=JSON.stringify(doc);fixSel();
-  resize();fit.mob=true;fit();setTool('pen');showLines(false);
+  if(window.RailEdit)RailEdit.init({ui:()=>ui(),redraw,toast},DEF);
+  resize();fit.mob=true;fit();setTool(/track|rail/.test(location.hash)&&window.RailEdit?'rail':'pen');showLines(false);
   if(document.fonts){['700 10px "Zen Kaku Gothic New"','700 10px "Zen Maru Gothic"','700 10px "Zen Old Mincho"','400 10px "Yomogi"'].forEach(f=>document.fonts.load(f,'あ駅').then(redraw,()=>{}));document.fonts.ready.then(redraw);}
   addEventListener('resize',()=>{const w=V.w;resize();if(Math.abs(innerWidth-w)>120)fit();});
   requestAnimationFrame(frame);

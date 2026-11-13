@@ -141,6 +141,7 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
 #toast.show{transform:translate(-50%,0)}
 #zoom{position:fixed;right:14px;bottom:16px;display:flex;flex-direction:column;padding:4px;z-index:4}
 #file{display:none}
+#dock .row .hint{flex:0 0 auto;white-space:nowrap}
 
 /* スマホ */
 @media (max-width:700px){
@@ -185,6 +186,8 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
   <button class="tool" data-t="stop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-6.5-6.2-6.5-11A6.5 6.5 0 0118.5 10c0 4.8-6.5 11-6.5 11z" fill="currentColor" fill-opacity=".12"/><circle cx="12" cy="10" r="2.4"/></svg><span class="tip">停留所・拠点（S）</span></button>
   <button class="tool" data-t="line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19V12a4 4 0 014-4h6a4 4 0 004-4"/><circle cx="5" cy="19" r="2.2" fill="#fff" stroke-width="1.8"/><circle cx="19" cy="4.5" r="2.2" fill="#fff" stroke-width="1.8"/></svg><span class="tip">路線をつくる（L）</span></button>
   <div class="tsep"></div>
+  <button class="tool" data-t="rail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 21C7 13 10 8 17 3M12 21c0-6 2-10 7-13"/><path d="M6.5 17.5h6M7.6 13.5h5.6M9.6 9.6h5M12.6 6.2h4"/></svg><span class="tip">線路を直す（R）</span></button>
+  <div class="tsep"></div>
   <button class="tool" data-t="hand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V5.5a1.5 1.5 0 013 0V11m0-6.5a1.5 1.5 0 013 0V11m0-5a1.5 1.5 0 013 0V14a7 7 0 01-7 7h-.5a6 6 0 01-5-2.7L3.7 15a1.5 1.5 0 012.5-1.7L8 15.5"/></svg><span class="tip">地図を動かす（H）</span></button>
 </div>
 
@@ -219,6 +222,8 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
 <input type="file" id="file" accept="application/json,.json">
 
 <script src="js/route-core.js?v=20261112r"></script>
-<script src="js/route-editor.js?v=20261112r"></script>
+<script src="js/rail-shape.js?v=20261113a"></script>
+<script src="js/rail-edit.js?v=20261113a"></script>
+<script src="js/route-editor.js?v=20261113a"></script>
 </body>
 </html>
