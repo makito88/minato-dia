@@ -92,7 +92,7 @@ function plan(S,e,o){
       let best=Infinity,bd=0;const N=Math.ceil(l.length/10);for(let j=0;j<=N;j++){const q=l.at(j/N),dd=Math.hypot(q.x-at.at[0],q.y-at.at[1]);if(dd<best){best=dd;bd=q.dist;}}
       if(best>at.r||bd<30||bd>l.length-30)continue;gz[i]={d:bd,at,tempt:R('tp'+i+'|'+k)<(at.tempt||0)};nGz++;return;}});
   /* 店の中の時間（stay）を、歩く・見る・手を伸ばすに分ける。足りなければ、歩く速さを上げる */
-  const GW=(S.gaze||{}).half||45,GK=(S.gaze||{}).slow||0.6,effLen=(l,g)=>l.length+(g?Math.min(l.length,2*GW)*(1/GK-1):0);
+  const GW=(S.gaze||{}).half||45,GK=(S.gaze||{}).slow||0.6,effLen=(l,g)=>l.length+(g?Math.min(l.length,2*GW)*(1/GK-1):0)+Math.min(55,l.length*.4)*(1/GK-1);   /* 終わりのゆっくりの分も */
   const walkMin=legs.reduce((a,l,i)=>a+effLen(l,gz[i])/W,0),reachMin=stops.reduce((a,s)=>a+(s.reach?(S.reachMin||0.12)+(S.takeMin||0.06):0.08),0);
   const room=Math.max(0.05,e.stay),need=walkMin+reachMin,TP=(S.gaze||{}).tempt||[0.12,0.25];
   let tpN=0;for(const g of gz)if(g&&g.tempt){g.dur=pick(R('tpd'+g.at.label),TP);tpN+=g.dur;}
@@ -106,7 +106,8 @@ function plan(S,e,o){
   legs.forEach((l,i)=>{const ph=i<stops.length?'walk':'toQueue',g=gz[i];
     if(g&&g.tempt){t=walkSeg(t,l,0,g.d,null,ph);const q=l.at(g.d/l.length),vx=g.at.at[0]-q.x,vy=g.at.at[1]-q.y,dir=Math.abs(vx)>Math.abs(vy)?(vx>0?2:3):(vy>0?1:0);
       segs.push({kind:'stand',a:t,b:t+g.dur,p:[q.x,q.y],dir,ph:'tempt',touch:dir===0&&!!g.at.reach,at:g.at});t+=g.dur;t=walkSeg(t,l,g.d,l.length,null,ph);}
-    else t=walkSeg(t,l,0,l.length,g,ph);
+    else{const L=l.length,SL=Math.min(55,L*.4);   /* 棚で品を取る前・レジのエリアに入る前は、考えを切りかえるので歩くのがゆっくりになる（2026-11-13 ユーザー） */
+      if(g&&g.d>L-SL-GW){t=walkSeg(t,l,0,L,g,ph);}else{t=walkSeg(t,l,0,L-SL,g,ph);t=walkSeg(t,l,L-SL,L,{d:L-SL/2,at:null},ph);}}
     const st=stops[i];if(!st)return;
     const rm=(st.reach?(S.reachMin||0.12):0.04)*wk,tk=(st.reach?(S.takeMin||0.06):0.04)*wk;
     segs.push({kind:'stand',a:t,b:t+browse,p:st.p,dir:st.dir,ph:'browse',stop:i,hes:st.hes});t+=browse;
