@@ -33,8 +33,25 @@ function route(points){let length=0;const seg=[];
   for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i],dd=Math.hypot(b[0]-a[0],b[1]-a[1]);if(dd>0.01){seg.push({a,b,d:dd,from:length});length+=dd;}}
   return {points,length,at(u){const dist=clamp(u,0,1)*length,s=seg.find(s=>s.from+s.d>=dist-1e-9)||seg[seg.length-1];
     if(!s)return {x:points[0][0],y:points[0][1],dir:1,dist:0};
-    const v=(dist-s.from)/s.d,dx=s.b[0]-s.a[0],dy=s.b[1]-s.a[1];
-    return {x:s.a[0]+dx*v,y:s.a[1]+dy*v,dir:Math.abs(dx)>Math.abs(dy)?(dx>0?2:3):(dy>0?1:0),dist};}};}
+    const v=(dist-s.from)/s.d,x=s.a[0]+(s.b[0]-s.a[0])*v,y=s.a[1]+(s.b[1]-s.a[1])*v;
+    const pt=dd=>{const D=clamp(dd,0,length),q=seg.find(q=>q.from+q.d>=D-1e-9)||seg[seg.length-1],w=(D-q.from)/q.d;return [q.a[0]+(q.b[0]-q.a[0])*w,q.a[1]+(q.b[1]-q.a[1])*w];};
+    const p0=pt(dist-18),p1=pt(dist+18),dx=p1[0]-p0[0],dy=p1[1]-p0[1];   /* 向きは前後の少し先から（曲がり道で絵がちらつかないように） */
+    return {x,y,dir:Math.abs(dx)>Math.abs(dy)*1.1?(dx>0?2:3):(dy>0?1:0),dist};}};}
+
+/* 人らしい道（2026-11-13 ユーザーの指摘：直線・直角に曲がる・人の前を通る）：
+   通り道の点を人ごとに少しずらし → 細かく分けて、背景の人のまわり（avoid の円）から外へ押し出し → 角を丸める */
+function natural(S,pts,R,tag){if(pts.length<2)return pts;const J=(S.wander&&S.wander.jitter)||0,A=S.avoid||[];
+  let P=pts.map((p,i)=>i===0||i===pts.length-1?p.slice():[p[0]+(R(tag+'jx'+i)-.5)*2*J,p[1]+(R(tag+'jy'+i)-.5)*2*J]);
+  {const C=[P[0]];for(let i=1;i<P.length-1;i++){const a=P[i-1],b=P[i],c=P[i+1],l1=Math.hypot(b[0]-a[0],b[1]-a[1]),l2=Math.hypot(c[0]-b[0],c[1]-b[1]),r=Math.min(40,l1*.4,l2*.4);   /* 角を半径40くらいで丸める */
+      if(r<2){C.push(b);continue;}const p0=[b[0]+(a[0]-b[0])*r/l1,b[1]+(a[1]-b[1])*r/l1],p2=[b[0]+(c[0]-b[0])*r/l2,b[1]+(c[1]-b[1])*r/l2];
+      for(let k=0;k<=6;k++){const u=k/6,v=1-u;C.push([v*v*p0[0]+2*v*u*b[0]+u*u*p2[0],v*v*p0[1]+2*v*u*b[1]+u*u*p2[1]]);}}C.push(P[P.length-1]);P=C;}
+  const Q=[];for(let i=1;i<P.length;i++){const a=P[i-1],b=P[i],n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/8));for(let k=i===1?0:1;k<=n;k++)Q.push([a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n]);}
+  const s0=Q[0],s1=Q[Q.length-1],skip=A.filter(([x,y,r])=>Math.hypot(s0[0]-x,s0[1]-y)<r+10||Math.hypot(s1[0]-x,s1[1]-y)<r+10);
+  for(let i=1;i<Q.length-1;i++){const q=Q[i];for(const c of A){if(skip.includes(c))continue;const [x,y,r]=c,dx=q[0]-x,dy=q[1]-y,dd=Math.hypot(dx,dy);
+    if(dd<r){const k=dd>0.01?dd:1,ux=dd>0.01?dx/k:0,uy=dd>0.01?dy/k:1,e=Math.min(1,Math.min(i,Q.length-1-i)/5);q[0]+=ux*(r-dd)*e;q[1]+=uy*(r-dd)*e;}}}
+  P=Q;for(let it=0;it<2;it++){const N=[P[0]];for(let i=0;i<P.length-1;i++){const a=P[i],b=P[i+1];N.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]);}N.push(P[P.length-1]);
+    const M=[N[0]];for(let i=1;i<N.length;i++){const m=M[M.length-1];if(Math.hypot(N[i][0]-m[0],N[i][1]-m[1])>=4||i===N.length-1)M.push(N[i]);}P=M;}
+  return P;}
 
 /* ---------- 1人の買い物を、見せるための段取りにする（計算の出来事は変えない） ----------
    e：buy の出来事（t 会計の始め・wait 並んだ分・stay 店にいた分・end 会計の終わり・lane f 有人／s セルフ・items）
@@ -52,26 +69,39 @@ function plan(S,e,o){
     if(seen.has(it.genre)||stops.length>=3){const st=stops.find(s=>s.genre===it.genre)||stops[stops.length-1];st.items.push(it);continue;}
     seen.add(it.genre);const r=R('x'+it.genre);
     stops.push({genre:it.genre,p:[Math.round(pick(r,sp.x)),Math.round(pick(R('y'+it.genre),sp.y))],on:sp.on,dir:sp.dir??0,reach:!!sp.reach,items:[it]});}
+  /* 寄り道（2026-11-13）：買わない棚の前で立ち止まって見る。手に取って戻すことも。時間は stay の余りから（あとで決める） */
+  const WD=S.wander||{},G=Object.keys(S.spots).filter(g=>!S.spots[g].staff&&!seen.has(g));
+  const nG=e.rush?0:Math.min(WD.max||0,Math.floor(R('nG')*((WD.max||0)+1)+(e.stay>3?0.5:0)));
+  const glances=[];for(let k=0;k<nG&&G.length;k++){const g=G.splice(Math.floor(R('g'+k)*G.length),1)[0],sp=S.spots[g];
+    glances.push({genre:g,glance:true,touch:!!sp.reach&&R('touch'+k)<(WD.touch??0.5),p:[Math.round(pick(R('gx'+k),sp.x)),Math.round(pick(R('gy'+k),sp.y))],on:sp.on,dir:sp.dir??0,reach:false,items:[]});}
+  for(const st of stops)st.hes=!!st.reach&&R('hes'+st.genre)<(WD.hesitate??0.4);
+  /* 回る順：入口から近い順につなぐ（買う棚と寄り道をまぜて） */
+  {const all=stops.concat(glances),ord=[];let c0=S.nodes.in2;while(all.length){let bi=0,bd=Infinity;all.forEach((x,i)=>{const dd=Math.hypot(x.p[0]-c0[0],x.p[1]-c0[1]);if(dd<bd){bd=dd;bi=i;}});const x=all.splice(bi,1)[0];ord.push(x);c0=x.p;}stops.length=0;stops.push(...ord);}
   /* 道：入口 → 棚 → … → 列（または直接レジ） */
   const W=S.walkPxPerMin||1500,segs=[];let cur='in0';
   const legs=[],extraNodes=stops.map((st,i)=>({id:'_s'+i,p:st.p,on:st.on}));
-  stops.forEach((st,i)=>{const id='_s'+i;legs.push(route(shortest(S,cur,id,extraNodes)));cur=id;});
+  stops.forEach((st,i)=>{const id='_s'+i;legs.push(route(natural(S,shortest(S,cur,id,extraNodes),R,'L'+i)));cur=id;});
   const reg=lane==='s'?S.self:S.register,qBase=reg.queue,qStep=reg.queueStep||[-34,0],qMax=reg.queueMax||4;
   /* 列の前にいる人（同じレジ・自分より前に並んだ人で、まだ会計を始めていない人）：数だけ。姿は描かない */
   const others=(o.ev||[]).filter((b,i)=>i!==o.idx&&b.k==='buy'&&(b.lane==='s'?'s':'f')===lane&&fin(b.wait)&&fin(b.t)&&b.t-b.wait<tq&&b.t>tq-1e-9);
   const ahead=t=>others.reduce((n,b)=>n+(b.t-b.wait<=t&&b.t>t?1:0),0);
   const qPoint=t=>{const k=Math.min(qMax,ahead(t));return [qBase[0]+qStep[0]*k,qBase[1]+qStep[1]*k];};
   const apDist=Math.hypot(reg.stand[0]-qBase[0],reg.stand[1]-qBase[1]),noQ=e.wait<apDist/W+0.03;   /* ほとんど待たない人は、列に立たずにそのままレジへ */
-  const toQ=shortest(S,cur,reg.via,extraNodes);toQ.push(noQ?reg.stand:qPoint(tq));legs.push(route(toQ));
+  const toQ=shortest(S,cur,reg.via,extraNodes);toQ.push(noQ?reg.stand:qPoint(tq));legs.push(route(natural(S,toQ,R,'Q')));
   /* 店の中の時間（stay）を、歩く・見る・手を伸ばすに分ける。足りなければ、歩く速さを上げる */
-  const walkMin=legs.reduce((a,l)=>a+l.length/W,0),reachMin=stops.reduce((a,s)=>a+(s.reach?(S.reachMin||0.12)+(S.takeMin||0.06):0.08),0);
-  const room=Math.max(0.05,e.stay),need=walkMin+reachMin;let wk=1,browse=0;
-  if(need>room)wk=room/need;else browse=(room-need)/Math.max(1,stops.length);
+  const buyN=stops.filter(s=>!s.glance).length,gl=WD.glance||[0.1,0.25];
+  for(const s2 of stops)if(s2.glance)s2.dur=pick(R('gd'+s2.genre),gl);
+  const walkMin=legs.reduce((a,l)=>a+l.length/W,0),reachMin=stops.reduce((a,s)=>a+(s.glance?0:s.reach?(S.reachMin||0.12)+(S.takeMin||0.06):0.08),0);
+  let room=Math.max(0.05,e.stay),need=walkMin+reachMin,glN=stops.reduce((a,s)=>a+(s.glance?s.dur:0),0);
+  if(need+glN>room){for(const s2 of stops)if(s2.glance)s2.dur=0;glN=0;}   /* 寄り道の時間がなければ、通りすがりに見るだけ（0分） */
+  let wk=1,browse=0;
+  if(need>room)wk=room/need;else browse=(room-need-glN)/Math.max(1,buyN);
   let t=ta;
   legs.forEach((l,i)=>{const d=l.length/W*wk;segs.push({kind:'walk',a:t,b:t+d,r:l,ph:i<stops.length?'walk':'toQueue'});t+=d;
     const st=stops[i];if(!st)return;
+    if(st.glance){if(st.dur>0){segs.push({kind:'stand',a:t,b:t+st.dur,p:st.p,dir:st.dir,ph:'glance',touch:st.touch});t+=st.dur;}return;}
     const rm=(st.reach?(S.reachMin||0.12):0.04)*wk,tk=(st.reach?(S.takeMin||0.06):0.04)*wk;
-    segs.push({kind:'stand',a:t,b:t+browse,p:st.p,dir:st.dir,ph:'browse',stop:i});t+=browse;
+    segs.push({kind:'stand',a:t,b:t+browse,p:st.p,dir:st.dir,ph:'browse',stop:i,hes:st.hes});t+=browse;
     segs.push({kind:'stand',a:t,b:t+rm,p:st.p,dir:st.dir,ph:st.reach?'reach':'look',stop:i});t+=rm;
     segs.push({kind:'stand',a:t,b:t+tk,p:st.p,dir:st.dir,ph:'take',stop:i,pick:i});t+=tk;});
   if(t<tq-1e-9){if(noQ)segs.push({kind:'stand',a:t,b:tq,p:reg.stand,dir:0,ph:'wait'});else segs.push({kind:'queue',a:t,b:tq,ph:'queue'});}   /* 棚に寄らない人（ホットスナックだけ等）は、レジの前で待つ */
@@ -91,12 +121,12 @@ function plan(S,e,o){
   if(rg){const d=Math.max(0.3,(rg.t-te)+1);segs.push({kind:'stand',a:t,b:t+d,p:after,dir:0,ph:'range'});t+=d;miss.add('店員がレンジで温める絵');}
   const eat=(o.ev||[]).find(x=>x.k==='eatin'&&x.ps===ps&&Math.abs(x.from-from2)<0.011);
   const full=(o.ev||[]).find(x=>x.k==='eatfull'&&x.ps===ps&&Math.abs(x.from-from2)<0.011);
-  if(eat){const E=S.eat,p=eat.sit?E.sit:E.stand;const r=route([after,...shortest(S,near(S,after),E.via).slice(0),p]),d=r.length/W;
+  if(eat){const E=S.eat,p=eat.sit?E.sit:E.stand,via=eat.sit?E.via:(E.viaStand||E.via);const r=route(natural(S,[after,...shortest(S,near(S,after),via),p],R,'E')),d=r.length/W;
     segs.push({kind:'walk',a:t,b:t+d,r,ph:'toEat'});t+=d;
     const dur=Math.max(0.5,(eat.to||eat.t+8)-Math.max(eat.t,t));segs.push({kind:'stand',a:t,b:t+dur,p,dir:eat.sit?E.sitDir:E.standDir,ph:eat.sit?'sit':'eat'});t+=dur;
     after=p;
-    const r2=route([p,...shortest(S,E.via,S.exit)]),d2=r2.length/W;segs.push({kind:'walk',a:t,b:t+d2,r:r2,ph:'exit'});t+=d2;}
-  else{const r=route([after,...shortest(S,near(S,after),S.exit)]),d=r.length/W;segs.push({kind:'walk',a:t,b:t+d,r,ph:'exit'});t+=d;}
+    const r2=route(natural(S,[p,...shortest(S,via,S.exit)],R,'X2')),d2=r2.length/W;segs.push({kind:'walk',a:t,b:t+d2,r:r2,ph:'exit'});t+=d2;}
+  else{const r=route(natural(S,[after,...shortest(S,near(S,after),S.exit)],R,'X')),d=r.length/W;segs.push({kind:'walk',a:t,b:t+d,r,ph:'exit'});t+=d;}
   /* 払い方（表示用・仮）：決まった乱数 */
   const P=S.pay||{},u=R('pay');const pay=u<(P.cash||0)?'cash':u<(P.cash||0)+(P.card||0)?'card':'phone';
   return {key,idx:o.idx,e,ps:e.ps,lane,ta,tq,ts,te,end:t,segs,stops,items,pay,miss,ahead,qPoint,full:!!full,eat:!!eat};}
@@ -160,19 +190,24 @@ function drawPerson(c,pl,o,miss){const S=U.S,{P,sub}=personFor(pl.ps),h=sizeAt(o
   if(ck&&!P.sh[ck]){ck=null;other=other||drink;drink=null;}   /* 飲み物を持つ絵がない人は、ほかの品と同じ「持つ」絵で */
   if(drink&&ck&&ck!=='carry:'+drink.pid)miss.add(drink.name+'を持つ絵（'+(ck.endsWith('cf_black')?'缶コーヒー':'スポーツドリンク')+'で代わり）');
   if(other&&!P.sh.hold)miss.add((other.name||'品')+'を持つ絵');
-  const step=Math.floor((o.dist||0)/17)%4;
+  const step=[0,1,1,2,3,3][Math.floor((o.dist||0)/11)%6];   /* 足をそろえたコマを長めに（店の中は小股に見せる・2026-11-13） */
   c.fillStyle='rgba(60,50,34,.17)';c.beginPath();c.ellipse(o.x+h*.23,o.y+h*.16,h*.36,9,.56,0,7);c.fill();
   c.fillStyle='rgba(61,52,37,.16)';c.beginPath();c.ellipse(o.x,o.y+1,16,5,0,0,7);c.fill();
   const ph=o.ph;
   if((ph==='sit'||ph==='eat')&&P.sh[ph==='sit'?'sit':'eat']){sprite(c,fr(ph==='sit'?'sit':'eat',Math.floor((o.u||0)*40)%2),o.x,o.y,h);return;}   /* 座る・食べる絵（届いたら） */
   if(ph==='sit'||ph==='eat')miss.add(ph==='sit'?'座って食べる絵':'立って食べる絵');
+  if(ph==='pay'&&pl.lane==='s'&&!P.sh['pay-self']&&P.sh.reach){const u=o.u||0,pos=u<.25?u/.25:u<.75?1:Math.max(0,1-(u-.75)/.25);   /* セルフレジ：画面にふれる（手を伸ばす絵で代わり） */
+    miss.add('セルフレジで払う絵（画面にふれる絵で代わり）');sprite(c,fr('reach',0),o.x,o.y,h);if(pos>0)sprite(c,fr('reach',1),o.x,o.y,h,pos);return;}
+  if(ph==='pay'&&pl.lane==='s'&&P.sh['pay-self']){const u=o.u||0;sprite(c,fr('pay-self',Math.min(3,Math.floor(u*4))),o.x,o.y,h);return;}
   if(ph==='pay'&&P.sh['pay-'+pl.pay]){const u=o.u||0;sprite(c,fr('pay-'+pl.pay,u<.18?0:u<.4?1:u<.72?2:3),o.x,o.y,h);return;}   /* 現金・スマホで払う絵（届いたら） */
   if(ph==='pay'){const pk=ck?'pay:'+ck.slice(6):P.sh.pay?'pay':'pay:cf_black';const pf=fr(pk,0)?pk:(P.sh.pay?'pay':Object.keys(P.sh).find(k=>k.startsWith('pay:')));
     if(pl.pay!=='card'&&!P.sh['pay-'+pl.pay])miss.add(pl.pay==='cash'?'現金で払う絵（カードの絵で代わり）':'スマホで払う絵（カードの絵で代わり）');
     if(!ck&&pf&&pf!=='pay')miss.add('品を持たずに払う絵（飲み物を持った絵で代わり）');
     const u=o.u||0,k=u<.18?0:u<.4?1:u<.72?2:3;if(pf){sprite(c,fr(pf,k),o.x,o.y,h);return;}}
   if((ph==='reach'||ph==='take')&&!P.sh.reach)miss.add('手を伸ばす絵');
-  if((ph==='reach'||ph==='take'||ph==='browse')&&o.dir===0&&P.sh.reach){const pos=ph==='take'?2+Math.min(1,o.u||0):ph==='reach'?(o.reach||0)*2:0,a=Math.floor(pos),b=Math.min(3,a+1),f=pos-a;
+  if((ph==='glance'||ph==='browse')&&o.dir===0&&P.sh.reach&&!ck){const sg=o.seg||{},u=o.u||0,w=(sg.touch||sg.hes)?Math.sin(Math.PI*clamp((u-.3)/.45,0,1)):0;   /* 寄り道で手に取って戻す・買う棚で迷う */
+    sprite(c,fr('reach',0),o.x,o.y,h);if(w>0)sprite(c,fr('reach',1),o.x,o.y,h,w);return;}
+  if((ph==='reach'||ph==='take'||(ph==='browse'&&!ck))&&o.dir===0&&P.sh.reach){const pos=ph==='take'?2+Math.min(1,o.u||0):ph==='reach'?(o.reach||0)*2:0,a=Math.floor(pos),b=Math.min(3,a+1),f=pos-a;
     sprite(c,fr('reach',a),o.x,o.y,h);if(f>0)sprite(c,fr('reach',b),o.x,o.y,h,f);return;}
   if(ck&&ph!=='walk'&&ph!=='toQueue'&&ph!=='approach'&&ph!=='aside'&&ph!=='exit'&&ph!=='toEat'&&o.dir===0){const pk='pay:'+ck.slice(6);if(P.sh[pk]){sprite(c,fr(pk,0),o.x,o.y,h);return;}}
   const moving=!!o.mv,i=o.dir*4+(moving?step:1);
@@ -206,7 +241,7 @@ function draw(dt){const S=U.S,c=U.cv.getContext('2d'),W=U.cv.width,H=U.cv.height
   c.fillStyle='rgba(15,20,24,.78)';c.beginPath();c.roundRect(10,10,pl?230:300,30,6);c.fill();c.fillStyle='#ffd08a';c.font='700 17px sans-serif';c.textAlign='left';
   c.fillText(pl?('再生 '+fmt(U.clock)+(U.fast?'（早送り）':'')):'次のお客さんを待っています',20,31);
   caption(pl,o,miss);}
-const PH={walk:'棚へ歩いています',browse:'棚の品を見ています',reach:'手を伸ばして取ります',look:'棚の品を手に取ります',take:'品を取りました',toQueue:'レジへ向かいます',queue:'列で順番を待っています',approach:'呼ばれてレジの前へ',wait:'レジの前で、前の人の会計が終わるのを待ちます',pay:'会計しています',aside:'次の人のために、横へよけます',pack:'品を持ち直します',range:'お弁当を温めてもらっています',toEat:'イートインの席へ',eat:'立ち席で食べています',sit:'席に座って食べています',exit:'店を出ます',done:'店を出ました'};
+const PH={walk:'棚へ歩いています',glance:'ほかの棚の品も見ています（寄り道）',browse:'棚の品を見ています',reach:'手を伸ばして取ります',look:'棚の品を手に取ります',take:'品を取りました',toQueue:'レジへ向かいます',queue:'列で順番を待っています',approach:'呼ばれてレジの前へ',wait:'レジの前で、前の人の会計が終わるのを待ちます',pay:'会計しています',aside:'次の人のために、横へよけます',pack:'品を持ち直します',range:'お弁当を温めてもらっています',toEat:'イートインの席へ',eat:'立ち席で食べています',sit:'席に座って食べています',exit:'店を出ます',done:'店を出ました'};
 const PAYN={cash:'現金',card:'カード',phone:'スマホ'};
 function caption(pl,o,miss){if(!U.cap)return;let h;
   if(!pl)h=`<b>次のお客さんを待っています。</b><span>この店で会計を終えた人が出ると、その人を再生します（売店の計算の記録から）。</span>`;
