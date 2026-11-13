@@ -1,0 +1,12 @@
+{
+  "_note": "地図の列車の見た目（第7回・2026-11-13）。js/train-art.js が読む。色は自由に変えてよい（計算には使わない）。types のかぎは index.html の TYPES（L 普通・R 快速・E 特急・X 観光特急）。body 車体・stripe 帯・roof 屋根・roofHi 屋根の明るいところ・edge 縁取り・win 片側の窓の数。size は地図の1両の大きさ（地図の単位。地図は横1000）。",
+  "types": {
+    "L": {"name": "普通",     "body": "#f3f1ea", "stripe": "#e8792b", "roof": "#c9cdd0", "roofHi": "#eef0f1", "edge": "#2b3a4c", "win": 5},
+    "R": {"name": "快速",     "body": "#efe5c8", "stripe": "#2f7fc0", "roof": "#d9d2bd", "roofHi": "#f6f1e2", "edge": "#2b3a4c", "win": 5},
+    "E": {"name": "特急",     "body": "#8e1f2e", "stripe": "#e1c46a", "roof": "#cfd3d6", "roofHi": "#f1f2f3", "edge": "#2a1d24", "win": 6},
+    "X": {"name": "観光特急", "body": "#2f5a48", "stripe": "#e9cf8c", "roof": "#d6d2c4", "roofHi": "#f4f0e2", "edge": "#1d2a24", "win": 4}
+  },
+  "dead": {"alpha": 0.72},
+  "size": {"carL": {"2": 8.4, "3": 8.4, "4": 8.0, "6": 6.8, "8": 5.9, "10": 5.3}, "W": 3.3, "side": 1.5, "gap": 0.75},
+  "night": {"win": "#ffe3a3", "head": "#fff4cf"}
+}

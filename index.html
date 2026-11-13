@@ -659,6 +659,8 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/season-core.js?v=20261110a"></script>
 <script src="js/port-core.js?v=20261110a"></script>
 <script src="js/links/port-to-all.js?v=20261110a"></script>
+<script src="js/rail-shape.js?v=20261113a"></script>
+<script src="js/train-art.js?v=20261113a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -675,6 +677,14 @@ const ST={
   O:{name:'温泉',bkm:12.9,x:822,y:80,wait:true,term:true,plats:2},
 };
 const MAIN=['C','S','U','M','K','N','P'], BR=['K','F','T','O'];
+/* 第7回（2026-11-13）：お絵かき帖の「線路」の層で直した形（保存 dia-track）。保存がなければ今までの直線のまま。
+   駅の x,y はここで1回だけ置きかえる（駅の丸・名前・乗客の数の表示・押したときの選び方は ST の x,y を読むので、そのまま動く）。
+   キロ程（km・bkm）は変えない＝ダイヤ・乗客・運賃の計算は同じ */
+const RAILBASE={stations:Object.fromEntries(Object.entries(ST).map(([k,v])=>[k,{x:v.x,y:v.y}])),lines:[MAIN,BR],
+  depot:{C:{yard:{x:18,y:372,w:66,h:34},exit:[{x:50,y:389},{x:86,y:389},{x:100,y:350}]},P:{yard:{x:800,y:266,w:58,h:30},exit:[{x:829,y:281},{x:860,y:281},{x:884,y:316}]}}};
+const RAILSHAPE=(()=>{try{return window.RailShape?RailShape.load(localStorage,RAILBASE):null;}catch(e){return null;}})();
+const RG=RAILSHAPE?RailShape.build(RAILSHAPE,RAILBASE):null;   // 曲がる点のある区間だけ曲線（RG.segAt・RG.segMid）
+if(RG)for(const s in RG.st){ST[s].x=RG.st[s].x;ST[s].y=RG.st[s].y;}
 const ALL=['C','S','U','M','K','N','P','F','T','O'];
 const isMain=s=>MAIN.includes(s), isBr=s=>BR.includes(s);
 const segIsBranch=(a,b)=>isBr(a)&&isBr(b)&&!(isMain(a)&&isMain(b));
@@ -1411,9 +1421,13 @@ for(let i=0;i<MAIN.length-1;i++){const a=ST[MAIN[i]],b=ST[MAIN[i+1]];const d=uni
 MAIN.forEach((s,i)=>{const ns=[];if(i>0)ns.push(NM[MAIN[i-1]+s]);if(i<MAIN.length-1)ns.push(NM[s+MAIN[i+1]]);const x=ns.reduce((a,n)=>a+n.x,0),y=ns.reduce((a,n)=>a+n.y,0);const u=unit(x,y);NS[s]={x:u.x,y:u.y,tx:-u.y,ty:u.x};});
 for(let i=0;i<BR.length-1;i++){const a=ST[BR[i]],b=ST[BR[i+1]];const d=unit(b.x-a.x,b.y-a.y);const n={x:-d.y,y:d.x,tx:d.x,ty:d.y};NB[BR[i]+BR[i+1]]=n;NB[BR[i+1]+BR[i]]=n;}
 BR.forEach((s,i)=>{if(i===0)return;const ns=[NB[BR[i-1]+s]];if(i<BR.length-1)ns.push(NB[s+BR[i+1]]);const x=ns.reduce((a,n)=>a+n.x,0),y=ns.reduce((a,n)=>a+n.y,0);const u=unit(x,y);NBS[s]={x:u.x,y:u.y,tx:-u.y,ty:u.x};});
+// 曲げた区間があれば、駅の向きは曲線の端の向きから（なければ今までどおり駅と駅を結ぶ線から）
+if(RG){const fixN=(L,TBL)=>L.forEach((s,i)=>{if(TBL===NBS&&i===0)return;const ns=[];const nrm=(a,b,f)=>{const q=RG.segAt(a,b,f);if(q)return {x:q.nx,y:q.ny};const m=(TBL===NBS?NB:NM)[a+b];return {x:m.x,y:m.y};};
+    if(i>0)ns.push(nrm(L[i-1],s,1));if(i<L.length-1)ns.push(nrm(s,L[i+1],0));const u=unit(ns.reduce((a,n)=>a+n.x,0),ns.reduce((a,n)=>a+n.y,0));TBL[s]={x:u.x,y:u.y,tx:-u.y,ty:u.x};});
+  fixN(MAIN,NS);fixN(BR,NBS);}
 const stN=s=>isMain(s)?NS[s]:NBS[s];
 const anchorPt=(s,off,along=0)=>{const n=stN(s);return {x:ST[s].x+n.x*off+n.tx*along,y:ST[s].y+n.y*off+n.ty*along};};
-const segPt=(a,b,f,off)=>{const n=segIsBranch(a,b)?NB[a+b]:NM[a+b];return {x:ST[a].x+(ST[b].x-ST[a].x)*f+n.x*off,y:ST[a].y+(ST[b].y-ST[a].y)*f+n.y*off};};
+const segPt=(a,b,f,off)=>{const q=RG&&RG.segAt(a,b,f);if(q)return {x:q.x+q.nx*off,y:q.y+q.ny*off};const n=segIsBranch(a,b)?NB[a+b]:NM[a+b];return {x:ST[a].x+(ST[b].x-ST[a].x)*f+n.x*off,y:ST[a].y+(ST[b].y-ST[a].y)*f+n.y*off};};
 const LANE_C=[-19,-7,7,19];
 function stOff(tr,i){const s=tr.seq[i],p=tr.set?tr.set.plat:0;
   if(s==='C')return LANE_C[p%4];if(s==='P')return [-7,7][p%2];if(s==='O')return [-6,6][tr.num%2];if(s==='T'||s==='F')return tr.down?6:-6;
@@ -1422,33 +1436,52 @@ function bl(f){if(f>=0.2)return 0;const u=f/0.2;return 1-u*u*(3-2*u);}
 function segPos(tr,i,f){
   const a=tr.seq[i],b=tr.seq[i+1],br=segIsBranch(a,b),n=br?NB[a+b]:NM[a+b],lo=br?0:(tr.down?7:-7);
   const A=anchorPt(a,stOff(tr,i)),B=anchorPt(b,stOff(tr,i+1));
-  const ax=ST[a].x+n.x*lo,ay=ST[a].y+n.y*lo,bx=ST[b].x+n.x*lo,by=ST[b].y+n.y*lo;
   const wa=bl(f),wb=bl(1-f);
+  if(RG&&RG.segAt(a,b,0)){const p=segPt(a,b,f,lo),p0=segPt(a,b,0,lo),p1=segPt(a,b,1,lo);return {x:p.x+(A.x-p0.x)*wa+(B.x-p1.x)*wb,y:p.y+(A.y-p0.y)*wa+(B.y-p1.y)*wb};}   // 曲げた区間：曲線の上を道の長さで
+  const ax=ST[a].x+n.x*lo,ay=ST[a].y+n.y*lo,bx=ST[b].x+n.x*lo,by=ST[b].y+n.y*lo;
   return {x:ax+(bx-ax)*f+(A.x-ax)*wa+(B.x-bx)*wb,y:ay+(by-ay)*f+(A.y-ay)*wa+(B.y-by)*wb};
 }
 function ease(f,sa,sb){if(sa&&sb)return f*0.35+0.65*(f*f*(3-2*f));if(sa)return f*0.45+0.55*f*f;if(sb)return f*0.45+0.55*(1-(1-f)*(1-f));return f;}
 function tripState(tr,T){
   const n=tr.seq.length;let i=0;while(i<n-1&&tr.arr[i+1]<=T)i++;
-  if(T<tr.dep[i]||i===n-1){const p=anchorPt(tr.seq[i],stOff(tr,i));const nn=stN(tr.seq[i]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),at:i,moving:false,load:i===0?0:tr.loadAfter[i-1]};}
+  if(T<tr.dep[i]||i===n-1){const p=anchorPt(tr.seq[i],stOff(tr,i));const nn=stN(tr.seq[i]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),at:i,u:i,moving:false,load:i===0?0:tr.loadAfter[i-1]};}
   const raw=(T-tr.dep[i])/(tr.arr[i+1]-tr.dep[i]);const sa=tr.dep[i]>tr.arr[i]||i===0,sb=tr.stop[i+1]||tr.op[i+1];const f=ease(Math.min(1,Math.max(0,raw)),sa,sb);
   const p=segPos(tr,i,f),q=segPos(tr,i,Math.min(1,f+0.02)),r0=segPos(tr,i,Math.max(0,f-0.02));
-  return {x:p.x,y:p.y,ang:Math.atan2(q.y-r0.y,q.x-r0.x),at:i,moving:true,f:raw,load:tr.loadAfter[i]};
+  return {x:p.x,y:p.y,ang:Math.atan2(q.y-r0.y,q.x-r0.x),at:i,u:i+f,moving:true,f:raw,load:tr.loadAfter[i]};
 }
-const DEPOT={C:{yard:{x:18,y:372,w:66,h:34},exit:[{x:50,y:389},{x:86,y:389},{x:100,y:350}]},P:{yard:{x:800,y:266,w:58,h:30},exit:[{x:829,y:281},{x:860,y:281},{x:884,y:316}]}};
+const DEPOT=RG?RG.depot:RAILBASE.depot;   // 車庫の四角と出入りの道（線路の層で直せる）
+const segMid=(a,b,f0,f1,off)=>RG?RG.segMid(a,b,f0,f1,off):[];   // 曲げた区間の途中の点（線路を描くとき）
 function alongPath(pts,f){let L=0;const seg=[];for(let i=0;i<pts.length-1;i++){const l=Math.hypot(pts[i+1].x-pts[i].x,pts[i+1].y-pts[i].y);seg.push(l);L+=l;}
   let d=f*L;for(let i=0;i<seg.length;i++){if(d<=seg[i]||i===seg.length-1){const u=seg[i]?Math.min(1,d/seg[i]):0;return {x:pts[i].x+(pts[i+1].x-pts[i].x)*u,y:pts[i].y+(pts[i+1].y-pts[i].y)*u,ang:Math.atan2(pts[i+1].y-pts[i].y,pts[i+1].x-pts[i].x)};}d-=seg[i];}}
 function setState(s,T){
   if(T<s.first-8||T>s.last+9)return null;
   const tr0=s.trips[0],trL=s.trips[s.trips.length-1];
-  if(T<s.first-1){const end=anchorPt(tr0.seq[0],stOff(tr0,0));const f=(T-(s.first-8))/7;const p=alongPath([...DEPOT[s.home].exit,end],f*f*(3-2*f));return {...p,dead:true,trip:tr0,load:0};}
-  if(T>trL.arr.at(-1)+3){const n=trL.seq.length;const st=anchorPt(trL.seq[n-1],stOff(trL,n-1));const f=(T-(trL.arr.at(-1)+3))/6;const p=alongPath([st,...[...DEPOT[s.home].exit].reverse()],f*f*(3-2*f));return {...p,dead:true,trip:trL,load:0};}
+  if(T<s.first-1){const end=anchorPt(tr0.seq[0],stOff(tr0,0));const f=(T-(s.first-8))/7,pp=[...DEPOT[s.home].exit,end],e=f*f*(3-2*f);const p=alongPath(pp,e);return {...p,dead:true,trip:tr0,load:0,dpath:pp,df:e};}
+  if(T>trL.arr.at(-1)+3){const n=trL.seq.length;const st=anchorPt(trL.seq[n-1],stOff(trL,n-1));const f=(T-(trL.arr.at(-1)+3))/6,pp=[st,...[...DEPOT[s.home].exit].reverse()],e=f*f*(3-2*f);const p=alongPath(pp,e);return {...p,dead:true,trip:trL,load:0,dpath:pp,df:e};}
   for(let k=0;k<s.trips.length;k++){const tr=s.trips[k];
-    if(T<tr.dep[0]){const p=anchorPt(tr.seq[0],stOff(tr,0));const nn=stN(tr.seq[0]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),trip:tr,load:0,waiting:true};}
+    if(T<tr.dep[0]){const p=anchorPt(tr.seq[0],stOff(tr,0));const nn=stN(tr.seq[0]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),trip:tr,u:0,load:0,waiting:true};}
     if(T<=tr.arr.at(-1)+(k===s.trips.length-1?3:0)){return {...tripState(tr,T),trip:tr};}
-    if(k<s.trips.length-1&&T<s.trips[k+1].dep[0]&&T>tr.arr.at(-1)){const nx=s.trips[k+1];const p=anchorPt(nx.seq[0],stOff(nx,0));const nn=stN(nx.seq[0]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),trip:nx,load:0,waiting:true,turn:true};}
+    if(k<s.trips.length-1&&T<s.trips[k+1].dep[0]&&T>tr.arr.at(-1)){const nx=s.trips[k+1];const p=anchorPt(nx.seq[0],stOff(nx,0));const nn=stN(nx.seq[0]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),trip:nx,u:0,load:0,waiting:true,turn:true};}
   }
   return null;
 }
+/* 第7回：1両ずつ線路の上に置く。行路ごとに道すじの折れ線を1回だけ作り（TPATH）、編成の真ん中から前後に車両を並べる。
+   各車両は前後2点を道すじの上に取り、その向きに回す。端より外は、端の向きにまっすぐのばす。位置（真ん中）は今までと同じ */
+function pathOf(pts){const s=[0];for(let i=1;i<pts.length;i++)s.push(s[i-1]+Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y));return {pts,s,L:s[s.length-1]};}
+function pathAt(P,d){const p=P.pts,s=P.s,n=p.length;let i;
+  if(d<=0){i=1;while(i<n-1&&s[i]<1e-6)i++;}else if(d>=P.L){i=n-1;while(i>1&&s[i]-s[i-1]<1e-6)i--;}
+  else{let lo=0,hi=n-1;while(hi-lo>1){const m=(lo+hi)>>1;if(s[m]<=d)lo=m;else hi=m;}i=hi;}
+  const a=p[i-1],b=p[i],l=(s[i]-s[i-1])||1e-6,u=(d-s[i-1])/l;return {x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u};}
+const TPATH=new WeakMap();
+function tripPath(tr){if(TPATH.has(tr))return TPATH.get(tr);const pts=[],idx=[0];const n=tr.seq.length;
+  for(let i=0;i<n-1;i++){const a=tr.seq[i],b=tr.seq[i+1],L=RG?RG.segLen(a,b):Math.hypot(ST[b].x-ST[a].x,ST[b].y-ST[a].y),m=Math.max(6,Math.ceil(L/2.5));
+    for(let k=i?1:0;k<=m;k++)pts.push(segPos(tr,i,k/m));idx.push(pts.length-1);}
+  const P=pathOf(pts);P.idx=idx;TPATH.set(tr,P);return P;}
+function carPoses(v,k){const st=v.st,n=v.s.cars,sz=TrainArt.size(n,k),Lt=TrainArt.length(n,k);let P,d;
+  if(st.dpath){P=pathOf(st.dpath);d=st.df*P.L;}
+  else{P=tripPath(st.trip);const u=Math.max(0,Math.min(st.trip.seq.length-1,st.u||0)),i=Math.min(Math.floor(u),st.trip.seq.length-2),f=u-i,a=P.idx[i],b=P.idx[i+1],x=a+(b-a)*f,j=Math.min(b-1,Math.floor(x));d=P.s[j]+(P.s[j+1]-P.s[j])*(x-j);}
+  const out=[];for(let j=0;j<n;j++){const c=d+Lt/2-sz.L/2-j*(sz.L+sz.gap),f=pathAt(P,c+sz.L/2-0.3),b=pathAt(P,c-sz.L/2+0.3);out.push({x:(f.x+b.x)/2,y:(f.y+b.y)/2,ang:Math.atan2(f.y-b.y,f.x-b.x)});}
+  return out;}
 const crowdCol=r=>r<0.8?TH.ok:(r<1.5?TH.warn:TH.bad);
 function darkness(t){const m=((t%1440)+1440)%1440;if(m<350)return 1;if(m<395)return 1-(m-350)/45;if(m<1040)return 0;if(m<1085)return (m-1040)/45;return 1;}
 function band(t){const m=t%1440;if(t>=1440||m<300)return '深夜';if(m<420)return '早朝';if(m<570)return '朝ラッシュ';if(m<960)return '日中';if(m<1170)return '夕ラッシュ';if(m<1380)return '夜';return '深夜';}
@@ -1506,7 +1539,8 @@ function drawTracks(c){
     c.fillStyle=RAIL.plat;c.strokeStyle=RAIL.platLine;c.lineWidth=0.7;c.beginPath();c.roundRect(-len/2,-w/2,len,w,1.2);c.fill();c.stroke();c.restore();});
   const paths=()=>{
   // main with terminal connections
-    [7,-7].forEach(off=>{const pts=[];MAIN.forEach(s=>{if(s==='C')pts.push(segPt('C','S',0.32,off));else if(s==='P')pts.push(segPt('N','P',0.8,off));else pts.push(anchorPt(s,off));});strokePts(c,pts);});
+    [7,-7].forEach(off=>{const pts=[];MAIN.forEach((s,i)=>{if(s==='C')pts.push(segPt('C','S',0.32,off));else if(s==='P')pts.push(segPt('N','P',0.8,off));else pts.push(anchorPt(s,off));
+      if(i<MAIN.length-1)pts.push(...segMid(s,MAIN[i+1],s==='C'?0.32:0,MAIN[i+1]==='P'?0.8:1,off));});strokePts(c,pts);});
     // C lanes
     LANE_C.forEach(off=>{const a=anchorPt('C',off,-30),b=anchorPt('C',off,6),e=segPt('C','S',0.32,off<0?-7:7);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.quadraticCurveTo(b.x+22,b.y,e.x,e.y);c.stroke();});
     [-7,7].forEach(off=>{const a=segPt('N','P',0.8,off),b=anchorPt('P',off,0),e=anchorPt('P',off,20);c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
@@ -1515,11 +1549,12 @@ function drawTracks(c){
     // branch
     const bk=segPt('K','F',0.25,0);c.beginPath();c.moveTo(ST.K.x+NS.K.x*7,ST.K.y+NS.K.y*7);c.quadraticCurveTo(ST.K.x+14,ST.K.y-12,bk.x,bk.y);c.stroke();
     const bk2=anchorPt('K',-7,8);c.beginPath();c.moveTo(bk2.x,bk2.y);c.quadraticCurveTo(ST.K.x+16,ST.K.y-14,bk.x,bk.y);c.stroke();
-    const f1=segPt('K','F',0.7,0),f2=segPt('F','T',0.3,0);strokePts(c,[bk,f1]);
+    const f1=segPt('K','F',0.7,0),f2=segPt('F','T',0.3,0);strokePts(c,[bk,...segMid('K','F',0.25,0.7,0),f1]);
     [6,-6].forEach(off=>{const b=anchorPt('F',off,-8),d=anchorPt('F',off,8);c.beginPath();c.moveTo(f1.x,f1.y);c.lineTo(b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(f2.x,f2.y);c.stroke();});
-    strokePts(c,[f2,segPt('F','T',0.75,0)]);
+    strokePts(c,[f2,...segMid('F','T',0.3,0.75,0),segPt('F','T',0.75,0)]);
     [6,-6].forEach(off=>{const a=segPt('F','T',0.75,0),b=anchorPt('T',off,-10),d=anchorPt('T',off,10),e=segPt('T','O',0.22,0);c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo(b.x-6*NBS.T.tx,b.y-6*NBS.T.ty,b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(e.x,e.y);c.stroke();});
-    const o1=segPt('T','O',0.22,0),o2=segPt('T','O',0.8,0);strokePts(c,[o1,o2]);
+    const o1=segPt('T','O',0.22,0),o2=segPt('T','O',0.8,0);strokePts(c,[o1,...segMid('T','O',0.22,0.8,0),o2]);
+    if(RG)RG.extra.forEach(pl=>strokePts(c,pl));   // お絵かき帖で描いた側線・車庫の出入りの線
     [6,-6].forEach(off=>{const b=anchorPt('O',off,0),e=anchorPt('O',off,14);c.beginPath();c.moveTo(o2.x,o2.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
   };
   // 同じ線路の形を3回なぞる：明るいふち → 茶色 → 明るい縞（線路が重なる分岐でもすき間が出ない）
@@ -1531,7 +1566,10 @@ function drawTracks(c){
     for(let i=0;i<4;i++){const yy=y.y+4+i*(y.h-8)/3;c.beginPath();c.moveTo(y.x,yy);c.lineTo(y.x+y.w,yy);c.stroke();}
     strokePts(c,d.exit);});
 }
-function drawTrainShape(c,x,y,ang,cars,col,dk,stopped){
+// 列車の大きさの倍率：地図が小さく出る画面（スマホ）では少し大きく
+const trainK=()=>Math.max(1,Math.min(1.3,1/(MS||1)));
+TrainArt.onload=()=>{try{drawMap();}catch(e){}};
+function drawTrainShape(c,x,y,ang,cars,col,dk,stopped){   // 第7回より前の列車の絵（今は使っていない。くらべるために残す）
   const cl=Math.min(5,30/Math.max(cars,4)),gap=0.5,w=4.3,len=cars*cl+(cars-1)*gap;
   c.save();c.translate(x,y);c.rotate(ang);
   if(stopped){c.save();c.shadowColor='rgba(255,246,214,.95)';c.shadowBlur=6;c.fillStyle='rgba(255,246,214,.75)';c.beginPath();c.roundRect(-len/2-1,-w/2-1,len+2,w+2,2);c.fill();c.restore();}
@@ -1589,20 +1627,25 @@ function drawMap(){
   });
   if(LAYERS.bus&&window.RouteRunView)RouteRunView.draw(c,T,dk);   // バス・配送（お絵かき帖の路線を時刻どおりに。見た目だけ）
   // depots count
-  const inDepot={C:0,P:0},total={C:0,P:0};
+  const inDepot={C:0,P:0},total={C:0,P:0},parked={C:[],P:[]};
   VIS=[];
-  D.sets.forEach(s=>{total[s.home]++;const st=setState(s,T);if(!st){inDepot[s.home]++;return;}VIS.push({s,st});});
+  D.sets.forEach(s=>{total[s.home]++;const st=setState(s,T);if(!st){inDepot[s.home]++;parked[s.home].push(s);return;}VIS.push({s,st});});
   c.font='600 11px "Zen Kaku Gothic New",sans-serif';c.textAlign='left';
   Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;const n=inDepot[k];
-    for(let i=0;i<Math.min(n,16);i++){const lane=i%4,col=Math.floor(i/4);const yy=y.y+4+lane*(y.h-8)/3;c.fillStyle=TH.dead;c.fillRect(y.x+4+col*15,yy-2.4,12,4.8);}
+    {const cols=Math.max(1,Math.floor((y.w-4)/16)),lanes=4;for(let i=0;i<Math.min(n,cols*lanes);i++){const lane=i%lanes,col=Math.floor(i/lanes);const yy=y.y+4+lane*(y.h-8)/3-0.6,xx=y.x+9+col*16;const ps=parked[k][i];   // 車庫で休んでいる編成（小さな2両の絵）
+      TrainArt.drawTrain(c,[{x:xx+3.3,y:yy,ang:0},{x:xx-3.3,y:yy,ang:0}],{type:ps&&ps.trips[0]?ps.trips[0].type:'L',dk,k:0.62,faded:true,zoom:MS*CDPR});}}
     c.fillStyle=TH.ink;if(k==='C'){c.fillText(DEPOTNAME[k],y.x-4,y.y-22);c.fillText(`${n}/${total[k]}編成`,y.x-4,y.y-9);}else c.fillText(`${DEPOTNAME[k]} ${n}/${total[k]}編成`,y.x-24,y.y-10);});
   // trains
-  if(LAYERS.trains)VIS.forEach(({s,st})=>{const tr=st.trip;const col=st.dead?TH.dead:TH[tr.type];drawTrainShape(c,st.x,st.y,st.ang,s.cars,col,dk,!st.moving&&!st.dead);
-    const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);c.arc(st.x+n.x*9*side,st.y+n.y*9*side,2.8,0,Math.PI*2);c.fill();}});
+  // 列車（第7回：1両ずつ線路の上に。js/train-art.js）。選んだ編成は車両の下にうすい光
+  const TK=trainK();
+  if(LAYERS.trains){VIS.forEach(v=>{v.cars=carPoses(v,TK);});
+    const ss0=selSet(),sv=ss0&&VIS.find(v=>v.s===ss0);if(sv){c.save();c.strokeStyle=TH.accent;c.globalAlpha=0.45;c.lineWidth=11*TK;c.lineCap='round';c.lineJoin='round';c.beginPath();sv.cars.forEach((p,i)=>i?c.lineTo(p.x,p.y+0.7):c.moveTo(p.x,p.y+0.7));if(sv.cars.length===1)c.lineTo(sv.cars[0].x+0.1,sv.cars[0].y+0.7);c.stroke();c.restore();}
+    VIS.slice().sort((a,b)=>a.st.y-b.st.y).forEach(({s,st,cars})=>{const tr=st.trip;TrainArt.drawTrain(c,cars,{type:tr.type,dk,stopped:!st.moving&&!st.dead&&!st.waiting,faded:!!st.dead,k:TK,zoom:MS*CDPR});
+    const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);c.arc(st.x+n.x*9*side,st.y+n.y*9*side,2.8,0,Math.PI*2);c.fill();}});}
   // selection
   if(LAYERS.events)drawEventIcons(c,snap,dk);
   drawScenePins(c);   // 場面（コレクション）のピン
-  const ss=LAYERS.trains?selSet():null;if(ss){const v=VIS.find(v=>v.s===ss);if(v){const tr=v.st.trip;c.strokeStyle=TH.accent;c.lineWidth=2;c.beginPath();c.arc(v.st.x,v.st.y,14,0,Math.PI*2);c.stroke();
+  const ss=LAYERS.trains?selSet():null;if(ss){const v=VIS.find(v=>v.s===ss);if(v){const tr=v.st.trip;
     const want=sel.kind==='trip'?sel.trip:null;const txt=v.st.dead?'回送':(want&&want!==tr?`${want.num}は${fmt(want.dep[0])}発・この編成で運転`:`${TYPES[tr.type].name} ${tr.num}　${fmtN(v.st.load||0)}人・${Math.round((v.st.load||0)/tr.cap*100)}%`);c.font='700 12px "Zen Kaku Gothic New",sans-serif';const w=c.measureText(txt).width+14;let bx=v.st.x-w/2,by=v.st.y-38;bx=Math.max(4,Math.min(996-w,bx));if(by<4)by=v.st.y+18;
     c.fillStyle=TH.ink;c.beginPath();c.roundRect(bx,by,w,20,5);c.fill();c.fillStyle=TH.panel;c.textAlign='left';c.fillText(txt,bx+7,by+14.5);}}
 }
@@ -1949,9 +1992,10 @@ function pillText(c,txt,x,y,fg,bg){c.font='700 10.5px "JetBrains Mono",monospace
 function drawHeat(c,snap){
   SEGS.forEach((x,i)=>{const br=x.line!=='本線';[0,1].forEach(dr=>{const v=snap.segments[i][dr];const off=(br?5:7)*(dr?-1:1);const g=segLine(x.a,x.b,off,br?10:16);
     c.lineCap='round';
-    if(v.ratio==null){c.setLineDash([4,4]);c.strokeStyle=TH.dead;c.lineWidth=1.6;c.beginPath();c.moveTo(g.x0,g.y0);c.lineTo(g.x1,g.y1);c.stroke();c.setLineDash([]);return;}
-    c.strokeStyle=crowdCol(v.ratio);c.globalAlpha=0.85;c.lineWidth=3+Math.min(7,Math.sqrt(v.L)/9);c.beginPath();c.moveTo(g.x0,g.y0);c.lineTo(g.x1,g.y1);c.stroke();c.globalAlpha=1;
-    const mx=(g.x0+g.x1)/2+g.nx*(dr?-1:1)*(br?15:21),my=(g.y0+g.y1)/2+g.ny*(dr?-1:1)*(br?15:21);
+    const ln=()=>{c.beginPath();c.moveTo(g.x0,g.y0);if(RG){const L=Math.hypot(ST[x.b].x-ST[x.a].x,ST[x.b].y-ST[x.a].y)||1,ft=(br?10:16)/L;segMid(x.a,x.b,ft,1-ft,off).forEach(q=>c.lineTo(q.x,q.y));}c.lineTo(g.x1,g.y1);};   // 曲げた区間は曲線にそって
+    if(v.ratio==null){c.setLineDash([4,4]);c.strokeStyle=TH.dead;c.lineWidth=1.6;ln();c.stroke();c.setLineDash([]);return;}
+    c.strokeStyle=crowdCol(v.ratio);c.globalAlpha=0.85;c.lineWidth=3+Math.min(7,Math.sqrt(v.L)/9);ln();c.stroke();c.globalAlpha=1;
+    const mq=RG&&RG.segAt(x.a,x.b,0.5),mx=(mq?mq.x:(g.x0+g.x1)/2)+g.nx*(dr?-1:1)*(br?15:21),my=(mq?mq.y:(g.y0+g.y1)/2)+g.ny*(dr?-1:1)*(br?15:21);
     pillText(c,`${dr?'上':'下'}${Math.round(v.ratio*100)}%`,mx,my,TH.ink,TH.panel);});});}
 function drawStationLayer(c,snap){
   ALL.forEach(s=>{const v=snap.stations[s],st=ST[s];const r=Math.min(34,5+Math.sqrt(v.onoffHour)/2.4);
@@ -2375,7 +2419,7 @@ map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.
   if(LAYERS.bus&&window.RouteRunView&&RouteRunView.click(x,y)){drawMap();return;}   // バス・配送の乗り物を押したら小さなカード
   {const h=SCPIN.find(v=>Math.hypot(v.x-x,v.y-14-y)<13);if(h){openScene(h.s);return;}}   // 場面のピン
   if(LAYERS.events){const h=EVHIT.find(v=>Math.hypot(v.x-x,v.y-y)<18);if(h){selectEvent(h.id);return;}}
-  let best=null,bd=16;if(LAYERS.trains)VIS.forEach(v=>{const d=Math.hypot(v.st.x-x,v.st.y-y);if(d<bd){bd=d;best=v;}});
+  let best=null,bd=16;if(LAYERS.trains)VIS.forEach(v=>{(v.cars||[v.st]).forEach(p=>{const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=v;}});});   // どの車両を押しても選べる
   if(best){sel={kind:'set',set:best.s};}
   else{let bs=null,sd=30;ALL.forEach(s=>{const d=Math.hypot(ST[s].x-x,ST[s].y-y);if(d<sd){sd=d;bs=s;}});if(bs){sel={kind:'station',st:bs};ttStation(bs);psStation(bs);}}
   refreshPanels(true);drawDia();});
