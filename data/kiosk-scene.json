@@ -6,10 +6,11 @@
   "width": 1628,
   "height": 966,
   "background": [
+    "background-clerk.webp",
     "background-empty.webp",
     "background-checkout.webp"
   ],
-  "backgroundNote": "上から順に読めたものを使う。background-empty.webp（人のいない背景）が届いたら、置くだけで差しかわる。",
+  "backgroundNote": "上から順に読めたものを使う。background-clerk.webp＝人のいない背景に、もとの絵のレジの店員だけを戻したもの（店員はその場を動かない・2026-11-13 ユーザーの目標：店員1人と客1人）",
   "rate": 3,
   "standMaxSec": 6,
   "walkPxPerMin": 1100,
