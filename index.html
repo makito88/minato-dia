@@ -133,6 +133,29 @@ button{cursor:pointer}
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .mapcard{padding:0;overflow:hidden}
 .mapcard .scroll{border-radius:10px 10px 0 0}
+/* 第7回：編成のパネル（列車を押すと地図の下に。お手本の画面下の形） */
+.formbar{--fb1:#46535e;--fb2:#323d47;--fbline:rgba(255,255,255,.14);--fbink:#f2f4f1;--fbmut:#b9c3c9;display:grid;grid-template-columns:150px minmax(0,1fr) 220px;gap:10px;padding:10px;margin:8px 8px 0;border-radius:16px;
+  background:linear-gradient(180deg,var(--fb1),var(--fb2));box-shadow:0 1px 0 rgba(255,255,255,.12) inset,0 8px 22px -10px rgba(10,20,30,.55);color:var(--fbink);font-family:"Zen Maru Gothic","Zen Kaku Gothic New",sans-serif}
+.formbar[hidden]{display:none}
+.fb-types{display:flex;flex-direction:column;gap:6px}
+.fb-types button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1.5px solid var(--fbline);background:rgba(255,255,255,.06);border-radius:12px;padding:5px 7px 4px;color:var(--fbmut);font-size:11px;text-align:left;cursor:pointer}
+.fb-types button canvas{width:100%;height:20px;display:block}
+.fb-types button.on{border-color:#cfe6f5;background:rgba(255,255,255,.14);color:var(--fbink);box-shadow:0 0 0 3px rgba(150,205,240,.25)}
+.fb-types button:disabled{opacity:.45;cursor:default}
+.fb-stage{position:relative;border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,.5);min-height:118px;background:#6d6a5f}
+.fb-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.fb-info{display:flex;flex-direction:column;gap:6px;font-size:12.5px;min-width:0}
+.fb-info .fbh{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.fb-info .fbtag{border-radius:7px;padding:2px 8px;font-weight:700;font-size:12px;box-shadow:0 0 0 1.5px rgba(0,0,0,.25) inset}
+.fb-info .fbnum{font:700 18px/1 "Zen Kaku Gothic New",sans-serif;letter-spacing:.02em}
+.fb-info .fbdest{font-weight:700;font-size:15px}
+.fb-info .fbsub{color:var(--fbmut);font-size:11.5px;line-height:1.45}
+.fb-info .fbrow{display:flex;gap:12px;flex-wrap:wrap}.fb-info .fbrow b{font-size:15px}
+.fb-info .fbbtns{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap}
+.fb-info .fbbtns a,.fb-info .fbbtns button{display:inline-flex;align-items:center;gap:5px;border:1.5px solid var(--fbline);background:rgba(255,255,255,.08);color:var(--fbink);border-radius:10px;padding:5px 9px;font-size:12px;text-decoration:none;cursor:pointer}
+.fb-info .fbbtns svg{width:16px;height:16px}
+.fb-info .fbx{position:absolute;right:8px;top:6px}
+@media (max-width:760px){.formbar{grid-template-columns:1fr;margin:6px 4px 0}.fb-types{flex-direction:row;overflow-x:auto}.fb-types button{flex:0 0 96px}.fb-stage{min-height:92px;order:-1}}
 canvas{display:block;touch-action:manipulation}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);align-items:center}
 .legend i{display:inline-block;width:18px;height:6px;border-radius:2px;vertical-align:middle;margin-right:5px}
@@ -506,6 +529,11 @@ canvas{display:block;touch-action:manipulation}
       <span class="sub" id="mapnote"></span>
     </div>
     <div class="scroll" id="mapwrap"><canvas id="map" aria-label="路線図。列車が走っています"></canvas></div>
+    <div class="formbar" id="formbar" hidden aria-label="選んだ編成">
+      <div class="fb-types" id="fbTypes" role="group" aria-label="車両の種類"></div>
+      <div class="fb-stage"><canvas id="fbCv" aria-label="編成を横から見た絵"></canvas></div>
+      <div class="fb-info" id="fbInfo"></div>
+    </div>
     <div class="legend" id="legend"></div>
     <div class="evstrip" id="evstrip"></div>
   </section>
@@ -1821,6 +1849,42 @@ function setPane(p){if(!['run','plan','stats'].includes(p))p='run';const was=PAN
   document.querySelectorAll('#mtabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.pane===p)));
   if(p==='run'&&was!=='run'){resize();}refreshPanels(true);}
 document.getElementById('mtabs').addEventListener('click',e=>{const b=e.target.closest('button[data-pane]');if(b)setPane(b.dataset.pane);});
+/* 第7回：編成のパネル。列車（編成）を選ぶと、地図の下にその編成を横から見た大きな絵と、種別・両数・行き先。
+   左は車両の種類（押すと、いま走っているその種類の列車を選ぶ）。中身の数字は今までの列車の表示と同じところから読む */
+const FB={key:'',info:'',hid:null,tkey:''};
+const FB_ORDER=['L','R','E','X'];
+function fbStage(cv,n,type,dk){const r=cv.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),W=Math.max(10,r.width),H=Math.max(10,r.height);cv.width=Math.round(W*d);cv.height=Math.round(H*d);const c=cv.getContext('2d');c.setTransform(d,0,0,d,0,0);
+  // 砂利・枕木・レール・両側の草（決まった乱数で毎回同じ絵）
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#7d7a6c');g.addColorStop(0.5,'#8d897a');g.addColorStop(1,'#77746a');c.fillStyle=g;c.fillRect(0,0,W,H);
+  let sd=11;const rr=()=>(sd=sd*16807%2147483647)/2147483647;for(let i=0;i<W*H/22;i++){const x=rr()*W,y=rr()*H;c.fillStyle=`rgba(${rr()<0.5?'255,255,245':'40,38,32'},${0.08+rr()*0.18})`;c.fillRect(x,y,1.6+rr()*1.6,1.2+rr()*1.4);}
+  c.fillStyle='#5f8a3e';c.fillRect(0,0,W,H*0.1);c.fillRect(0,H*0.9,W,H*0.1);c.fillStyle='#78a64c';for(let x=0;x<W;x+=5){c.fillRect(x,H*0.1-2-rr()*4,2,6);c.fillRect(x+2,H*0.9-1,2,4+rr()*4);}
+  const ty=H*0.32,by=H*0.74;for(let x=-10;x<W+10;x+=Math.max(14,H*0.17)){c.fillStyle='#8a6a4a';c.fillRect(x,ty-H*0.1,H*0.1,by-ty+H*0.2);c.fillStyle='rgba(0,0,0,.18)';c.fillRect(x+H*0.08,ty-H*0.1,2,by-ty+H*0.2);}
+  [ty,by].forEach(y=>{c.fillStyle='#5b6066';c.fillRect(0,y-2.5,W,5);c.fillStyle='#c9ced2';c.fillRect(0,y-2.5,W,1.6);});
+  if(!n)return;const gap=Math.max(6,H*0.07),mh=H*0.66,cw=Math.min(mh*3.3,(W-36-gap*(n-1))/n),ch=Math.min(mh,cw/2.3),tw=n*cw+(n-1)*gap;
+  TrainArt.drawSide(c,(W-tw)/2,(H-ch)/2-H*0.02,tw,ch,n,type,{win:dk>0.3?dk:0,head:dk>0.3?dk:0});}
+function renderFormbar(){const box=$('#formbar');if(!box)return;const set=LAYERS.trains?selSet():null;
+  if(!set||FB.hid===set){if(!box.hidden){box.hidden=true;FB.key='';}return;}
+  const tr=curTrip();if(!tr){box.hidden=true;return;}const st=setState(set,T),ty=tr.type,dk=darkness(T);box.hidden=false;
+  // 左：車両の種類
+  const running=new Set(VIS.filter(v=>!v.st.dead).map(v=>v.st.trip.type));const tk=ty+'|'+[...running].join('');
+  if(FB.tkey!==tk){FB.tkey=tk;$('#fbTypes').innerHTML=FB_ORDER.map(k=>`<button data-fbt="${k}" class="${k===ty?'on':''}" ${running.has(k)||k===ty?'':'disabled'} title="${running.has(k)?'いま走っている'+TYPES[k].name+'を選ぶ':'いま走っていません'}"><canvas></canvas>${TYPES[k].name}</button>`).join('');
+    requestAnimationFrame(()=>document.querySelectorAll('#fbTypes button').forEach(b=>{const cv=b.querySelector('canvas'),r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);const c=cv.getContext('2d');c.setTransform(d,0,0,d,0,0);TrainArt.drawSide(c,2,3,r.width-4,r.height-6,3,b.dataset.fbt,{});}));}
+  // 中：横から見た編成
+  const key=[set.label,ty,set.cars,Math.round(dk*4),$('#fbCv').clientWidth,$('#fbCv').clientHeight].join('|');if(key!==FB.key){FB.key=key;fbStage($('#fbCv'),set.cars,ty,dk);}
+  // 右：種別・番号・行き先・両数・いまの乗車（今までの列車の表示と同じ数字）
+  const L=TrainArt.livery(ty),s=trainStatus(tr,T),run=T>=tr.dep[0]&&T<tr.arr.at(-1),r=s.load/tr.cap;
+  const where=!st?`${DEPOTNAME[set.home]}で待機中`:st.dead?'車庫との間を回送中':s.txt;
+  const html=`<div class="fbh"><span class="fbtag" style="background:${L.body};color:${(()=>{const n=parseInt(L.body.slice(1),16);return ((n>>16)*0.3+((n>>8)&255)*0.59+(n&255)*0.11)<150?'#fff':'#2b3a4c';})()};border-bottom:3px solid ${L.stripe}">${TYPES[ty].name}</span><span class="fbnum">${tr.num}</span><span class="fbdest">${ST[tr.seq.at(-1)].name}行</span></div>
+    <div class="fbrow"><span><b>${set.cars}</b>両</span><span class="fbsub">編成 ${set.label}・${DEPOTNAME[set.home]}</span></div>
+    <div class="fbsub">${where}</div>
+    ${run?`<div class="fbrow"><span>いま <b>${fmtN(s.load)}</b>人</span><span style="color:${crowdCol(r)};font-weight:700">${Math.round(r*100)}%</span></div>`:`<div class="fbsub">${fmt(tr.dep[0])} ${ST[tr.seq[0]].name}発</div>`}
+    <div class="fbbtns"><button type="button" data-fb="more">くわしく</button><a href="route-editor.html#track" title="お絵かき帖の「線路」で、線路・駅・車庫の形を直す"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 21C7 13 10 8 17 3M12 21c0-6 2-10 7-13"/><path d="M6.5 17.5h6M7.6 13.5h5.6M9.6 9.6h5M12.6 6.2h4"/></svg>線路を直す</a><button type="button" data-fb="close" title="とじる">×</button></div>`;
+  if(html!==FB.info){FB.info=html;$('#fbInfo').innerHTML=html;}}
+$('#formbar').addEventListener('click',e=>{const b=e.target.closest('[data-fbt],[data-fb]');if(!b)return;
+  if(b.dataset.fb==='close'){FB.hid=selSet();renderFormbar();return;}
+  if(b.dataset.fb==='more'){const i=$('#info');if(i)i.scrollIntoView({behavior:'smooth',block:'start'});return;}
+  const k=b.dataset.fbt;const cand=VIS.filter(v=>!v.st.dead&&v.st.trip.type===k);if(!cand.length)return;const cur=selSet();const i=cand.findIndex(v=>v.s===cur);const v=cand[(i+1)%cand.length];
+  sel={kind:'set',set:v.s};FB.hid=null;refreshPanels(true);drawMap();drawDia();});
 function refreshPanels(force){
   if(!D)return;
   let html='';const tr=curTrip();
@@ -1828,6 +1892,7 @@ function refreshPanels(force){
   if(tr)html=renderTrain(tr);else if(sel.kind==='event')html=renderEvent(EVMAP[sel.id]);else if(sel.kind==='station')html=renderStation(sel.st);
   renderEvStrip();
   if(html!==lastInfo||force){$('#info').innerHTML=html;lastInfo=html;}
+  renderFormbar();
   renderTT(force);renderPurpose(force);renderFlow(force);renderMapNote();
   // kpis
   const G=D.sim.G;const j=bsearch(G.t,T);
@@ -2031,7 +2096,7 @@ function drawEventIcons(c,snap,dk){EVHIT=[];const now=performance.now()/1000;
     c.font='700 10.5px "Zen Kaku Gothic New",sans-serif';const lab=`${ev.name} ${fmt(ev.start)}〜`;const w=c.measureText(lab).width+10;let lx=Math.max(w/2+2,Math.min(998-w/2,p.x)),ly=p.y+26;if(ly>414)ly=p.y-24;
     c.fillStyle=TH.panel;c.globalAlpha=0.9;c.beginPath();c.roundRect(lx-w/2,ly-10,w,15,4);c.fill();c.globalAlpha=1;c.fillStyle=state==='after'?TH.muted:TH.ink;c.fillText(lab,lx,ly+1.5);});}
 function renderLegend(){const L=[];
-  if(LAYERS.trains)L.push('<span><i style="background:var(--t-local)"></i>普通</span><span><i style="background:var(--t-rapid)"></i>快速</span><span><i style="background:var(--t-exp)"></i>特急</span><span><i style="background:var(--t-tour)"></i>観光特急</span><span><i style="background:var(--t-dead)"></i>回送</span>');
+  if(LAYERS.trains)L.push(['L','R','E','X'].map(k=>{const v=TrainArt.livery(k);return `<span><i style="background:${v.body};box-shadow:inset 0 -3px 0 ${v.stripe},0 0 0 1px ${v.edge}"></i>${TYPES[k].name}</span>`;}).join('')+'<span><i style="background:var(--t-dead);opacity:.7"></i>回送（うすく）</span>');   // 第7回：地図の列車の塗り分け（data/train-style.json）
   if(LAYERS.trains||LAYERS.heat)L.push(`<span style="margin-left:6px">${LAYERS.heat?'区間の乗車率':'列車の混雑'}</span><span><i class="dot" style="background:var(--ok)"></i>〜80%</span><span><i class="dot" style="background:var(--warn)"></i>〜150%</span><span><i class="dot" style="background:var(--bad)"></i>150%〜</span>`);
   if(LAYERS.heat)L.push('<span>下＝港・温泉方面 / 上＝中央方面</span><span><span class="nodata"></span>この時間は運転なし</span><span>線の太さ＝通過人数</span>');
   if(LAYERS.stations)L.push('<span><span class="ring"></span>円の大きさ＝この1時間の乗降人数</span>');
@@ -2420,7 +2485,7 @@ map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.
   {const h=SCPIN.find(v=>Math.hypot(v.x-x,v.y-14-y)<13);if(h){openScene(h.s);return;}}   // 場面のピン
   if(LAYERS.events){const h=EVHIT.find(v=>Math.hypot(v.x-x,v.y-y)<18);if(h){selectEvent(h.id);return;}}
   let best=null,bd=16;if(LAYERS.trains)VIS.forEach(v=>{(v.cars||[v.st]).forEach(p=>{const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=v;}});});   // どの車両を押しても選べる
-  if(best){sel={kind:'set',set:best.s};}
+  if(best){sel={kind:'set',set:best.s};FB.hid=null;}
   else{let bs=null,sd=30;ALL.forEach(s=>{const d=Math.hypot(ST[s].x-x,ST[s].y-y);if(d<sd){sd=d;bs=s;}});if(bs){sel={kind:'station',st:bs};ttStation(bs);psStation(bs);}}
   refreshPanels(true);drawDia();});
 dia.addEventListener('click',e=>{const r=dia.getBoundingClientRect();const tr=diaHit(e.clientX-r.left,e.clientY-r.top);
