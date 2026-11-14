@@ -79,8 +79,8 @@
         "sit": "kaishain_f-sit.webp",
         "eat": "kaishain_f-eat.webp"
       },
-      "note": "2026-11-13 ユーザーが ChatGPT で描いた絵（もとの絵は docs/ref/scene-src/）を、256x384・足元(128,368)・頭から足315 にそろえた",
-      "stride": 0.15
+      "note": "2026-11-13 ユーザーが ChatGPT で描いた絵（もとの絵は docs/ref/scene-src/）を、256x384・足元(128,368)・頭から足315 にそろえた。2026-11-14：歩く絵の横向き（右・左）の段を、ユーザーが Gemini で作った歩く動画（docs/ref/scene-src/gemini_generated_video_834576e8.mp4）から切りぬいた絵に置きかえた（左向きの1歩の周期 81・91・98・109 コマ目、右向きはその左右反転）。奥・手前の段は ChatGPT の絵のまま（動画に前後へ歩くところがほとんどないため）。stride はその横向きの段で測りなおした",
+      "stride": 0.267
     },
     {
       "id": "gakusei",
