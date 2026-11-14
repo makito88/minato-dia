@@ -420,7 +420,7 @@ $('mapAlpha').oninput=e=>{doc.view.mapAlpha=+e.target.value;redraw();};$('mapAlp
 document.querySelectorAll('#menu .mi').forEach(b=>b.onclick=()=>{const m=b.dataset.m;
   if(m==='png')savePNG();else if(m==='export')exportJSON();else if(m==='import')$('file').click();
   else if(m==='rail'){doc.view.rail=!doc.view.rail;commit();}else if(m==='fit')fit();
-  else if(m==='example'){example();}else if(m==='clear'){if(confirm('描いたものをぜんぶ消しますか？（「元に戻す」で戻せます）')){const t=doc.types,v=doc.view,ev=doc.evs;doc=C.emptyDoc(DEF);doc.types=t;doc.view=v;if(ev)doc.evs=ev;S.sel=null;S.line=null;S.poly=null;commit();}}
+  else if(m==='example'){example();}else if(m==='group'){groupRoutes();}else if(m==='clear'){if(confirm('描いたものをぜんぶ消しますか？（「元に戻す」で戻せます）')){const t=doc.types,v=doc.view,ev=doc.evs;doc=C.emptyDoc(DEF);doc.types=t;doc.view=v;if(ev)doc.evs=ev;S.sel=null;S.line=null;S.poly=null;commit();}}
   if(m!=='rail')$('menu').hidden=true;});
 $('undo').onclick=undo;$('redo').onclick=redo;
 document.querySelectorAll('#zoom .ib').forEach(b=>b.onclick=()=>zoomAt(+b.dataset.z,V.w/2,V.h/2));
@@ -470,6 +470,33 @@ function example(){const R=(pts,type,smooth=true)=>C.addPath(doc,pts,{type,smoot
   L('深夜バス みなと号','city',[e,d,a,f,p,i],{freq:{unit:'h',n:1},first:'23:10',last:'00:40',round:false,style:{color:'#6b4fa8'}});
   L('みなと空港 遊覧便','sky',[m,n2],{freq:{unit:'d',n:3},first:'09:00',last:'16:00'});
   commit();fit();toast('例を描きました。いらなければ「元に戻す」で消せます');showLines(innerWidth>=700);}
+
+/* ---------------- グループの拠点と配送（メニュー「グループの配送を描く」・2026-11-13 ユーザーの頼み）
+   工場（港浜フーズ）・川辺の配送センター・みなと卸の倉庫・自社の2店・取引先（みなと川大学 生協の売店・港の製缶工場 社員食堂）の
+   だいたいの位置にピンを置き、いまの配送（data/center.json・data/haiso.json の便）を「自社の配送」の路線で描く。位置も道も、あとで自由に直せる。
+   同じ名前のピンがもうあれば、それを使う（2回押しても増えない）。元に戻すで消せる */
+function groupRoutes(){const R=(pts,type)=>C.addPath(doc,pts,{type,smooth:true,snap:6});
+  const has=name=>Object.keys(doc.stops).find(k=>doc.stops[k].name===name);
+  const st=(name,type,p,lp)=>{const old=has(name);if(old)return old;const n=C.anchor(doc,p,6);const id=C.uid(doc,'s');doc.stops[id]={name,type,node:n,lp:lp||'auto'};return id;};
+  const hasLine=name=>Object.values(doc.lines).some(l=>l.name===name);
+  /* 道（大通り：工場〜センター〜緑ヶ丘〜大学前／港へ） */
+  R([[868,300],[840,298],[790,294],[720,286],[668,268],[644,252]],'avenue');
+  R([[644,252],[612,276],[560,282],[505,288],[488,298]],'avenue');
+  R([[488,298],[440,302],[396,304],[364,296],[358,272],[356,248]],'street');   /* 緑ヶ丘から大学前のあたりを通って、大学（地図の「みなと川大学」）へ */
+  R([[868,300],[884,310],[898,320]],'street');
+  R([[898,320],[918,306],[934,296]],'street');
+  /* ピン（だいたいの位置） */
+  const fac=st('港浜フーズの工場','factory',[868,300],'n'),cen=st('川辺の配送センター','center',[644,252],'n'),ws=st('みなと卸の倉庫','center',[668,268],'e');
+  const km=st('緑ヶ丘駅改札外店','kiosk',[488,298],'s'),kp=st('港駅改札前店','kiosk',[898,320],'s');
+  const uv=st('みなと川大学 生協の売店','kiosk',[356,248],'n'),can=st('港の製缶工場 社員食堂','kiosk',[934,296],'n');
+  const L=(name,seq,extra)=>{if(hasLine(name))return null;const id=C.uid(doc,'l');doc.lines[id]=Object.assign({name,type:'own',style:{},seq:seq.map(s=>({s})),freq:{unit:'d',n:1},first:'04:00',last:'04:00',round:false,show:true},extra||{});doc.order.push(id);return id;};
+  L('定温トラック 工場→センター',[fac,cen],{first:'03:05',last:'03:05'});
+  L('トラックA 朝の便（緑ヶ丘店→大学）',[cen,km,uv],{first:'04:00',last:'04:00'});
+  L('トラックB 朝の便（港駅店→製缶工場）',[cen,kp,can],{first:'04:00',last:'04:00'});
+  L('トラックA 昼前・午後の便',[cen,km],{freq:{unit:'d',n:2},first:'09:15',last:'14:15'});
+  L('トラックB 昼前・午後の便',[cen,kp],{freq:{unit:'d',n:2},first:'09:15',last:'14:15'});
+  L('大学の荷物（みなと卸の倉庫→大学）',[ws,cen,km,uv],{first:'04:00',last:'04:00',style:{color:'#d97a2b'}});
+  commit();fit();toast('グループの拠点と配送を描きました。ピンや道は動かして直せます。いらなければ「元に戻す」で消せます');showLines(innerWidth>=700);}
 
 /* ---------------- はじめ ---------------- */
 async function init(){try{DEF=await fetch('data/routes.json',{cache:'no-cache'}).then(r=>r.json());}catch(e){toast('設定（data/routes.json）を読み込めませんでした');return;}
