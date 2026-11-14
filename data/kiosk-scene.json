@@ -826,5 +826,47 @@
     "mouth": 0.8,
     "note": "食べる・座って食べる2コマの速さ（画面の秒）：手をおろしてかむ → ゆっくり口へ → 口もと → ゆっくりおろす"
   },
-  "strideNote": "people[].stride：歩く絵の横向きのコマで、足を開いたときと閉じたときの足元の幅の差 ÷ 背の高さ（会社員 男性 0.37・女性 0.15。女性の絵は小股）"
+  "strideNote": "people[].stride：歩く絵の横向きのコマで、足を開いたときと閉じたときの足元の幅の差 ÷ 背の高さ（会社員 男性 0.37・女性 0.15。女性の絵は小股）",
+  "clips": {
+    "dir": "assets/kiosk-clips/",
+    "note": "カットイン（2026-11-14）：その場面だけ、ユーザーが Gemini で作った動画（docs/ref/scene-src/）から切り出した2〜4秒を、小さな窓でフェードイン・アウトして見せる。見せているあいだ店の絵は止める。person＝その絵の人のお客さんのときだけ。on＝reach（棚から取る）／queue（列・レジの前で待つ）。genres・genresNot＝棚のジャンル。p＝出す確かさ、minMin＝その待ちが何分以上のとき",
+    "list": [
+      {
+        "id": "reach",
+        "person": "kaishain_f",
+        "file": "kaishain_f-reach.mp4",
+        "on": "reach",
+        "genresNot": [
+          "cupmen",
+          "snack",
+          "gummy"
+        ],
+        "label": "棚に手を伸ばして取る",
+        "src": "gemini_generated_video_e128c15e.mp4 0.3〜3.4秒"
+      },
+      {
+        "id": "low",
+        "person": "kaishain_f",
+        "file": "kaishain_f-low.mp4",
+        "on": "reach",
+        "genres": [
+          "cupmen",
+          "snack",
+          "gummy"
+        ],
+        "label": "しゃがんで下の段から取る",
+        "src": "gemini_generated_video_605550bd.mp4 1.0〜5.6秒"
+      },
+      {
+        "id": "phone",
+        "person": "kaishain_f",
+        "file": "kaishain_f-phone.mp4",
+        "on": "queue",
+        "minMin": 0.25,
+        "p": 0.6,
+        "label": "待つあいだにスマホを見る",
+        "src": "gemini_generated_video_3d55df9f.mp4 2.0〜4.8秒"
+      }
+    ]
+  }
 }

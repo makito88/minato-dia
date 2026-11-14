@@ -277,7 +277,7 @@ function caption(pl,o,miss){if(!U.cap)return;let h;
   if(!pl)h=`<b>次のお客さんを待っています。</b><span>この店で会計を終えた人が出ると、その人を再生します（売店の計算の記録から）。</span>`;
   else{const PS=U.psName||{},e=pl.e,its=pl.items.map(it=>esc(it.name)+(it.n>1?'×'+it.n:'')).join('・');
     h=`<b>さっきのお客さん：${esc(PS[pl.ps]||pl.ps)}</b>　${fmt(pl.ta)} 来店 → ${fmt(pl.ts)} 会計（${pl.lane==='s'?'セルフレジ':'有人レジ'}・待ち ${Math.round(e.wait*60)}秒・${PAYN[pl.pay]}<i>仮</i>）・¥${Math.round(e.yen||0).toLocaleString('ja-JP')}<br><span>${its}</span>`+
-      `<br><span class="st">いま：${PH[o?o.ph:'done']||''}${o&&o.gaze&&o.ph!=='tempt'?'（'+esc(o.gaze.label)+'をちらっと見ながら）':''}${o&&o.ph==='tempt'?'（'+esc(o.gaze.label)+'）':''}${o&&o.ph==='queue'&&o.ahead?'（前に'+o.ahead+'人・姿はまだ）':''}</span>`+
+      `<br><span class="st">いま：${PH[o?o.ph:'done']||''}${o&&o.gaze&&o.ph!=='tempt'?'（'+esc(o.gaze.label)+'をちらっと見ながら）':''}${o&&o.ph==='tempt'?'（'+esc(o.gaze.label)+'）':''}${o&&o.ph==='queue'&&o.ahead?'（前に'+o.ahead+'人・姿はまだ）':''}${U.clip?'　▶ 動画で見ています：'+esc(U.clip.c.label||''):''}</span>`+
       (miss.size?`<br><small>まだ絵がない：${[...miss].map(esc).join('／')}</small>`:'');}
   if(h!==U.lastCap){U.lastCap=h;U.cap.innerHTML=h;}}
 
@@ -293,10 +293,12 @@ function next(res,Tn,cfg){const ev=res&&res.ev;if(!ev){U.pl=null;return;}
 /* ---------- 外から呼ぶもの ---------- */
 function mount(el){if(U.el===el&&el.isConnected)return;U.el=el;
   if(U.close===null)U.close=innerWidth<900;
-  el.innerHTML=`<div class="kc-wrap"><canvas width="1000" height="600" aria-label="港駅の店の動く試作（ユーザーが ChatGPT に描いてもらった絵）。さっき買い物を終えたお客さんを再生します"></canvas><p class="kc-load">試作の絵を読み込んでいます…</p></div>
+  el.innerHTML=`<div class="kc-wrap"><canvas width="1000" height="600" aria-label="港駅の店の動く試作（ユーザーが ChatGPT に描いてもらった絵）。さっき買い物を終えたお客さんを再生します"></canvas><p class="kc-load">試作の絵を読み込んでいます…</p><video class="kc-clip" muted playsinline preload="none" aria-hidden="true"></video><span class="kc-cliplab"></span></div>
     <div class="kc-bar"><button type="button" class="ks-chip" data-k="zoom"></button><button type="button" class="ks-chip" data-k="pause">一時停止</button><button type="button" class="ks-chip" data-k="next">次の人へ</button><button type="button" class="ks-chip" data-k="still" aria-pressed="false">止まった完成イメージ</button></div>
     <div class="kc-cap" aria-live="off"></div><img class="kc-still" hidden alt="港駅の売店の完成イメージ（ユーザーの絵）" loading="lazy">`;
-  U.cv=el.querySelector('canvas');U.cap=el.querySelector('.kc-cap');U.lastCap='';U.cam=null;
+  U.cv=el.querySelector('canvas');U.cap=el.querySelector('.kc-cap');U.lastCap='';U.cam=null;U.vid=el.querySelector('.kc-clip');U.clip=null;
+  U.vid.addEventListener('ended',()=>clipEnd());
+  U.vid.addEventListener('timeupdate',()=>{if(!U.el||!U.el.isConnected||U.el.offsetParent===null)clipEnd();});   /* 画面を閉じたら止める */
   const z=el.querySelector('[data-k=zoom]'),zl=()=>{z.textContent=U.close?'店ぜんぶを見る':'客を大きく見る';};zl();
   z.onclick=()=>{U.close=!U.close;zl();};
   const pz=el.querySelector('[data-k=pause]');pz.onclick=()=>{U.paused=!U.paused;pz.textContent=U.paused?'再生':'一時停止';};
@@ -304,13 +306,28 @@ function mount(el){if(U.el===el&&el.isConnected)return;U.el=el;
   const sb=el.querySelector('[data-k=still]'),im=el.querySelector('.kc-still');
   sb.onclick=()=>{U.still=!U.still;sb.setAttribute('aria-pressed',String(U.still));if(U.still&&!im.src)im.src='assets/images/minato-store-concept.webp';im.hidden=!U.still;};
   load().then(()=>{const L=el.querySelector('.kc-load');if(L){if(U.err)L.textContent='試作の絵を読み込めませんでした（'+U.err+'）';else L.remove();}});}
-function unmount(){U.el=null;U.cv=null;U.cap=null;}
+function unmount(){clipEnd();U.el=null;U.cv=null;U.cap=null;U.vid=null;}
+/* ---------- カットイン（2026-11-14）：その場面だけ、手本の動画を小さな窓でフェードイン・アウトして見せる。見せているあいだ、店の絵は止める ---------- */
+function clipFor(pl,o){const C=U.S.clips;if(!C||!o||!o.seg||!U.vid)return null;const P=personFor(pl.ps);if(P.sub)return null;
+  const si=pl.segs.indexOf(o.seg);if(si<0||U.clipSeen.has(si))return null;
+  for(const c of C.list||[]){if(c.person!==P.P.def.id)continue;
+    if(c.on==='reach'&&o.seg.ph==='reach'){const g=(pl.stops[o.seg.stop]||{}).genre;if(c.genres&&!c.genres.includes(g))continue;if(c.genresNot&&c.genresNot.includes(g))continue;U.clipSeen.add(si);return c;}
+    if(c.on==='queue'&&(o.seg.ph==='queue'||o.seg.ph==='wait')){U.clipSeen.add(si);if((o.seg.b-o.seg.a)<(c.minMin||0)||hash(pl.key+c.id)>=(c.p??1))return null;return c;}}
+  return null;}
+function clipStart(c,o){const v=U.vid,C=U.S.clips,wrap=v.parentNode,src=(C.dir||'')+c.file;
+  if(v.getAttribute('src')!==src)v.setAttribute('src',src);try{v.currentTime=0;}catch(e){}
+  wrap.classList.toggle('clip-l',!!U.cam&&o.x>U.cam.x);wrap.querySelector('.kc-cliplab').textContent=c.label||'';
+  U.clip={c,t0:Date.now()};const pr=v.play();if(pr&&pr.catch)pr.catch(()=>clipEnd());wrap.classList.add('clip-on');}
+function clipEnd(){if(!U.clip)return;const v=U.vid;U.clip=null;if(v){try{v.pause();}catch(e){}if(v.parentNode)v.parentNode.classList.remove('clip-on');}}
 /* 売店の画面の絵と一緒に呼ばれる（dt 秒・Tn ゲームの分・res その日の計算・cfg 店の設定） */
 function tick(dt,Tn,res,cfg){if(!U.el||!U.cv||!U.el.isConnected||!U.S||!U.bg||U.err)return;
-  if(U.skip){U.skip=false;U.pl=null;}
+  if(U.skip){U.skip=false;U.pl=null;clipEnd();}
   if(!U.pl){U.idleCheck-=dt;if(U.idleCheck<=0||!U.drawnIdle){U.idleCheck=1;next(res,Tn,cfg||{});if(!U.pl){if(!U.drawnIdle){draw(0);U.drawnIdle=true;}return;}}}
   U.drawnIdle=false;
-  if(!U.paused&&U.pl){const s=U.pl.segs.find(s=>U.clock<s.b);let rate=U.S.rate||3;
+  if(U.pl&&U.pl!==U.clipPl){U.clipPl=U.pl;U.clipSeen=new Set();}
+  if(U.clip&&Date.now()-U.clip.t0>12000)clipEnd();   /* 念のため */
+  if(!U.clip&&!U.paused&&U.pl){const o=pose(U.pl,U.clock),c=clipFor(U.pl,o);if(c)clipStart(c,o);}
+  if(!U.paused&&U.pl&&!U.clip){const s=U.pl.segs.find(s=>U.clock<s.b);let rate=U.S.rate||3;
     if(s&&s.kind!=='walk'){const real=(s.b-s.a)*60/rate;if(real>(U.S.standMaxSec||6))rate=(s.b-s.a)*60/(U.S.standMaxSec||6);}
     U.fast=rate>(U.S.rate||3)+0.01;U.clock+=dt*rate/60;
     if(U.clock>=U.pl.end){draw(dt);U.pl=null;U.idleCheck=0;return;}}
