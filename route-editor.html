@@ -143,6 +143,54 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
 #file{display:none}
 #dock .row .hint{flex:0 0 auto;white-space:nowrap}
 
+
+/* 第8回：イベントの層（暦の帯・シート・一覧） */
+.evstrip{gap:3px;padding:2px 2px 4px;scroll-snap-type:x proximity;max-width:100%}
+.evnav{flex:0 0 auto;width:28px;height:44px;border:0;border-radius:10px;background:rgba(255,255,255,.55);font-size:18px;color:var(--ink2)}
+.evmon{flex:0 0 auto;writing-mode:vertical-rl;font:700 11px "Zen Old Mincho",serif;color:var(--accent);letter-spacing:.1em;padding:0 1px}
+.evday{position:relative;flex:0 0 auto;width:34px;height:44px;border:0;border-radius:11px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.05;scroll-snap-align:center;padding:0}
+.evday small{font-size:9.5px;color:var(--ink2)}.evday b{font:700 15px "Zen Maru Gothic",sans-serif}
+.evday.sun b,.evday.sun small{color:#c8402c}.evday.sat b,.evday.sat small{color:#2f6fb5}
+.evday:hover{background:rgba(255,255,255,.7)}
+.evday.now::before{content:"";position:absolute;top:3px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--accent)}
+.evday.on{background:var(--ink);box-shadow:0 4px 10px -3px rgba(36,49,44,.5)}.evday.on b,.evday.on small{color:#fdf9ef}
+.evday i{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);min-width:6px;height:6px;border-radius:3px;background:#e2553f;font:700 8px/6px sans-serif;color:#fff;font-style:normal;padding:0 1px}
+.evday i:not(:empty){height:10px;line-height:10px;min-width:10px;border-radius:5px;bottom:1px}
+.evday.on i{background:#f6c95b;color:#24312c}
+.row.wrap{flex-wrap:wrap;overflow:visible}
+#evsheet{position:fixed;right:14px;top:66px;width:340px;max-height:calc(100vh - 180px);display:flex;flex-direction:column;z-index:6;overflow:hidden;background:var(--glass2)}
+.evs-hd{display:flex;align-items:center;gap:8px;padding:10px 8px 8px 10px;border-bottom:1px solid var(--rule)}
+.evs-hd .namein{flex:1 1 auto;height:40px;font-size:15px}.evs-ttl{flex:1;font:700 15px "Zen Old Mincho",serif;letter-spacing:.08em;padding-left:6px}
+.evs-pv{width:56px;height:56px;flex:0 0 auto}
+.evs-in{overflow:auto;padding:4px 12px 14px;display:flex;flex-direction:column;gap:4px}
+.evs-at{font-size:12.5px;padding:6px 2px 2px}.evs-at small{color:var(--ink2);font-size:11px}
+.stn{display:inline-block;background:#3d7f63;color:#fff;border-radius:5px;padding:0 7px;font-weight:700;font-size:12px}
+.evs-sec{padding:8px 0 6px;border-top:1px dashed var(--rule2);display:flex;flex-direction:column;gap:7px}
+.evs-sec:first-of-type{border-top:0}
+.evs-t{font:700 13px "Zen Old Mincho",serif;letter-spacing:.08em}.evs-t small{font:500 11px var(--f);color:var(--ink2);margin-left:8px;letter-spacing:0}
+.evs-q{height:36px;border:1.5px solid var(--rule2);border-radius:11px;background:#fff;padding:0 12px;outline:none}.evs-q:focus{border-color:var(--ink)}
+.evs-tabs{gap:4px}
+.evs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:4px;max-height:176px;overflow:auto;padding:2px}
+.evs-grid.gold{display:block;max-height:none}
+.evs-e{aspect-ratio:1;border:1.5px solid transparent;border-radius:12px;background:rgba(255,255,255,.6);display:grid;place-items:center;padding:0}
+.evs-e img{width:24px;height:24px}.evs-e:hover{background:#fff;transform:scale(1.06)}.evs-e.on{border-color:var(--ink);background:#fff}
+.evs-gold{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.evs-gold .namein{flex:0 0 96px;text-align:center;font-size:18px;color:#8a6420}
+.evdot{display:inline-block;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 1.5px #fff}
+.evs-col{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px 0 4px;border-radius:12px;background:rgba(255,255,255,.55);font-size:12.5px;cursor:pointer}
+.evs-col input{width:26px;height:26px;border:0;padding:0;background:none;border-radius:50%}
+.evt{display:flex;align-items:center;gap:4px}.evt input{flex:1}
+.evs-img img{width:96px;height:60px;object-fit:cover;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.evs-memo{border:1.5px solid var(--rule2);border-radius:11px;background:#fff;padding:8px 10px;font:inherit;font-size:13px;resize:vertical;outline:none}
+.evs-foot{padding-top:10px;border-top:1px dashed var(--rule2)}
+.evs-filter{display:flex;gap:6px;flex-wrap:wrap;padding:6px 0}.evs-filter select{height:32px;border:1px solid var(--rule2);border-radius:9px;background:#fff;padding:0 6px;font-size:12.5px}
+.evs-row{display:flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;border-radius:12px;padding:6px}
+.evs-row:hover{background:rgba(255,255,255,.75)}
+.evs-ri{width:36px;height:36px;flex:0 0 auto;border-radius:50%;background:#fff;border:2.5px solid var(--rim);display:grid;place-items:center;box-shadow:0 2px 5px rgba(0,0,0,.12)}
+.evs-ri img{width:22px;height:22px}.evs-ri.gold{background:linear-gradient(#c9a35c,#b08640);color:#fff;font-weight:700;box-shadow:0 0 0 1.5px #fff inset,0 2px 5px rgba(0,0,0,.12)}
+.evs-rt b{display:block;font-size:13.5px}.evs-rt small{font-size:11.5px;color:var(--ink2)}
+@media (max-width:700px){
+  #evsheet{left:10px;right:10px;width:auto;top:auto;bottom:calc(max(10px,env(safe-area-inset-bottom)) + 66px + 112px);max-height:46vh;z-index:7}
+}
 /* スマホ */
 @media (max-width:700px){
   #brand{left:10px;top:max(10px,env(safe-area-inset-top));padding:3px}
@@ -152,7 +200,7 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
   #tr{right:10px;top:max(10px,env(safe-area-inset-top))}
   #tr .pill span.t{display:none}#tr .pill{padding:0 10px}
   #tools{top:auto;bottom:max(10px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);flex-direction:row;padding:5px}
-  .tool{width:46px;height:46px}.tool .tip{display:none}.tsep{width:1px;height:auto;margin:6px 2px}
+  .tool{width:42px;height:46px}.tool .tip{display:none}.tsep{width:1px;height:auto;margin:6px 2px}
   #dock{left:10px;right:10px;transform:none;max-width:none;bottom:calc(max(10px,env(safe-area-inset-bottom)) + 66px);padding:6px}
   #lines{left:10px;right:10px;width:auto;top:auto;bottom:calc(max(10px,env(safe-area-inset-bottom)) + 66px);max-height:56vh;z-index:6}
   #style{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 66px)}
@@ -187,6 +235,7 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
   <button class="tool" data-t="line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19V12a4 4 0 014-4h6a4 4 0 004-4"/><circle cx="5" cy="19" r="2.2" fill="#fff" stroke-width="1.8"/><circle cx="19" cy="4.5" r="2.2" fill="#fff" stroke-width="1.8"/></svg><span class="tip">路線をつくる（L）</span></button>
   <div class="tsep"></div>
   <button class="tool" data-t="rail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 21C7 13 10 8 17 3M12 21c0-6 2-10 7-13"/><path d="M6.5 17.5h6M7.6 13.5h5.6M9.6 9.6h5M12.6 6.2h4"/></svg><span class="tip">線路を直す（R）</span></button>
+  <button class="tool" data-t="event"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="9.5" r="6.5" fill="currentColor" fill-opacity=".12"/><path d="M9.6 15.4L12 20l2.4-4.6"/><path d="M12 6.4l.95 1.95 2.15.3-1.55 1.5.37 2.13L12 11.27l-1.92 1.01.37-2.13-1.55-1.5 2.15-.3z" fill="currentColor"/></svg><span class="tip">イベント（E）</span></button>
   <div class="tsep"></div>
   <button class="tool" data-t="hand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V5.5a1.5 1.5 0 013 0V11m0-6.5a1.5 1.5 0 013 0V11m0-5a1.5 1.5 0 013 0V14a7 7 0 01-7 7h-.5a6 6 0 01-5-2.7L3.7 15a1.5 1.5 0 012.5-1.7L8 15.5"/></svg><span class="tip">地図を動かす（H）</span></button>
 </div>
@@ -224,6 +273,9 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
 <script src="js/route-core.js?v=20261112r"></script>
 <script src="js/rail-shape.js?v=20261113a"></script>
 <script src="js/rail-edit.js?v=20261113a"></script>
-<script src="js/route-editor.js?v=20261113a"></script>
+<script src="js/event-map-core.js?v=20261114a"></script>
+<script src="js/event-bubble.js?v=20261114a"></script>
+<script src="js/event-edit.js?v=20261114a"></script>
+<script src="js/route-editor.js?v=20261114a"></script>
 </body>
 </html>

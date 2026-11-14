@@ -1054,6 +1054,7 @@ function loop(ts){const dt=V.lastTs?Math.min(0.1,(ts-V.lastTs)/1000):0;V.lastTs=
 /* ---------- 起動 ---------- */
 mount();setInterval(tick,1000);
 window.minatoKiosk={get state(){return V.st;},refresh(){if(V.open)render(true);},get today(){return V.res;},open:()=>setOpen(true),
+  openAt:w=>{if(w==='minato'||w==='home'){V.which=w;try{localStorage.setItem('minato-kiosk-which',w);}catch(e){}const t=$('ksTop');if(t)t.dataset.k='';}setOpen(true);if(V.st)render(true);},   // 第8回：地図の吹き出しのカードから（どちらの店を開くか）
   openTab:t=>{if(['log','items','layout','people','crew','money','track','news'].includes(t))V.tab=t;if(V.tab==='news')readNews();setOpen(true);if(V.st)render(true);},   // トップから：タブを選んで開く
   // リサーチから：その駅・場所を選んだ状態で売店の画面を開く（まだ出していないとき）
   openAt:(st,place)=>{if(!V.st&&PLACES.includes(place))V.form={st,place};setOpen(true);},places:PLACES,sync:()=>{ensureRes();},persist:()=>persist(),get ready(){return !!V.cfg;},

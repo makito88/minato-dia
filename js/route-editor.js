@@ -25,7 +25,7 @@ function commit(){const s=JSON.stringify(doc);if(s===cur)return;UNDO.push(cur);i
 function revert(){doc=JSON.parse(cur);redraw();}
 function undo(){if(S.tool==='rail'&&window.RailEdit){RailEdit.undo();return;}if(!UNDO.length)return;REDO.push(cur);cur=UNDO.pop();doc=JSON.parse(cur);fixSel();save();ui();redraw();}
 function redo(){if(S.tool==='rail'&&window.RailEdit){RailEdit.redo();return;}if(!REDO.length)return;UNDO.push(cur);cur=REDO.pop();doc=JSON.parse(cur);fixSel();save();ui();redraw();}
-function fixSel(){const s=S.sel;if(s&&!(s.k==='node'?doc.nodes[s.id]:s.k==='edge'?doc.edges[s.id]:doc.stops[s.id]))S.sel=null;
+function fixSel(){if(window.EventEdit)EventEdit.fixSel();const s=S.sel;if(s&&!(s.k==='node'?doc.nodes[s.id]:s.k==='edge'?doc.edges[s.id]:doc.stops[s.id]))S.sel=null;
   if(S.line&&!doc.lines[S.line])S.line=null;if(S.poly&&!doc.nodes[S.poly])S.poly=null;
   if(!doc.types.road.find(t=>t.id===S.road))S.road=doc.types.road[0]&&doc.types.road[0].id;
   if(!doc.types.stop.find(t=>t.id===S.stopT))S.stopT=doc.types.stop[0]&&doc.types.stop[0].id;
@@ -120,6 +120,8 @@ function drawRail(c,k){if(window.RailEdit&&(doc.view.rail||S.tool==='rail')){Rai
     c.save();c.shadowColor='rgba(0,0,0,.22)';c.shadowBlur=2*k.z*k.dpr;c.shadowOffsetY=0.7*k.z*k.dpr;c.fillStyle=s.big?'#2b6f52':'#3d7f63';c.beginPath();c.roundRect(s.x-w/2,y-h/2,w,h,3.4);c.fill();c.restore();
     c.strokeStyle='#fff';c.lineWidth=0.9;c.stroke();c.fillStyle='#fff';c.fillText(s.name,s.x,y+0.4);});}
 
+// 駅の位置（線路の層で動かしていれば、その位置）
+function railStations(){const out={},sh=window.RailEdit&&RailEdit.shape;for(const [k,v] of Object.entries(DEF.rail.stations)){const m=sh&&sh.st&&sh.st[k];out[k]={x:m?m[0]:v.x,y:m?m[1]:v.y,name:v.name};}return out;}
 /* ---------------- 全体を描く（画面とPNGで共通） ---------------- */
 function drawScene(c,k,o){o=o||{};
   c.setTransform(k.dpr,0,0,k.dpr,0,0);drawTable(c,k);
@@ -147,6 +149,7 @@ function drawScene(c,k,o){o=o||{};
   stops.forEach(([id,s])=>{const n=doc.nodes[s.node];if(!n)return;const ty=Object.assign({},tyOf('stop',s.type),s.style||{});drawMarker(c,ty,n.x,n.y,k,!o.export&&S.sel&&S.sel.k==='stop'&&S.sel.id===id);});
   stops.forEach(([id,s])=>{const n=doc.nodes[s.node];if(!n)return;const ty=Object.assign({},tyOf('stop',s.type),s.style||{});drawLabel(c,s,ty,n.x,n.y,k,boxes);});
   if(o.export)return;
+  if(S.tool==='event'&&window.EventEdit){EventEdit.draw(c,k);return;}   // 第8回：イベントの層（その日の吹き出し）
   if(S.tool==='rail'&&window.RailEdit){RailEdit.drawOverlay(c,k);return;}   // 線路の層：つかめる点
   // 描いている途中
   if(S.stroke&&S.stroke.pts.length>1){strokeStyled(c,[S.stroke.pts],tyOf('road',S.road).style,k);}
@@ -170,12 +173,13 @@ const P=new Map();let op=null,gest=null,lastTap={t:0,x:0,y:0};
 function pos(ev){const r=cv.getBoundingClientRect();return [ev.clientX-r.left,ev.clientY-r.top];}
 cv.addEventListener('pointerdown',ev=>{cv.setPointerCapture(ev.pointerId);S.touch=ev.pointerType!=='mouse';closePops();
   const sp=pos(ev);P.set(ev.pointerId,sp);
-  if(P.size===2){if(op&&op.k==='rail')RailEdit.cancel();else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;const [a,b]=[...P.values()];gest={d:Math.hypot(a[0]-b[0],a[1]-b[1]),m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};redraw();return;}
+  if(P.size===2){if(op&&op.k==='event')revert();else if(op&&op.k==='rail')RailEdit.cancel();else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;const [a,b]=[...P.values()];gest={d:Math.hypot(a[0]-b[0],a[1]-b[1]),m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};redraw();return;}
   if(P.size>2)return;
   const w=toW(...sp);const btn=ev.button;
   if(btn===2&&S.tool==='poly'&&S.poly){op=null;endPoly();return;}
   if(btn===2&&S.tool==='rail'&&window.RailEdit&&RailEdit.drawing){op=null;RailEdit.endDraw();return;}   // 側線：右クリックで終わる   // 右クリック：最後に置いた点で線を終える（右クリックした場所には点を置かない）
   if(btn===1||btn===2||S.tool==='hand'||S.space){op={k:'pan',sp,v:[V.x,V.y]};cv.classList.add('dragging');return;}
+  if(S.tool==='event'&&window.EventEdit){const r=EventEdit.down(w,tol());op=r?{k:'event',sp,w,r,moved:false}:{k:'pan',sp,v:[V.x,V.y],tapEmpty:true,event:true};return;}   // 第8回：イベントの層
   if(S.tool==='rail'&&window.RailEdit){const r=RailEdit.down(w,tol());op=r?{k:'rail',sp,w,r,live:true,moved:false}:{k:'pan',sp,v:[V.x,V.y],tapEmpty:true,rail:true};return;}   // 線路の層
   op={k:'tap',sp,w,moved:false};
   if(S.tool==='pen'){op.k='stroke';S.stroke={pts:[w]};S.snap=null;}
@@ -191,6 +195,7 @@ cv.addEventListener('pointermove',ev=>{const sp=pos(ev);if(P.has(ev.pointerId))P
   if(!op){S.hover=w;if(S.tool==='poly'&&S.poly)redraw();hoverCursor(w);return;}
   const mv=Math.hypot(sp[0]-op.sp[0],sp[1]-op.sp[1]);if(mv>4)op.moved=true;
   if(op.k==='rail'){if(op.moved&&op.r.k!=='drawtap'){RailEdit.move(op.r,w);redraw();}return;}
+  if(op.k==='event'){if(op.moved){EventEdit.move(op.r,w);redraw();}return;}
   if(op.k==='tap'&&op.moved){op={k:'pan',sp:op.sp,v:[V.x,V.y]};}
   if(op.k==='pan'){if(op.moved||Math.hypot(sp[0]-op.sp[0],sp[1]-op.sp[1])>4){V.x=op.v[0]-(sp[0]-op.sp[0])/V.z;V.y=op.v[1]-(sp[1]-op.sp[1])/V.z;cv.classList.add('dragging');redraw();}return;}
   if(op.k==='stroke'){const L=S.stroke.pts[S.stroke.pts.length-1];if(Math.hypot(w[0]-L[0],w[1]-L[1])>1.2/V.z){S.stroke.pts.push(w);const n=hitNode(w);S.snap=n?[doc.nodes[n].x,doc.nodes[n].y]:null;redraw();}return;}
@@ -202,7 +207,8 @@ cv.addEventListener('pointermove',ev=>{const sp=pos(ev);if(P.has(ev.pointerId))P
 function endPointer(ev){const had=P.has(ev.pointerId);P.delete(ev.pointerId);if(gest){if(P.size<2)gest=null;op=null;return;}if(!had||!op)return;
   const o=op;op=null;cv.classList.remove('dragging');const w=toW(...pos(ev));
   if(o.k==='rail'){RailEdit.up(o.r,w,o.moved,dbl(o.sp));return;}
-  if(o.k==='pan'){if(o.tapEmpty&&!o.moved){if(o.rail){RailEdit.tapEmpty(w,dbl(o.sp));return;}S.sel=null;ui();redraw();}return;}
+  if(o.k==='event'){EventEdit.up(o.r,w,o.moved);return;}
+  if(o.k==='pan'){if(o.tapEmpty&&!o.moved){if(o.rail){RailEdit.tapEmpty(w,dbl(o.sp));return;}if(o.event){EventEdit.tapEmpty(w);return;}S.sel=null;ui();redraw();}return;}
   if(o.k==='stroke'){const raw=S.stroke.pts;S.stroke=null;S.snap=null;
     if(raw.length>2&&C.polyLen(raw.map(p=>({x:p[0],y:p[1]})))>6/V.z){const pts=C.simplify(raw,1.6/V.z);C.addPath(doc,pts,{type:S.road,smooth:true,snap:12/V.z});commit();}
     else tapPen(w);redraw();return;}
@@ -216,7 +222,7 @@ function endPointer(ev){const had=P.has(ev.pointerId);P.delete(ev.pointerId);if(
   if(o.k==='tap'&&!o.moved){if(S.tool==='poly')tapPoly(w,o.sp);else if(S.tool==='stop')tapStop(w);else if(S.tool==='line')tapLine(w);}
 }
 function dbl(sp){const t=performance.now(),r=t-lastTap.t<380&&Math.hypot(sp[0]-lastTap.x,sp[1]-lastTap.y)<14;lastTap=r?{t:0,x:0,y:0}:{t,x:sp[0],y:sp[1]};return r;}
-cv.addEventListener('pointerup',endPointer);cv.addEventListener('pointercancel',ev=>{P.delete(ev.pointerId);if(op&&op.k==='rail'){RailEdit.cancel();}else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;gest=null;redraw();});
+cv.addEventListener('pointerup',endPointer);cv.addEventListener('pointercancel',ev=>{P.delete(ev.pointerId);if(op&&op.k==='event'){revert();}else if(op&&op.k==='rail'){RailEdit.cancel();}else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;gest=null;redraw();});
 cv.addEventListener('pointerleave',()=>{if(!op){S.hover=null;redraw();}});
 cv.addEventListener('wheel',ev=>{ev.preventDefault();const sp=pos(ev);
   if(ev.shiftKey&&!ev.ctrlKey){V.x+=(ev.deltaY||ev.deltaX)/V.z;redraw();return;}
@@ -251,10 +257,11 @@ addEventListener('keydown',ev=>{const tag=(ev.target.tagName||'').toLowerCase();
   if(ev.key===' '){S.space=true;cv.classList.add('panning');ev.preventDefault();return;}
   if(S.tool==='rail'&&window.RailEdit&&(ev.key==='Escape'||ev.key==='Enter')&&RailEdit.drawing){RailEdit.endDraw();return;}
   if(S.tool==='rail'&&window.RailEdit&&(ev.key==='Delete'||ev.key==='Backspace')){RailEdit.del();ev.preventDefault();return;}
+  if(S.tool==='event'&&window.EventEdit&&(ev.key==='Delete'||ev.key==='Backspace')){EventEdit.del();ev.preventDefault();return;}
   if(ev.key==='Escape'){if(S.poly)endPoly();else{S.sel=null;closePops();ui();redraw();}return;}
   if(ev.key==='Enter'&&S.poly){endPoly();return;}
   if(ev.key==='Delete'||ev.key==='Backspace'){delSel();ev.preventDefault();return;}
-  const m={v:'select',b:'pen',p:'poly',s:'stop',l:'line',h:'hand',r:'rail'}[ev.key.toLowerCase()];if(m&&!mod)setTool(m);
+  const m={v:'select',b:'pen',p:'poly',s:'stop',l:'line',h:'hand',r:'rail',e:'event'}[ev.key.toLowerCase()];if(m&&!mod)setTool(m);
   if(ev.key==='0'&&!mod)fit();if(ev.key==='+'||ev.key==='=')zoomAt(1.25,V.w/2,V.h/2);if(ev.key==='-')zoomAt(0.8,V.w/2,V.h/2);});
 addEventListener('keyup',ev=>{if(ev.key===' '){S.space=false;cv.classList.remove('panning');}});
 function delSel(){const s=S.sel;if(!s)return;if(s.k==='node')C.deleteNode(doc,s.id);else if(s.k==='edge')C.deleteEdge(doc,s.id);else if(s.k==='stop'){const n=doc.stops[s.id].node;C.deleteStop(doc,s.id);C.dropOrphan(doc,n);}S.sel=null;commit();}
@@ -276,6 +283,7 @@ document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>setTool(b.dataset.t)
 function focusName(){requestAnimationFrame(()=>{const i=document.querySelector('#dock .namein');if(i&&!S.touch){i.focus();i.select();}});}
 
 function ui(){document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tool));
+  if(window.EventEdit&&S.tool!=='event')EventEdit.hide();
   const RL=S.tool==='rail'&&window.RailEdit;$('undo').disabled=RL?!RailEdit.canUndo:!UNDO.length;$('redo').disabled=RL?!RailEdit.canRedo:!REDO.length;dock();lineList();dots();
   $('railLbl').textContent=doc.view.rail?'線路と駅をかくす':'線路と駅を見せる';$('mapAlpha').value=doc.view.mapAlpha;}
 function dots(){const d=$('ldots');d.innerHTML='';doc.order.slice(0,5).forEach(id=>{const i=el('i');i.style.background=C.lineStyle(doc,doc.lines[id]).color;d.appendChild(i);});if(!doc.order.length){const i=el('i');i.style.background='#c9c3b4';d.appendChild(i);}}
@@ -286,7 +294,8 @@ function typeRow(kind,curId,pick){const r=el('div','row');const arr=doc.types[ki
   const ad=el('button','chip mini add','＋ 種類');ad.onclick=()=>{const base=arr.find(t=>t.id===curId)||arr[0];const n=C.clone(base);n.id=C.uid(doc,kind[0]+'t');n.name='新しい'+({road:'道',stop:'拠点',line:'種類'}[kind]);if(n.style)n.style.color=DEF.palette[(arr.length*5)%DEF.palette.length];else n.fill=DEF.palette[(arr.length*5)%DEF.palette.length];arr.push(n);pick(n.id);commit();openStyle(kind,n.id);};r.appendChild(ad);
   return r;}
 function dock(){const d=$('dock');d.innerHTML='';const s=S.sel;
-  if(S.tool==='rail'&&window.RailEdit){RailEdit.dock(d,el,chip);d.hidden=!d.children.length;return;}   // 線路の層の棚
+  if(S.tool==='rail'&&window.RailEdit){RailEdit.dock(d,el,chip);d.hidden=!d.children.length;return;}
+  if(S.tool==='event'&&window.EventEdit){EventEdit.dock(d,el,chip);d.hidden=!d.children.length;return;}   // 第8回：暦の帯   // 線路の層の棚
   if(S.tool==='pen'||S.tool==='poly'){d.appendChild(typeRow('road',S.road,id=>{S.road=id;ui();}));if(S.poly){const r=el('div','row');r.appendChild(chip('✓ ここで終わる',false,endPoly));d.appendChild(r);}}
   else if(S.tool==='stop'&&!(s&&s.k==='stop'))d.appendChild(typeRow('stop',S.stopT,id=>{S.stopT=id;ui();}));
   else if(S.tool==='line'){const r=el('div','row');doc.order.forEach(id=>{const l=doc.lines[id];r.appendChild(chip(l.name,id===S.line,()=>{S.line=id;ui();redraw();if(innerWidth>=700)showLines(true);},['line',C.lineStyle(doc,l)]));});
@@ -411,7 +420,7 @@ $('mapAlpha').oninput=e=>{doc.view.mapAlpha=+e.target.value;redraw();};$('mapAlp
 document.querySelectorAll('#menu .mi').forEach(b=>b.onclick=()=>{const m=b.dataset.m;
   if(m==='png')savePNG();else if(m==='export')exportJSON();else if(m==='import')$('file').click();
   else if(m==='rail'){doc.view.rail=!doc.view.rail;commit();}else if(m==='fit')fit();
-  else if(m==='example'){example();}else if(m==='clear'){if(confirm('描いたものをぜんぶ消しますか？（「元に戻す」で戻せます）')){const t=doc.types,v=doc.view;doc=C.emptyDoc(DEF);doc.types=t;doc.view=v;S.sel=null;S.line=null;S.poly=null;commit();}}
+  else if(m==='example'){example();}else if(m==='clear'){if(confirm('描いたものをぜんぶ消しますか？（「元に戻す」で戻せます）')){const t=doc.types,v=doc.view,ev=doc.evs;doc=C.emptyDoc(DEF);doc.types=t;doc.view=v;if(ev)doc.evs=ev;S.sel=null;S.line=null;S.poly=null;commit();}}
   if(m!=='rail')$('menu').hidden=true;});
 $('undo').onclick=undo;$('redo').onclick=redo;
 document.querySelectorAll('#zoom .ib').forEach(b=>b.onclick=()=>zoomAt(+b.dataset.z,V.w/2,V.h/2));
@@ -468,7 +477,8 @@ async function init(){try{DEF=await fetch('data/routes.json',{cache:'no-cache'})
   let saved=null;try{saved=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}
   doc=C.normalize(saved,DEF);cur=JSON.stringify(doc);fixSel();
   if(window.RailEdit)RailEdit.init({ui:()=>ui(),redraw,toast},DEF);
-  resize();fit.mob=true;fit();setTool(/track|rail/.test(location.hash)&&window.RailEdit?'rail':'pen');showLines(false);
+  if(window.EventEdit)EventEdit.init({doc:()=>doc,commit,ui:()=>ui(),redraw,toast,stations:railStations,focus:(x,y)=>{if(V.w<700){V.x=x-V.w/2/V.z;V.y=y-(V.h*0.3)/V.z;}redraw();}});   // 第8回：イベントの層
+  resize();fit.mob=true;fit();setTool(/track|rail/.test(location.hash)&&window.RailEdit?'rail':/event/.test(location.hash)&&window.EventEdit?'event':'pen');showLines(false);
   if(document.fonts){['700 10px "Zen Kaku Gothic New"','700 10px "Zen Maru Gothic"','700 10px "Zen Old Mincho"','400 10px "Yomogi"'].forEach(f=>document.fonts.load(f,'あ駅').then(redraw,()=>{}));document.fonts.ready.then(redraw);}
   addEventListener('resize',()=>{const w=V.w;resize();if(Math.abs(innerWidth-w)>120)fit();});
   requestAnimationFrame(frame);

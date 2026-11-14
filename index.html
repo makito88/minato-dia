@@ -689,6 +689,9 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/links/port-to-all.js?v=20261110a"></script>
 <script src="js/rail-shape.js?v=20261113a"></script>
 <script src="js/train-art.js?v=20261113a"></script>
+<script src="js/event-map-core.js?v=20261114a"></script>
+<script src="js/event-bubble.js?v=20261114a"></script>
+<script src="js/event-map-view.js?v=20261114a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -2083,7 +2086,7 @@ function drawClouds(c,dk){const wx=COND.wx,n=wx==='sun'?5:wx==='cld'?11:12,a=wx=
     c.globalAlpha=a*0.12*(1-dk*0.5);c.drawImage(sp.shadow,x+26,y+30,w,h);   // 地面に落ちる薄い影
     c.globalAlpha=a*(1-dk*0.6);c.drawImage((wx==='rain'||dk>0.3)?cloudDim(sp,wx==='rain'?0.82:1-dk*0.4):sp,x,y,w,h);}
   c.restore();}
-function drawEventIcons(c,snap,dk){EVHIT=[];const now=performance.now()/1000;
+function drawEventIcons(c,snap,dk){EVHIT=[];if(window.EventMapView&&EventMapView.draw(c,snap,dk))return;const now=performance.now()/1000;   // 第8回：吹き出し（js/event-map-view.js）。読めないときは今までの丸
   snap.events.forEach(({ev,state})=>{const p=evPos(ev);EVHIT.push({id:ev.id,x:p.x,y:p.y});
     if(state==='during'&&ev.anim==='fireworks'&&dk>0.2){const cols=[TH.E,TH.glow,TH.X,TH.R];for(let k=0;k<3;k++){const ph=(now*0.7+k*0.33)%1,cx=p.x-40+k*38,cy=p.y-30-k*12-ph*14,r=6+ph*24;c.strokeStyle=cols[(k+Math.floor(now))%4];c.globalAlpha=1-ph;c.lineWidth=1.6;
       for(let a=0;a<12;a++){const an=a/12*6.283;c.beginPath();c.moveTo(cx+Math.cos(an)*r*0.5,cy+Math.sin(an)*r*0.5);c.lineTo(cx+Math.cos(an)*r,cy+Math.sin(an)*r);c.stroke();}}c.globalAlpha=1;}
@@ -2119,6 +2122,12 @@ function renderEvStrip(){const key=ACTIVE_EV.map(e=>e.id+evState(e)).join('|')+(
   $('#evstrip').innerHTML=ACTIVE_EV.map(e=>{const st=evState(e);return `<button class="${st}" data-ev="${e.id}" aria-pressed="${sel.kind==='event'&&sel.id===e.id}"><b class="ic">${e.icon}</b><span>${e.name}<br><span class="st">${ST[e.place].name}・${fmt(e.start)}〜${fmt(e.end)}・${EVST[st]}</span></span></button>`;}).join('');}
 $('#evstrip').addEventListener('click',e=>{const b=e.target.closest('button');if(b)selectEvent(b.dataset.ev);});
 function selectEvent(id){if(PANE!=='run')setPane('run');sel={kind:'event',id};stripKey='';refreshPanels(true);drawDia();if(innerWidth<=980)$('#info').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
+/* 第8回：地図の吹き出しとカード（js/event-map-view.js）に渡すもの。効き目は表示だけ（乗客・売店の計算にはつながない） */
+if(window.EventMapView)EventMapView.init({ST:()=>ST,T:()=>T,evPos,seas:()=>SEAS.list,wx:()=>COND.wx,ymd:()=>SeasonCore.ymdOf(seasDayI()),px:()=>MS*CDPR,canvas:()=>map,
+  redraw:()=>{if(!playing&&D&&PANE==='run')drawMap();},select:selectEvent,letters:()=>{const b=$('#tayoriBtn');if(b)b.click();},
+  kiosk:w=>{try{window.minatoKiosk.openAt?minatoKiosk.openAt(w):minatoKiosk.open();}catch(e){}},extra:id=>D&&D.summary.evImpact[id]?Math.round(D.summary.evImpact[id].extra):null,
+  fireworks:(c,it,now)=>{const p={x:it.x,y:it.y-10},cols=[TH.E,TH.glow,TH.X,TH.R];for(let k=0;k<3;k++){const ph=(now*0.7+k*0.33)%1,cx=p.x-40+k*38,cy=p.y-30-k*12-ph*14,r=6+ph*24;c.strokeStyle=cols[(k+Math.floor(now))%4];c.globalAlpha=1-ph;c.lineWidth=1.6;
+    for(let a=0;a<12;a++){const an=a/12*6.283;c.beginPath();c.moveTo(cx+Math.cos(an)*r*0.5,cy+Math.sin(an)*r*0.5);c.lineTo(cx+Math.cos(an)*r,cy+Math.sin(an)*r);c.stroke();}}c.globalAlpha=1;}});
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
 function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '<p class="sub">集計しています…</p>';const st=evState(ev),snap=trafficSnapshot(T);
   const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
@@ -2483,7 +2492,7 @@ document.addEventListener('keydown',e=>{if(e.target.matches('input,select,textar
 map.addEventListener('click',e=>{const r=map.getBoundingClientRect();const x=(e.clientX-r.left)/MS,y=(e.clientY-r.top)/MS;
   if(LAYERS.bus&&window.RouteRunView&&RouteRunView.click(x,y)){drawMap();return;}   // バス・配送の乗り物を押したら小さなカード
   {const h=SCPIN.find(v=>Math.hypot(v.x-x,v.y-14-y)<13);if(h){openScene(h.s);return;}}   // 場面のピン
-  if(LAYERS.events){const h=EVHIT.find(v=>Math.hypot(v.x-x,v.y-y)<18);if(h){selectEvent(h.id);return;}}
+  if(LAYERS.events){if(window.EventMapView&&EventMapView.click(x,y))return;const h=EVHIT.find(v=>Math.hypot(v.x-x,v.y-y)<18);if(h){selectEvent(h.id);return;}}   // 第8回：吹き出しを押すとカード
   let best=null,bd=16;if(LAYERS.trains)VIS.forEach(v=>{(v.cars||[v.st]).forEach(p=>{const d=Math.hypot(p.x-x,p.y-y);if(d<bd){bd=d;best=v;}});});   // どの車両を押しても選べる
   if(best){sel={kind:'set',set:best.s};FB.hid=null;}
   else{let bs=null,sd=30;ALL.forEach(s=>{const d=Math.hypot(ST[s].x-x,ST[s].y-y);if(d<sd){sd=d;bs=s;}});if(bs){sel={kind:'station',st:bs};ttStation(bs);psStation(bs);}}
