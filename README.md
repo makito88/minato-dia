@@ -19,6 +19,7 @@
 - [鉄道（路線図とダイヤ・乗客・イベント・音・乗車体験）](docs/features/rail.md)
 - [沿線くらしアンケート](docs/features/survey.md)
 - [路線のお絵かき帖（描いた路線を地図の「バス・配送」で走らせる・線路の形を直す）](docs/features/route-editor.md)
+- 地図の吹き出し（第8回）：地図の「イベント」の層に、ゲームのイベント・季節のできごと（その日になってから）・お絵かき帖で置いたイベント・天気（雨・大雪）・売店の開店と閉店を、白い丸に絵の吹き出しで出す。押すと画像つきのカード。お絵かき帖の道具「イベント」で、暦の帯を見ながら置ける（`js/event-map-view.js`・`js/event-edit.js`・設定 `data/event-map.json`）。
 - 地図の列車（第7回）：1両ずつ線路の上でカーブを曲がる見下ろしの絵（`js/train-art.js`・色は `data/train-style.json`）。列車を押すと地図の下に編成のパネル（横から見た編成・車両の種類・種別・両数・行き先）。
 - [沿線暦と沿線だより](docs/features/ensen.md)（季節のできごとの仕組みもここ）
 - [駅ナカ リサーチ](docs/features/research.md)
@@ -28,6 +29,9 @@
 - [保存と引き継ぎ・留守のあいだ](docs/features/save.md)
 - [設定資料（引き継ぎメモ・アイデア帳・街のカルテ）](docs/features/karte.md)
 - [更新履歴](docs/features/history.md)
+
+## 使わせてもらっている素材
+- **絵文字の絵**：[Twemoji](https://github.com/jdecked/twemoji)（© Twitter, Inc and other contributors・jdecked）。絵は **CC-BY 4.0**（https://creativecommons.org/licenses/by/4.0/）。使う分だけを `assets/images/emoji/` に入れています（`tools/emoji-pick.py`。絵は変えていません）。
 
 ## GitHub Pages で公開する
 リポジトリの Settings → Pages → Branch を `main` / `(root)` にして保存すると、

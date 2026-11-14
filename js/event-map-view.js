@@ -46,7 +46,7 @@ function collect(snapEvents){const T=H.T(),ST=H.ST(),out=[];
   return out;}
 
 /* ---------- 描く ---------- */
-function draw(c,snap,dk){if(!V.ready)return false;check();const t=performance.now()/1000,px=H.px(),ST=H.ST();
+function draw(c,snap,dk){if(!V.ready)return false;const t=performance.now()/1000,px=H.px(),ST=H.ST();
   const items=M.order(collect(snap.events));LAST=items;HITS=[];
   // 会場の駅との点線（うすく）
   c.save();c.setLineDash([2,3]);c.lineWidth=1;for(const it of items){if(!it.line||!ST[it.st])continue;c.globalAlpha=it.state==='after'?0.18:0.42;c.strokeStyle=Bub.rimOf(it);c.beginPath();c.moveTo(it.x,it.y);c.lineTo(ST[it.st].x,ST[it.st].y);c.stroke();}c.restore();

@@ -16,6 +16,7 @@
 
 ## イベントを追加する
 `index.html` の `EVENT_DATA` に1件足すだけで、需要・地図アイコン・イベント詳細・運転記録に反映されます。
+**地図の吹き出しの絵（第8回）**：`data/event-map.json` の `game` に `"id": { "e": "絵文字", "kind": "種類" }` を1行足す（なければ `icon` の1〜2文字を金の文字で出す）。新しい絵文字なら `python3 tools/emoji-pick.py <Twemoji の SVG のフォルダ>` で絵を入れる。`node tests/event-map.test.cjs` が、すべてのイベントに絵があるかを確かめます。
 
 ```js
 {id:'yatai', name:'新田の屋台村', icon:'屋', place:'N', pos:[760,250],
