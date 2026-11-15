@@ -23,6 +23,7 @@ STRIP = np.array([110, 180, 198], np.float32)   # 帯の色（BGR）。絵の中
 STEP = 4            # なぞる間かく（px）
 M_MAIN, M_BR = 60, 70   # 下絵の線から離れてよい幅（px）
 ST_FLAT = 18        # 駅の前後でまっすぐにする長さ（マス）
+JUNC = 40           # 川辺で温泉支線が分かれる所（駅の中心から東へ、マス）
 
 
 def score_map(im):
@@ -140,8 +141,10 @@ def main():
     stations = {s: {'name': ms.NAME[s], 'x': ms.ST[s][0], 'y': round(st_y[s], 1), 'from': 'main'} for s in main_st}
 
     # ---- 支線（川辺〜温泉）：本線の川辺の駅から出る ----
-    br_guide = [P(*p) for p in ms.BRANCH]
-    br_guide[0] = P(ms.ST['K'][0], st_y['K'])
+    # 分かれ目は川辺の駅の東（ホームのはしの先、JUNC マス）。そこまでは本線と同じ線路を通る
+    jx = ms.ST['K'][0] + JUNC
+    jy = float(np.interp(jx, xs, ys))
+    br_guide = [P(jx, jy), P(jx + 22, jy - 12)] + [P(*p) for p in ms.BRANCH if p[1] < 650]
     bp, bn, bo, bcp, fb = trace(score_path(im), br_guide, M_BR, prior=0.5, smooth=10, trust_at=1.9)
     # 川辺の分かれ目と温泉の終点は下絵の点に固定
     n = len(bo)
@@ -149,7 +152,7 @@ def main():
     bo = bo * ramp
     bx = (bp[:, 0] + bn[:, 0] * bo) / S + X0
     by = (bp[:, 1] + bn[:, 1] * bo) / S
-    branch = [[round(float(x), 1), round(float(y), 1)] for x, y in zip(bx[::4], by[::4])]
+    branch = [[float(ms.ST['K'][0]), round(st_y['K'], 1)]] + [[round(float(x), 1), round(float(y), 1)] for x, y in zip(bx[::4], by[::4])]
     branch.append([round(float(bx[-1]), 1), round(float(by[-1]), 1)])
     for s in ['F', 'T', 'O']:
         sx, sy = ms.ST[s]
