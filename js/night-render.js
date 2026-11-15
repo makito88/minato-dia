@@ -91,6 +91,8 @@ function groups(L){const m=new Map();for(const l of L){if(l.kind==='s')continue;
    D：{cfg, minute, dk, t(本当の秒), wx, avi, runs(道の帯), events:[{fx,x,y,rim}], trains:[{x,y}]} */
 function dyn(c,D){const cfg=D.cfg,a0=Math.min(1,D.dk*1.3),t=D.t,P=cfg.port||{};if(a0<=0.02)return 0;let n=0;const lim=(cfg.budget&&cfg.budget.dyn)||160;
   c.save();c.globalCompositeOperation='lighter';
+  // イベントの光（いちばん先に。数の上限は車のライトで調整する）
+  for(const e of D.events||[])n+=evFx(c,e,t,a0);
   // 列車の窓の明かりの帯
   const TR=cfg.trains||{};for(const p of D.trains||[]){if(n>lim)break;glowAt(c,TR.color||'#ffe7b0',p.x,p.y,5.5,(TR.a||0.3)*a0);n++;}
   // 航空障害灯（ゆっくり点滅）
@@ -112,13 +114,11 @@ function dyn(c,D){const cfg=D.cfg,a0=Math.min(1,D.dk*1.3),t=D.t,P=cfg.port||{};i
     for(let q=0;q<k&&n<lim;q++){const dir=q%2?1:-1,h=N.hash(q,run.pts.length+run.len|0),s=(((h*run.len+dir*t*(CR.speed||9)*(0.8+h*0.4))%run.len)+run.len)%run.len;
       const p=along(run,s);if(!p)continue;const ox=-Math.sin(p.a)*1.1*dir,oy=Math.cos(p.a)*1.1*dir;
       if(dir>0){glowAt(c,CR.head||'#fff3d6',p.x+ox,p.y+oy,1.7,0.75*a0);}else{glowAt(c,CR.tail||'#ff4a3a',p.x+ox,p.y+oy,1.3,0.7*a0);}n++;}}
-  // イベントの光
-  for(const e of D.events||[]){if(n>lim)break;n+=evFx(c,e,t,a0);}
   c.restore();return n;}
 function along(run,s){if(!run.cum){run.cum=[0];for(let i=1;i<run.pts.length;i++)run.cum.push(run.cum[i-1]+Math.hypot(run.pts[i][0]-run.pts[i-1][0],run.pts[i][1]-run.pts[i-1][1]));}
   const C=run.cum;let lo=0,hi=C.length-1;while(hi-lo>1){const m=(lo+hi)>>1;if(C[m]<=s)lo=m;else hi=m;}const a=run.pts[lo],b=run.pts[hi],L=(C[hi]-C[lo])||1e-6,u=(s-C[lo])/L;
   return {x:a[0]+(b[0]-a[0])*u,y:a[1]+(b[1]-a[1])*u,a:Math.atan2(b[1]-a[1],b[0]-a[0])};}
-function evFx(c,e,t,a0){const x=e.x,y=e.y+12;
+function evFx(c,e,t,a0){const x=e.x,y=e.y+24;
   if(e.fx==='lantern'){glowAt(c,'#ff9a4a',x,y,16,0.22*a0);for(let i=0;i<11;i++){const u=i/10,px=x-22+u*44,py=y+Math.sin(u*Math.PI)*5-2,f=0.7+0.3*Math.sin(t*6+i*1.7)*Math.sin(t*2.3+i);glowAt(c,i%2?'#ff6a3a':'#ffb35c',px,py,2.6,0.8*f*a0);}return 12;}
   if(e.fx==='hanabi'){let n=0;for(let b=0;b<3;b++){const per=3.1,u=((t+b*1.03)%per)/per;if(u>0.55)continue;const k=Math.floor((t+b*1.03)/per),h=N.hash(k,b),cx=x-24+h*48,cy=e.y-30-N.hash(k,b+9)*22,r=4+u/0.55*18,f=1-u/0.55;
       const cols=['#ff5a7a','#ffd36b','#7fd3ff','#b98bff','#7dffb0'],col=cols[Math.floor(h*cols.length)];glowAt(c,col,cx,cy,r*1.4,0.18*f*a0);

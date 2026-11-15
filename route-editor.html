@@ -158,6 +158,7 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
 .evday i:not(:empty){height:10px;line-height:10px;min-width:10px;border-radius:5px;bottom:1px}
 .evday.on i{background:#f6c95b;color:#24312c}
 .row.wrap{flex-wrap:wrap;overflow:visible}
+#cv.t-night{cursor:crosshair}.nlz .chip i.evdot{margin-right:5px}
 #evsheet{position:fixed;right:14px;top:66px;width:340px;max-height:calc(100vh - 180px);display:flex;flex-direction:column;z-index:6;overflow:hidden;background:var(--glass2)}
 .evs-hd{display:flex;align-items:center;gap:8px;padding:10px 8px 8px 10px;border-bottom:1px solid var(--rule)}
 .evs-hd .namein{flex:1 1 auto;height:40px;font-size:15px}.evs-ttl{flex:1;font:700 15px "Zen Old Mincho",serif;letter-spacing:.08em;padding-left:6px}
@@ -236,6 +237,7 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
   <div class="tsep"></div>
   <button class="tool" data-t="rail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 21C7 13 10 8 17 3M12 21c0-6 2-10 7-13"/><path d="M6.5 17.5h6M7.6 13.5h5.6M9.6 9.6h5M12.6 6.2h4"/></svg><span class="tip">線路を直す（R）</span></button>
   <button class="tool" data-t="event"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="9.5" r="6.5" fill="currentColor" fill-opacity=".12"/><path d="M9.6 15.4L12 20l2.4-4.6"/><path d="M12 6.4l.95 1.95 2.15.3-1.55 1.5.37 2.13L12 11.27l-1.92 1.01.37-2.13-1.55-1.5 2.15-.3z" fill="currentColor"/></svg><span class="tip">イベント（E）</span></button>
+  <button class="tool" data-t="night"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 14.5A8 8 0 019.5 4.5a8 8 0 1010 10z" fill="currentColor" fill-opacity=".12"/><circle cx="16.5" cy="5.5" r=".9" fill="currentColor"/><circle cx="20" cy="9" r=".7" fill="currentColor"/></svg><span class="tip">夜の光（N）</span></button>
   <div class="tsep"></div>
   <button class="tool" data-t="hand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V5.5a1.5 1.5 0 013 0V11m0-6.5a1.5 1.5 0 013 0V11m0-5a1.5 1.5 0 013 0V14a7 7 0 01-7 7h-.5a6 6 0 01-5-2.7L3.7 15a1.5 1.5 0 012.5-1.7L8 15.5"/></svg><span class="tip">地図を動かす（H）</span></button>
 </div>
@@ -277,6 +279,9 @@ details.run summary::before{content:'▸ ';}details.run[open] summary::before{co
 <script src="js/event-map-core.js?v=20261114a"></script>
 <script src="js/event-bubble.js?v=20261114a"></script>
 <script src="js/event-edit.js?v=20261114a"></script>
-<script src="js/route-editor.js?v=20261115a"></script>
+<script src="js/night-core.js?v=20261115a"></script>
+<script src="js/night-render.js?v=20261115a"></script>
+<script src="js/night-edit.js?v=20261115a"></script>
+<script src="js/route-editor.js?v=20261115n"></script>
 </body>
 </html>

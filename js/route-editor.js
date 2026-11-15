@@ -149,6 +149,7 @@ function drawScene(c,k,o){o=o||{};
   stops.forEach(([id,s])=>{const n=doc.nodes[s.node];if(!n)return;const ty=Object.assign({},tyOf('stop',s.type),s.style||{});drawMarker(c,ty,n.x,n.y,k,!o.export&&S.sel&&S.sel.k==='stop'&&S.sel.id===id);});
   stops.forEach(([id,s])=>{const n=doc.nodes[s.node];if(!n)return;const ty=Object.assign({},tyOf('stop',s.type),s.style||{});drawLabel(c,s,ty,n.x,n.y,k,boxes);});
   if(o.export)return;
+  if(S.tool==='night'&&window.NightEdit){NightEdit.draw(c,k);return;}   // 第9回：夜の光の層（塗る・のぞく）
   if(S.tool==='event'&&window.EventEdit){EventEdit.draw(c,k);return;}   // 第8回：イベントの層（その日の吹き出し）
   if(S.tool==='rail'&&window.RailEdit){RailEdit.drawOverlay(c,k);return;}   // 線路の層：つかめる点
   // 描いている途中
@@ -173,12 +174,13 @@ const P=new Map();let op=null,gest=null,lastTap={t:0,x:0,y:0};
 function pos(ev){const r=cv.getBoundingClientRect();return [ev.clientX-r.left,ev.clientY-r.top];}
 cv.addEventListener('pointerdown',ev=>{cv.setPointerCapture(ev.pointerId);S.touch=ev.pointerType!=='mouse';closePops();
   const sp=pos(ev);P.set(ev.pointerId,sp);
-  if(P.size===2){if(op&&op.k==='event')revert();else if(op&&op.k==='rail')RailEdit.cancel();else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;const [a,b]=[...P.values()];gest={d:Math.hypot(a[0]-b[0],a[1]-b[1]),m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};redraw();return;}
+  if(P.size===2){if(op&&op.k==='night')NightEdit.cancel(op.r);if(op&&op.k==='event')revert();else if(op&&op.k==='rail')RailEdit.cancel();else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;const [a,b]=[...P.values()];gest={d:Math.hypot(a[0]-b[0],a[1]-b[1]),m:[(a[0]+b[0])/2,(a[1]+b[1])/2]};redraw();return;}
   if(P.size>2)return;
   const w=toW(...sp);const btn=ev.button;
   if(btn===2&&S.tool==='poly'&&S.poly){op=null;endPoly();return;}
   if(btn===2&&S.tool==='rail'&&window.RailEdit&&RailEdit.drawing){op=null;RailEdit.endDraw();return;}   // 側線：右クリックで終わる   // 右クリック：最後に置いた点で線を終える（右クリックした場所には点を置かない）
   if(btn===1||btn===2||S.tool==='hand'||S.space){op={k:'pan',sp,v:[V.x,V.y]};cv.classList.add('dragging');return;}
+  if(S.tool==='night'&&window.NightEdit){const r=NightEdit.down(w);op=r?{k:'night',sp,w,r}:{k:'pan',sp,v:[V.x,V.y]};redraw();return;}   // 第9回：夜の光（筆で塗る。「見るだけ」のときは地図を動かす）
   if(S.tool==='event'&&window.EventEdit){const r=EventEdit.down(w,tol());op=r?{k:'event',sp,w,r,moved:false}:{k:'pan',sp,v:[V.x,V.y],tapEmpty:true,event:true};return;}   // 第8回：イベントの層
   if(S.tool==='rail'&&window.RailEdit){const r=RailEdit.down(w,tol());op=r?{k:'rail',sp,w,r,live:true,moved:false}:{k:'pan',sp,v:[V.x,V.y],tapEmpty:true,rail:true};return;}   // 線路の層
   op={k:'tap',sp,w,moved:false};
@@ -192,10 +194,11 @@ cv.addEventListener('pointerdown',ev=>{cv.setPointerCapture(ev.pointerId);S.touc
 cv.addEventListener('pointermove',ev=>{const sp=pos(ev);if(P.has(ev.pointerId))P.set(ev.pointerId,sp);
   if(gest&&P.size>=2){const [a,b]=[...P.values()],d=Math.hypot(a[0]-b[0],a[1]-b[1]),m=[(a[0]+b[0])/2,(a[1]+b[1])/2];zoomAt(d/gest.d,m[0],m[1]);V.x-=(m[0]-gest.m[0])/V.z;V.y-=(m[1]-gest.m[1])/V.z;gest={d,m};return;}
   const w=toW(...sp);
-  if(!op){S.hover=w;if(S.tool==='poly'&&S.poly)redraw();hoverCursor(w);return;}
+  if(!op){S.hover=w;if(S.tool==='poly'&&S.poly||S.tool==='night')redraw();hoverCursor(w);return;}
   const mv=Math.hypot(sp[0]-op.sp[0],sp[1]-op.sp[1]);if(mv>4)op.moved=true;
   if(op.k==='rail'){if(op.moved&&op.r.k!=='drawtap'){RailEdit.move(op.r,w);redraw();}return;}
   if(op.k==='event'){if(op.moved){EventEdit.move(op.r,w);redraw();}return;}
+  if(op.k==='night'){S.hover=w;NightEdit.move(op.r,w);redraw();return;}
   if(op.k==='tap'&&op.moved){op={k:'pan',sp:op.sp,v:[V.x,V.y]};}
   if(op.k==='pan'){if(op.moved||Math.hypot(sp[0]-op.sp[0],sp[1]-op.sp[1])>4){V.x=op.v[0]-(sp[0]-op.sp[0])/V.z;V.y=op.v[1]-(sp[1]-op.sp[1])/V.z;cv.classList.add('dragging');redraw();}return;}
   if(op.k==='stroke'){const L=S.stroke.pts[S.stroke.pts.length-1];if(Math.hypot(w[0]-L[0],w[1]-L[1])>1.2/V.z){S.stroke.pts.push(w);const n=hitNode(w);S.snap=n?[doc.nodes[n].x,doc.nodes[n].y]:null;redraw();}return;}
@@ -208,6 +211,7 @@ function endPointer(ev){const had=P.has(ev.pointerId);P.delete(ev.pointerId);if(
   const o=op;op=null;cv.classList.remove('dragging');const w=toW(...pos(ev));
   if(o.k==='rail'){RailEdit.up(o.r,w,o.moved,dbl(o.sp));return;}
   if(o.k==='event'){EventEdit.up(o.r,w,o.moved);return;}
+  if(o.k==='night'){NightEdit.up(o.r);return;}
   if(o.k==='pan'){if(o.tapEmpty&&!o.moved){if(o.rail){RailEdit.tapEmpty(w,dbl(o.sp));return;}if(o.event){EventEdit.tapEmpty(w);return;}S.sel=null;ui();redraw();}return;}
   if(o.k==='stroke'){const raw=S.stroke.pts;S.stroke=null;S.snap=null;
     if(raw.length>2&&C.polyLen(raw.map(p=>({x:p[0],y:p[1]})))>6/V.z){const pts=C.simplify(raw,1.6/V.z);C.addPath(doc,pts,{type:S.road,smooth:true,snap:12/V.z});commit();}
@@ -222,7 +226,7 @@ function endPointer(ev){const had=P.has(ev.pointerId);P.delete(ev.pointerId);if(
   if(o.k==='tap'&&!o.moved){if(S.tool==='poly')tapPoly(w,o.sp);else if(S.tool==='stop')tapStop(w);else if(S.tool==='line')tapLine(w);}
 }
 function dbl(sp){const t=performance.now(),r=t-lastTap.t<380&&Math.hypot(sp[0]-lastTap.x,sp[1]-lastTap.y)<14;lastTap=r?{t:0,x:0,y:0}:{t,x:sp[0],y:sp[1]};return r;}
-cv.addEventListener('pointerup',endPointer);cv.addEventListener('pointercancel',ev=>{P.delete(ev.pointerId);if(op&&op.k==='event'){revert();}else if(op&&op.k==='rail'){RailEdit.cancel();}else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;gest=null;redraw();});
+cv.addEventListener('pointerup',endPointer);cv.addEventListener('pointercancel',ev=>{P.delete(ev.pointerId);if(op&&op.k==='night'){NightEdit.cancel(op.r);}else if(op&&op.k==='event'){revert();}else if(op&&op.k==='rail'){RailEdit.cancel();}else if(op&&op.live)revert();if(op&&op.k==='stroke')S.stroke=null;op=null;gest=null;redraw();});
 cv.addEventListener('pointerleave',()=>{if(!op){S.hover=null;redraw();}});
 cv.addEventListener('wheel',ev=>{ev.preventDefault();const sp=pos(ev);
   if(ev.shiftKey&&!ev.ctrlKey){V.x+=(ev.deltaY||ev.deltaX)/V.z;redraw();return;}
@@ -261,7 +265,7 @@ addEventListener('keydown',ev=>{const tag=(ev.target.tagName||'').toLowerCase();
   if(ev.key==='Escape'){if(S.poly)endPoly();else{S.sel=null;closePops();ui();redraw();}return;}
   if(ev.key==='Enter'&&S.poly){endPoly();return;}
   if(ev.key==='Delete'||ev.key==='Backspace'){delSel();ev.preventDefault();return;}
-  const m={v:'select',b:'pen',p:'poly',s:'stop',l:'line',h:'hand',r:'rail',e:'event'}[ev.key.toLowerCase()];if(m&&!mod)setTool(m);
+  const m={v:'select',b:'pen',p:'poly',s:'stop',l:'line',h:'hand',r:'rail',e:'event',n:'night'}[ev.key.toLowerCase()];if(m&&!mod)setTool(m);
   if(ev.key==='0'&&!mod)fit();if(ev.key==='+'||ev.key==='=')zoomAt(1.25,V.w/2,V.h/2);if(ev.key==='-')zoomAt(0.8,V.w/2,V.h/2);});
 addEventListener('keyup',ev=>{if(ev.key===' '){S.space=false;cv.classList.remove('panning');}});
 function delSel(){const s=S.sel;if(!s)return;if(s.k==='node')C.deleteNode(doc,s.id);else if(s.k==='edge')C.deleteEdge(doc,s.id);else if(s.k==='stop'){const n=doc.stops[s.id].node;C.deleteStop(doc,s.id);C.dropOrphan(doc,n);}S.sel=null;commit();}
@@ -295,6 +299,7 @@ function typeRow(kind,curId,pick){const r=el('div','row');const arr=doc.types[ki
   return r;}
 function dock(){const d=$('dock');d.innerHTML='';const s=S.sel;
   if(S.tool==='rail'&&window.RailEdit){RailEdit.dock(d,el,chip);d.hidden=!d.children.length;return;}
+  if(S.tool==='night'&&window.NightEdit){NightEdit.dock(d,el,chip);d.hidden=!d.children.length;return;}   // 第9回：夜の光の棚
   if(S.tool==='event'&&window.EventEdit){EventEdit.dock(d,el,chip);d.hidden=!d.children.length;return;}   // 第8回：暦の帯   // 線路の層の棚
   if(S.tool==='pen'||S.tool==='poly'){d.appendChild(typeRow('road',S.road,id=>{S.road=id;ui();}));if(S.poly){const r=el('div','row');r.appendChild(chip('✓ ここで終わる',false,endPoly));d.appendChild(r);}}
   else if(S.tool==='stop'&&!(s&&s.k==='stop'))d.appendChild(typeRow('stop',S.stopT,id=>{S.stopT=id;ui();}));
@@ -420,7 +425,7 @@ $('mapAlpha').oninput=e=>{doc.view.mapAlpha=+e.target.value;redraw();};$('mapAlp
 document.querySelectorAll('#menu .mi').forEach(b=>b.onclick=()=>{const m=b.dataset.m;
   if(m==='png')savePNG();else if(m==='export')exportJSON();else if(m==='import')$('file').click();
   else if(m==='rail'){doc.view.rail=!doc.view.rail;commit();}else if(m==='fit')fit();
-  else if(m==='example'){example();}else if(m==='group'){groupRoutes();}else if(m==='clear'){if(confirm('描いたものをぜんぶ消しますか？（「元に戻す」で戻せます）')){const t=doc.types,v=doc.view,ev=doc.evs;doc=C.emptyDoc(DEF);doc.types=t;doc.view=v;if(ev)doc.evs=ev;S.sel=null;S.line=null;S.poly=null;commit();}}
+  else if(m==='example'){example();}else if(m==='group'){groupRoutes();}else if(m==='clear'){if(confirm('描いたものをぜんぶ消しますか？（「元に戻す」で戻せます）')){const t=doc.types,v=doc.view,ev=doc.evs,nt=doc.night;doc=C.emptyDoc(DEF);doc.types=t;doc.view=v;if(ev)doc.evs=ev;if(nt)doc.night=nt;S.sel=null;S.line=null;S.poly=null;commit();}}
   if(m!=='rail')$('menu').hidden=true;});
 $('undo').onclick=undo;$('redo').onclick=redo;
 document.querySelectorAll('#zoom .ib').forEach(b=>b.onclick=()=>zoomAt(+b.dataset.z,V.w/2,V.h/2));
@@ -504,8 +509,9 @@ async function init(){try{DEF=await fetch('data/routes.json',{cache:'no-cache'})
   let saved=null;try{saved=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}
   doc=C.normalize(saved,DEF);cur=JSON.stringify(doc);fixSel();
   if(window.RailEdit)RailEdit.init({ui:()=>ui(),redraw,toast},DEF);
+  if(window.NightEdit)NightEdit.init({doc:()=>doc,commit,ui:()=>ui(),redraw,toast,stations:railStations,hover:()=>S.hover});   // 第9回：夜の光の層
   if(window.EventEdit)EventEdit.init({doc:()=>doc,commit,ui:()=>ui(),redraw,toast,stations:railStations,focus:(x,y)=>{if(V.w<700){V.x=x-V.w/2/V.z;V.y=y-(V.h*0.3)/V.z;}redraw();}});   // 第8回：イベントの層
-  resize();fit.mob=true;fit();setTool(/track|rail/.test(location.hash)&&window.RailEdit?'rail':/event/.test(location.hash)&&window.EventEdit?'event':'pen');showLines(false);
+  resize();fit.mob=true;fit();setTool(/track|rail/.test(location.hash)&&window.RailEdit?'rail':/event/.test(location.hash)&&window.EventEdit?'event':/night/.test(location.hash)&&window.NightEdit?'night':'pen');showLines(false);
   if(document.fonts){['700 10px "Zen Kaku Gothic New"','700 10px "Zen Maru Gothic"','700 10px "Zen Old Mincho"','400 10px "Yomogi"'].forEach(f=>document.fonts.load(f,'あ駅').then(redraw,()=>{}));document.fonts.ready.then(redraw);}
   addEventListener('resize',()=>{const w=V.w;resize();if(Math.abs(innerWidth-w)>120)fit();});
   requestAnimationFrame(frame);

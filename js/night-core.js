@@ -75,16 +75,17 @@ function normalize(n,cfg){const o=Object.assign(blankPaint(cfg),n&&typeof n==='o
   o.pal=o.pal&&typeof o.pal==='object'?o.pal:{};for(const k of Object.keys(o.pal))if(!Array.isArray(o.pal[k])||!o.pal[k].every(c=>/^#[0-9a-f]{6}$/i.test(c)))delete o.pal[k];
   o.base=o.base!==false;delete o.n;return o;}
 function merge(cfg,paint,pick){const {gw,gh}=dims(cfg),N=gw*gh,au=autoZones(cfg),pz=rleDec(paint&&paint.zone,N),pl=rleDec(paint&&paint.lamp,N);
-  const z=new Uint8Array(N),m=new Float32Array(N),lamp=pl,water=new Uint8Array(N);const wcode=codeOf(cfg,'water');
-  for(let k=0;k<N;k++){if(pz[k]){z[k]=pz[k];m[k]=1;}else{z[k]=au.z[k];m[k]=au.m[k];if(pick&&pick.water[k])z[k]=wcode;}water[k]=z[k]===wcode?1:0;}
-  return {z,m,lamp,water,gw,gh,c:dims(cfg).c};}
+  const z=new Uint8Array(N),m=new Float32Array(N),lamp=pl,water=new Uint8Array(N),pt=new Uint8Array(N);const wcode=codeOf(cfg,'water');
+  for(let k=0;k<N;k++){if(pz[k]){z[k]=pz[k];m[k]=1;pt[k]=1;}else{z[k]=au.z[k];m[k]=au.m[k];if(pick&&pick.water[k])z[k]=wcode;}water[k]=z[k]===wcode?1:0;}
+  return {z,m,lamp,water,painted:pt,gw,gh,c:dims(cfg).c};}
 
 /* ---------- 明かり1つずつ ----------
    out：{x,y,col,th,s,z,g,kind}  th＝点いている割合がこれより大きいと点く。kind：w＝窓・g＝格子の窓・s＝看板 */
 function palette(cfg,paint,zid){const p=paint&&paint.pal&&paint.pal[zid];if(p&&p.length)return p;const z=(cfg.zones||[]).find(q=>q.id===zid);return (z&&z.colors)||['#ffd27a'];}
 function lights(cfg,G,score,paint){const out=[],{gw,gh,c}=G;const Z={};(cfg.zones||[]).forEach(z=>Z[z.code]=z);
+  // 性格を塗ったところは、絵に建物がなくても少しは点く（0.45）
   for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){const k=j*gw+i,zc=Z[G.z[k]];if(!zc||!zc.dens)continue;const L=G.lamp[k];if(L===2)continue;
-    const sc=L===1?1:(score?score[k]:0.5);if(sc<=0)continue;const exp=zc.dens*G.m[k]*sc;let n=Math.floor(exp+hash(k,1));if(n<=0)continue;n=Math.min(n,8);
+    const sc=L===1?1:G.painted&&G.painted[k]?Math.max(0.45,score?score[k]:0.5):(score?score[k]:0.5);if(sc<=0)continue;const exp=zc.dens*G.m[k]*sc;let n=Math.floor(exp+hash(k,1));if(n<=0)continue;n=Math.min(n,8);
     const pal=palette(cfg,paint,zc.id),x0=i*c,y0=j*c;
     for(let q=0;q<n;q++){const r1=hash(k,10+q*7),r2=hash(k,11+q*7),r3=hash(k,12+q*7),r4=hash(k,13+q*7),r5=hash(k,14+q*7);
       const x=x0+r1*c,y=y0+r2*c,col=pal[Math.floor(r4*pal.length)%pal.length];
@@ -125,9 +126,22 @@ function roads(cfg,G,polys){const runs=[],lamps=[],R=cfg.roads||{};let seed=1;
 // お絵かき帖の道の種類 → 光の種類（大通り・生活道路・細い道。自分で足した種類は幅で）
 function roadTypeOf(t){if(!t)return 'street';if(t.mode&&t.mode!=='road')return '';if(t.id==='avenue'||t.id==='street'||t.id==='lane')return t.id;const w=+(t.style&&t.style.width)||2;return w>=3.4?'avenue':w>=2?'street':'lane';}
 
+/* ---------- まとめて作る（ゲームとお絵かき帖で同じ） ----------
+   doc：dia-routes（night・edges・nodes・types）、pick：pickScore の結果（なければ null）、flat(doc,e)→[[x,y]…]（道の形。なければ両端の直線） */
+function model(cfg,doc,pick,flat){const paint=normalize(doc&&doc.night,cfg),G=merge(cfg,paint,pick),score=pick&&pick.score,L=lights(cfg,G,score,paint);
+  const polys=[];if(paint.base!==false)for(const r of (cfg.baseRoads&&cfg.baseRoads.list)||[])polys.push({type:r.type,pts:r.pts});
+  if(doc&&doc.edges&&doc.nodes){const types=(doc.types&&doc.types.road)||[];
+    for(const e of Object.values(doc.edges)){const t=types.find(q=>q.id===e.type)||{id:e.type},ty=roadTypeOf(t);if(!ty)continue;let pts=null;
+      try{pts=flat?flat(doc,e):[[doc.nodes[e.a].x,doc.nodes[e.a].y],[doc.nodes[e.b].x,doc.nodes[e.b].y]];}catch(er){continue;}if(pts&&pts.length>1)polys.push({type:ty,pts});}}
+  const rd=roads(cfg,G,polys);rd.runs.forEach(r=>{r.len=r.pts.reduce((a,p,i)=>i?a+Math.hypot(p[0]-r.pts[i-1][0],p[1]-r.pts[i-1][1]):0,0);});
+  return {paint,G,L,stars:stars(cfg,G,score),avi:aviation(cfg,G,score),roads:rd};}
+// 筆で塗る：マス目 a（Uint8Array）の、中心 x,y・半径 r（地図の単位）の中を v に。変わったマスの数
+function paintAt(cfg,a,x,y,r,v){const {c,gw,gh}=dims(cfg);let n=0;const i0=Math.max(0,Math.floor((x-r)/c)),i1=Math.min(gw-1,Math.floor((x+r)/c)),j0=Math.max(0,Math.floor((y-r)/c)),j1=Math.min(gh-1,Math.floor((y+r)/c));
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){if(Math.hypot((i+0.5)*c-x,(j+0.5)*c-y)>r+c*0.5)continue;const k=j*gw+i;if(a[k]!==v){a[k]=v;n++;}}return n;}
+
 /* ---------- イベントの光の種類 ---------- */
 function eventFx(it,cfg){const E=(cfg&&cfg.events)||{};const e=it&&it.icon&&it.icon.e;if(e&&E.by&&E.by[e]!=null)return E.by[e];return (E.kind&&E.kind[it&&it.kind])||'';}
 
-const api={W,H,hash,sunTimes,darkness,frac,dims,rleEnc,rleDec,inPoly,codeOf,zoneOf,autoZones,hsv,pickScore,blankPaint,normalize,merge,palette,lights,stars,aviation,roadStyle,roads,roadTypeOf,eventFx};
+const api={W,H,hash,sunTimes,darkness,frac,dims,rleEnc,rleDec,inPoly,codeOf,zoneOf,autoZones,hsv,pickScore,blankPaint,normalize,merge,palette,lights,stars,aviation,roadStyle,roads,roadTypeOf,eventFx,model,paintAt};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.NightCore=api;
 })(typeof window!=='undefined'?window:globalThis);

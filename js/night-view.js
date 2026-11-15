@@ -24,14 +24,8 @@ addEventListener('storage',e=>{if(e.key===KEY)check();});addEventListener('focus
 function redraw(){lastKey='';if(H&&H.redraw)try{H.redraw();}catch(e){}}
 
 /* 保存と設定から、明かり・道・星を作る（保存か絵が変わったときだけ） */
-function model(){let doc=null;try{doc=JSON.parse(RAW||'null');}catch(e){}const paint=N.normalize(doc&&doc.night,CFG);
-  const G=N.merge(CFG,paint,PICK),score=PICK&&PICK.score,L=N.lights(CFG,G,score,paint);
-  const polys=[];if(paint.base!==false)for(const r of (CFG.baseRoads&&CFG.baseRoads.list)||[])polys.push({type:r.type,pts:r.pts});
-  if(doc&&doc.edges&&doc.nodes){const types=(doc.types&&doc.types.road)||[],RC=window.RouteCore;
-    for(const e of Object.values(doc.edges)){const t=types.find(q=>q.id===e.type)||{id:e.type},ty=N.roadTypeOf(t);if(!ty)continue;let pts=null;
-      try{pts=RC?RC.edgeFlat(doc,e).map(p=>[p.x,p.y]):[[doc.nodes[e.a].x,doc.nodes[e.a].y],[doc.nodes[e.b].x,doc.nodes[e.b].y]];}catch(er){continue;}if(pts&&pts.length>1)polys.push({type:ty,pts});}}
-  const roads=N.roads(CFG,G,polys);roads.runs.forEach(r=>{r.len=r.pts.reduce((a,p,i)=>i?a+Math.hypot(p[0]-r.pts[i-1][0],p[1]-r.pts[i-1][1]):0,0);});
-  M={paint,G,L,groups:R.groups(L),stars:N.stars(CFG,G,score),avi:N.aviation(CFG,G,score),roads};ver++;lastKey='';}
+function model(){let doc=null;try{doc=JSON.parse(RAW||'null');}catch(e){}const RC=window.RouteCore;
+  const m=N.model(CFG,doc,PICK,RC?(d,e)=>RC.edgeFlat(d,e).map(p=>[p.x,p.y]):null);m.groups=R.groups(m.L);M=m;ver++;lastKey='';}
 
 /* host：index.html が渡す（ymd・天気・駅・列車・地図の大きさ・描き直し） */
 function init(host){H=host;}
