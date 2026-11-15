@@ -109,7 +109,7 @@ input[type=range]{width:90px;accent-color:var(--accent)}
   var cv=document.getElementById('cv'), ctx=cv.getContext('2d',{willReadFrequently:true});
   var st={s:0.3,x:0,y:0}, minS=0.1, maxS=3, mode='view';
   var seams=[], blurred=[], tiles=[], tileById={}, stations={}, layers=[], baked=[], track=null;
-  var pins=[], db=null, saveTimer=null, saving=false, dirty=false;
+  var pins=[], cleared=null, db=null, saveTimer=null, saving=false, dirty=false;
   var NS='http://www.w3.org/2000/svg';
   function $(id){return document.getElementById(id);}
   function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
@@ -207,7 +207,7 @@ input[type=range]{width:90px;accent-color:var(--accent)}
       el('line',{x1:p.x,y1:p.y,x2:p.x+p.dx,y2:p.y+p.dy,stroke:c,'data-w':1.4},G.pin);
       el('circle',{cx:p.x+p.dx,cy:p.y+p.dy,'data-r':3.5,fill:c},G.pin);
     });
-    $('undo').disabled=!pins.length;$('clear').disabled=!pins.length;
+    $('undo').disabled=!pins.length&&!cleared;$('clear').disabled=!pins.length;
     apply();
   }
   function persist(){
@@ -282,7 +282,7 @@ input[type=range]{width:90px;accent-color:var(--accent)}
     pts.delete(e.pointerId);last=null;if(!pts.size)view.classList.remove('drag');
     if(drag&&!pts.size){var d=drag;drag=null;cursor(null);
       if(d.pin&&Math.hypot(d.pin.dx,d.pin.dy)>0.3){
-        var R=pinRect(d.pin);need(R).then(function(){d.L.col=d.col||warpPin(d.L,d.L.col,d.pin,R);recomp(R);pins.push(d.pin);drawPins();persist();});
+        var R=pinRect(d.pin);need(R).then(function(){d.L.col=d.col||warpPin(d.L,d.L.col,d.pin,R);recomp(R);pins.push(d.pin);cleared=null;drawPins();persist();});
       } else if(d.prevR){recomp(d.prevR);}
     }
   }
@@ -295,12 +295,15 @@ input[type=range]{width:90px;accent-color:var(--accent)}
   $('mini').addEventListener('click',function(e){var r=this.getBoundingClientRect();goWorld((e.clientX-r.left)/r.width*W/PX+X0,(e.clientY-r.top)/r.height*H/PX,st.s<0.6?1:st.s);});
   window.addEventListener('resize',apply);
 
-  $('undo').onclick=function(){var p=pins.pop();if(!p)return;var L=layers.find(function(l){return l.id===p.tile;});
+  $('undo').onclick=function(){
+    if(!pins.length&&cleared){pins=cleared;cleared=null;pins.forEach(function(q){var L=layers.find(function(l){return l.id===q.tile;});if(L)L.dirty=true;});
+      redrawAll(pins.map(pinRect)).then(function(){drawPins();persist();status('全部消したのを元に戻しました',true);});return;}
+    var p=pins.pop();if(!p)return;var L=layers.find(function(l){return l.id===p.tile;});
     if(L)L.dirty=true;redrawAll([pinRect(p)]).then(function(){drawPins();persist();});};
   var clearArm=0;
   $('clear').onclick=function(){
     if(!clearArm){clearArm=1;this.textContent='本当に全部消す';var b=this;setTimeout(function(){clearArm=0;b.textContent='全部消す';},3000);return;}
-    clearArm=0;this.textContent='全部消す';var rs=pins.map(pinRect);
+    clearArm=0;this.textContent='全部消す';cleared=pins.slice();var rs=pins.map(pinRect);
     pins.forEach(function(p){var L=layers.find(function(l){return l.id===p.tile;});if(L)L.dirty=true;});pins=[];
     redrawAll(rs).then(function(){drawPins();persist();});};
   $('export').onclick=function(){var t=JSON.stringify({v:1,pins:pins});
