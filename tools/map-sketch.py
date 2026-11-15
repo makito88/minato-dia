@@ -255,14 +255,14 @@ line('rail', BRANCH, COL['rail'], 4)
 # 中央車庫（中央の西1〜2km・線路の北側）と、そこへの線路
 line('rail', [(0, MAINY), (-60, 694), (-100, 668), (-120, 652)], COL['rail'], 3)
 rect('rail', -210, 615, 110, 45, COL['yard'], 'opacity=".55"')
-for i in range(6):
-    line('rail', [(-205, 622 + i * 7), (-105, 622 + i * 7)], COL['rail'], 1.4, smooth_=False)
+for i in range(14):   # 留置線14本（配線図 haisen.svg と同じ）
+    line('rail', [(-205, 619 + i * 2.8), (-110, 619 + i * 2.8)], COL['rail'], 0.9, smooth_=False)
 # 港留置線（港の手前・新田側の北）
 rect('rail', 1975, 672, 95, 18, COL['yard'], 'opacity=".55"')
-for i in range(3):
-    line('rail', [(1978, 677 + i * 5), (2065, 677 + i * 5)], COL['rail'], 1.4, smooth_=False)
+for i in range(4):    # 港留置線4本（配線図と同じ）
+    line('rail', [(1978, 676 + i * 4), (2065, 676 + i * 4)], COL['rail'], 1.2, smooth_=False)
 # ホーム（中央4線・港2線・温泉2線。大学前・緑ヶ丘・川辺は追い越しの線つき。森下・峠は行き違い）
-PLAT = {'C': (4, 30), 'S': (2, 16), 'U': (3, 20), 'M': (3, 20), 'K': (4, 24), 'N': (2, 14), 'P': (2, 22),
+PLAT = {'C': (4, 30), 'S': (2, 16), 'U': (4, 22), 'M': (4, 22), 'K': (4, 24), 'N': (2, 14), 'P': (2, 22),
         'F': (2, 12), 'T': (2, 12), 'O': (2, 14)}
 for s, (n, L) in PLAT.items():
     x, y = ST[s]
