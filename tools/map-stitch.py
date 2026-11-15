@@ -6,7 +6,9 @@
   stitched.jpg          つないだ1枚（1マス＝2px、6200×2000）
   stitched-small.jpg    同じ絵の半分の大きさ
   stitched-check.jpg    半分の大きさに、下絵の線路・川・海岸・駅とタイルの枠を重ねたもの
-  seams.json            つなぎ目の線と、ぼかした所（確かめるページで印を出す）
+  seams.json            つなぎ目の線と、ぼかした所・層の位置（確かめるページで使う）
+  layers/<タイル>.jpg・-a.png  層（手で直す前の色と、なじませの透け具合）。ページで手直しを試すのに使う
+読むもの: fixes.json（あれば）＝ページで手で直したピン [{tile,x,y,dx,dy,r}]（マス）。そのタイルの色だけをゆがめる
 つなぎ方（ゲームの地図は変えない。確認用の絵だけ）:
   1. 置く順：本線の帯（西→東）→ 北の帯（西→東）。
   2. 少しずらして合わせる：重なりの所がいちばん似る位置へ、タイルを丸ごと最大±20px 動かす。
@@ -79,11 +81,12 @@ def block_match(a, b, mask, vertical):
         gb = cv2.cvtColor(B, cv2.COLOR_BGR2GRAY).astype(np.float32)
         if ga.std() < 6:      # 田んぼや海だけで手がかりがない
             continue
+        my, mx = min(WARP, ga.shape[0] // 4), min(WARP, ga.shape[1] // 4)
         best, arg = None, (0, 0)
         for dy in range(-WARP, WARP + 1, 2):
             for dx in range(-WARP, WARP + 1, 2):
                 Bs = np.roll(np.roll(gb, dy, 0), dx, 1)
-                c = np.abs(ga - Bs)[WARP:-WARP, WARP:-WARP].mean() + 0.2 * (abs(dx) + abs(dy))
+                c = np.abs(ga - Bs)[my:ga.shape[0] - my, mx:ga.shape[1] - mx].mean() + 0.2 * (abs(dx) + abs(dy))
                 if best is None or c < best:
                     best, arg = c, (dx, dy)
         pts.append((s + BLK / 2, arg[0], arg[1]))
@@ -135,6 +138,24 @@ def seam_path(cost):
     return path
 
 
+LAY = OUT / 'layers'
+
+
+def apply_pins(im, pins, lx, ly, wx0):
+    """ピン1本ずつ：始点 (x,y) を終点 (x+dx, y+dy) へ引っぱる。まわりはガウスの重みで少しずつ（半径 r＝σ×2）。
+    単位はマス。ページ（viewer.html の warpPin）と同じ式"""
+    if not pins:
+        return im
+    h, w = im.shape[:2]
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    for q in pins:
+        ex, ey = (q['x'] + q['dx'] - wx0) * S - lx, (q['y'] + q['dy']) * S - ly
+        ddx, ddy, sg = q['dx'] * S, q['dy'] * S, max(1.0, q['r'] * S / 2)
+        wgt = np.exp(-((xx - ex) ** 2 + (yy - ey) ** 2) / (2 * sg * sg))
+        im = cv2.remap(im, xx - ddx * wgt, yy - ddy * wgt, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+    return im
+
+
 def mark_bad(badmap, samples):
     """つなぎ目に沿った違いを41pxでならし、BAD をこえる所だけ印を付ける（町の中は建物がちがって当たり前なので、ならしてから）"""
     if not samples:
@@ -151,9 +172,13 @@ def main():
     wd = meta['world']
     W, H = int((wd['x1'] - wd['x0']) * S), int((wd['y1'] - wd['y0']) * S)
     can = np.full((H, W, 3), (214, 238, 236), np.uint8)
+    fin = can.copy()   # 手で直した所を入れた仕上げ（can は直す前のまま、つなぎ目を決めるのに使う）
     have = np.zeros((H, W), np.uint8)
     badmap = np.zeros((H, W), np.float32)
     seams, info = [], []
+    fx = OUT / 'fixes.json'
+    pins = json.loads(fx.read_text(encoding='utf-8')).get('pins', []) if fx.exists() else []
+    layers = []
     order = [t for t in meta['tiles'] if t['band'] == 'main'] + [t for t in meta['tiles'] if t['band'] == 'north']
     for t in order:
         im = load(t, wd)
@@ -211,13 +236,23 @@ def main():
         # 左右のつなぎ目は細く、上下（北の帯と本線の帯）は田畑や森が多いので広めになじませる
         take = np.minimum(soft(take, FEATHER / 2, FEATHER * 1.8), soft(tb, FEATHER * 1.4, FEATHER * 3))
         take = np.where(ov, take, 1.0)[..., None]
+        # 確かめるページ用の層（手で直す前の色＋なじませの透け具合）
+        LAY.mkdir(exist_ok=True)
+        cv2.imwrite(str(LAY / f"{t['id']}.jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 88])
+        cv2.imwrite(str(LAY / f"{t['id']}-a.png"), np.round(take[..., 0] * 255).astype(np.uint8), [cv2.IMWRITE_PNG_COMPRESSION, 9])
+        layers.append({'id': t['id'], 'x': x0, 'y': y0, 'w': w, 'h': h})
+        # 手で直した所（fixes.json のピン）：このタイルの色だけをゆがめる。つなぎ目（透け具合）は動かさない
         can[y0:y0 + h, x0:x0 + w] = (im * take + old * (1 - take)).astype(np.uint8)
+        imp = apply_pins(im, [q for q in pins if q.get('tile') == t['id']], x0, y0, wd['x0'])
+        fo = fin[y0:y0 + h, x0:x0 + w]
+        fin[y0:y0 + h, x0:x0 + w] = (imp * take + fo * (1 - take)).astype(np.uint8)
         have[y0:y0 + h, x0:x0 + w] = 1
         info.append({'tile': t['id'], 'shift': [dx, dy], 'leftSeam': lw, 'bottomSeam': bh})
     # 違いの大きく残った所をぼかす
     bw = cv2.dilate(badmap, np.ones((7, 7), np.uint8))
     bw = cv2.GaussianBlur(bw, (0, 0), 7)
     bw = np.clip(bw * 2.5, 0, 1)[..., None]
+    can = fin
     soft = cv2.GaussianBlur(can, (0, 0), 2.2)
     can = (can * (1 - bw) + soft * bw).astype(np.uint8)
     blurred = []
@@ -229,8 +264,8 @@ def main():
     cv2.imwrite(str(OUT / 'stitched.jpg'), can, [cv2.IMWRITE_JPEG_QUALITY, 85])
     small = cv2.resize(can, (W // 2, H // 2), interpolation=cv2.INTER_AREA)
     cv2.imwrite(str(OUT / 'stitched-small.jpg'), small, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    (OUT / 'seams.json').write_text(json.dumps({'note': 'つなぎ目の線と、ぼかした所（マス）。tools/map-stitch.py が作る',
-                                                'tiles': info, 'seams': seams, 'blurred': blurred}, ensure_ascii=False), encoding='utf-8')
+    (OUT / 'seams.json').write_text(json.dumps({'note': 'つなぎ目の線と、ぼかした所（マス）。layers は確かめるページ用の層（px、1マス＝2px）。tools/map-stitch.py が作る',
+                                                'tiles': info, 'seams': seams, 'blurred': blurred, 'layers': layers, 'pinsBaked': pins}, ensure_ascii=False), encoding='utf-8')
     # 確認用：下絵の線を重ねる（半分の大きさ）
     spec = importlib.util.spec_from_file_location('ms', ROOT / 'tools' / 'map-sketch.py')
     ms = importlib.util.module_from_spec(spec)
