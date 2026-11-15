@@ -14,7 +14,7 @@
 if(typeof KioskCore==='undefined'||typeof MinatoStore==='undefined'||typeof MinatoAnim==='undefined')return;
 const KC=KioskCore,MS=MinatoStore,A=MinatoAnim,KS=window.KioskStaff,MAP=A.MAP;
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
-const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
+const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),dayOk=()=>g(()=>ENS.ready!==false,true),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
 const fmtT=t=>g(()=>fmt(t),'');
 const yen=n=>(n<0?'−':'')+'¥'+Math.round(Math.abs(n)).toLocaleString('ja-JP');
 const num=n=>Math.round(n).toLocaleString('ja-JP');
@@ -26,7 +26,7 @@ const V={K:null,M:null,R:null,cfg:null,st:null,err:null,res:null,resKey:'',resD:
 /* ---------- 読み込み・保存 ---------- */
 const getJ=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u+': HTTP '+r.status);return r.json();});
 Promise.all([getJ('data/kiosk.json'),getJ(MS.URL),getJ('data/research.json'),getJ('data/links.json?v=20261112a').catch(()=>null),getJ('data/factory.json?v=20261110g').catch(()=>null),getJ('data/haiso.json?v=20261110g').catch(()=>null),getJ('data/center.json?v=20261112d').catch(()=>null)]).then(([K,M,R,L,FJ,HJ,CJ])=>{V.K=K;V.M=M;V.R=R;V.L=L;V.FJ=FJ;V.HJ=HJ;V.C=CJ;V.cfg=MS.cfg(K,M);
-  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;if(MS.crewFix&&MS.crewFix(V.cfg,s,KS,gDay())){s.news.push({day:gDay(),kind:'crew',title:'店員のシフトを組み直した',text:'1日に働くのは3〜8時間、4時間をこえると休憩（45分・8時間働くなら1時間）、18歳未満の人は22時〜5時に入らない形にしました。時給は東京都の最低賃金（1,280円）より下げません。'});persist();}crewAd();omStart();}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=gDay();refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
+  try{const s=JSON.parse(localStorage.getItem(MS.KEY)||'null');if(s&&s.v===1){for(const z in V.cfg.layout)if(!s.layout[z]){s.layout=JSON.parse(JSON.stringify(V.cfg.layout));break;}V.st=s;if(MS.crewFix&&MS.crewFix(V.cfg,s,KS,gDay())){s.news.push({day:gDay(),kind:'crew',title:'店員のシフトを組み直した',text:'1日に働くのは3〜8時間、4時間をこえると休憩（45分・8時間働くなら1時間）、18歳未満の人は22時〜5時に入らない形にしました。時給は東京都の最低賃金（1,280円）より下げません。'});persist();}crewAd();omStart();}   /* 棚の場所が増えたとき（2026-11-10 の乾物・おやつの棚）は、新しい棚割りにする */}catch(e){}V.lastDay=dayOk()?gDay():null;refresh();}).catch(e=>{V.err=String(e.message||e);refresh();});
 /* おまかせ発注（S1）：前からある店にも om を足す（最初からおまかせ・記録がないうちは今の数のまま）。足したら便りで知らせる */
 function omStart(){const S=V.st;if(!S||S.om)return;MS.omInit(S,V.C,'auto');
   S.news.push({day:gDay(),kind:'center',title:'港の店の発注を「おまかせ」にした',text:'締めのたびに、品ごとの売れた数・売り切れで逃した数・廃棄を記録し、運行日の始めに、緑ヶ丘のおまかせと同じ決め方（同じ型の日・天気と季節・ねらい「その間」）でその日の数を決めます。記録が少ないうちは今の数と混ぜて少しずつ変えます。新聞・雑誌・たばこは店の数のままです。'});S.unread=(S.unread||0)+1;persist();}
@@ -58,10 +58,10 @@ function samedayNow(S,day,c){if(!window.FactoryToKioskSameday||!V.L||!V.FJ||!V.H
 /* 橋：地元のお店 → 売店（js/links/local-to-kiosk.js）。前の夜の締めのあとの店の状態だけから、その日に届く数を決める（同じ日なら同じ） */
 function localNow(S,day){if(!window.LocalToKiosk||!V.L)return undefined;if(V.localK===S&&V.localDay===day)return V.local;
   V.local=g(()=>LocalToKiosk.plan(V.L,V.M,S,{day}),null)||undefined;V.localK=S;V.localDay=day;return V.local;}
-function checkDay(){const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
+function checkDay(){if(!dayOk())return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（緑ヶ丘の店と同じ）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;crewAd();}
-function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();omToday();const c=ctxNow();if(!c)return V.res;
+function ensureRes(){if(!V.st||!V.cfg||!dayOk())return null;checkDay();omToday();const c=ctxNow();if(!c)return V.res;
   const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+c.startT+'|'+(c.fx?JSON.stringify(c.fx):'')+'|'+(c.sameday?c.sameday.arrive:'')+'|'+(c.cruise?c.cruise.pax:'')+'|'+(c.supply?JSON.stringify(c.supply):'')+'|'+(c.cart?JSON.stringify(c.cart.runs):'')+'|'+(c.cstock?JSON.stringify(c.cstock):'')+'|'+(c.sameday&&c.sameday.noCut?1:0);
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();return V.res;}

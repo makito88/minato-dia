@@ -13,7 +13,7 @@ const STORDER=['C','S','U','M','K','N','P','F','T','O'],PLACES=['home','naka','g
 const $=id=>document.getElementById(id);
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
 // 売店の時計はいつも本当の時刻（日本時間・×1）。ダイヤの時計（T）とは切り離す。0:00〜4:30は24:00〜として、26:00で止める
-const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
+const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),dayOk=()=>g(()=>ENS.ready!==false,true),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
 const stName=s=>g(()=>ST[s].name,s),fmtT=t=>g(()=>fmt(t),'');
 const yen=n=>(n<0?'−':'')+'¥'+Math.round(Math.abs(n)).toLocaleString('ja-JP');
 const man=n=>(n<0?'−':'')+(Math.abs(n)>=1e4?(Math.abs(n)/1e4).toFixed(1)+'万円':Math.round(Math.abs(n)).toLocaleString('ja-JP')+'円');
@@ -32,7 +32,7 @@ addEventListener('resize',()=>{const n=narrow();if(n!==V.wasNarrow){V.wasNarrow=
 // 橋の一覧とアンケート（読めなくても売店はいつもどおり。アンケート→売店の橋が「未接続」になるだけ）。売店の最初の計算より前にそろえる（途中で効き目が入って結果が変わらないように）
 const optJson=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
 Promise.all([fetch('data/kiosk.json?v=20261111w3').then(r=>{if(!r.ok)throw new Error('kiosk.json: HTTP '+r.status);return r.json();}),fetch('data/research.json').then(r=>{if(!r.ok)throw new Error('research.json: HTTP '+r.status);return r.json();}),optJson('data/links.json?v=20261112k'),window.SurveyToKiosk?optJson('data/survey.json'):null,optJson('data/deals.json?v=20261112m'),optJson('data/haiso.json?v=20261109n')])
-  .then(([c,rc,lk,sv,dc,hc])=>{V.cfg=c;V.rcfg=rc;V.links=lk;V.survey=sv;V.dcfg=dc;V.hcfg=hc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=gDay();badge();if(V.open)render(true);})
+  .then(([c,rc,lk,sv,dc,hc])=>{V.cfg=c;V.rcfg=rc;V.links=lk;V.survey=sv;V.dcfg=dc;V.hcfg=hc;try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&s.v===1){V.st=s;if(fixDay1(s))persist();if(!s.crew){KS.migrate(c,s);persist();}const n=KC.migratePrices(c,s);if(n){s.news.push({day:gDay(),kind:'price',title:`値段の初期値を、いまの駅ナカのコンビニの値段に合わせた（${n}品）`,text:'おにぎり鮭220円・お茶200円などの目安です。にったの雫のおにぎりは少し高め。自分で変えていた品の値段はそのままです。仕入れの原価も同じ割合で上がります。'});s.unread=(s.unread||0)+1;persist();}}}catch(e){}V.lastDay=dayOk()?gDay():null;badge();if(V.open)render(true);})
   .catch(e=>{V.err=String(e.message||e);if(V.open)render(true);});
 // センターのおまかせ発注の設定（読めなくても売店はいつもどおり。おまかせの欄が出ないだけ）
 // 工場の設定（納品書を作るのに使う。読めなくても売店はいつもどおり）
@@ -65,10 +65,20 @@ function cartOf(day){if(!CC||!CC.cart||!V.ccfg||!V.st)return null;const d=loadOr
   return CC.cart(V.cfg,V.ccfg,d&&d.slip&&!d.slip.err?d.slip:null,key,KC.shelfInfo(V.cfg,V.st.layout),co,o&&o.frun);}
 /* 工場に頼んだ数（納品書の注文の数）。工場が足りなかったかどうかは、これと出荷数でくらべる */
 function supplyOrdOf(day){if(!CC||!V.ccfg||!V.st)return null;const d=loadOrders().days.find(x=>x.day===day);return d&&d.slip?CC.supplyOrdFor(d.slip,CC.storeKey(V.st),V.cfg,V.ccfg,KC.shelfInfo(V.cfg,V.st.layout)):null;}
-function checkDay(){if(!V.cfg||!V.st)return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
+/* 直し（2026-11-16）：ページを開いた直後、沿線の運行日を読む前（day:1）に「第1運行日」として1日を締めてしまっていた。
+   その記録（客0・第1運行日・前の行より日が戻っている）を1回だけ取り除き、損益を積み立てに戻す。捨ててしまった品は戻せない。
+   お金・注文・グループの記録の第1運行日（ほかにもっと後の日があるとき）も消す */
+function fixDay1(s){if(s.fix1116)return false;s.fix1116=1;let mx=0,bad=0,yen=0;const keep=[];
+  for(const x of s.hist||[]){if(x.day===1&&mx>1&&!x.cust){bad++;yen+=x.profit||0;continue;}mx=Math.max(mx,x.day);keep.push(x);}
+  if(!bad)return true;s.hist=keep;s.cash-=yen;if(s.closed===1&&mx>1)s.closed=mx;
+  {let nm=0;s.news=(s.news||[]).filter(n=>{if(n.day<=2&&nm>2)return false;nm=Math.max(nm,n.day||0);return true;});}   /* その締めで出た便り（第1・2運行日・あとの日の便りより後ろにあるもの） */
+  (s.news=s.news||[]).push({day:mx+1,kind:'fix',title:`記録の直し：まちがって締めた日（${bad}回）を取り除いた`,text:`ページを開いた直後に、運行日を読む前の「第1運行日」として1日を締めてしまうことがありました（直しました）。取り除いた分の損益 ${Math.round(-yen).toLocaleString()}円を積み立てに戻しました。そのとき捨ててしまった品は戻せません。`});s.unread=(s.unread||0)+1;
+  for(const k of [MKEY,OKEY,GKEY])try{const o=JSON.parse(localStorage.getItem(k)||'null');if(o&&Array.isArray(o.days)&&o.days.some(d=>d.day>1)&&o.days.some(d=>d.day===1)){o.days=o.days.filter(d=>d.day!==1);localStorage.setItem(k,JSON.stringify(o));}}catch(e){}
+  return true;}
+function checkDay(){if(!V.cfg||!V.st||!dayOk())return;const day=gDay();if(V.lastDay==null)V.lastDay=day;if(day===V.lastDay)return;
   if(day>V.lastDay&&V.res&&V.res.day===V.lastDay)closeToday(V.res);   // 日が進んだら、まず前の日の結果で締める（次の日の計算より先に）
   if(day<V.lastDay){V.st.closed=day-1;persist();}V.lastDay=day;V.res=null;}
-function ensureRes(){if(!V.st||!V.cfg)return null;checkDay();dailyOrder();csOpenToday();const c=ctxNow();if(!c)return V.res;
+function ensureRes(){if(!V.st||!V.cfg||!dayOk())return null;checkDay();dailyOrder();csOpenToday();const c=ctxNow();if(!c)return V.res;
   const k=c.day+'|'+c.cond.day+c.cond.wx+c.cond.season+'|'+(gD()&&gD().trips.length)+'|'+JSON.stringify(c.edits.map(e=>e.t))+'|'+c.express.length+'|'+JSON.stringify(c.addOn||[])+'|'+(V.editRev||0)+'|'+JSON.stringify(c.supply||0)+'|'+(c.cstock?JSON.stringify(c.cstock):'')+'|'+(c.fx?JSON.stringify(c.fx):'');
   if(V.res&&V.resKey===k&&V.resD===gD())return V.res;
   V.res=KC.simulate(V.cfg,V.st,c);V.resKey=k;V.resD=gD();V.evI=KC.idxAt(V.res,gT());return V.res;}
@@ -598,7 +608,7 @@ function renderLog(b,res,full){const k=KC.idxAt(res,gT());let box=$('ksLog');
     $('ksNew').onclick=()=>{flushLog(true);box.scrollIntoView({block:'start',behavior:'smooth'});};
     $('ksFlt').querySelectorAll('select').forEach(x=>x.onchange=()=>{const f=x.dataset.f;V.lf[f]=f==='h0'||f==='h1'?Number(x.value):x.value;
       if(f==='genre'&&V.lf.pid&&ix().P[V.lf.pid].genre!==V.lf.genre)V.lf.pid='';if(V.lf.h1<=V.lf.h0)V.lf.h1=V.lf.h0+1;renderLog(b,V.res||res,true);});
-    $('ksFd').ontoggle=()=>{V.lfOpen=$('ksFd').open;};$('ksLfClr').onclick=()=>{V.lf={...LF0};renderLog(b,V.res||res,true);};$('ksCsv').onclick=()=>lfCsv(V.logRes);
+    $('ksFd').ontoggle=()=>{const e=$('ksFd');if(e)V.lfOpen=e.open;};$('ksLfClr').onclick=()=>{V.lf={...LF0};renderLog(b,V.res||res,true);};$('ksCsv').onclick=()=>lfCsv(V.logRes);
     return;}
   if(k===V.logK)return;
   // 読んでいる途中か：パソコンは一覧の中のスクロール、スマホはページのスクロールで判断
