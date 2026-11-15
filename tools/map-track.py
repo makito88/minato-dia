@@ -10,6 +10,7 @@
 - 駅のホームのまわり（前後 ±ST_FLAT マス）はまっすぐにする。カーブは半径がゆるくなるようにならす。
 - 帯が見つからない所（川・田んぼだけの所）は、下絵の線に引きもどす。
 - キロ・ダイヤ・運賃は変えない（形だけ）。
+- トンネルと橋は TUNNELS（支線の道のり s マスで区間を出す。ゲームはこの区間の線路を「トンネル」として描く）。
 """
 import json, importlib.util
 from pathlib import Path
@@ -24,6 +25,10 @@ STEP = 4            # なぞる間かく（px）
 M_MAIN, M_BR = 60, 70   # 下絵の線から離れてよい幅（px）
 ST_FLAT = 18        # 駅の前後でまっすぐにする長さ（マス）
 JUNC = 40           # 川辺で温泉支線が分かれる所（駅の中心から東へ、マス）
+# トンネル（ユーザーの頼み 2026-11-15）：森下〜峠のあいだ。沢をわたる橋の所だけ外に出る。
+# from/to は森下→峠の道のりの割合。沢の場所は絵の水の色から見つける（cross_range の中）
+TUNNELS = {'between': ('F', 'T'), 'from': 0.27, 'to': 0.82, 'cross_range': (0.30, 0.60),
+           'open': 6, 'bridge': 3, 'names': ('森下トンネル', '森下沢橋梁', '峠トンネル')}
 
 
 def score_map(im):
@@ -104,6 +109,42 @@ def trace(cost, guide_px, M, prior=0.35, jump=2, smooth=14, trust_at=2.2):
     return pts, nrm, o, cpath, float((trust > 0.5).mean())
 
 
+def make_tunnels(im, branch, stations, X0):
+    """支線の道のり（マス）でトンネルと橋の区間を決める。沢は、線のまわり±30マスの水の色の側が入れかわる所"""
+    b = np.array(branch, np.float32)
+    seg = np.r_[0, np.cumsum(np.hypot(*np.diff(b, axis=0).T))]
+    at = lambda s: [round(float(np.interp(s, seg, b[:, 0])), 1), round(float(np.interp(s, seg, b[:, 1])), 1)]
+    def s_of(k):
+        v = stations[k]
+        return float(seg[int(np.argmin(((b - [v['x'], v['y']]) ** 2).sum(1)))])
+    a, z = (s_of(k) for k in TUNNELS['between'])
+    f = im.astype(np.int16)
+    water = ((f[..., 0] - f[..., 2]) > 25) & (f[..., 0] > 140)
+    side = []
+    for s in np.arange(a + (z - a) * TUNNELS['cross_range'][0], a + (z - a) * TUNNELS['cross_range'][1], 2.0):
+        i = min(int(np.searchsorted(seg, s)), len(b) - 1)
+        d = b[i] - b[max(i - 1, 0)]
+        d = d / (np.hypot(*d) + 1e-6)
+        x, y = at(s)
+        hits = [o for o in range(-30, 31) if water[int(y * S + d[0] * o * S) - 1:int(y * S + d[0] * o * S) + 2,
+                                                   int((x - d[1] * o - X0) * S) - 1:int((x - d[1] * o - X0) * S) + 2].mean() > 0.5]
+        if hits:
+            side.append((s, min(hits, key=abs)))
+    cross = a + (z - a) * 0.44
+    for (s1, o1), (s2, o2) in zip(side, side[1:]):
+        if o1 * o2 <= 0 and abs(o1) < 12:
+            cross = s1 + (s2 - s1) * (abs(o1) / (abs(o1) + abs(o2) + 1e-6))
+            break
+    pts = lambda s0, s1: [at(s) for s in np.r_[np.arange(s0, s1, 4), s1]]
+    t0, t1 = a + (z - a) * TUNNELS['from'], a + (z - a) * TUNNELS['to']
+    op, br = TUNNELS['open'], TUNNELS['bridge']
+    n1, n2, n3 = TUNNELS['names']
+    tunnels = [{'name': n1, 'line': 'branch', 's': [round(t0, 1), round(cross - op, 1)], 'pts': pts(t0, cross - op)},
+               {'name': n3, 'line': 'branch', 's': [round(cross + op, 1), round(t1, 1)], 'pts': pts(cross + op, t1)}]
+    bridges = [{'name': n2, 'line': 'branch', 's': [round(cross - br, 1), round(cross + br, 1)], 'pts': pts(cross - br, cross + br)}]
+    return tunnels, bridges
+
+
 def main():
     spec = importlib.util.spec_from_file_location('ms', ROOT / 'tools' / 'map-sketch.py')
     ms = importlib.util.module_from_spec(spec)
@@ -159,13 +200,14 @@ def main():
         i = int(np.argmin((bx - sx) ** 2 + (by - sy) ** 2))
         stations[s] = {'name': ms.NAME[s], 'x': round(float(bx[i]), 1), 'y': round(float(by[i]), 1), 'from': 'branch'}
 
+    tunnels, bridges = make_tunnels(im, branch, stations, X0)
     found_main = float(fm)
     found_br = float(fb)
     (OUT / 'track.json').write_text(json.dumps({
         'note': '絵の線路予定地（砂利と草の帯）をなぞった線路の形（マス、1km=100）。tools/map-track.py が作る。'
                 '本線の駅の x はキロ×100 のまま。キロ・ダイヤ・運賃は変えない。段3でゲームが線路をこの形で描く案',
         'src': 'assume', 'found': {'main': round(found_main, 2), 'branch': round(found_br, 2)},
-        'main': main, 'branch': branch, 'stations': stations}, ensure_ascii=False, indent=0), encoding='utf-8')
+        'main': main, 'branch': branch, 'tunnels': tunnels, 'bridges': bridges, 'stations': stations}, ensure_ascii=False, indent=0), encoding='utf-8')
 
     # ---- 確認用 ----
     small = cv2.resize(im, (im.shape[1] // 2, im.shape[0] // 2), interpolation=cv2.INTER_AREA)

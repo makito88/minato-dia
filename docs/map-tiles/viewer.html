@@ -331,6 +331,14 @@ input[type=range]{width:90px;accent-color:var(--accent)}
     [['C','S','U','M','K','N','P'],['K','F','T','O']].forEach(function(l){el('polyline',{points:l.filter(function(k){return stations[k];}).map(function(k){return stations[k].x+','+stations[k].y;}).join(' '),fill:'none',stroke:ac,'data-w':.8,'stroke-dasharray':'3 4',opacity:.6},G.rail);});
     var ts=track&&track.stations?track.stations:stations;
     if(track)[track.main,track.branch].forEach(function(l){el('polyline',{points:l.map(function(p){return p.join(',');}).join(' '),fill:'none',stroke:ac,'data-w':2.4,'stroke-linejoin':'round',opacity:.95},G.rail);});
+    /* トンネル：線をうすく点線にして、入口に小さな印。橋：線の両側にらんかん */
+    if(track&&track.tunnels)track.tunnels.forEach(function(t){var pt=t.pts.map(function(p){return p.join(',');}).join(' ');
+      el('polyline',{points:pt,fill:'none',stroke:css('--panel'),'data-w':3.2,opacity:.9},G.rail);
+      el('polyline',{points:pt,fill:'none',stroke:ac,'data-w':1.4,'stroke-dasharray':'2 3'},G.rail);
+      [t.pts[0],t.pts[t.pts.length-1]].forEach(function(p){el('circle',{cx:p[0],cy:p[1],'data-r':4.5,fill:css('--ink'),stroke:css('--panel'),'data-w':1},G.rail);});
+      var m=t.pts[Math.floor(t.pts.length/2)],tx=el('text',{x:m[0]+6,y:m[1],fill:css('--ink'),stroke:css('--panel'),'paint-order':'stroke'},G.rail);tx.textContent=t.name;});
+    if(track&&track.bridges)track.bridges.forEach(function(b){var p=b.pts,a=p[0],z=p[p.length-1],dx=z[0]-a[0],dy=z[1]-a[1],L=Math.hypot(dx,dy)||1,nx=-dy/L*2.2,ny=dx/L*2.2;
+      [1,-1].forEach(function(k){el('line',{x1:a[0]+nx*k,y1:a[1]+ny*k,x2:z[0]+nx*k,y2:z[1]+ny*k,stroke:css('--ink'),'data-w':1.2},G.rail);});});
     Object.keys(ts).forEach(function(k){var s=ts[k];el('circle',{cx:s.x,cy:s.y,'data-r':5,fill:ink,stroke:ac,'data-w':1.4},G.rail);
       var t=el('text',{x:s.x,y:s.y-8,'text-anchor':'middle',fill:ac,stroke:ink,'paint-order':'stroke','font-weight':700},G.rail);t.textContent=s.name;});
     tiles.forEach(function(t){el('rect',{x:t.x0,y:t.y0,width:t.x1-t.x0,height:t.y1-t.y0,fill:'none',stroke:fc,'data-w':.8,opacity:.8},G.frame);
