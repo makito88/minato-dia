@@ -129,7 +129,7 @@ function lights(c,mode,a,o,t,moving,alt){c.save();c.globalCompositeOperation='li
 
 /* ---------- 毎回の描画（index.html の drawMap から） ---------- */
 function draw(c,T,dk){HITS=[];if(!SIM||!DOC){if(DEF&&!busy)check();return;}
-  const k=c.getTransform(),lay=buildLayer(c);c.save();c.setTransform(1,0,0,1,0,0);c.globalAlpha=1-0.42*dk;c.drawImage(lay,0,0);c.restore();
+  const k=c.getTransform(),lay=buildLayer(c);c.save();c.setTransform(1,0,0,1,0,0);c.globalAlpha=window.NightView&&NightView.ready?NightView.roadAlpha(dk):1-0.42*dk;c.drawImage(lay,0,0);c.restore();
   const now=performance.now()/1000,night=dk>0.35,la=Math.min(1,Math.max(0,(dk-0.08)*1.5));
   const list=R.stateAt(SIM,T);
   // 地上 → 海 → 空 の順に（飛行機がいちばん上）

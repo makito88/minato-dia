@@ -692,6 +692,9 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/event-map-core.js?v=20261114a"></script>
 <script src="js/event-bubble.js?v=20261114a"></script>
 <script src="js/event-map-view.js?v=20261114a"></script>
+<script src="js/night-core.js?v=20261115a"></script>
+<script src="js/night-render.js?v=20261115a"></script>
+<script src="js/night-view.js?v=20261115a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -1514,7 +1517,8 @@ function carPoses(v,k){const st=v.st,n=v.s.cars,sz=TrainArt.size(n,k),Lt=TrainAr
   const out=[];for(let j=0;j<n;j++){const c=d+Lt/2-sz.L/2-j*(sz.L+sz.gap),f=pathAt(P,c+sz.L/2-0.3),b=pathAt(P,c-sz.L/2+0.3);out.push({x:(f.x+b.x)/2,y:(f.y+b.y)/2,ang:Math.atan2(f.y-b.y,f.x-b.x)});}
   return out;}
 const crowdCol=r=>r<0.8?TH.ok:(r<1.5?TH.warn:TH.bad);
-function darkness(t){const m=((t%1440)+1440)%1440;if(m<350)return 1;if(m<395)return 1-(m-350)/45;if(m<1040)return 0;if(m<1085)return (m-1040)/45;return 1;}
+function darkness(t){if(window.NightView&&NightView.ready){const d=NightView.dark(t);if(d!=null)return d;}   // 第9回：本当の暦の日の入り・日の出で（js/night-view.js）。読めないときは今までの時刻
+  const m=((t%1440)+1440)%1440;if(m<350)return 1;if(m<395)return 1-(m-350)/45;if(m<1040)return 0;if(m<1085)return (m-1040)/45;return 1;}
 function band(t){const m=t%1440;if(t>=1440||m<300)return '深夜';if(m<420)return '早朝';if(m<570)return '朝ラッシュ';if(m<960)return '日中';if(m<1170)return '夕ラッシュ';if(m<1380)return '夜';return '深夜';}
 
 /* ---------- map drawing ---------- */
@@ -1630,7 +1634,8 @@ function drawMap(){
   c.setTransform(1,0,0,1,0,0);c.drawImage(staticMap(dpr),0,0);
   c.setTransform(MS*dpr,0,0,MS*dpr,0,0);
   const dk=darkness(T);
-  if(dk>0){c.fillStyle=TH.night;c.globalAlpha=0.42*dk;c.fillRect(-20,-20,1040,460);c.globalAlpha=1;
+  if(dk>0&&!(window.NightView&&NightView.draw(c,T,dk))){c.fillStyle=TH.night;c.globalAlpha=0.42*dk;   // 第9回：夜は「光の層」（js/night-view.js）。読めないときだけ今までの幕と窓の点
+    c.fillRect(-20,-20,1040,460);c.globalAlpha=1;
     c.fillStyle=TH.glow;BLOCKS.forEach(b=>{if(b.lit<0.55*dk){c.globalAlpha=0.7;c.fillRect(b.x+b.w*0.3,b.y+b.h*0.3,1.6,1.6);c.fillRect(b.x+b.w*0.65,b.y+b.h*0.6,1.6,1.6);}});c.globalAlpha=1;}
   if(COND.wx==='rain'||COND.wx==='snow'){const now=performance.now()/1000,sn=COND.wx==='snow';
     c.fillStyle=sn?'#ffffff':TH.muted;c.globalAlpha=sn?0.16:0.06;c.fillRect(-20,-20,1040,460);c.globalAlpha=sn?0.9:0.5;c.lineWidth=1;c.strokeStyle=sn?TH.muted:TH.water;c.fillStyle='#ffffff';
@@ -2128,6 +2133,10 @@ if(window.EventMapView)EventMapView.init({ST:()=>ST,T:()=>T,evPos,seas:()=>SEAS.
   kiosk:w=>{try{window.minatoKiosk.openAt?minatoKiosk.openAt(w):minatoKiosk.open();}catch(e){}},extra:id=>D&&D.summary.evImpact[id]?Math.round(D.summary.evImpact[id].extra):null,
   fireworks:(c,it,now)=>{const p={x:it.x,y:it.y-10},cols=[TH.E,TH.glow,TH.X,TH.R];for(let k=0;k<3;k++){const ph=(now*0.7+k*0.33)%1,cx=p.x-40+k*38,cy=p.y-30-k*12-ph*14,r=6+ph*24;c.strokeStyle=cols[(k+Math.floor(now))%4];c.globalAlpha=1-ph;c.lineWidth=1.6;
     for(let a=0;a<12;a++){const an=a/12*6.283;c.beginPath();c.moveTo(cx+Math.cos(an)*r*0.5,cy+Math.sin(an)*r*0.5);c.lineTo(cx+Math.cos(an)*r,cy+Math.sin(an)*r);c.stroke();}}c.globalAlpha=1;}});
+// 第9回：夜の光の層（見た目だけ）。駅・列車の位置・天気・暦の日付を渡す
+if(window.NightView)NightView.init({ymd:()=>SeasonCore.ymdOf(seasDayI()),wx:()=>COND.wx,scale:()=>MS*CDPR,redraw:()=>{if(!playing&&D&&PANE==='run')drawMap();},
+  stations:()=>ALL.map(s=>{const n=stN(s);return {x:ST[s].x,y:ST[s].y,ang:n?Math.atan2(n.ty,n.tx):0,big:!!ST[s].term};}),
+  trains:()=>LAYERS.trains?VIS.flatMap(v=>v.st.dead?[]:(v.cars||[]).filter((p,i)=>i%2===0)):[],events:()=>LAYERS.events&&window.EventMapView?EventMapView.items:[]});
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
 function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '<p class="sub">集計しています…</p>';const st=evState(ev),snap=trafficSnapshot(T);
   const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
@@ -3627,7 +3636,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <!-- トップページ（5つのレイヤー）：js/top.js -->
 <script src="js/route-core.js?v=20261112r"></script>
 <script src="js/route-run-core.js?v=20261112r"></script>
-<script src="js/route-run.js?v=20261112r"></script>
+<script src="js/route-run.js?v=20261115a"></script>
 <script src="js/top.js?v=20261111a"></script>
 
 </body>
