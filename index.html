@@ -1390,12 +1390,13 @@ function bsearch(arr,T){let lo=0,hi=arr.length-1,r=-1;while(lo<=hi){const m=(lo+
 /* ---------- state ---------- */
 let pid=1;
 const PRESETS={
+  /* 2026-11-17 ユーザーの決め：普通15分・快速+10分・特急+4分（docs/track-dia-study.md）。前は 普通12分・快速 07:03〜21:00・特急 07:15〜22:00 */
   std:[
-    {type:'L',route:'CP',from:'05:00',to:'24:00',int:12,cars:6},
-    {type:'L',route:'PC',from:'06:20',to:'09:00',int:12,cars:8},
-    {type:'L',route:'CP',from:'17:06',to:'20:00',int:12,cars:8},
-    {type:'R',route:'CP',from:'07:03',to:'21:00',int:20,cars:8},
-    {type:'E',route:'CP',from:'07:15',to:'22:00',int:30,cars:6},
+    {type:'L',route:'CP',from:'05:00',to:'24:00',int:15,cars:6},
+    {type:'L',route:'PC',from:'06:20',to:'09:00',int:15,cars:8},
+    {type:'L',route:'CP',from:'17:06',to:'20:00',int:15,cars:8},
+    {type:'R',route:'CP',from:'07:13',to:'21:10',int:20,cars:8},
+    {type:'E',route:'CP',from:'07:19',to:'22:04',int:30,cars:6},
     {type:'X',route:'CO',from:'09:10',to:'15:30',int:60,cars:4},
     {type:'L',route:'CO',from:'05:40',to:'23:30',int:30,cars:4},
   ],
@@ -1426,7 +1427,11 @@ const PRESETS={
 };
 const mkPat=p=>({id:pid++,type:p.type,route:p.route,from:parseT(p.from),to:parseT(p.to),int:p.int,cars:p.cars});
 let PAT=PRESETS.std.map(mkPat);
-try{const s=JSON.parse(localStorage.getItem('dia-patterns')||'null');if(Array.isArray(s)&&s.length){PAT=s.map(p=>({...p,id:pid++}));}}catch(e){}
+try{const s=JSON.parse(localStorage.getItem('dia-patterns')||'null');if(Array.isArray(s)&&s.length){PAT=s.map(p=>({...p,id:pid++}));
+  /* 2026-11-17：保存がもとの「いつもの平日」のままなら、新しい見本（普通15分・快速+10・特急+4）に置きかえる。自分で組んだダイヤはそのまま */
+  const OLD_STD=[['L','CP','05:00','24:00',12,6],['L','PC','06:20','09:00',12,8],['L','CP','17:06','20:00',12,8],['R','CP','07:03','21:00',20,8],['E','CP','07:15','22:00',30,6],['X','CO','09:10','15:30',60,4],['L','CO','05:40','23:30',30,4]];
+  const same=s.length===OLD_STD.length&&s.every((p,i)=>{const o=OLD_STD[i];return p.type===o[0]&&p.route===o[1]&&p.from===parseT(o[2])&&p.to===parseT(o[3])&&p.int===o[4]&&p.cars===o[5];});
+  if(same){PAT=PRESETS.std.map(mkPat);try{localStorage.setItem('dia-patterns',JSON.stringify(PAT.map(({id,...r})=>r)));}catch(e){}}}}catch(e){}
 // カスタムモードの状態：保存枠4つ。各枠は確定した順の列車の一覧 {type,cars,from,to,t}
 const CUS={on:false,slot:0,slots:[[],[],[],[]],form:{type:'L',cars:6,from:'C',to:'P',t:420},prev:null};
 try{const c=JSON.parse(localStorage.getItem('dia-custom')||'null');if(c&&Array.isArray(c.slots)){CUS.on=!!c.on;CUS.slot=Math.max(0,Math.min(3,c.slot|0));c.slots.slice(0,4).forEach((l,i)=>{if(Array.isArray(l))CUS.slots[i]=l.filter(x=>x&&TYPES[x.type]&&ST[x.from]&&ST[x.to]&&Number.isFinite(x.t));});if(c.form)Object.assign(CUS.form,c.form);}}catch(e){}
