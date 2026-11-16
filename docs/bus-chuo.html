@@ -1,0 +1,351 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>中央駅発 路線バス案内</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
+<style>
+/* レイアウト：上に路線図（主役）、下に「のりば図」と「系統一覧」。バス会社の路線案内パンフレットの見た目 */
+:root{
+  --paper:#f4f6f3; --land:#e8ece4; --land2:#dfe5da; --sea:#cfe0ea; --river:#b9d3e2;
+  --ink:#1d2a2f; --muted:#5d6b70; --line:#c8d0cb; --card:#ffffff; --halo:#f4f6f3;
+  --rail:#1d2a2f; --rail2:#ffffff; --stop:#ffffff; --hi:#1d2a2f;
+  --f-disp:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+  --f-body:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Meiryo","Noto Sans JP",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#151c1f; --land:#1c2529; --land2:#212c30; --sea:#13283a; --river:#1d3b52;
+  --ink:#e6ecea; --muted:#9aa8ac; --line:#34434a; --card:#1b2427; --halo:#151c1f;
+  --rail:#e6ecea; --rail2:#151c1f; --stop:#151c1f; --hi:#ffffff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#151c1f; --land:#1c2529; --land2:#212c30; --sea:#13283a; --river:#1d3b52;
+  --ink:#e6ecea; --muted:#9aa8ac; --line:#34434a; --card:#1b2427; --halo:#151c1f;
+  --rail:#e6ecea; --rail2:#151c1f; --stop:#151c1f; --hi:#ffffff; color-scheme:dark}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--muted)}
+h1{font-family:var(--f-disp);font-weight:900;font-size:clamp(26px,4.4vw,40px);line-height:1.15;margin:2px 0 0;text-wrap:balance}
+h2{font-family:var(--f-disp);font-weight:700;font-size:19px;margin:0 0 10px;text-wrap:balance}
+.meta{font-size:13px;color:var(--muted);max-width:46ch}
+.mapbox{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.mapscroll{overflow-x:auto}
+svg#map,svg#zoom{display:block;width:100%;height:auto;font-family:var(--f-body)}
+svg#map{min-width:960px}
+svg#zoom{min-width:560px}
+.zoombox{max-width:880px}
+.cap{font-size:12px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--line);margin:0}
+.zh{padding:12px 12px 0}
+.lbl.rs{font-size:12px;font-weight:700}
+.bub{font-size:10px;fill:var(--muted);font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 8px;padding:10px 12px;border-top:1px solid var(--line)}
+.chip{font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 6px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.chip i{width:18px;height:6px;border-radius:3px;display:inline-block}
+.chip[aria-pressed="true"]{border-color:var(--ink);font-weight:700}
+.chip:focus-visible,.sys:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.lower{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:820px){.lower{grid-template-columns:minmax(0,1fr)}}
+.panel{min-width:0}
+/* のりば図 */
+.term{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px}
+.station-block{background:var(--rail);color:var(--rail2);font-weight:700;text-align:center;border-radius:3px;padding:6px;font-size:13px;letter-spacing:.2em}
+.road{font-size:11px;color:var(--muted);text-align:center;margin:6px 0}
+.isle{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px}
+.bay{border:1.5px solid var(--line);border-radius:4px;padding:6px 4px;text-align:center;font-size:11px;line-height:1.35;background:var(--paper);cursor:pointer;color:var(--ink);font-family:inherit}
+.bay b{display:block;font-size:20px;font-family:var(--f-disp);line-height:1.1}
+.bay span{display:block;height:4px;border-radius:2px;margin:4px 6px 2px}
+.bay.on{border-color:var(--ink)}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+/* 詳細 */
+.detail{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px;margin-top:14px}
+.detail h3{font-family:var(--f-disp);font-size:17px;margin:0 0 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.num{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 6px;border-radius:4px;color:#fff;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;font-family:var(--f-body)}
+.via{font-size:13px;margin:6px 0 8px}
+.via em{font-style:normal;color:var(--muted)}
+dl.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:0;font-size:13px}
+dl.kv dt{color:var(--muted)}
+dl.kv dd{margin:0;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:3px;border:1px solid currentColor;letter-spacing:.04em}
+.tag.rail{color:#b4532a}.tag.gap{color:#2d7d55}.tag.etc{color:var(--muted)}
+/* 一覧 */
+.table{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:13px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:700;position:sticky;top:0;background:var(--card)}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.sys{cursor:pointer}
+tr.sys:hover td{background:var(--paper)}
+tr.sys.on td{background:var(--land)}
+tr.grp td{background:var(--paper);font-weight:700;font-size:12px}
+.foot{font-size:12px;color:var(--muted);max-width:75ch}
+/* 地図の中 */
+.lbl{font-size:13px;fill:var(--ink);paint-order:stroke;stroke:var(--halo);stroke-width:4px;stroke-linejoin:round}
+.lbl.big{font-size:15px;font-weight:700}
+.lbl.sm{font-size:11px;fill:var(--muted)}
+.area{font-family:var(--f-disp);font-weight:700;font-size:20px;fill:var(--muted);opacity:.35;letter-spacing:.3em}
+.seg{transition:opacity .25s}
+@media (prefers-reduced-motion:reduce){.seg{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">みなと川電鉄バス・みなと川市営バス</div>
+      <h1>中央駅発 路線バス案内</h1>
+    </div>
+    <p class="meta">中央駅前バスターミナルから出る 28 系統の路線図です。線や系統をえらぶと、その経路だけが浮かび上がります。</p>
+  </header>
+
+  <section class="mapbox" aria-label="路線図">
+    <div class="mapscroll"><svg id="map" role="img" aria-label="中央駅から出るバス路線の図"></svg></div>
+    <div class="legend" id="legend"></div>
+    <p class="cap">ゲームの地図と同じ配置・同じ縮尺です（駅キロ基準、下の目盛り＝5km）。長い点線の枠がゲームの地図に写っている範囲で、空港・高速道路IC・県民の森・西の丘団地はその外にあります。駅の横の「バス○」は、その駅前から出ているバスの系統数です（中央駅発の系統とは別）。点線の枠は拡大図の範囲。</p>
+  </section>
+
+  <section class="mapbox zoombox" aria-label="中央駅周辺の拡大図">
+    <h2 class="zh">中央駅周辺（拡大図）</h2>
+    <div class="mapscroll"><svg id="zoom" role="img" aria-label="中央駅から桜町駅までの拡大図"></svg></div>
+    <p class="cap">中央駅から桜町駅（3.2km）までを大きく描いています。県庁・市役所は駅の北の市街地にあり、官庁街循環は1周 約4km。</p>
+  </section>
+
+  <div class="lower">
+    <div class="panel">
+      <div class="term">
+        <h2>中央駅前バスターミナル</h2>
+        <div class="station-block">中央駅　南口</div>
+        <div class="road">― 駅前広場 ―</div>
+        <div class="isle" id="bays"></div>
+        <p class="note">深夜バスは 2・5 番、高速バスは 9 番から。タクシーのりばは 1 番の手前（待機 約40台）。</p>
+      </div>
+      <div class="detail" id="detail" aria-live="polite"></div>
+    </div>
+    <div class="panel">
+      <h2>系統一覧（平日）</h2>
+      <div class="table"><table>
+        <thead><tr><th>系統</th><th>行き先・おもな経由</th><th>本数</th><th>始発／終発</th><th>所要</th><th>運賃</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <p class="foot">本数は平日・片道。運賃はおとな。中央駅から 4 km までの市内区間は 220 円均一、その先は距離で上がります。地名・会社名・数字はすべてゲームのための架空の設定です。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 停留所（中央駅を0とした km。x＝東へ、y＝南へ）。鉄道の駅キロとそろえてある =====
+// dt:1 は中心部の停留所（全体図では名前を出さず、拡大図で見せる）
+const S={
+  C:{n:'中央駅前',x:0,y:0,lp:'lt',big:1},
+  KEN:{n:'県庁前',x:-0.3,y:-0.9,lp:'l',dt:1},
+  SHI:{n:'市役所前',x:-0.6,y:-1.7,lp:'l',dt:1},
+  BIJ:{n:'県立美術館・図書館前',x:0.3,y:-2.1,lp:'tr',dt:1},
+  JOH:{n:'城北公園',x:1.4,y:-3.0,lp:'r'},
+  D4:{n:'中央通り四丁目',x:0.9,y:-1.2,lp:'r',dt:1},
+  ARC:{n:'アーケード北口',x:0.5,y:-0.5,lp:'b',dt:1},
+  SKN:{n:'桜町駅北口',x:3.2,y:-0.5,lp:'t'},
+  BYO:{n:'大学附属病院',x:5.6,y:-2.7,lp:'t'},
+  UDS:{n:'大学前駅北口',x:6.5,y:-0.6,lp:'r'},
+  KIT:{n:'北町',x:-0.1,y:-3.0,lp:'l'},
+  KKO:{n:'みなと川北高校前',x:0.4,y:-4.4,lp:'l'},
+  KND:{n:'北の台団地',x:1.6,y:-5.8,lp:'r'},
+  KSY:{n:'北の台車庫',x:0.6,y:-6.8,lp:'l'},
+  KHG:{n:'北の台東',x:3.8,y:-5.4,lp:'r'},
+  IC:{n:'みなと川IC',x:-2.2,y:-4.0,lp:'l'},
+  JYG:{n:'城山口',x:-1.4,y:-2.2,lp:'l'},
+  REI:{n:'城山霊園',x:-2.6,y:-3.2,lp:'l'},
+  MOR:{n:'県民の森',x:-4.6,y:-5.4,lp:'t'},
+  NSH:{n:'西町',x:-1.4,y:0.3,lp:'b'},
+  GYO:{n:'西の丘団地',x:-4.4,y:0.9,lp:'l'},
+  UND:{n:'県立総合運動公園',x:-2.8,y:-0.9,lp:'t'},
+  RIN:{n:'南西バイパス入口',x:-2.4,y:1.6,lp:'r'},
+  AIR:{n:'みなと川空港',x:-5.8,y:2.8,lp:'r',big:1},
+  MIN:{n:'南町',x:0.6,y:1.0,lp:'r'},
+  ICH:{n:'中央卸売市場',x:-0.4,y:2.2,lp:'r'},
+  RYU:{n:'流通センター',x:2.4,y:2.5,lp:'b'},
+  SKM:{n:'桜町南',x:3.4,y:1.2,lp:'b'},
+  MDS:{n:'緑野南団地',x:9.0,y:1.4,lp:'b'},
+  MGK:{n:'緑ヶ丘駅北口',x:9.8,y:-0.45,lp:'tl'},
+  MKB:{n:'みなと川橋',x:11.6,y:-0.45,lp:'t'},
+  KWN:{n:'川辺駅北口',x:13.1,y:-0.45,lp:'tr'},
+  MHP:{n:'緑野市民病院',x:14.2,y:1.1,lp:'b'},
+  NTS:{n:'新田駅南口',x:17.3,y:0.6,lp:'b'},
+  RKW:{n:'臨海工業地帯',x:20.6,y:0.95,lp:'l'},
+  PTM:{n:'港浜客船ターミナル',x:22.3,y:0.7,lp:'b',big:1},
+};
+// 鉄道の駅（km はゲームの駅キロ）。bus＝その駅前から出るバスの系統数（街のカルテ）
+const RS={C:{n:'中央',x:0,y:0},S:{n:'桜町',x:3.2,y:0,bus:4,lp:'b'},U:{n:'大学前',x:6.4,y:0,bus:9,lp:'b'},M:{n:'緑ヶ丘',x:9.6,y:0,bus:6,lp:'b'},
+  K:{n:'川辺',x:13.2,y:0,bus:7,lp:'b'},N:{n:'新田',x:17.3,y:0,bus:2,lp:'t'},P:{n:'港',x:21.5,y:0,bus:8,lp:'t'},
+  F:{n:'森下',x:14.6,y:-3.0,bus:1,lp:'r'},T:{n:'峠',x:16.2,y:-5.0,bus:1,lp:'r'},O:{n:'温泉',x:19.2,y:-6.8,bus:3,lp:'r'}};
+// ===== 路線（色のまとまり） =====
+const L={
+  loop:{n:'官庁街循環',c:'#1f8a8a',bay:1},
+  kita:{n:'北の台線',c:'#d9822b',bay:2},
+  dai:{n:'大学病院線',c:'#c23b5a',bay:3},
+  rin:{n:'臨海線',c:'#3a64b8',bay:4},
+  mdr:{n:'緑野南線',c:'#4a9a3c',bay:5},
+  nis:{n:'西浜線',c:'#2b9ccc',bay:6},
+  shi:{n:'城山線',c:'#8a5bb5',bay:7},
+  air:{n:'空港リムジン',c:'#59606b',bay:8},
+  hwy:{n:'高速バス',c:'#9a7a2a',bay:9},
+};
+// ===== 系統（28） =====
+const SYS=[
+ {no:'1',l:'loop',to:'官庁街循環（右回り）',r:['C','KEN','SHI','BIJ','D4','ARC','C'],fr:60,first:'6:30',last:'21:30',min:15,yen:'220',rel:'etc',op:'市営',memo:'県庁・市役所・美術館をひと回り（1周 約3.5km）。昼間は15分ごと。'},
+ {no:'2',l:'loop',to:'官庁街循環（左回り）',r:['C','ARC','D4','BIJ','SHI','KEN','C'],fr:60,first:'6:30',last:'21:30',min:15,yen:'220',rel:'etc',op:'市営',memo:'右回りと交互に発車。'},
+ {no:'3',l:'loop',to:'城北公園',r:['C','KEN','SHI','BIJ','JOH'],fr:24,first:'7:00',last:'20:00',min:14,yen:'220',rel:'gap',op:'市営',memo:'土休日は城北公園のイベントで増発。'},
+ {no:'10',l:'kita',to:'北の台団地',r:['C','KEN','KIT','KKO','KND'],fr:72,first:'5:50',last:'23:10',min:24,yen:'300',rel:'gap',op:'電鉄',memo:'駅のない北部ニュータウン（中央駅から北へ約6km）の足。朝は5〜6分ごと。'},
+ {no:'11',l:'kita',to:'北の台車庫',r:['C','KEN','KIT','KKO','KND','KSY'],fr:18,first:'6:10',last:'22:40',min:29,yen:'320',rel:'gap',op:'電鉄',memo:'車庫へ戻る便を営業運転に。'},
+ {no:'12',l:'kita',to:'みなと川北高校前（朝・夕）',r:['C','KEN','KIT','KKO'],fr:12,first:'7:05',last:'17:30',min:15,yen:'220',rel:'gap',op:'電鉄',memo:'登校・下校の時間だけ。学期中のみ。'},
+ {no:'13',l:'kita',to:'北の台東',r:['C','KEN','KIT','KKO','KHG'],fr:30,first:'6:00',last:'22:00',min:26,yen:'320',rel:'gap',op:'電鉄',memo:'北の台の東側、戸建ての住宅地へ。'},
+ {no:'20',l:'dai',to:'大学附属病院',r:['C','ARC','D4','SKN','BYO'],fr:48,first:'6:40',last:'20:30',min:25,yen:'340',rel:'rail',op:'電鉄',memo:'大学の西側、病院の正面に着く。大学前駅から病院までは北へ坂道を歩いて20分ほどなので、通院の人はこちらを選ぶことも。桜町駅北口で、桜町駅発のバスにも乗り換えられる。'},
+ {no:'21',l:'dai',to:'大学前駅北口',r:['C','ARC','D4','SKN','BYO','UDS'],fr:20,first:'6:50',last:'22:00',min:30,yen:'340',rel:'rail',op:'電鉄',memo:'電車なら中央から大学前まで約10分。バスは30分かかるが、途中の病院・桜町駅北口に寄る。電車が止まった日は振替輸送の受け皿になる。'},
+ {no:'22',l:'dai',to:'大学附属病院（急行）',r:['C','D4','BYO'],fr:10,first:'7:30',last:'11:30',min:20,yen:'340',rel:'rail',op:'電鉄',memo:'午前の外来に合わせた急行。途中は中央通り四丁目だけ。'},
+ {no:'30',l:'rin',to:'港浜客船ターミナル',r:['C','MIN','SKM','MDS','MGK','MKB','KWN','NTS','RKW','PTM'],fr:6,first:'7:20',last:'18:20',min:68,yen:'780',rel:'rail',op:'電鉄',memo:'線路の南の住宅地を走り、緑ヶ丘駅で線路の北へ出て、線路沿いのみなと川橋で川を渡る。川辺駅北口から新田・港へ。約27kmの長い路線。電車なら中央から港まで約30分なので、急ぐ人は電車に乗る。船の発着に合わせた便がある。'},
+ {no:'31',l:'rin',to:'臨海工業地帯（工場シャトル）',r:['C','MIN','SKM','MDS','MGK','MKB','KWN','NTS','RKW'],fr:16,first:'6:00',last:'19:40',min:58,yen:'690',rel:'gap',op:'電鉄',memo:'朝夕の交代時間に集中。港の西側、工場の正門前に止まる。新田駅・港駅からも工場行きのバスが出ている。'},
+ {no:'32',l:'rin',to:'流通センター',r:['C','MIN','RYU'],fr:14,first:'6:30',last:'21:00',min:14,yen:'220',rel:'gap',op:'市営',memo:'南の流通団地へ。倉庫で働く人やトラックの運転手が多い。'},
+ {no:'33',l:'rin',to:'中央卸売市場（早朝）',r:['C','MIN','ICH'],fr:5,first:'4:10',last:'6:30',min:12,yen:'220',rel:'gap',op:'市営',memo:'電車の始発より早い。市場で働く人と、朝ごはん目当ての観光客。'},
+ {no:'40',l:'mdr',to:'緑野南団地',r:['C','MIN','SKM','MDS'],fr:40,first:'6:00',last:'22:50',min:30,yen:'420',rel:'gap',op:'電鉄',memo:'緑ヶ丘駅から南へ約1.5km離れた団地へ。駅まで歩けない人の足。'},
+ {no:'41',l:'mdr',to:'川辺駅北口',r:['C','MIN','SKM','MDS','MGK','MKB','KWN'],fr:14,first:'6:20',last:'21:00',min:46,yen:'560',rel:'rail',op:'電鉄',memo:'電車なら約20分の区間を、南の住宅地を回ってから緑ヶ丘駅で線路の北へ出て、線路沿いのみなと川橋で川を渡って結ぶ。'},
+ {no:'42',l:'mdr',to:'緑野市民病院',r:['C','MIN','SKM','MDS','MGK','MKB','KWN','MHP'],fr:18,first:'7:00',last:'19:00',min:42,yen:'500',rel:'gap',op:'電鉄',memo:'通院の時間帯に多め。'},
+ {no:'50',l:'nis',to:'西町',r:['C','NSH'],fr:36,first:'6:00',last:'22:30',min:8,yen:'220',rel:'gap',op:'市営',memo:'中央駅の西側に広がる古い住宅地。電車は中央駅から西へは行かない。'},
+ {no:'51',l:'nis',to:'西の丘団地',r:['C','NSH','GYO'],fr:16,first:'5:30',last:'20:00',min:20,yen:'300',rel:'gap',op:'市営',memo:'ゲームの地図の西の外、丘の上の団地へ。'},
+ {no:'52',l:'nis',to:'県立総合運動公園',r:['C','NSH','UND'],fr:12,first:'8:00',last:'19:00',min:14,yen:'260',rel:'gap',op:'市営',memo:'試合やコンサートの日は臨時便が列をつくる。'},
+ {no:'60',l:'shi',to:'城山霊園',r:['C','KEN','JYG','REI'],fr:10,first:'8:00',last:'17:00',min:14,yen:'260',rel:'gap',op:'市営',memo:'お盆・お彼岸は大増発。'},
+ {no:'61',l:'shi',to:'県民の森（土休日）',r:['C','KEN','JYG','REI','MOR'],fr:0,first:'8:30',last:'15:30',min:28,yen:'420',rel:'gap',op:'市営',memo:'平日は運休。土休日に1日6本。'},
+ {no:'空港',l:'air',to:'みなと川空港',r:['C','NSH','RIN','AIR'],fr:26,first:'5:40',last:'20:10',min:30,yen:'720',rel:'gap',op:'電鉄',memo:'ゲームの地図の西の外にある空港へ。飛行機の出発に合わせて発車。途中は西町だけ。'},
+ {no:'深夜1',l:'kita',to:'北の台団地（深夜）',r:['C','KEN','KIT','KKO','KND'],fr:3,first:'23:40',last:'0:40',min:22,yen:'600',rel:'gap',op:'電鉄',memo:'終電のあとに出る。運賃は倍額。'},
+ {no:'深夜2',l:'mdr',to:'緑野南団地（深夜）',r:['C','MIN','SKM','MDS'],fr:2,first:'23:50',last:'0:30',min:28,yen:'840',rel:'gap',op:'電鉄',memo:'金曜は1本多い。'},
+ {no:'高速1',l:'hwy',to:'北都（ほくと）',r:['C','KEN','SHI','IC'],fr:12,first:'6:00',last:'19:00',min:210,yen:'3,400',rel:'etc',op:'電鉄',memo:'地図の西の外、みなと川ICから高速道路へ。予約制。'},
+ {no:'高速2',l:'hwy',to:'西京（さいきょう）',r:['C','KEN','SHI','IC'],fr:6,first:'7:00',last:'17:00',min:260,yen:'4,100',rel:'etc',op:'電鉄',memo:'途中の休憩は1回。予約制。'},
+ {no:'高速3',l:'hwy',to:'夜行 東湊（ひがしみなと）',r:['C','KEN','SHI','IC'],fr:1,first:'22:30',last:'22:30',min:480,yen:'6,800',rel:'etc',op:'電鉄',memo:'朝6時半着。3列シート。'},
+];
+const REL={rail:['電車と並ぶ','rail'],gap:['電車のない所へ','gap'],etc:['そのほか','etc']};
+const LO=Object.keys(L),key=(a,b)=>a<b?a+'|'+b:b+'|'+a;
+const segL={},lineSegs={},used={};
+SYS.forEach(s=>{s.r.forEach(id=>(used[id]=used[id]||new Set()).add(s.l));for(let i=0;i<s.r.length-1;i++){const k=key(s.r[i],s.r[i+1]);(segL[k]=segL[k]||new Set()).add(s.l);(lineSegs[s.l]=lineSegs[s.l]||new Set()).add(k);}});
+
+// ===== 地図を描く（全体図と拡大図で同じ関数を使う） =====
+const NS='http://www.w3.org/2000/svg';
+function drawMap(svg,V){
+  const W=V.w,GAP=V.gap,P=(x,y)=>[(x-V.x0)*V.s,(y-V.y0)*V.s];
+  svg.setAttribute('viewBox',`0 0 ${(V.x1-V.x0)*V.s} ${(V.y1-V.y0)*V.s}`);
+  const E=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e;};
+  const T=(x,y,s,cls,anchor,p)=>{const e=E('text',{x,y,class:cls,'text-anchor':anchor||'start'},p);e.textContent=s;return e;};
+  const path=pts=>'M'+pts.map(p=>P(...p).map(v=>v.toFixed(1)).join(' ')).join(' L');
+  const inView=p=>p.x>=V.x0&&p.x<=V.x1&&p.y>=V.y0&&p.y<=V.y1;
+  // 陸・海・川
+  const bg=E('g',{});const vw=(V.x1-V.x0)*V.s,vh=(V.y1-V.y0)*V.s;
+  E('rect',{x:0,y:0,width:vw,height:vh,fill:'var(--land)'},bg);
+  const coast=[[18.6,6],[19.4,2.6],[20.2,1.6],[21.2,1.3],[22.6,1.05],[23.0,-0.7],[24.2,-2.9],[26,-3.6],[26,6]];
+  E('path',{d:path(coast)+'Z',fill:'var(--sea)'},bg);
+  const [ax,ay]=P(-6.6,2.4);E('rect',{x:ax,y:ay,width:1.6*V.s,height:0.8*V.s,rx:4,fill:'var(--land2)',stroke:'var(--line)'},bg);
+  E('path',{d:path([[11.3,-10],[11.6,-6.5],[11.8,-4],[11.9,-2.2],[11.4,0],[11.0,1.4],[11.3,2.6],[11.7,5]]),fill:'none',stroke:'var(--river)','stroke-width':Math.max(9,0.3*V.s),'stroke-linecap':'round','stroke-linejoin':'round'},bg);
+  if(V.main){
+    const rl=P(12.2,-6.0);T(rl[0],rl[1],'みなと川','lbl sm','middle',bg).setAttribute('transform',`rotate(84 ${rl[0]} ${rl[1]})`);
+    [['みなと川市',2.8,-8.5],['緑野市',8.6,-3.4],['新田町',16.6,1.6],['港浜市',22.4,-1.8],['森下村',13.6,-6.4],['湯ノ谷町',21.6,-8.6]].forEach(([n,x,y])=>{const p=P(x,y);T(p[0],p[1],n,'area','middle',bg);});
+    const b=P(23.4,2.6);T(b[0],b[1],'みなと湾','lbl sm','middle',bg);
+    const m=P(23.6,-7.8);T(m[0],m[1],'ひのき山','lbl sm','middle',bg);
+    E('path',{d:path([[-2.2,-4.0],[-4.6,-4.3],[-7.6,-4.6]]),fill:'none',stroke:'var(--muted)','stroke-width':5,opacity:.22},bg);
+    const h=P(-7.2,-4.85);T(h[0],h[1],'高速道路 ← 北都・西京・東湊','lbl sm','start',bg);
+    // ゲームの地図に写っている範囲
+    const g0=P(-3.2,-9.0);E('rect',{x:g0[0],y:g0[1],width:27.6*V.s,height:11.6*V.s,fill:'none',stroke:'var(--muted)','stroke-width':1.2,'stroke-dasharray':'8 5',opacity:.7},bg);
+    T(g0[0]+5,g0[1]+14,'ゲームの地図の範囲','lbl sm','start',bg);
+    // 拡大図の範囲
+    const a=P(V.inset.x0,V.inset.y0);E('rect',{x:a[0],y:a[1],width:(V.inset.x1-V.inset.x0)*V.s,height:(V.inset.y1-V.inset.y0)*V.s,fill:'none',stroke:'var(--ink)','stroke-width':1.2,'stroke-dasharray':'4 3',opacity:.55},bg);
+    T(a[0]+(V.inset.x1-V.inset.x0)*V.s-3,a[1]-4,'拡大図','lbl sm','end',bg);
+  }
+  // 鉄道（白黒のはしご模様）
+  for(const line of [['C','S','U','M','K','N','P'],['K','F','T','O']]){const d=path(line.map(k=>[RS[k].x,RS[k].y]));
+    E('path',{d,fill:'none',stroke:'var(--rail)','stroke-width':V.main?6:8},bg);E('path',{d,fill:'none',stroke:'var(--rail2)','stroke-width':V.main?3.5:5,'stroke-dasharray':'10 10'},bg);}
+  // 縮尺
+  const km=V.main?5:1,[sx,sy]=[14,vh-14];
+  E('path',{d:`M${sx} ${sy-5}V${sy}H${sx+km*V.s}V${sy-5}`,fill:'none',stroke:'var(--ink)','stroke-width':1.5},bg);
+  T(sx+km*V.s+6,sy,km+' km','lbl sm','start',bg);
+  // 線：同じ区間を走る路線は少しずつずらして並べる
+  function segPts(k,l){const [a,b]=k.split('|');const [ax,ay]=P(S[a].x,S[a].y),[bx,by]=P(S[b].x,S[b].y);
+    const ls=[...segL[k]].sort((x,y)=>LO.indexOf(x)-LO.indexOf(y)),i=ls.indexOf(l),off=(i-(ls.length-1)/2)*GAP;
+    const dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy)||1,nx=-dy/len*off,ny=dx/len*off;return [ax+nx,ay+ny,bx+nx,by+ny];}
+  const gLines=E('g',{}),gHi=E('g',{}),gRS=E('g',{}),gStops=E('g',{}),gLbl=E('g',{});
+  const lineEls={};
+  LO.forEach(l=>{const g=E('g',{class:'seg',style:'cursor:pointer'},gLines);lineEls[l]=g;
+    for(const pass of [0,1])(lineSegs[l]||[]).forEach(k=>{const [x1,y1,x2,y2]=segPts(k,l);
+      E('line',{x1,y1,x2,y2,stroke:pass?L[l].c:'var(--paper)','stroke-width':pass?W:W+3,'stroke-linecap':'round'},g);});
+    g.addEventListener('click',()=>pickLine(l));});
+  // 鉄道の駅と、その駅前から出るバスの系統数
+  Object.entries(RS).forEach(([id,r])=>{if(!inView(r))return;const [x,y]=P(r.x,r.y),q=V.main?6:8;
+    E('rect',{x:x-q,y:y-q,width:q*2,height:q*2,fill:'var(--rail2)',stroke:'var(--rail)','stroke-width':2.5},gRS);
+    if(id==='C')return;
+    const lp=r.lp||'b';let tx=x,ty=y+q+14,an='middle';if(lp==='tl'){tx=x-q-4;ty=y-q-5;an='end';}else if(lp==='r'){tx=x+q+5;ty=y+4;an='start';}
+    const t=T(tx,ty,r.n+'駅','lbl rs',an,gLbl);
+    if(r.bus){const w=t.getComputedTextLength(),bx=an==='middle'?tx+w/2+4:an==='end'?tx+4:tx+w+4;
+      const g=E('g',{},gLbl);if(an==='end'){t.setAttribute('x',tx-34);}
+      const bx2=an==='end'?tx-30:bx;E('rect',{x:bx2,y:ty-11,width:30,height:14,rx:7,fill:'var(--card)',stroke:'var(--muted)','stroke-width':1},g);
+      T(bx2+15,ty,'バス'+r.bus,'bub','middle',g);}});
+  // 停留所
+  const stopEls={};
+  Object.entries(S).forEach(([id,p])=>{if(!used[id]||!inView(p))return;const n=used[id].size,[x,y]=P(p.x,p.y);
+    const g=E('g',{class:'seg'},gStops);stopEls[id]=g;
+    if(id==='C'){const q=V.main?13:18;E('rect',{x:x-q,y:y-q,width:q*2,height:q*2,rx:6,fill:'var(--stop)',stroke:'var(--hi)','stroke-width':3},g);
+      T(x,y+4,'バス','',  'middle',g).setAttribute('style',`font-size:${V.main?10:12}px;font-weight:700;fill:var(--ink)`);}
+    else{const small=V.main&&p.dt;E('circle',{cx:x,cy:y,r:small?3:(n>1?4+n*1.4:(p.big?6.5:4.5)),fill:'var(--stop)',stroke:'var(--hi)','stroke-width':p.big?2.8:1.8},g);}
+    const showLbl=!(V.main&&p.dt);let t=null;
+    if(showLbl){const lp=p.lp||'r',o=n>1?8+n*1.4:10;let tx=x,ty=y+4,a='start';
+      if(lp==='r')tx+=o;else if(lp==='l'){tx-=o;a='end';}else if(lp==='t'){ty=y-o-3;a='middle';}else if(lp==='b'){ty=y+o+12;a='middle';}
+      else if(lp==='tl'){tx-=4;ty=y-o-4;a='end';}else if(lp==='tr'){tx+=4;ty=y-o-4;}else if(lp==='in'){tx+=10;ty=y-14;}
+      else if(lp==='lt'){tx-=(V.main?18:24);ty=y-(V.main?14:18);a='end';}
+      if(!(id==='C'&&V.main))t=T(tx,ty,id==='C'?(V.main?'中央駅':'中央駅前バスターミナル'):p.n,'lbl'+(p.big||id==='C'?' big':''),a,gLbl);}
+    g.lbl=t;});
+  svg.appendChild(gHi);svg.appendChild(gRS);svg.appendChild(gStops);svg.appendChild(gLbl);
+  return {lineEls,stopEls,gHi,segPts,E,T,P,W};
+}
+const INSET={x0:-2.3,x1:3.9,y0:-3.5,y1:1.6};
+const MAPS=[
+  drawMap(document.getElementById('map'),{x0:-7.8,x1:25.0,y0:-9.4,y1:3.6,s:40,w:5,gap:5.5,main:1,inset:INSET}),
+  drawMap(document.getElementById('zoom'),Object.assign({s:125,w:7,gap:8},INSET)),
+];
+
+// ===== 選ぶ・浮かび上がらせる =====
+let cur={l:null,s:null};
+const lg=document.getElementById('legend'),bays=document.getElementById('bays'),rows=document.getElementById('rows'),det=document.getElementById('detail');
+const chipAll=document.createElement('button');chipAll.className='chip';chipAll.innerHTML='<i style="background:var(--ink)"></i>すべて';chipAll.onclick=()=>pickLine(null);lg.appendChild(chipAll);
+const chips={};LO.forEach(l=>{const b=document.createElement('button');b.className='chip';b.innerHTML=`<i style="background:${L[l].c}"></i>${L[l].n}`;b.onclick=()=>pickLine(cur.l===l&&!cur.s?null:l);lg.appendChild(b);chips[l]=b;});
+const bayEls={};
+for(let i=1;i<=10;i++){const l=LO.find(k=>L[k].bay===i);const b=document.createElement('button');b.className='bay';
+  if(l){b.innerHTML=`<b>${i}</b><span style="background:${L[l].c}"></span>${L[l].n}`;b.onclick=()=>pickLine(cur.l===l&&!cur.s?null:l);bayEls[l]=b;}
+  else{b.innerHTML=`<b>${i}</b><span style="background:var(--line)"></span>降車専用`;b.disabled=true;b.style.cursor='default';b.style.opacity=.6;}
+  bays.appendChild(b);}
+const rowEls=[];
+LO.forEach(l=>{const tr=document.createElement('tr');tr.className='grp';tr.innerHTML=`<td colspan="6"><span class="num" style="background:${L[l].c}">${L[l].bay}</span>　${L[l].n}　<span style="font-weight:400;color:var(--muted)">（${L[l].bay}番のりば${l==='kita'||l==='mdr'?'・深夜バスも':''}）</span></td>`;rows.appendChild(tr);
+  SYS.filter(s=>s.l===l).forEach(s=>{const r=document.createElement('tr');r.className='sys';r.tabIndex=0;
+    const via=s.r.slice(1,-1).map(id=>S[id].n).join('・');
+    r.innerHTML=`<td class="n"><span class="num" style="background:${L[s.l].c}">${s.no}</span></td><td>${s.to}<br><span style="color:var(--muted);font-size:12px">${via?via+' 経由':'直行'}</span></td><td class="n">${s.fr?s.fr+'本':'土休日のみ'}</td><td class="n">${s.first}／${s.last}</td><td class="n">${s.min}分</td><td class="n">${s.yen}円</td>`;
+    r.onclick=()=>pickSys(s);r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pickSys(s);}};
+    rows.appendChild(r);rowEls.push([s,r]);});});
+function summary(){const tot=SYS.reduce((a,s)=>a+s.fr,0);const nr=SYS.filter(s=>s.rel==='rail').length,ng=SYS.filter(s=>s.rel==='gap').length;
+  det.innerHTML=`<h3>28 系統のあらまし</h3><dl class="kv"><dt>平日の発車</dt><dd>1日 ${tot} 本（ピークの朝8時台は 約70本）</dd><dt>電車のない所へ</dt><dd>${ng} 系統（北の台・西町・流通センター・空港など）</dd><dt>電車と並ぶ</dt><dd>${nr} 系統（大学前・川辺・新田・港へ）</dd><dt>会社</dt><dd>みなと川電鉄バス（電鉄の子会社）・みなと川市営バス</dd><dt>ほかの駅から</dt><dd>桜町 4・大学前 9・緑ヶ丘 6・川辺 7・新田 2・港 8・森下 1・峠 1・温泉 3 系統（図の「バス○」）</dd></dl><p class="note">線・のりば・表の行をえらぶと、ここに詳しい案内が出ます。</p>`;}
+function lineInfo(l){const ss=SYS.filter(s=>s.l===l);const tot=ss.reduce((a,s)=>a+s.fr,0);
+  det.innerHTML=`<h3><span class="num" style="background:${L[l].c}">${L[l].bay}</span>${L[l].n}</h3><p class="via">${ss.map(s=>`<span class="num" style="background:${L[l].c};height:20px;min-width:28px;font-size:12px">${s.no}</span> ${s.to}`).join('<br>')}</p><dl class="kv"><dt>平日の発車</dt><dd>1日 ${tot} 本</dd></dl>`;}
+function routeKm(s){let d=0;for(let i=0;i<s.r.length-1;i++){const a=S[s.r[i]],b=S[s.r[i+1]];d+=Math.hypot(a.x-b.x,a.y-b.y);}return d*1.25;} // 道は直線より2割5分ほど長い
+function sysInfo(s){const rel=REL[s.rel],hw=s.l==='hwy';
+  det.innerHTML=`<h3><span class="num" style="background:${L[s.l].c}">${s.no}</span>${s.to}</h3>
+  <p class="via">${s.r.map(id=>S[id].n).join(' <em>→</em> ')}${hw?' <em>→ 高速道路</em>':''}</p>
+  <dl class="kv"><dt>のりば</dt><dd>${(s.no.startsWith('深夜')?(s.l==='kita'?2:5):L[s.l].bay)}番</dd><dt>平日の本数</dt><dd>${s.fr?s.fr+' 本':'運休（土休日 6 本）'}</dd><dt>始発／終発</dt><dd>${s.first}／${s.last}</dd><dt>所要</dt><dd>約 ${s.min} 分${hw?'':`（道のり 約 ${routeKm(s).toFixed(1)} km）`}</dd><dt>運賃</dt><dd>${s.yen} 円</dd><dt>会社</dt><dd>${s.op==='市営'?'みなと川市営バス':'みなと川電鉄バス'}</dd><dt>電車との関係</dt><dd><span class="tag ${rel[1]}">${rel[0]}</span></dd></dl>
+  <p class="note">${s.memo}</p>`;}
+function paint(){const {l,s}=cur;
+  LO.forEach(k=>{chips[k].setAttribute('aria-pressed',k===l);if(bayEls[k])bayEls[k].classList.toggle('on',k===l);});
+  chipAll.setAttribute('aria-pressed',!l);
+  const on=s?new Set(s.r):l?new Set(SYS.filter(x=>x.l===l).flatMap(x=>x.r)):null;
+  MAPS.forEach(M=>{LO.forEach(k=>M.lineEls[k].style.opacity=!l||k===l?1:.13);M.gHi.innerHTML='';
+    Object.entries(M.stopEls).forEach(([id,g])=>{const v=!on||on.has(id);g.style.opacity=v?1:.2;if(g.lbl)g.lbl.style.opacity=v?1:.25;});
+    if(s){for(const pass of [0,1])for(let i=0;i<s.r.length-1;i++){const [x1,y1,x2,y2]=M.segPts(key(s.r[i],s.r[i+1]),s.l);
+        M.E('line',{x1,y1,x2,y2,stroke:pass?L[s.l].c:'var(--hi)','stroke-width':pass?M.W+1:M.W+5,'stroke-linecap':'round'},M.gHi);}
+      const id=s.r[s.r.length-1],end=S[id];if(s.r[0]!==id&&M.stopEls[id]){const [x,y]=M.P(end.x,end.y),b=M.E('g',{},M.gHi);
+        M.E('rect',{x:x-24,y:y-32,width:48,height:19,rx:4,fill:L[s.l].c},b);M.T(x,y-18,s.no,'','middle',b).setAttribute('style','fill:#fff;font-size:12px;font-weight:700');}}});
+  rowEls.forEach(([x,r])=>r.classList.toggle('on',x===s));
+  if(s)sysInfo(s);else if(l)lineInfo(l);else summary();
+  try{localStorage.setItem('chuo-bus',JSON.stringify({l,s:s&&s.no}));}catch(e){}}
+function pickLine(l){cur={l,s:null};paint();}
+function pickSys(s){cur=cur.s===s?{l:s.l,s:null}:{l:s.l,s};paint();}
+try{const v=JSON.parse(localStorage.getItem('chuo-bus')||'null');if(v){cur.l=v.l||null;cur.s=SYS.find(x=>x.no===v.s)||null;}}catch(e){}
+paint();
+</script>
+
+</body></html>
