@@ -50,3 +50,20 @@ assert.ok(C.inDepot(sets[0], -9) && !C.inDepot(sets[0], 5));
 const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'ctc-core.js'), 'utf8');
 assert.ok(!/document\.|window\.(?!CtcCore)/.test(src.replace(/typeof window[^)]*\)/g, '')));
 console.log('ctc-core ok');
+
+/* 段2：きょうの乱れ（見せ方の層） */
+{
+  const loc2 = mk('L', 1003, ['C', 'S', 'U', 'M'], [[20, 20], [25, 25.5], [30, 34], [39, 39]], true);
+  const exp2 = mk('E', 5003, ['C', 'U', 'M'], [[26, 26], [31.5, 31.5], [35, 35]], true); exp2.stop = [true, false, true];
+  const all = [loc2, exp2], onS = (tr, i) => tr === loc2 && tr.seq[i] === 'U';
+  const env2 = { ST, TYPES, onSiding: onS, nomDwell: (tr, i) => tr.stop[i] ? 0.5 : 0, day: 3 };
+  const hl2 = C.highlights(all, [], { ST, TYPES, onSiding: onS, DEPOTNAME: {} });
+  const R2 = C.disrupt(all, hl2, env2);
+  for (const tr of all) { const a = R2.A.get(tr); a.dep.forEach((d, i) => assert.ok(d >= tr.dep[i] - 1e-9 || R2.swaps.size, '予定より早く出ない（入れかえのときをのぞく）')); }
+  const p2 = C.actual(loc2, R2); assert.strictEqual(p2.base, loc2); assert.strictEqual(p2.seq, loc2.seq);
+  assert.strictEqual(C.disrupt(all, hl2, env2).A.get(loc2).arr.join(), R2.A.get(loc2).arr.join(), '同じ日なら同じ結果');
+  /* 遅れの理由はコードつき・カードは4つの欄がそろう */
+  for (const tr of all) R2.A.get(tr).why.flat().forEach(w => assert.ok(C.REASON[w.code], w.code));
+  R2.decisions.forEach(c => ['what', 'dec', 'why', 'res', 'radio'].forEach(k => assert.ok(typeof c[k] === 'string' && c[k], k)));
+  console.log('ctc-core 段2 ok');
+}
