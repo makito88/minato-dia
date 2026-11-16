@@ -7,7 +7,10 @@
   'use strict';
   const Y = { main: 300, br: 118, lane: 9, side: 27, brLoop: 10, kenou: 372, freight: 410 };
   const MAIN = ['C', 'S', 'U', 'M', 'K', 'N', 'P'], BR = ['K', 'F', 'T', 'O'];
-  const JUNC0 = 0.3, JUNC1 = 1.0;   /* 支線が本線から離れはじめる所・上の段に着く所（川辺から支線の道のり km） */
+  /* 川辺の分かれ道（川辺から支線の道のり km）：駅の東で本線から分かれ、少し上がって平らな所で上下がまとまり、上の段へのぼる
+     下り：下りの本線から JUNC0 で分かれる／上り：上りの本線から UP0 で、下りの本線を平面交差して UP1 で合流 */
+  const JUNC0 = 0.4, LV0 = 0.5, LV1 = 0.9, JUNC1 = 1.3, UP0 = 0.5, UP1 = 0.75, LVY = -50;
+  const OS = 0.22;   /* 温泉の手前で2線に分かれる長さ */
   const STA = 0.35;                  /* 駅のポイントの範囲（駅の中心から km） */
   const ML = 2.8;                    /* 中央より西に取る幅（km）：中央車庫と県央本線 */
   const TYPE_COL = { L: '#e8792b', R: '#2f7fc0', E: '#c23a4c', X: '#3f8a63' };
@@ -32,7 +35,7 @@
     const xK = xm(ST.K.km);
     const xb = bkm => xK + bkm * pxk;
     const W = Math.ceil(Math.max(xm(ST.P.km + 1.4), xb(ST.O.bkm + 1.2)));
-    return { pxk, xm, xb, xK, W, H: 450, Y, ML, JUNC0, JUNC1, STA };
+    return { pxk, xm, xb, xK, W, H: 470, Y, ML, JUNC0, LV0, LV1, JUNC1, UP0, UP1, LVY, OS, STA };
   }
   const smooth = u => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
 
@@ -89,9 +92,12 @@
     const bkm = km;
     let y;
     if (bkm < JUNC1) {
-      const yK = Y.main + (a === 'K' ? oa : ob);
-      const u = smooth((bkm - JUNC0) / (JUNC1 - JUNC0));
-      y = yK + (Y.br - yK) * u;
+      const oK = a === 'K' ? oa : ob, M = Y.main, run = tr.down ? -Y.lane : Y.lane;
+      const P = tr.down ? [[0, M + oK], [STA, M + run], [JUNC0, M + run], [LV0, M + LVY], [LV1, M + LVY], [JUNC1, Y.br]]
+        : [[0, M + oK], [STA, M + run], [UP0, M + run], [UP1, M + LVY], [LV1, M + LVY], [JUNC1, Y.br]];
+      let k = 0; while (k < P.length - 2 && bkm > P[k + 1][0]) k++;
+      const u = smooth((bkm - P[k][0]) / (P[k + 1][0] - P[k][0]));
+      y = P[k][1] + (P[k + 1][1] - P[k][1]) * u;
     } else {
       const sF = [['F', 'T'].find(s => Math.abs(bkm - env.ST[s].bkm) < STA)];
       y = Y.br;
@@ -99,7 +105,7 @@
         const s = sF[0], d = Math.abs(bkm - env.ST[s].bkm), o = s === a ? oa : s === b ? ob : 0;
         y = Y.br + o * (1 - smooth((d - 0.08) / (STA - 0.08)));
       }
-      if (b === 'O' && Math.abs(bkm - env.ST.O.bkm) < STA) { const d = Math.abs(bkm - env.ST.O.bkm); y = Y.br + ob * (1 - smooth((d - 0.08) / (STA - 0.08))); }
+      if ((a === 'O' || b === 'O') && Math.abs(bkm - env.ST.O.bkm) < OS) { const d = Math.abs(bkm - env.ST.O.bkm); y = Y.br + (b === 'O' ? ob : oa) * (1 - smooth((d - 0.06) / (OS - 0.06))); }
     }
     return { x: L.xb(bkm), y, dir: tr.down ? 1 : -1, moving: true, i, f: raw };
   }

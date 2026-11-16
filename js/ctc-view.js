@@ -127,7 +127,7 @@
     return { depot: true };
   }
   function depotPt(home, slot) {
-    if (home === 'C') { const tr = slot % 14, k = (slot / 14) | 0; return { x: L.xm(-2.15 + k * 0.62) + 8, y: Y.main - 112 + tr * 5.2 }; }
+    if (home === 'C') { const tr = slot % 14, k = (slot / 14) | 0; return { x: L.xm(-2.15 + k * 0.62) + 8, y: Y.main + 72 + tr * 5.2 }; }
     const tr = slot % 4, k = (slot / 4) | 0; return { x: L.xm(E.ST.P.km - 1.55 + k * 0.3) + 8, y: Y.main - 78 + tr * 9 };
   }
 
@@ -141,23 +141,27 @@
     line([[xm(0.35), M + Y.lane], [xm(ST.P.km - 0.35), M + Y.lane]], TR, 3.2);
     /* 中央（4線・頭端の西に引上線と車庫） */
     const cx = xm(0);
-    [-Y.side, -Y.lane, Y.lane, Y.side].forEach(o => line([[xm(-0.3), M + o], [cx + S * 0.4, M + o]], TR, 3.2));
+    [-Y.side, -Y.lane, Y.lane, Y.side].forEach(o => line([[xm(-0.7), M + o], [cx + S * 0.4, M + o]], TR, 3.2));   /* 西のはしは連絡線と車庫への入出庫線 */
     line([[cx + S * 0.4, M - Y.side], [xm(0.35), M - Y.lane]], TR, 2.6); line([[cx + S * 0.4, M + Y.side], [xm(0.35), M + Y.lane]], TR, 2.6);
     line([[cx + S * 0.55, M - Y.lane], [cx + S * 0.85, M + Y.lane]], SD, 2); line([[cx + S * 0.55, M + Y.lane], [cx + S * 0.85, M - Y.lane]], SD, 2);
-    line([[xm(-0.3), M - Y.side], [xm(-0.75), M - Y.side - 30], [xm(-0.8), M - 46]], SD, 2.4);
-    /* 中央車庫 */
-    ctx.fillStyle = 'rgba(109,98,80,.25)'; ctx.fillRect(xm(-2.25), M - 118, xm(-0.8) - xm(-2.25), 78);
-    for (let k = 0; k < 14; k++) line([[xm(-2.2), M - 112 + k * 5.2], [xm(-0.85), M - 112 + k * 5.2]], '#6d6250', 1.2);
-    line([[xm(-0.85), M - 46], [xm(-0.85), M - 112]], SD, 2);
-    /* 県央本線（他社線）と連絡線 */
-    line([[xm(-ML_()), Y.kenou - 8], [xm(1.6), Y.kenou - 8]], OT, 3, [10, 5]);
-    line([[xm(-ML_()), Y.kenou + 8], [xm(1.6), Y.kenou + 8]], OT, 3, [10, 5]);
-    line([[xm(1.6), Y.kenou - 8], [xm(2.4), Y.kenou - 40]], OT, 3, [10, 5]);
-    line([[xm(-0.3), M + Y.side], [xm(-0.9), Y.kenou - 8]], '#b59a5a', 2.4, [6, 4]);
+    /* 中央車庫（駅の南西）：3・4番線の西のはしから2本の入出庫線 */
+    const dTop = M + 66, dBot = dTop + 14 * 5.2 + 6;
+    line([[xm(-0.3), M + Y.lane], [xm(-0.55), M + Y.side + 14], [xm(-0.8), dTop + 6]], SD, 2.4);
+    line([[xm(-0.3), M + Y.side], [xm(-0.5), M + Y.side + 22], [xm(-0.8), dTop + 30]], SD, 2.4);
+    ctx.fillStyle = 'rgba(109,98,80,.25)'; ctx.fillRect(xm(-2.25), dTop, xm(-0.8) - xm(-2.25), dBot - dTop);
+    for (let k = 0; k < 14; k++) line([[xm(-2.2), dTop + 6 + k * 5.2], [xm(-0.85), dTop + 6 + k * 5.2]], '#6d6250', 1.2);
+    line([[xm(-0.85), dTop + 6], [xm(-0.85), dBot - 6]], SD, 2);
+    /* 県央本線（他社線）：西から中央の北側（5・6番線）を通って、北東へ。西のはしで連絡線 */
+    const k5 = M - Y.side - 20, k6 = k5 - 16;
+    line([[xm(-ML_()), k6], [xm(0.15), k6], [xm(0.6), k6 - 40], [xm(1.15), 4]], OT, 3, [10, 5]);
+    line([[xm(-ML_()), k5], [xm(0.3), k5], [xm(0.75), k5 - 40], [xm(1.3), 4]], OT, 3, [10, 5]);
+    ctx.fillStyle = 'rgba(138,127,184,.22)'; ctx.fillRect(xm(-0.3), k5 + 3, S * 0.95, 5);
+    line([[xm(-0.65), k5], [xm(-0.42), M - Y.side]], '#b59a5a', 2.4, [6, 4]);
+    line([[xm(-0.8), k6], [xm(-0.55), M - Y.lane]], '#b59a5a', 2.4, [6, 4]);
     /* 待避のある駅・ふつうの駅 */
     ['S', 'U', 'M', 'K', 'N'].forEach(s => {
       const x = xm(ST[s].km);
-      if (ST[s].taihi) { loop(x - S, x + (s === 'K' ? L.JUNC0 * pxk : S), M - Y.lane, M - Y.side, TR); loop(x - S, x + S, M + Y.lane, M + Y.side, TR); }
+      if (ST[s].taihi) { loop(x - S, x + S, M - Y.lane, M - Y.side, TR); loop(x - S, x + S, M + Y.lane, M + Y.side, TR); }
       if (s === 'S' || s === 'N') line([[x + S * 0.6, M + Y.lane], [x + S, M - Y.lane]], SD, 2);
       if (s === 'U') { line([[x + S * 1.2, M - Y.lane], [x + S * 1.6, M + Y.lane]], SD, 2); line([[x + S * 1.2, M + Y.lane], [x + S * 1.6, M - Y.lane]], SD, 2); }
     });
@@ -173,27 +177,28 @@
     ctx.fillStyle = 'rgba(181,154,90,.12)'; ctx.fillRect(xm(ST.P.km - 0.6), Y.freight - 20, xm(ST.P.km + 0.6) - xm(ST.P.km - 0.6), 32);
     for (let k = 0; k < 3; k++) line([[xm(ST.P.km - 0.6), Y.freight - 14 + k * 9], [xm(ST.P.km + 0.55), Y.freight - 14 + k * 9]], '#8a7a52', 1.4, [6, 4]);
     /* 温泉支線（単線）：川辺の東で上の段へ */
-    const jx0 = xb(L.JUNC0), jx1 = xb(L.JUNC1);
-    line([[jx0, M - Y.side], [jx1, Y.br], [xb(ST.F.bkm) - S, Y.br]], TR, 3.2);
+    const jx1 = xb(L.JUNC1);
+    line([[xb(L.JUNC0), M - Y.lane], [xb(L.LV0), M + L.LVY], [xb(L.LV1), M + L.LVY], [jx1, Y.br], [xb(ST.F.bkm) - S, Y.br]], TR, 3.2);
     line([[xb(ST.F.bkm) + S, Y.br], [xb(ST.T.bkm) - S, Y.br]], TR, 3.2);
-    line([[xb(ST.T.bkm) + S, Y.br], [xb(ST.O.bkm - 0.35), Y.br]], TR, 3.2);
-    line([[jx0, M + Y.lane], [jx1, Y.br]], SD, 2.2);
+    line([[xb(ST.T.bkm) + S, Y.br], [xb(ST.O.bkm - L.OS), Y.br]], TR, 3.2);
+    line([[xb(L.UP0), M + Y.lane], [xb(L.UP1), M + L.LVY]], TR, 2.6);   /* 上り：下りの本線を平面交差して合流 */
     ['F', 'T'].forEach(s => { const x = xb(ST[s].bkm); loop(x - S, x + S, Y.br, Y.br - Y.brLoop, TR); loop(x - S, x + S, Y.br, Y.br + Y.brLoop, TR); });
     const ox = xb(ST.O.bkm);
-    line([[xb(ST.O.bkm - 0.35), Y.br], [ox - S * 0.4, Y.br - Y.lane], [ox + 6, Y.br - Y.lane]], TR, 3.2);
-    line([[xb(ST.O.bkm - 0.35), Y.br], [ox - S * 0.4, Y.br + Y.lane], [ox + 6, Y.br + Y.lane]], TR, 3.2);
+    line([[xb(ST.O.bkm - L.OS), Y.br], [xb(ST.O.bkm - 0.06), Y.br - Y.lane], [ox + 6, Y.br - Y.lane]], TR, 3.2);
+    line([[xb(ST.O.bkm - L.OS), Y.br], [xb(ST.O.bkm - 0.06), Y.br + Y.lane], [ox + 6, Y.br + Y.lane]], TR, 3.2);
     ctx.fillStyle = '#c96b4e'; ctx.fillRect(ox + 6, Y.br - Y.lane - 6, 4, 12); ctx.fillRect(ox + 6, Y.br + Y.lane - 6, 4, 12);
-    line([[xb(ST.O.bkm - 0.6), Y.br], [xb(ST.O.bkm - 0.75), Y.br + 32], [xb(ST.O.bkm - 0.15), Y.br + 32]], '#b59a5a', 2.2, [6, 4]);
+    line([[xb(ST.O.bkm - 0.45), Y.br], [xb(ST.O.bkm - 0.62), Y.br + 32], [xb(ST.O.bkm - 1.4), Y.br + 32]], '#b59a5a', 2.2, [6, 4]);   /* 温泉留置線：駅の手前で分かれて西（左）へ */
     /* ラベル（設備） */
     ctx.font = '11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#8aa0b4';
-    ctx.fillText('中央車庫', xm(-2.25), M - 124);
+    ctx.fillText('中央車庫', xm(-2.25), dTop - 6);
     ctx.fillText('港留置線', xm(ST.P.km - 1.6), M - 86);
-    ctx.fillStyle = '#a99be0'; ctx.fillText('県央本線（他社線）← 空港・県の西', xm(-ML_()) + 6, Y.kenou + 26);
-    ctx.fillText('→ 北へ（県央北）', xm(1.6) + 6, Y.kenou + 26);
-    ctx.fillStyle = '#c9b27a'; ctx.textAlign = 'right'; ctx.fillText('連絡線（臨時・貨物の直通用・準備中）→', xm(-0.95), Y.kenou - 14); ctx.textAlign = 'left';
+    ctx.fillStyle = '#a99be0'; ctx.fillText('県央本線（他社線）← 空港・県の西', xm(-ML_()) + 6, k6 - 8);
+    ctx.fillText('5・6番線', xm(-0.25), k6 - 8);
+    ctx.save(); ctx.translate((xm(0.75) + xm(1.3)) / 2 + 22, (k5 - 40 + 4) / 2 + 10); ctx.rotate(Math.atan2(4 - (k5 - 40), xm(1.3) - xm(0.75))); ctx.fillText('→ 北へ（県央北）', 0, 0); ctx.restore();
+    ctx.fillStyle = '#c9b27a'; ctx.textAlign = 'right'; ctx.fillText('連絡線（臨時・貨物の直通用・準備中）', xm(-0.85), M - Y.side - 6); ctx.textAlign = 'left';
     ctx.fillText('臨港線・港貨物ターミナル（準備中）', xm(ST.P.km - 0.6), Y.freight + 26);
-    ctx.fillText('温泉留置線（臨時列車用・準備中）', xb(ST.O.bkm - 0.75), Y.br + 48);
-    ctx.fillStyle = '#8aa0b4'; ctx.fillText('温泉支線（単線）', jx1 + 6, Y.br + 22);
+    ctx.fillText('温泉留置線（臨時列車用・準備中）', xb(ST.O.bkm - 1.4), Y.br + 48);
+    ctx.fillStyle = '#8aa0b4'; ctx.fillText('温泉支線（単線）', jx1 + 10, Y.br + 22);
   }
   function ML_() { return L.ML - 0.05; }
 
@@ -206,7 +211,7 @@
       ctx.fillStyle = '#fff'; ctx.fillText(t, x, y + 5); hits.push({ x0: x - w / 2, x1: x + w / 2, y0: y - 13, y1: y + 11, st: s });
     };
     const kmTxt = (x, y, k) => { ctx.font = '10.5px "IBM Plex Mono",monospace'; ctx.fillStyle = '#6f8597'; ctx.fillText(k.toFixed(1) + 'km', x, y); };
-    C.MAIN.forEach(s => { const x = L.xm(ST[s].km); pill(x, Y.main - 52, ST[s].name, s); kmTxt(x, Y.main + 44, ST[s].km); });
+    C.MAIN.forEach(s => { const x = L.xm(ST[s].km); if (s === 'C') { pill(x, Y.main + 52, ST[s].name, s); kmTxt(x, Y.main + 80, ST[s].km); } else { pill(x, Y.main - 52, ST[s].name, s); kmTxt(x, Y.main + 44, ST[s].km); } });   /* 中央は北に県央本線があるので、駅名を下に */
     ['F', 'T', 'O'].forEach(s => { const x = L.xb(ST[s].bkm); pill(x, Y.br - 34, ST[s].name, s); kmTxt(x, Y.br + 30, ST[s].bkm); });
     /* キロの目盛り */
     ctx.strokeStyle = '#1d2f40'; ctx.lineWidth = 1; ctx.font = '10px "IBM Plex Mono",monospace'; ctx.fillStyle = '#4f6476';
@@ -227,8 +232,9 @@
     hits.push({ x0: x0 - 4, x1: x0 + len + 8, y0: y0 - 6, y1: y0 + h + 6, tr });
     if (dead) return;
     /* 札：種別と番号、停車中で待ちが長いときは理由 */
-    const up = p.dir > 0, ty = up ? y0 - 6 : y0 + h + 14;
-    ctx.font = '700 10.5px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'center';
+    const up = p.dir > 0, s0 = tr.seq[p.i], term = !p.moving && (s0 === 'C' || s0 === 'P' || s0 === 'O');
+    const ty = term ? p.y + 4 : (up ? y0 - 6 : y0 + h + 14);
+    ctx.font = '700 10.5px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = term ? (s0 === 'C' ? 'left' : 'right') : 'center';
     let tag = E.TYPES[tr.type].short + tr.num, col = '#dbe6f0';
     const late = lateNow(tr, T);
     if (late >= 0.5) { tag += ' 遅れ' + C.fmtMin(late); col = '#ff8a8a'; }
@@ -237,7 +243,8 @@
       const r = act || C.reasons(baseOf(tr), p.i, envCore(D))[0];
       if (r) { tag += ' ' + (C.SHORT[r.code] || C.REASON[r.code].name) + ' +' + C.fmtMin(r.min); if (late < 0.5 || act) col = C.REASON[r.code].col; }
     }
-    ctx.lineWidth = 3; ctx.strokeStyle = '#0d1620'; ctx.strokeText(tag, x0 + len / 2, ty); ctx.fillStyle = col; ctx.fillText(tag, x0 + len / 2, ty);
+    const tx = term ? (s0 === 'C' ? x0 + len + 30 : x0 - 12) : x0 + len / 2;   /* 頭端の駅では、札を横に出して重ならないように */
+    ctx.lineWidth = 3; ctx.strokeStyle = '#0d1620'; ctx.strokeText(tag, tx, ty); ctx.fillStyle = col; ctx.fillText(tag, tx, ty);
   }
 
   function draw(force) {
@@ -257,7 +264,7 @@
       const SS = ran() ? SETS2 : D.sets;
       SS.forEach(s => { tot[s.home]++; const n = setNow(s, T); if (n.depot) { const q = depotPt(s.home, used[s.home]++); ctx.fillStyle = C.TYPE_BODY[s.trips[0].type]; ctx.fillRect(q.x, q.y - 2, Math.min(0.55 * pxk * (s.home === 'C' ? 1 : 0.5), s.cars * 0.02 * pxk * 0.6), 4); } });
       ctx.font = '700 12px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#dbe6f0';
-      ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main - 124); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(E.ST.P.km - 1.15), Y.main - 86);
+      ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main + 60); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(E.ST.P.km - 1.15), Y.main - 86);
       /* 頭端の駅（中央・港・温泉）で止まっている列車の番線を、重ならないように割りふる */
       const states = SS.map(s => [s, setNow(s, T)]), env = envCore(D);
       env.laneFix = new Map();
@@ -276,8 +283,13 @@
         if (n.dead) {
           const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f = C.smooth(Math.max(0, Math.min(1, n.f)));
           const q = C.trainPos(tr, n.out ? tr.dep[0] - 0.01 : tr.arr[i] + 0.01, L, env), dp = depotPt(s.home, 0);
-          const a = n.out ? dp : q, b = n.out ? q : dp;
-          p = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, dir: (b.x >= a.x ? 1 : -1), moving: true, i };
+          /* 車庫と駅のあいだは、入出庫線の上を通る */
+          const via = s.home === 'C' ? [{ x: L.xm(-0.8), y: Y.main + 72 }, { x: L.xm(-0.3), y: Y.main + Y.lane }] : [{ x: L.xm(E.ST.P.km - 0.95), y: Y.main - 50 }, { x: L.xm(E.ST.P.km - 0.75), y: Y.main - Y.lane }];
+          const path = n.out ? [dp, ...via, q] : [q, ...via.slice().reverse(), dp];
+          const seg = path.slice(1).map((b, k) => Math.hypot(b.x - path[k].x, b.y - path[k].y)), tot = seg.reduce((x, y) => x + y, 0) || 1;
+          let dd = f * tot, k = 0; while (k < seg.length - 1 && dd > seg[k]) { dd -= seg[k]; k++; }
+          const a = path[k], b = path[k + 1], u = seg[k] ? Math.min(1, dd / seg[k]) : 0;
+          p = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, dir: (b.x >= a.x ? 1 : -1), moving: true, i };
           drawTrain(p, tr, true, T, D);
         } else { p = C.trainPos(n.trip, T, L, env); drawTrain(p, n.trip, false, T, D); }
         if (sel && sel.tr === baseOf(n.trip)) selPos = p;
