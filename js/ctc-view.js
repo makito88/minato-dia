@@ -127,7 +127,7 @@
     return { depot: true };
   }
   function depotPt(home, slot) {
-    if (home === 'C') { const tr = slot % 14, k = (slot / 14) | 0; return { x: L.xm(-2.15 + k * 0.62) + 8, y: Y.main + 72 + tr * 5.2 }; }
+    if (home === 'C') { const tr = slot % 14, k = (slot / 14) | 0; return { x: L.xm(-2.15 + k * 0.62) + 8, y: Y.main + 92 + tr * 5.2 }; }
     const tr = slot % 4, k = (slot / 4) | 0; return { x: L.xm(E.ST.P.km - 1.55 + k * 0.3) + 8, y: Y.main - 78 + tr * 9 };
   }
 
@@ -141,13 +141,14 @@
     line([[xm(0.35), M + Y.lane], [xm(ST.P.km - 0.35), M + Y.lane]], TR, 3.2);
     /* 中央（4線・頭端の西に引上線と車庫） */
     const cx = xm(0);
-    [-Y.side, -Y.lane, Y.lane, Y.side].forEach(o => line([[xm(-0.7), M + o], [cx + S * 0.4, M + o]], TR, 3.2));   /* 西のはしは連絡線と車庫への入出庫線 */
+    C.LANES.C.forEach(o => line([[xm(-0.7), M + o], [cx + S * 0.4, M + o]], TR, 3.2));
+    line([[cx + S * 0.4, M + C.LANES.C[4]], [cx + S * 0.6, M + Y.side]], TR, 2.6);   /* 5番線は4番線へ合流 */   /* 西のはしは連絡線と車庫への入出庫線 */
     line([[cx + S * 0.4, M - Y.side], [xm(0.35), M - Y.lane]], TR, 2.6); line([[cx + S * 0.4, M + Y.side], [xm(0.35), M + Y.lane]], TR, 2.6);
     line([[cx + S * 0.55, M - Y.lane], [cx + S * 0.85, M + Y.lane]], SD, 2); line([[cx + S * 0.55, M + Y.lane], [cx + S * 0.85, M - Y.lane]], SD, 2);
     /* 中央車庫（駅の南西）：3・4番線の西のはしから2本の入出庫線 */
-    const dTop = M + 66, dBot = dTop + 14 * 5.2 + 6;
+    const dTop = M + 86, dBot = dTop + 14 * 5.2 + 6;
     line([[xm(-0.3), M + Y.lane], [xm(-0.55), M + Y.side + 14], [xm(-0.8), dTop + 6]], SD, 2.4);
-    line([[xm(-0.3), M + Y.side], [xm(-0.5), M + Y.side + 22], [xm(-0.8), dTop + 30]], SD, 2.4);
+    line([[xm(-0.3), M + C.LANES.C[4]], [xm(-0.5), M + C.LANES.C[4] + 14], [xm(-0.8), dTop + 30]], SD, 2.4);
     ctx.fillStyle = 'rgba(109,98,80,.25)'; ctx.fillRect(xm(-2.25), dTop, xm(-0.8) - xm(-2.25), dBot - dTop);
     for (let k = 0; k < 14; k++) line([[xm(-2.2), dTop + 6 + k * 5.2], [xm(-0.85), dTop + 6 + k * 5.2]], '#6d6250', 1.2);
     line([[xm(-0.85), dTop + 6], [xm(-0.85), dBot - 6]], SD, 2);
@@ -167,8 +168,8 @@
     });
     /* 港（頭端2線・留置線・貨物の臨港線とターミナル） */
     const px = xm(ST.P.km);
-    line([[xm(ST.P.km - 0.35), M - Y.lane], [px + 6, M - Y.lane]], TR, 3.2); line([[xm(ST.P.km - 0.35), M + Y.lane], [px + 6, M + Y.lane]], TR, 3.2);
-    ctx.fillStyle = '#c96b4e'; ctx.fillRect(px + 6, M - Y.lane - 6, 4, 12); ctx.fillRect(px + 6, M + Y.lane - 6, 4, 12);
+    /* 港：頭端4線（docs/track-dia-study.md） */
+    C.LANES.P.forEach(o => { const inner = Math.abs(o) === Y.lane; line(inner ? [[xm(ST.P.km - 0.35), M + o], [px + 6, M + o]] : [[px - S * 0.45, M + Math.sign(o) * Y.lane], [px - S * 0.2, M + o], [px + 6, M + o]], TR, 3.2); ctx.fillStyle = '#c96b4e'; ctx.fillRect(px + 6, M + o - 6, 4, 12); });
     line([[px - S * 0.9, M - Y.lane], [px - S * 0.5, M + Y.lane]], SD, 2); line([[px - S * 0.9, M + Y.lane], [px - S * 0.5, M - Y.lane]], SD, 2);
     line([[xm(ST.P.km - 0.75), M - Y.lane], [xm(ST.P.km - 0.95), M - 50]], SD, 2.2);
     for (let k = 0; k < 4; k++) line([[xm(ST.P.km - 1.6), M - 78 + k * 9], [xm(ST.P.km - 0.95), M - 78 + k * 9]], '#6d6250', 1.6);
@@ -183,6 +184,9 @@
     line([[xb(ST.T.bkm) + S, Y.br], [xb(ST.O.bkm - L.OS), Y.br]], TR, 3.2);
     line([[xb(L.UP0), M + Y.lane], [xb(L.UP1), M + L.LVY]], TR, 2.6);   /* 上り：下りの本線を平面交差して合流 */
     ['F', 'T'].forEach(s => { const x = xb(ST[s].bkm); loop(x - S, x + S, Y.br, Y.br - Y.brLoop, TR); loop(x - S, x + S, Y.br, Y.br + Y.brLoop, TR); });
+    { const x = xb(ST.F.bkm + C.SIGBOX), s2 = S * 0.8;   /* 森下〜峠の交換信号所（計画。まだ列車は使わない） */
+      line([[x - s2, Y.br], [x - s2 + 12, Y.br + Y.brLoop + 4], [x + s2 - 12, Y.br + Y.brLoop + 4], [x + s2, Y.br]], '#b59a5a', 2.2, [6, 4]);
+      ctx.font = '11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#c9b27a'; ctx.fillText('交換信号所（計画）', x, Y.br + 34); }
     const ox = xb(ST.O.bkm);
     line([[xb(ST.O.bkm - L.OS), Y.br], [xb(ST.O.bkm - 0.06), Y.br - Y.lane], [ox + 6, Y.br - Y.lane]], TR, 3.2);
     line([[xb(ST.O.bkm - L.OS), Y.br], [xb(ST.O.bkm - 0.06), Y.br + Y.lane], [ox + 6, Y.br + Y.lane]], TR, 3.2);
@@ -193,7 +197,7 @@
     ctx.fillText('中央車庫', xm(-2.25), dTop - 6);
     ctx.fillText('港留置線', xm(ST.P.km - 1.6), M - 86);
     ctx.fillStyle = '#a99be0'; ctx.fillText('県央本線（他社線）← 空港・県の西', xm(-ML_()) + 6, k6 - 8);
-    ctx.fillText('5・6番線', xm(-0.25), k6 - 8);
+    ctx.fillText('県央本線 6・7番線', xm(-0.25), k6 - 8);
     ctx.save(); ctx.translate((xm(0.75) + xm(1.3)) / 2 + 22, (k5 - 40 + 4) / 2 + 10); ctx.rotate(Math.atan2(4 - (k5 - 40), xm(1.3) - xm(0.75))); ctx.fillText('→ 北へ（県央北）', 0, 0); ctx.restore();
     ctx.fillStyle = '#c9b27a'; ctx.textAlign = 'right'; ctx.fillText('連絡線（臨時・貨物の直通用・準備中）', xm(-0.85), M - Y.side - 6); ctx.textAlign = 'left';
     ctx.fillText('臨港線・港貨物ターミナル（準備中）', xm(ST.P.km - 0.6), Y.freight + 26);
@@ -211,7 +215,7 @@
       ctx.fillStyle = '#fff'; ctx.fillText(t, x, y + 5); hits.push({ x0: x - w / 2, x1: x + w / 2, y0: y - 13, y1: y + 11, st: s });
     };
     const kmTxt = (x, y, k) => { ctx.font = '10.5px "IBM Plex Mono",monospace'; ctx.fillStyle = '#6f8597'; ctx.fillText(k.toFixed(1) + 'km', x, y); };
-    C.MAIN.forEach(s => { const x = L.xm(ST[s].km); if (s === 'C') { pill(x, Y.main + 52, ST[s].name, s); kmTxt(x, Y.main + 80, ST[s].km); } else { pill(x, Y.main - 52, ST[s].name, s); kmTxt(x, Y.main + 44, ST[s].km); } });   /* 中央は北に県央本線があるので、駅名を下に */
+    C.MAIN.forEach(s => { const x = L.xm(ST[s].km); if (s === 'C') { pill(x, Y.main + 70, ST[s].name, s); kmTxt(x, Y.main + 98, ST[s].km); } else { pill(x, Y.main - 52, ST[s].name, s); kmTxt(x, Y.main + 44, ST[s].km); } });   /* 中央は北に県央本線があるので、駅名を下に */
     ['F', 'T', 'O'].forEach(s => { const x = L.xb(ST[s].bkm); pill(x, Y.br - 34, ST[s].name, s); kmTxt(x, Y.br + 30, ST[s].bkm); });
     /* キロの目盛り */
     ctx.strokeStyle = '#1d2f40'; ctx.lineWidth = 1; ctx.font = '10px "IBM Plex Mono",monospace'; ctx.fillStyle = '#4f6476';
@@ -264,12 +268,12 @@
       const SS = ran() ? SETS2 : D.sets;
       SS.forEach(s => { tot[s.home]++; const n = setNow(s, T); if (n.depot) { const q = depotPt(s.home, used[s.home]++); ctx.fillStyle = C.TYPE_BODY[s.trips[0].type]; ctx.fillRect(q.x, q.y - 2, Math.min(0.55 * pxk * (s.home === 'C' ? 1 : 0.5), s.cars * 0.02 * pxk * 0.6), 4); } });
       ctx.font = '700 12px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#dbe6f0';
-      ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main + 60); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(E.ST.P.km - 1.15), Y.main - 86);
+      ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main + 80); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(E.ST.P.km - 1.15), Y.main - 86);
       /* 頭端の駅（中央・港・温泉）で止まっている列車の番線を、重ならないように割りふる */
       const states = SS.map(s => [s, setNow(s, T)]), env = envCore(D);
       env.laneFix = new Map();
       for (const term of ['C', 'P', 'O']) {
-        const lanes = term === 'C' ? [-Y.side, -Y.lane, Y.lane, Y.side] : [-Y.lane, Y.lane], used = new Set(), wait = [];
+        const lanes = term === 'O' ? [-Y.lane, Y.lane] : C.LANES[term], used = new Set(), wait = [];
         states.forEach(([s, n]) => { if (n.depot || n.dead) return; const tr = n.trip, k = tr.seq.length;
           let i = -1; if (tr.seq[0] === term && T < tr.dep[0]) i = 0; else if (tr.seq[k - 1] === term && T >= tr.arr[k - 1]) i = k - 1;
           if (i >= 0) wait.push({ tr, i, t: i === 0 ? (tr.pair ? tr.pair.arr[tr.pair.arr.length - 1] : tr.dep[0] - 30) : tr.arr[k - 1] }); });
@@ -284,7 +288,7 @@
           const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f = C.smooth(Math.max(0, Math.min(1, n.f)));
           const q = C.trainPos(tr, n.out ? tr.dep[0] - 0.01 : tr.arr[i] + 0.01, L, env), dp = depotPt(s.home, 0);
           /* 車庫と駅のあいだは、入出庫線の上を通る */
-          const via = s.home === 'C' ? [{ x: L.xm(-0.8), y: Y.main + 72 }, { x: L.xm(-0.3), y: Y.main + Y.lane }] : [{ x: L.xm(E.ST.P.km - 0.95), y: Y.main - 50 }, { x: L.xm(E.ST.P.km - 0.75), y: Y.main - Y.lane }];
+          const via = s.home === 'C' ? [{ x: L.xm(-0.8), y: Y.main + 92 }, { x: L.xm(-0.3), y: Y.main + Y.lane }] : [{ x: L.xm(E.ST.P.km - 0.95), y: Y.main - 50 }, { x: L.xm(E.ST.P.km - 0.75), y: Y.main - Y.lane }];
           const path = n.out ? [dp, ...via, q] : [q, ...via.slice().reverse(), dp];
           const seg = path.slice(1).map((b, k) => Math.hypot(b.x - path[k].x, b.y - path[k].y)), tot = seg.reduce((x, y) => x + y, 0) || 1;
           let dd = f * tot, k = 0; while (k < seg.length - 1 && dd > seg[k]) { dd -= seg[k]; k++; }

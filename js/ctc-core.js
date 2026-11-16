@@ -10,7 +10,9 @@
   /* 川辺の分かれ道（川辺から支線の道のり km）：駅の東で本線から分かれ、少し上がって平らな所で上下がまとまり、上の段へのぼる
      下り：下りの本線から JUNC0 で分かれる／上り：上りの本線から UP0 で、下りの本線を平面交差して UP1 で合流 */
   const JUNC0 = 0.4, LV0 = 0.5, LV1 = 0.9, JUNC1 = 1.3, UP0 = 0.5, UP1 = 0.75, LVY = -50;
-  const OS = 0.22;   /* 温泉の手前で2線に分かれる長さ */
+  const OS = 0.22;
+  const LANES = { C: [-Y.side, -Y.lane, Y.lane, Y.side, Y.side + 18], P: [-Y.side, -Y.lane, Y.lane, Y.side] };
+  const SIGBOX = 2.0;   /* 森下〜峠の交換信号所（森下から km・計画） */   /* 温泉の手前で2線に分かれる長さ */
   const STA = 0.35;                  /* 駅のポイントの範囲（駅の中心から km） */
   const ML = 2.8;                    /* 中央より西に取る幅（km）：中央車庫と県央本線 */
   const TYPE_COL = { L: '#e8792b', R: '#2f7fc0', E: '#c23a4c', X: '#3f8a63' };
@@ -35,7 +37,7 @@
     const xK = xm(ST.K.km);
     const xb = bkm => xK + bkm * pxk;
     const W = Math.ceil(Math.max(xm(ST.P.km + 1.4), xb(ST.O.bkm + 1.2)));
-    return { pxk, xm, xb, xK, W, H: 470, Y, ML, JUNC0, LV0, LV1, JUNC1, UP0, UP1, LVY, OS, STA };
+    return { pxk, xm, xb, xK, W, H: 495, Y, ML, JUNC0, LV0, LV1, JUNC1, UP0, UP1, LVY, OS, STA };
   }
   const smooth = u => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
 
@@ -44,8 +46,8 @@
     const fx = env.laneFix && env.laneFix.get(tr);
     if (fx && fx.i === i) return fx.o;   /* 頭端の駅で、ほかの列車と同じ番線にならないように画面で決めた番線 */
     const s = tr.seq[i], p = tr.set ? tr.set.plat : 0, toBr = tr.seq.includes('O');
-    if (s === 'C') return [-Y.side, -Y.lane, Y.lane, Y.side][p % 4];
-    if (s === 'P') return [-Y.lane, Y.lane][p % 2];
+    if (s === 'C') return LANES.C[p % 5];   /* 中央5線・港4線（docs/track-dia-study.md のユーザーの決め） */
+    if (s === 'P') return LANES.P[p % 4];
     if (s === 'O') return [-Y.lane, Y.lane][tr.num % 2];
     if (s === 'F' || s === 'T') return tr.down ? -Y.brLoop : Y.brLoop;
     if (s === 'K' && toBr) return tr.down ? -Y.side : Y.lane;   /* 川辺：温泉へは1番線、温泉からは3番線（指令盤の試作と同じ） */
@@ -55,8 +57,8 @@
   /* 駅 i の番線の番号（1から）。発車標に出す */
   function trackNo(tr, i, env) {
     const s = tr.seq[i], o = laneOff(tr, i, env);
-    if (s === 'C') return [-Y.side, -Y.lane, Y.lane, Y.side].indexOf(o) + 1;
-    if (s === 'P' || s === 'O') return o < 0 ? 1 : 2;
+    if (s === 'C' || s === 'P') return LANES[s].indexOf(o) + 1;
+    if (s === 'O') return o < 0 ? 1 : 2;
     if (s === 'F' || s === 'T') return o < 0 ? 1 : 2;
     if (env.ST[s].taihi) return o === -Y.side ? 1 : o === -Y.lane ? 2 : o === Y.lane ? 3 : 4;
     return tr.down ? 1 : 2;
@@ -332,7 +334,7 @@
   const inDepot = (s, T) => T < s.first - 8 || T > s.last + 9;
 
   const SHORT = { crowd: '混雑', late: '前の遅れ', connCut: '接続打切', swap: '入れかえ', recover: '回復', incident: 'できごと', taihi: '通過待ち', conn: '接続', kokan: '行き違い', follow: '間かく', route: '運転停車' };
-  const api = { SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
+  const api = { LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CtcCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
