@@ -106,7 +106,7 @@ button{cursor:pointer}
 
 .scrubrow{display:flex;gap:10px;align-items:center}
 /* 画面のタブ（2026-11-09）：走らせる／ダイヤを組む／成績を見る。見えていないタブの地図・ダイヤグラムは描かない */
-.mtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .mtabs button{font:inherit;font-weight:700;font-size:15px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 10px;min-height:48px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;text-align:left}
 .mtabs button small{font-weight:400;font-size:11px;color:var(--muted);line-height:1.35}
 .mtabs button[aria-selected="true"]{border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel))}
@@ -485,6 +485,7 @@ canvas{display:block;touch-action:manipulation}
     <button type="button" role="tab" data-pane="run">走らせる<small>地図・ダイヤグラム</small></button>
     <button type="button" role="tab" data-pane="plan">ダイヤを組む<small>この日の条件・運行パターン・1日の成績</small></button>
     <button type="button" role="tab" data-pane="stats">成績を見る<small>利用目的・乗車率・駅の様子・運転記録</small></button>
+    <button type="button" role="tab" data-pane="ctc">指令パネル<small>線路と列車・待避と接続の理由</small></button>
   </nav>
   <div class="scrubrow"><span>4:30</span><input type="range" id="scrub" min="270" max="1560" step="1" aria-label="時刻"><span>26:00</span></div>
 
@@ -510,6 +511,8 @@ canvas{display:block;touch-action:manipulation}
     <div class="condrow"><span class="evlab">イベント（複数選べます）</span><div class="evchips" id="evchips" role="group" aria-label="この日のイベント"></div></div>
     <div class="impact" id="impact"></div>
   </section>
+
+  <section data-pane="ctc" aria-label="指令パネル" style="min-width:0;overflow:hidden"><div id="ctcHost"></div></section>
 
   <section class="kpis" data-pane="run" aria-label="現在の状況">
     <div class="kpi"><b id="k-run">0</b><span>運転中の列車</span></div>
@@ -698,6 +701,8 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/mapseason-core.js?v=20261116a"></script>
 <script src="js/mapseason-render.js?v=20261116a"></script>
 <script src="js/mapseason-view.js?v=20261116a"></script>
+<script src="js/ctc-core.js?v=20261116a"></script>
+<script src="js/ctc-view.js?v=20261116a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -1858,7 +1863,7 @@ function renderStation(s){
 let lastInfo='';
 /* 画面のタブ */
 let PANE='run';
-function setPane(p){if(!['run','plan','stats'].includes(p))p='run';const was=PANE;PANE=p;
+function setPane(p){if(!['run','plan','stats','ctc'].includes(p))p='run';const was=PANE;PANE=p;
   document.querySelectorAll('.app [data-pane]').forEach(e=>{if(e.tagName!=='BUTTON')e.hidden=e.dataset.pane!==p;});
   document.querySelectorAll('#mtabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.pane===p)));
   if(p==='run'&&was!=='run'){resize();}refreshPanels(true);}
@@ -2147,6 +2152,10 @@ if(window.NightView)NightView.init({ymd:()=>SeasonCore.ymdOf(seasDayI()),wx:()=>
 if(window.MapSeasonView)MapSeasonView.init({ymd:()=>SeasonCore.ymdOf(seasDayI()),wx:()=>COND.wx,scale:()=>MS*CDPR,redraw:()=>{if(!playing&&D&&PANE==='run')drawMap();},
   wxOf:y=>{const l=wxLog();if(l[y])return l[y];const p=y.split('-').map(Number),r=window.minatoAway&&minatoAway.condFor(SeasonCore.indexOf(p[0],p[1],p[2]));return r?{wx:r.wx}:null;},
   rail:()=>[MAIN].map(L=>{const pts=[];L.forEach((s,i)=>{pts.push([ST[s].x,ST[s].y]);if(i<L.length-1)pts.push(...segMid(s,L[i+1],0,1,0).map(p=>[p.x,p.y]));});return pts;})});
+/* 指令パネル（docs/ctc-plan.md の段1・js/ctc-view.js）。ゲームの計算は読むだけ */
+if(window.CtcView)CtcView.init({ST,TYPES,DEPOTNAME,D:()=>D,T:()=>T,fmt,onSiding,evDwell,speed:()=>LIVE?0:speed,setSpeed:v=>setSpeed(v),
+  nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0,
+  evName:(st,t)=>{const e=ACTIVE_EV.find(ev=>(ev.ops||[]).some(o=>o.st===st&&t>=o.from&&t<=o.to));return e?e.name:'';}});
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
 function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '<p class="sub">集計しています…</p>';const st=evState(ev),snap=trafficSnapshot(T);
   const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
@@ -3537,6 +3546,7 @@ function frame(ts){const dt=frameDt(ts);lastTs=ts;PERF&&PERF.f0();
     const sv=String(Math.round(T));if(document.activeElement!==scrub&&scrub.value!==sv)scrub.value=sv;}
   const draw=!covered&&PANE==='run'&&needDraw(ts);   // 「ダイヤを組む」「成績を見る」のあいだは、地図とダイヤグラムを描かない（時間は進める）
   if(draw){drawMap();PERF&&PERF.n('map');}if(SND.S.on)SND.tick(ts);acc+=dt;if(draw&&(acc>0.15||!playing&&acc>0.3)){acc=0;drawDia();refreshPanels(false);}else if(!covered&&PANE!=='run'&&acc>0.5){acc=0;refreshPanels(false);}
+  if(!covered&&PANE==='ctc'&&window.CtcView)CtcView.frame();   /* 指令パネル（js/ctc-view.js） */
   PERF&&PERF.f1();requestAnimationFrame(frame);}
 /* ---------- 場面（コレクション）：data/scenes.json の場面を地図のピンにし、押すと小窓で開く ---------- */
 let SCENES=[],SCPIN=[];
