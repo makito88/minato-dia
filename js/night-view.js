@@ -39,8 +39,9 @@ function draw(c,T,dk){if(!CFG||!H||!M)return false;if(dk<=0)return true;
   if(key!==lastKey&&(urgent||now-lastBuild>(B.minMs||2200))){const t0=performance.now();
     R.build({cfg:CFG,G:M.G,L:M.L,groups:M.groups,stars:M.stars,roads:M.roads,stations:H.stations(),minute,wx,scale,W:cv.width,H:cv.height},BUF);
     BUF.base=ver+'|'+cv.width+'|'+cv.height+'|'+wx;lastKey=key;lastBuild=now;lastMin=minute;V.buildMs=performance.now()-t0;V.builds=(V.builds||0)+1;}
-  c.save();c.setTransform(1,0,0,1,0,0);const VL=CFG.veil||{};if(VL.mul){c.globalCompositeOperation='multiply';c.globalAlpha=Math.min(1,dk)*(VL.mulA||0.5);c.fillStyle=VL.mul;c.fillRect(0,0,cv.width,cv.height);c.globalCompositeOperation='source-over';}   // 青く沈める（灰色にしない）
-  c.globalAlpha=Math.min(1,dk);c.drawImage(BUF.veil,0,0);
+  const lift=window.MapSeasonView?Math.min(0.6,MapSeasonView.snowLift()||0):0;   // 第10回：雪が積もった夜は明るい（幕を薄く）
+  c.save();c.setTransform(1,0,0,1,0,0);const VL=CFG.veil||{};if(VL.mul){c.globalCompositeOperation='multiply';c.globalAlpha=Math.min(1,dk)*(VL.mulA||0.5)*(1-lift*1.2);c.fillStyle=VL.mul;c.fillRect(0,0,cv.width,cv.height);c.globalCompositeOperation='source-over';}   // 青く沈める（灰色にしない）
+  c.globalAlpha=Math.min(1,dk)*(1-lift);c.drawImage(BUF.veil,0,0);
   c.globalCompositeOperation='screen';c.globalAlpha=Math.min(1,dk*1.35);c.drawImage(BUF.glow,0,0);c.restore();
   let events=[];try{events=(H.events()||[]).filter(e=>e.state==='during').map(e=>({fx:N.eventFx(e,CFG),x:e.x,y:e.y,src:e.src})).filter(e=>e.fx&&!(e.fx==='hanabi'&&e.src==='game'));}catch(e){}
   let trains=[];try{trains=H.trains()||[];}catch(e){}

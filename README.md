@@ -21,6 +21,7 @@
 - [路線のお絵かき帖（描いた路線を地図の「バス・配送」で走らせる・線路の形を直す）](docs/features/route-editor.md)
 - 地図の吹き出し（第8回）：地図の「イベント」の層に、ゲームのイベント・季節のできごと（その日になってから）・お絵かき帖で置いたイベント・天気（雨・大雪）・売店の開店と閉店を、白い丸に絵の吹き出しで出す。押すと画像つきのカード。お絵かき帖の道具「イベント」で、暦の帯を見ながら置ける（`js/event-map-view.js`・`js/event-edit.js`・設定 `data/event-map.json`）。
 - 夜の光（第9回）：夜の地図を、水彩の絵に合わせた光の層に（窓・格子の窓・看板・道の光の帯と街灯・流れる車のライト・駅・港の灯台とクレーン・列車の窓・イベントの光・雨と雪）。暗くなる時刻は本当の暦の日の入り・日の出。お絵かき帖の道具「夜の光」（`route-editor.html#night`）で、まちの性格（ビル街・工場/港・住宅・商店街/駅前・温泉/山・川/海・暗いまま）と明かりの場所を筆で塗り、時刻と天気でのぞけて、光の色も変えられる。光の絵は数分ごとに1枚だけ作り直す（`js/night-core.js`・`js/night-render.js`・`js/night-view.js`・`js/night-edit.js`・設定 `data/night-light.json`）。
+- 地図の季節（第10回）：夏の地図の絵を、本当の暦の日付で日ごとに少しずつ季節の色に（梅・桜並木と散りぎわの花びら・新緑・田植え・稲穂・紅葉の前線が山の上からふもとへ・葉の落ちた冬・山の上の雪）。雪は雪の日だけ積もり、晴れが続くと解ける。雪の夜は明るく、桜の夜はライトアップ。お絵かき帖の道具「季節」（`route-editor.html#season`）で桜並木・梅林・紅葉の山・田んぼを塗れる。季節の見本は [docs/season-preview.html](docs/season-preview.html)。同じ構図の季節の絵（ChatGPT などで描く）を置けばそれを使う：頼み方は [docs/map-season-prompts.md](docs/map-season-prompts.md)。計算は `js/mapseason-core.js`、設定は `data/map-season.json`。
 - 地図の列車（第7回）：1両ずつ線路の上でカーブを曲がる見下ろしの絵（`js/train-art.js`・色は `data/train-style.json`）。列車を押すと地図の下に編成のパネル（横から見た編成・車両の種類・種別・両数・行き先）。
 - [沿線暦と沿線だより](docs/features/ensen.md)（季節のできごとの仕組みもここ）
 - [駅ナカ リサーチ](docs/features/research.md)

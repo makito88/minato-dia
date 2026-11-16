@@ -13,7 +13,7 @@ let CFG=null,GEN=[],H=null,RAW=null,EVS={v:1,items:{},recent:[]},HITS=[],SEL=nul
 const V={get ready(){return !!(CFG&&H);}};
 
 /* ---------- 読み込み ---------- */
-Promise.all([fetch('data/event-map.json?v=20261114a').then(r=>r.ok?r.json():null).catch(()=>null),fetch('data/kiosk.json').then(r=>r.ok?r.json():null).catch(()=>null)]).then(([c,k])=>{
+Promise.all([fetch('data/event-map.json?v=20261116a').then(r=>r.ok?r.json():null).catch(()=>null),fetch('data/kiosk.json').then(r=>r.ok?r.json():null).catch(()=>null)]).then(([c,k])=>{
   if(!c)return;CFG=c;Bub.init(c);GEN=(k&&k.genres)||[];Bub.onload=()=>{if(H&&H.redraw)H.redraw();};check();});
 function check(){let s=null;try{s=localStorage.getItem(KEY);}catch(e){}if(s===RAW)return;RAW=s;let j=null;try{j=JSON.parse(s||'null');}catch(e){}EVS=M.normalize(j&&j.evs);if(H&&H.redraw)H.redraw();}
 addEventListener('storage',e=>{if(e.key===KEY)check();});addEventListener('focus',check);document.addEventListener('visibilitychange',()=>{if(!document.hidden)check();});
@@ -32,7 +32,7 @@ function collect(snapEvents){const T=H.T(),ST=H.ST(),out=[];
   const SC=CFG.season||{};for(const o of G(()=>H.seas(),[])||[]){const rr=(o.ev.rail&&o.ev.rail[0]&&o.ev.rail[0].h)||[9,17],a=rr[0]*60,b=rr[1]*60;
     const p=o.st&&ST[o.st]?{x:ST[o.st].x+(SC.dx||20),y:ST[o.st].y+(SC.dy||-40)}:{x:(SC.line||[540,120])[0],y:(SC.line||[540,120])[1]};
     const goods=Object.keys(o.ev.kiosk||{}).filter(k=>o.ev.kiosk[k]>1);
-    out.push({key:'s:'+o.id,src:'seas',ref:o,x:p.x,y:p.y,icon:{e:SC[seasonKey()]||'🍂'},kind:'season',big:(o.mag||1)>=1.25,state:M.state(a,b,T),a,b,name:o.ev.name||SC.name,st:o.st||'',desc:(o.ev.letter&&o.ev.letter.title)||'',fx:{ride:'s',goods},line:!!o.st});}
+    out.push({key:'s:'+o.id,src:'seas',ref:o,x:p.x,y:p.y,icon:{e:(SC.byId&&SC.byId[o.id])||SC[seasonKey()]||'🍂'},kind:'season',big:(o.mag||1)>=1.25,state:M.state(a,b,T),a,b,name:o.ev.name||SC.name,st:o.st||'',desc:(o.ev.letter&&o.ev.letter.title)||'',fx:{ride:'s',goods},line:!!o.st});}
   // 3) お絵かき帖で置いたもの（その運行日の暦に合うもの）
   const ymd=G(()=>H.ymd(),'');if(ymd)for(const it of M.forDay(EVS,ymd)){const a=M.toMin(it.start),b=M.toMin(it.end);
     out.push({key:'u:'+it.id,src:'user',ref:it,x:it.x,y:it.y,icon:it.icon,kind:it.kind,rim:it.rim,big:it.big,state:M.state(a,b<a?b+1440:b,T),a,b,name:it.name,st:it.st,desc:it.memo,img:it.img,fx:it.fx,line:!!it.st});}

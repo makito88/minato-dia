@@ -79,6 +79,6 @@
     { "id": "home", "name": "緑ヶ丘の売店", "st": "M", "dx": 26, "dy": 30, "open": 360, "close": 1380, "go": "home" }
   ],
   "shopWin": { "before": 15, "after": 40, "closeBefore": 30, "closeAfter": 20 },
-  "season": { "spr": "🌷", "sum": "🎐", "aut": "🍂", "win": "⛄", "dx": 20, "dy": -40, "line": [540, 120], "name": "季節のできごと", "note": "くわしくは沿線だよりに。" },
+  "season": { "spr": "🌷", "sum": "🎐", "aut": "🍂", "win": "⛄", "byId": { "s_ume": "🌸", "s_hanami": "🌸", "s_momiji": "🍁", "s_yukiakari": "⛄" }, "dx": 20, "dy": -40, "line": [540, 120], "name": "季節のできごと", "note": "くわしくは沿線だよりに。" },
   "ride": [["", "なし"], ["s", "少しふえる"], ["m", "ふえる"], ["l", "とてもふえる"]]
 }

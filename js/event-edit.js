@@ -16,7 +16,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const DOW='日月火水木金土';
 
-function init(h){H=h;Promise.all([fetch('data/event-map.json?v=20261114a').then(r=>r.ok?r.json():null).catch(()=>null),fetch('data/kiosk.json').then(r=>r.ok?r.json():null).catch(()=>null)]).then(([c,k])=>{
+function init(h){H=h;Promise.all([fetch('data/event-map.json?v=20261116a').then(r=>r.ok?r.json():null).catch(()=>null),fetch('data/kiosk.json').then(r=>r.ok?r.json():null).catch(()=>null)]).then(([c,k])=>{
   if(!c)return;CFG=c;Bub.init(c);GEN=(k&&k.genres)||[];Bub.onload=()=>H.redraw();
   const m=/#event(?::(\w+))?/.exec(location.hash);if(m){const it=m[1]&&evs().items[m[1]];if(it){E.sel=m[1];if(it.date&&!M.occurs(it,E.day))E.day=it.date;E.sheet=true;}}
   H.ui();H.redraw();});}

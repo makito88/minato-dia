@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>地図の季節の見本</title>
+<style>
+:root{--paper:#f6f3ea;--ink:#2b332e;--muted:#6c746e;--line:#d9d4c4;--accent:#3d7f63}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Zen Kaku Gothic New","Hiragino Sans",sans-serif}
+header{padding:12px 16px 6px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+h1{font-size:17px;margin:0 12px 0 0}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 16px 10px}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:16px;padding:4px 11px;cursor:pointer}
+button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+input[type=range]{width:min(420px,70vw)}
+#d{font-weight:700;min-width:7em}
+#wrap{padding:0 16px 16px}canvas{width:100%;height:auto;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.12);background:#dfe6dc}
+.hint{color:var(--muted);font-size:12.5px}
+</style></head><body>
+<header><h1>地図の季節の見本</h1><span class="hint">ゲームの地図と同じ計算（js/mapseason-*.js・data/map-season.json）。日付を動かすと、その日の季節の絵を作り直します。お絵かき帖の「季節」で塗ったものも、このブラウザの保存から読みます。</span></header>
+<div class="bar"><span id="d"></span><input type="range" id="day" min="0" max="364" step="1"></div>
+<div class="bar" id="quick"></div>
+<div class="bar"><span class="hint">雪（積もった量）</span><input type="range" id="snow" min="0" max="100" value="0" style="width:180px"><span class="hint">夜をのぞく</span><input type="range" id="dk" min="0" max="100" value="0" style="width:140px"><span class="hint" id="ms"></span></div>
+<div id="wrap"><canvas id="cv" width="2000" height="840"></canvas></div>
+<script src="../js/mapseason-core.js?v=20261116a"></script>
+<script src="../js/mapseason-render.js?v=20261116a"></script>
+<script>
+const C=MapSeasonCore,R=MapSeasonRender,cv=document.getElementById('cv'),g=cv.getContext('2d');
+let CFG=null,BASE=null,CC=null,OUT={},Y=2026;
+const img=new Image();img.src='../assets/images/map_bg.webp';
+const ymdOf=i=>{const t=new Date(Date.UTC(Y,0,1+i));return t.toISOString().slice(0,10);};
+const q=new URLSearchParams(location.search);
+const QK=[['梅','02-22'],['桜','04-01'],['散りぎわ','04-07'],['新緑','04-28'],['田植え','05-12'],['夏','07-20'],['稲穂','09-14'],['紅葉・山','10-28'],['紅葉・ふもと','11-26'],['冬','01-15']];
+function paint(){let doc=null;try{doc=JSON.parse(localStorage.getItem('dia-routes')||'null');}catch(e){}const n=C.normalize(doc&&doc.season,CFG),{gw,gh}=C.dims(CFG);return C.rleDec(n.paint,gw*gh);}
+function draw(){if(!CFG||!img.complete)return;const i=+day.value,ymd=ymdOf(i);document.getElementById('d').textContent=ymd.slice(5).replace('-','月')+'日';
+  const t0=performance.now();if(!BASE){BASE=R.prepare(img,2000,840);CC=C.cells(CFG,BASE.A,paint(),null);}
+  const Wt=C.weights(CFG,ymd),s=+snow.value/100;OUT=R.build({cfg:CFG,base:BASE,Cc:CC,Wt,snow:{lo:s,hi:Math.min(1,s*1.4)},art:{}},OUT);
+  g.setTransform(1,0,0,1,0,0);g.drawImage(OUT.cv,0,0);const dk=+document.getElementById('dk').value/100;
+  if(dk>0){g.fillStyle='rgba(18,26,58,'+(0.62*dk*(1-s*0.34))+')';g.fillRect(0,0,2000,840);g.setTransform(2,0,0,2,0,0);R.drawNight(g,OUT,CFG,dk,19*60,1);}
+  document.getElementById('ms').textContent=`作るのに ${Math.round(performance.now()-t0)} ms（ゲームでは日に1回）`;
+  document.querySelectorAll('#quick button').forEach(b=>b.classList.toggle('on',b.dataset.md===ymd.slice(5)));}
+const day=document.getElementById('day'),snow=document.getElementById('snow');
+QK.forEach(([t,md])=>{const b=document.createElement('button');b.textContent=t;b.dataset.md=md;b.onclick=()=>{day.value=C.md(md)-1;draw();};document.getElementById('quick').appendChild(b);});
+let tm=null;const later=()=>{clearTimeout(tm);tm=setTimeout(draw,60);};
+day.oninput=later;snow.oninput=later;document.getElementById('dk').oninput=later;
+day.value=q.get('md')?C.md(q.get('md'))-1:C.md(new Date().toISOString().slice(5,10))-1;if(q.get('snow'))snow.value=q.get('snow');
+fetch('../data/map-season.json?v=20261116a').then(r=>r.json()).then(c=>{CFG=c;img.complete?draw():img.onload=draw;});
+</script></body></html>

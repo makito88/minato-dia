@@ -691,10 +691,13 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/train-art.js?v=20261113a"></script>
 <script src="js/event-map-core.js?v=20261114a"></script>
 <script src="js/event-bubble.js?v=20261114a"></script>
-<script src="js/event-map-view.js?v=20261114a"></script>
+<script src="js/event-map-view.js?v=20261116a"></script>
 <script src="js/night-core.js?v=20261115a"></script>
 <script src="js/night-render.js?v=20261115a"></script>
-<script src="js/night-view.js?v=20261115a"></script>
+<script src="js/night-view.js?v=20261116a"></script>
+<script src="js/mapseason-core.js?v=20261116a"></script>
+<script src="js/mapseason-render.js?v=20261116a"></script>
+<script src="js/mapseason-view.js?v=20261116a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -1538,7 +1541,9 @@ const TREES=[];(()=>{const r=rng(31);for(let i=0;i<46;i++)TREES.push({x:612+r()*
 /* 地図の背景：イラストの画像（ChatGPTで作成）を敷き、上に地名を書く。画像がまだ読み込めていないときは今までの手描きの地形 */
 const MAPBG=new Image();MAPBG.decoding='async';MAPBG.onload=()=>{try{drawMap();}catch(e){}};MAPBG.src='assets/images/map_bg.webp';
 function drawTerrain(c){
-  if(MAPBG.complete&&MAPBG.naturalWidth){c.drawImage(MAPBG,0,0,1000,420);c.fillStyle='rgba(246,246,240,.30)';c.fillRect(-20,-20,1040,460);
+  if(MAPBG.complete&&MAPBG.naturalWidth){c.drawImage((window.MapSeasonView&&MapSeasonView.image())||MAPBG,0,0,1000,420);   // 第10回：季節の絵（js/mapseason-view.js）。できるまでは今までの夏の絵
+    c.fillStyle=`rgba(246,246,240,${0.30-0.12*((window.MapSeasonView&&MapSeasonView.snowLo())||0)})`;c.fillRect(-20,-20,1040,460);   // 雪が積もった日は白い幕を薄く（白くなりすぎないように）
+    
     c.save();c.font='600 10.5px "Zen Kaku Gothic New",sans-serif';c.textAlign='center';c.lineJoin='round';c.lineWidth=3;c.strokeStyle='rgba(255,255,250,.85)';c.fillStyle='#55605a';
     [['みなと川大学',354,246],['中央市街',90,224],['みなと川',560,412],['みなと湾',955,412],['ひのき山',905,40]].forEach(([t,x,y])=>{c.strokeText(t,x,y);c.fillText(t,x,y);});c.restore();return;}
   c.fillStyle=TH.land;c.fillRect(-20,-20,1040,460);
@@ -1625,7 +1630,7 @@ function drawTrainShape(c,x,y,ang,cars,col,dk,stopped){   // 第7回より前の
 let VIS=[];
 // 動かない層（背景・鉄道設備）を1枚の絵として作り置く。毎回はこれを貼るだけ
 const SMAP={cv:null,key:''};
-function staticMap(dpr){const key=[map.width,map.height,MS,dpr,TH.land,MAPBG.complete&&MAPBG.naturalWidth?1:0].join('|');
+function staticMap(dpr){const key=[map.width,map.height,MS,dpr,TH.land,MAPBG.complete&&MAPBG.naturalWidth?1:0,window.MapSeasonView?MapSeasonView.key():''].join('|');
   if(SMAP.key!==key){const cv=SMAP.cv||(SMAP.cv=document.createElement('canvas'));cv.width=map.width;cv.height=map.height;const g=cv.getContext('2d');
     g.fillStyle=TH.land;g.fillRect(0,0,cv.width,cv.height);g.setTransform(MS*dpr,0,0,MS*dpr,0,0);g.imageSmoothingQuality='high';drawTerrain(g);drawTracks(g);SMAP.key=key;}
   return SMAP.cv;}
@@ -1637,8 +1642,9 @@ function drawMap(){
   if(dk>0&&!(window.NightView&&NightView.draw(c,T,dk))){c.fillStyle=TH.night;c.globalAlpha=0.42*dk;   // 第9回：夜は「光の層」（js/night-view.js）。読めないときだけ今までの幕と窓の点
     c.fillRect(-20,-20,1040,460);c.globalAlpha=1;
     c.fillStyle=TH.glow;BLOCKS.forEach(b=>{if(b.lit<0.55*dk){c.globalAlpha=0.7;c.fillRect(b.x+b.w*0.3,b.y+b.h*0.3,1.6,1.6);c.fillRect(b.x+b.w*0.65,b.y+b.h*0.6,1.6,1.6);}});c.globalAlpha=1;}
+  if(window.MapSeasonView)MapSeasonView.drawOver(c,T,dk);   // 第10回：雪明かり・桜のライトアップ・散りぎわの花びら
   if(COND.wx==='rain'||COND.wx==='snow'){const now=performance.now()/1000,sn=COND.wx==='snow';
-    c.fillStyle=sn?'#ffffff':TH.muted;c.globalAlpha=sn?0.16:0.06;c.fillRect(-20,-20,1040,460);c.globalAlpha=sn?0.9:0.5;c.lineWidth=1;c.strokeStyle=sn?TH.muted:TH.water;c.fillStyle='#ffffff';
+    c.fillStyle=sn?'#ffffff':TH.muted;c.globalAlpha=sn?0.16*(1-0.6*((window.MapSeasonView&&MapSeasonView.snowLo())||0)):0.06;c.fillRect(-20,-20,1040,460);c.globalAlpha=sn?0.9:0.5;c.lineWidth=1;c.strokeStyle=sn?TH.muted:TH.water;c.fillStyle='#ffffff';
     // 雨粒・雪の粒は、1本ずつではなく1つの道すじにまとめて1回で描く（見た目は同じ。2026-11-06：雨の日は1回の描き直しが晴れの7〜8倍重かった）
     c.beginPath();for(let i=0;i<(sn?110:150);i++){const y=((i*71.3)%430+now*(sn?20:240))%440-10;let x=((i*137.5)%1000+(sn?Math.sin(now*0.8+i)*8:-y*0.25)+1000)%1000;
       if(sn){c.moveTo(x+1.6,y);c.arc(x,y,1.6,0,6.3);}else{c.moveTo(x,y);c.lineTo(x-3,y+10);}}
@@ -2137,6 +2143,10 @@ if(window.EventMapView)EventMapView.init({ST:()=>ST,T:()=>T,evPos,seas:()=>SEAS.
 if(window.NightView)NightView.init({ymd:()=>SeasonCore.ymdOf(seasDayI()),wx:()=>COND.wx,scale:()=>MS*CDPR,redraw:()=>{if(!playing&&D&&PANE==='run')drawMap();},
   stations:()=>ALL.map(s=>{const n=stN(s);return {x:ST[s].x,y:ST[s].y,ang:n?Math.atan2(n.ty,n.tx):0,big:!!ST[s].term};}),
   trains:()=>LAYERS.trains?VIS.flatMap(v=>v.st.dead?[]:(v.cars||[]).filter((p,i)=>i%2===0)):[],events:()=>LAYERS.events&&window.EventMapView?EventMapView.items:[]});
+// 第10回：地図の季節の見た目（見た目だけ）。暦の日付・天気（その日と前の日の記録）・線路の形を渡す
+if(window.MapSeasonView)MapSeasonView.init({ymd:()=>SeasonCore.ymdOf(seasDayI()),wx:()=>COND.wx,scale:()=>MS*CDPR,redraw:()=>{if(!playing&&D&&PANE==='run')drawMap();},
+  wxOf:y=>{const l=wxLog();if(l[y])return l[y];const p=y.split('-').map(Number),r=window.minatoAway&&minatoAway.condFor(SeasonCore.indexOf(p[0],p[1],p[2]));return r?{wx:r.wx}:null;},
+  rail:()=>[MAIN].map(L=>{const pts=[];L.forEach((s,i)=>{pts.push([ST[s].x,ST[s].y]);if(i<L.length-1)pts.push(...segMid(s,L[i+1],0,1,0).map(p=>[p.x,p.y]));});return pts;})});
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
 function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '<p class="sub">集計しています…</p>';const st=evState(ev),snap=trafficSnapshot(T);
   const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
