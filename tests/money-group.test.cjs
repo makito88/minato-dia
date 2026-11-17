@@ -10,7 +10,7 @@ const L=MC.groupLedger(M,{day:5,stores:[st('M',1),st('P',2)],haiso:hz,take:0.15}
 const sumNet=Object.values(L.co).reduce((t,c)=>t+c.net,0);
 assert.equal(sumNet,L.ext.net,'会社ごとのもうけの合計＝グループのもうけ');
 assert.equal(L.ext.in,300000,'外から入った＝2店の売上');
-const grp=L.inv.filter(x=>x.from!=='ext'&&x.to!=='ext').reduce((t,x)=>t+x.yen,0);assert.equal(L.grp,grp,'会社の間のお金');
+const grp=L.inv.filter(x=>x.from!=='ext'&&x.to!=='ext'&&x.to!=='rail').reduce((t,x)=>t+x.yen,0);assert.equal(L.grp,grp,'会社の間のお金');
 for(const k in L.co){const c=L.co[k];assert.equal(c.in,c.inExt+c.inGrp);assert.equal(c.out,c.outExt+c.outGrp);}
 assert.equal(Object.values(L.co).reduce((t,c)=>t+c.inGrp,0),L.grp,'受け取った会社の間のお金＝払った会社の間のお金');
 assert.equal(Object.values(L.co).reduce((t,c)=>t+c.outGrp,0),L.grp);
@@ -23,3 +23,14 @@ assert.ok(!L.inv.some(x=>x.from==='store:M'&&x.to==='factory'),'緑ヶ丘はで�
 // 1店だけでも動く
 const L1=MC.groupLedger(M,{day:5,stores:[st('M',1)],haiso:hz});assert.equal(Object.values(L1.co).reduce((t,c)=>t+c.net,0),L1.ext.net);
 console.log('money-group ok（グループのもうけ',L.ext.net,'円・会社の間',L.grp,'円）');
+
+// 鉄道（親会社・2026-11-17）：rail がなければ、家賃は前と同じく外へ（鉄道は数えない）。rail があれば連結に入り、家賃はグループの中で打ち消し合う
+assert.ok(!L.co.rail&&L.inv.some(x=>x.from==='store:M'&&x.to==='rail'&&x.yen===3000),'家賃は鉄道あての請求書');
+{const rail={rev:50000000,eki:900000,run:12000000,fixed:5000000},o={day:5,stores:[st('M',1),st('P',2)],haiso:hz,take:0.15},R=MC.groupLedger(M,Object.assign({},o,{rail}));
+ assert.equal(R.co.rail.net,rail.rev+rail.eki-rail.run-rail.fixed,'鉄道のもうけは本体の計算と同じ（家賃を二重に数えない）');
+ assert.equal(R.co.rail.inGrp,6000,'2店の家賃はグループ内から');
+ assert.equal(R.sub,L.ext.net,'子会社のもうけの合計は、鉄道を入れる前と同じ');
+ assert.equal(R.ext.net,R.sub+R.co.rail.net,'グループ全体（連結）＝鉄道＋子会社');
+ assert.equal(Object.values(R.co).reduce((t,c)=>t+c.inGrp,0),Object.values(R.co).reduce((t,c)=>t+c.outGrp,0),'会社の間のお金は打ち消し合う');
+ const R2=MC.groupLedger(M,Object.assign({},o,{rail:{rev:50000000,eki:900000,cost:17000000}}));assert.equal(R2.co.rail.net,R.co.rail.net,'締めた日の形（cost）でも同じ');}
+console.log('money-group 鉄道（連結）ok');

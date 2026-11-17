@@ -38,3 +38,10 @@ st.maint = 'high'; assert.ok(K.satisfaction(cfg, st, m, day).score > s1); assert
 /* こわれた保存は作り直す */
 assert.equal(K.normalize({ v: 9 }, cfg, 2).bal, cfg.start.bal);
 console.log('keiei-core ok');
+
+/* 子会社からの配当：黒字の日だけ・鉄道は入れない・受け取った日はもう数えない */
+{ const days = [{ day: 3, co: { rail: { net: 9e6 }, 'store:M': { net: 40000 }, center: { net: -10000 }, factory: { net: 20000 }, haiso: { net: 0 } } }, { day: 4, co: { 'store:M': { net: -30000 }, center: { net: 5000 } } }];
+  const d = K.dividend(cfg, days, 2, 9); assert.equal(d.yen, Math.round(50000 * cfg.dividend.rate)); assert.equal(d.last, 4); assert.equal(d.days[1].yen, 0, '赤字の日は0');
+  assert.equal(K.dividend(cfg, days, 4, 9).yen, 0, '受け取った日は数えない'); assert.equal(K.dividend(cfg, days, 2, 3).days.length, 1);
+  const s9 = K.create(cfg, 1), b9 = s9.bal, r9 = K.closeDay(cfg, s9, { ...m, div: 15000 }, 1); assert.equal(r9.div, 15000); assert.equal(Math.round(s9.bal - b9), Math.round(4.5e7 * s9.share - cfg.maint.levels.mid.cost + 15000)); }
+console.log('keiei 配当 ok');

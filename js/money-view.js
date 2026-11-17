@@ -11,7 +11,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const yen=n=>(n<0?'−':'')+'¥'+Math.abs(Math.round(n)).toLocaleString();
 const sy=n=>(n>0?'+':'')+yen(n);
 const V={open:false,mode:'y',timer:0};
-const CO=['kiosk','center','factory','haiso'],KIND={kiosk:'売店',center:'センター',factory:'工場',haiso:'配送会社'};
+const CO=['kiosk','center','factory','haiso'],KIND={rail:'鉄道（親会社）',kiosk:'売店',center:'センター',factory:'工場',haiso:'配送会社'};
 const coName=k=>g(()=>minatoHaiso.coName(k),'')||KIND[k];
 
 const CSS=`.mfv{position:fixed;inset:0;z-index:85;background:var(--paper);color:var(--ink);overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 14px) max(14px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 24px) max(14px,env(safe-area-inset-left,0px))}
@@ -83,39 +83,40 @@ function groupView(mode){const G=g(()=>minatoKiosk.groupMoney(),null);if(!G)retu
 function render(){const box=$('mfv');if(!box||!V.open)return;try{render0(box);}catch(e){console.warn('お金の流れを描けませんでした',e);box.innerHTML=`<div class="in"><div class="hd"><div><h2>お金の流れ</h2></div><button class="x" id="mfClose">閉じる</button></div><div class="card empty">表示できませんでした（${esc(e&&e.message||e)}）。</div></div>`;bind(box);}}
 function render0(box){
   const today=g(()=>minatoKiosk.day,null),days=g(()=>minatoKiosk.moneyDays(),[])||[];
-  // 前の形（緑ヶ丘店だけ）：店を増やしたらの試算と、グループの記録がまだない日に使う
+  // 緑ヶ丘店だけの1日（店を増やしたらの試算のもとに使うだけ）
   let O=null;if(V.mode==='t')O=g(()=>minatoKiosk.moneyDay(today),null);else if(V.mode==='y')O=days.find(x=>x.day===today-1)||days[days.length-1]||null;
   else{const S=window.MoneyCore?MoneyCore.sumDays(days.slice(-7)):null;if(S&&S.n)O={co:S.co,inv:S.inv,n:S.n};}
-  let L=groupView(V.mode),old=false;
-  if(!L&&O){old=true;L={co:O.co,pair:pairOf(O.inv),inv:O.inv,names:{},label:V.mode==='t'?'きょう（見込み）・緑ヶ丘店だけ':V.mode==='y'?`第${O.day}運行日・緑ヶ丘店だけ（前の数え方）`:`最近${O.n}日・緑ヶ丘店だけ（前の数え方）`};}
+  const L=groupView(V.mode);   /* 2026-11-17：緑ヶ丘店だけの前の数え方は出さない（グループの記録だけ） */
   const segs=`<div class="seg">${[['t','きょう'],['y','きのう'],['w','7日の合計']].map(([k,t])=>`<button type="button" data-m="${k}" aria-pressed="${V.mode===k}">${t}</button>`).join('')}</div>`;
-  const head=`<div class="hd"><div><h2>お金の流れ</h2><p class="sub">品物が動くと、お金は逆向きに流れます。2つの店とセンター・工場・配送会社が、それぞれいくら入って、いくら出て、いくら残ったか。会社の間のお金は、グループのもうけには入れません（払った会社と受け取った会社で打ち消し合う）。値段の決まりは仮（data/money.json）。</p></div><button class="x" id="mfClose">閉じる</button></div>`;
+  const head=`<div class="hd"><div><h2>お金の流れ</h2><p class="sub">みなと川グループは、親会社の鉄道（みなと川電鉄）と、子会社の売店・センター・工場・配送会社。それぞれいくら入って、いくら出て、いくら残ったか。会社の間のお金（仕入れ・運賃・駅の家賃）は、グループ全体のもうけには入れません（払った会社と受け取った会社で打ち消し合う＝連結）。値段の決まりは仮（data/money.json）。</p></div><button class="x" id="mfClose">閉じる</button></div>`;
   if(!L){box.innerHTML=`<div class="in">${head}<div>${segs}</div><div class="card empty">${today==null?'まだ売店がありません。':V.mode==='t'?'きょうの計算を準備しています。':'まだ締めた日の記録がありません（両方の店が1日を締めて、次の運行日が始まると、ここに出ます）。'}</div></div>`;bind(box);return;}
-  const keys=Object.keys(L.co).sort((a,b)=>(a.startsWith('store:')?0:a==='kiosk'?0:1)-(b.startsWith('store:')?0:b==='kiosk'?0:1));
+  const rk=k=>k==='rail'?0:k.startsWith('store:')||k==='kiosk'?1:2,keys=Object.keys(L.co).sort((a,b)=>rk(a)-rk(b)),hasRail=!!L.co.rail,keysF=keys.filter(k=>k!=='rail');
+  const pairF={};for(const k in L.pair)if(!/(^|>)rail(>|$)/.test(k))pairF[k]=L.pair[k];   /* 図は子会社だけ（鉄道はけたがちがうので、カードで見せる） */
+  const sub=keysF.reduce((t,k)=>t+((L.co[k]||{}).net||0),0),rent=Object.keys(L.pair).filter(k=>k.endsWith('>rail')&&!k.startsWith('ext>')).reduce((t,k)=>t+L.pair[k],0);
   const label=k=>k.startsWith('store:')?String((L.names&&L.names[k])||k).replace(/^みなとスタンド\s*/,'').replace(/（.*?）/,'').slice(0,9):KIND[k]||k;
   const sales=Object.keys(L.pair).filter(k=>k.startsWith('ext>')).reduce((t,k)=>t+L.pair[k],0),outE=Object.keys(L.pair).filter(k=>k.endsWith('>ext')).reduce((t,k)=>t+L.pair[k],0),net=sales-outE;
   const grp=L.grp!=null?L.grp:Object.keys(L.pair).filter(k=>!k.startsWith('ext>')&&!k.endsWith('>ext')).reduce((t,k)=>t+L.pair[k],0);
   const cards=keys.map(k=>{const c=L.co[k]||{in:0,out:0,net:0},full=k.startsWith('store:')?((L.names&&L.names[k])||k):coName(k);
     const io=c.inExt!=null?`外から ${yen(c.inExt)}・グループ内から ${yen(c.inGrp)}<br>外へ ${yen(c.outExt)}・グループ内へ ${yen(c.outGrp)}`:`入った ${yen(c.in)}・出た ${yen(c.out)}`;
-    return `<div class="co"><h3>${esc(k.startsWith('store:')||k==='kiosk'?'売店':KIND[k]||k)}<small>${esc(full)}</small></h3><div class="net ${c.net<0?'neg':'pos'}">${sy(c.net)}</div><div class="io">${io}</div></div>`;}).join('');
-  const nm=k=>k==='ext'?'グループの外':k.startsWith('store:')?label(k):KIND[k]||k;
-  const rows=L.inv?L.inv.slice().sort((a,b)=>b.yen-a.yen).map(x=>`<tr><td>${x.from==='ext'?'お客さん':esc(nm(x.from))} → ${esc(nm(x.to))}</td><td>${esc(x.what)}</td><td>${yen(x.yen)}</td></tr>`).join(''):'';
+    return `<div class="co"${k==='rail'?' style="border-color:var(--accent)"':''}><h3>${esc(k.startsWith('store:')||k==='kiosk'?'売店':KIND[k]||k)}<small>${esc(full)}</small></h3><div class="net ${c.net<0?'neg':'pos'}">${sy(c.net)}</div><div class="io">${io}</div></div>`;}).join('');
+  const nm=k=>k==='ext'?'グループの外':k==='rail'?'鉄道':k.startsWith('store:')?label(k):KIND[k]||k;
+  const rows=L.inv?L.inv.slice().sort((a,b)=>b.yen-a.yen).map(x=>`<tr><td>${x.from==='ext'?'お客さん・外':esc(nm(x.from))} → ${esc(nm(x.to))}</td><td>${esc(x.what)}</td><td>${yen(x.yen)}</td></tr>`).join(''):'';
   box.innerHTML=`<div class="in">${head}
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">${segs}<span class="note">${esc(L.label)}</span></div>
-    ${old?`<div class="card" style="border-color:#b7791f;background:color-mix(in srgb,#b7791f 10%,var(--panel))"><b>この日は緑ヶ丘店だけの前の数え方です。</b> 2店（緑ヶ丘店・港駅店）とセンター・工場・配送会社の記録は、2026-11-12 の変更のあと、次の運行日が始まったとき（朝4:30すぎ）から残ります。いまの2店の数は「きょう」で見られます。</div>`:''}
-    <div class="big"><span>グループのもうけ</span><b class="${net<0?'neg':'pos'}">${sy(net)}</b><span>＝ お客さんから ${yen(sales)} − 外へ ${yen(outE)}</span><span>（会社の間で動いたお金 ${yen(grp)} は入れない）</span></div>
-    <div class="cos" style="grid-template-columns:repeat(${Math.min(5,keys.length)},minmax(0,1fr))">${cards}</div>
-    <section class="card"><h3>お金の流れの図</h3><div class="svgw">${flowSvg(L.pair,keys,label)}</div><p class="note">緑の矢印は会社どうしの支払い（太いほど大きい）、赤い矢印はグループの外へ出るお金（問屋・店員や運転手の給料・燃料・家賃など）。</p></section>
+    <div class="big"><span>${hasRail?'グループ全体のもうけ（連結）':'子会社のもうけ（鉄道の記録がない日）'}</span><b class="${net<0?'neg':'pos'}">${sy(net)}</b><span>＝ グループの外から ${yen(sales)} − 外へ ${yen(outE)}</span><span>（会社の間で動いたお金 ${yen(grp)} は入れない）</span></div>
+    ${hasRail?`<p class="note">うちわけ：鉄道 ${sy(L.co.rail.net)}・子会社（売店・センター・工場・配送会社）${sy(sub)}。店が鉄道に払う駅の家賃 ${yen(rent)} は、グループの中のお金。子会社のもうけが黒字の日は、その一部が配当として本社（経営のタブの積み立て）に入ります。</p>`:`<p class="note">この日は鉄道（経営のタブ）の記録がないので、子会社だけの合計です。店の家賃 ${yen(rent)} は外へ出たお金に入っています。</p>`}
+    <div class="cos" style="grid-template-columns:repeat(${Math.min(6,keys.length)},minmax(0,1fr))">${cards}</div>
+    <section class="card"><h3>お金の流れの図（子会社）</h3><div class="svgw">${flowSvg(pairF,keysF,label)}</div><p class="note">緑の矢印は会社どうしの支払い（太いほど大きい）、赤い矢印は外へ出るお金（問屋・店員や運転手の給料・燃料など）。駅の家賃（鉄道へ）は図に入れていません。</p></section>
     ${projHtml(O)}
     ${rows?`<section class="card"><details><summary>請求書の一覧（${L.inv.length}枚）</summary><table>${rows}</table></details></section>`:`<p class="note">請求書の一覧は「きょう」だけ（締めた日は、会社ごとの合計と会社の間の合計だけを残しています）。</p>`}
-    <p class="note">${old?'この日はまだグループの記録がないので、前の数え方（緑ヶ丘店だけ・センターと配送会社の費用を店の数で分けた分）で出しています。':'センターの決まった費用と配送会社の便は、店がいくつあっても1回だけ数える。工場は、自社の店の分だけ（ほかの店・取引先の分は入れていない）。できたての便を走らせる配送会社の費用と、工場の朝の組の人件費はまだ入れていない。'}売店の「収支」タブは売れた品の原価で数えるので、ここ（その日に届いた品の代金）とは少しちがう。</p></div>`;
+    <p class="note">鉄道のもうけ＝運賃・特急料金＋駅ナカの家賃−運転と車両の経費（本体の計算と同じ。人件費・保守・借金の返済はまだ入れていない）。センターの決まった費用と配送会社の便は、店がいくつあっても1回だけ数える。工場は、自社の店の分だけ（ほかの店・取引先の分は入れていない）。できたての便を走らせる配送会社の費用と、工場の朝の組の人件費はまだ入れていない。売店の「収支」タブは売れた品の原価で数えるので、ここ（その日に届いた品の代金）とは少しちがう。</p></div>`;
   bind(box);}
 function bind(box){$('mfClose').onclick=close;box.querySelectorAll('[data-ext]').forEach(b=>b.onclick=()=>{V.ext=Number(b.dataset.ext);render();});box.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{V.mode=b.dataset.m;V.touched=true;render();});}
 function open(){const b=$('mfv');b.hidden=false;V.open=true;if(!V.touched)V.mode=groupView('y')?'y':'t';   // 2店の記録（締めた日）がまだなければ、2店のきょうの見込みから見せる
   b.scrollTop=0;render();clearInterval(V.timer);V.timer=setInterval(()=>{if(V.mode==='t')render();},10000);}
 function close(){const b=$('mfv');if(b)b.hidden=true;V.open=false;clearInterval(V.timer);}
 /* トップの1行用 */
-function yesterday(){const Gv=groupView('y');if(Gv&&Gv.day!=null){const co={kiosk:{net:0}};for(const k in Gv.co){if(k.startsWith('store:'))co.kiosk.net+=Gv.co[k].net;else co[k]=Gv.co[k];}for(const k of ['center','factory','haiso'])co[k]=co[k]||{net:0};return {day:Gv.day,net:Gv.ext.net,co};}
+function yesterday(){const Gv=groupView('y');if(Gv&&Gv.day!=null){const co={kiosk:{net:0}};let sub=0;for(const k in Gv.co){if(k==='rail')continue;sub+=Gv.co[k].net;if(k.startsWith('store:'))co.kiosk.net+=Gv.co[k].net;else co[k]=Gv.co[k];}for(const k of ['center','factory','haiso'])co[k]=co[k]||{net:0};return {day:Gv.day,net:sub,co,rail:Gv.co.rail||null};}   /* トップの1行は子会社だけ（鉄道はけたがちがう） */
   const today=g(()=>minatoKiosk.day,null),days=g(()=>minatoKiosk.moneyDays(),[])||[];const L=days.find(x=>x.day===today-1)||days[days.length-1];if(!L)return null;return {day:L.day,net:CO.reduce((t,k)=>t+((L.co[k]||{}).net||0),0),co:L.co};}
 {const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s);
  const v=document.createElement('div');v.id='mfv';v.className='mfv';v.hidden=true;v.setAttribute('role','dialog');v.setAttribute('aria-label','お金の流れ');document.body.appendChild(v);

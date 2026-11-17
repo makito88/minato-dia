@@ -82,6 +82,7 @@
     const mt = cfg.maint.levels[st.maint] || cfg.maint.levels[cfg.maint.def];
     let income = 0;
     for (const o of st.owned) { const it = item(cfg, o.id); if (it && it.income) income += it.income * progress(cfg, o, day); }
+    const div = Math.max(0, m.div || 0); income += div;   /* 子会社からの配当（橋 group-to-keiei） */
     const fee = Math.max(0, m.fee || 0); income += fee;   /* 線路使用料（指令パネルの臨時・貨物。橋 ctc-fee-to-keiei） */
     const toInvest = Math.max(0, m.profit) * st.share;
     const sat = satisfaction(cfg, st, m, day);
@@ -89,7 +90,7 @@
     st.bal += toInvest + income - mt.cost;
     if (st.bal < 0 && st.maint !== 'low') st.maint = 'low';   /* 積み立てが足りなくなったら、保守はけずる（画面で知らせる） */
     const rec = { day, riders: Math.round(m.riders), boardAlight: Math.round(m.riders * 2), rev: Math.round(m.rev), cost: Math.round(m.cost), profit: Math.round(m.profit),
-      income: Math.round(income), fee: Math.round(fee), maint: mt.cost, toInvest: Math.round(toInvest), spent, bal: Math.round(st.bal), sat: sat.score, satParts: sat.parts, lateShare: m.lateShare, maintLv: st.maint };
+      income: Math.round(income), fee: Math.round(fee), div: Math.round(div), maint: mt.cost, toInvest: Math.round(toInvest), spent, bal: Math.round(st.bal), sat: sat.score, satParts: sat.parts, lateShare: m.lateShare, maintLv: st.maint };
     st.log = st.log.filter(r => r.day !== day).concat(rec).slice(-cfg.keepDays);
     return rec;
   }
@@ -116,7 +117,19 @@
     return { riders: S.riders, aband: S.aband, left: S.left, rev: S.rev, cost: S.run + S.fixed, profit: S.profit, crowdShare: ld ? lo / ld : 0, conv: S.dm.act.reduce((a, b) => a + b, 0) / S.dm.pot.reduce((a, b) => a + b, 0), boardBy, lateShare };
   }
 
-  const api = { create, normalize, progress, status, fx, apply, incidentK, satisfaction, closeDay, canBuy, buy, metrics, item };
+  /* 子会社からの配当：グループの記録（dia-group の days：{day, co}）のうち、まだ受け取っていない日（after より後・upto まで）の、
+     子会社のもうけの合計（鉄道をのぞく）が黒字の分×割合。返すもの {yen, last, days:[{day, sub, yen}]} */
+  function dividend(cfg, days, after, upto) {
+    const rate = (cfg.dividend && cfg.dividend.rate) || 0, out = { yen: 0, last: after, days: [] };
+    for (const d of days || []) {
+      if (!d || !d.co || !(d.day > after) || d.day > upto) continue;
+      let sub = 0; for (const k in d.co) if (k !== 'rail') sub += d.co[k].net || 0;
+      const yen = Math.round(Math.max(0, sub) * rate);
+      out.days.push({ day: d.day, sub: Math.round(sub), yen }); out.yen += yen; if (d.day > out.last) out.last = d.day;
+    }
+    return out;
+  }
+  const api = { create, dividend, normalize, progress, status, fx, apply, incidentK, satisfaction, closeDay, canBuy, buy, metrics, item };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.KeieiCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

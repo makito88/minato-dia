@@ -7,7 +7,7 @@
   'use strict';
   const K = window.KeieiCore; if (!K) return;
   const SKEY = 'dia-keiei';
-  let E = null, cfg = null, st = null, strength = 1, feeK = 1, host = null, range = 30, confirmKey = null, hover = null;
+  let E = null, cfg = null, st = null, strength = 1, feeK = 1, divK = 1, host = null, range = 30, confirmKey = null, hover = null;
   const css = `
 .kei{display:grid;gap:14px}
 .kei-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
@@ -34,6 +34,8 @@
 .kei-it button.go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);cursor:pointer}
 .kei-it button.go[data-arm="1"]{background:#c0392b;border-color:#c0392b;color:#fff}
 .kei-it button:disabled{opacity:.5;cursor:default}
+.kei-grp{width:100%;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums;margin-top:6px}.kei-grp td,.kei-grp th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}.kei-grp td:first-child,.kei-grp th:first-child{text-align:left}.kei-grp th{font-weight:400;color:var(--muted);font-size:11.5px}
+.kei-link{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--accent);border-radius:999px;padding:2px 10px;cursor:pointer}
 .kei-own{list-style:none;margin:6px 0 0;padding:0;font-size:13px}
 .kei-own li{padding:4px 0;border-bottom:1px dashed var(--line);display:flex;gap:8px;flex-wrap:wrap}
 .kei-bar{display:inline-block;width:80px;height:7px;background:var(--line);border-radius:4px;vertical-align:middle;overflow:hidden}
@@ -44,6 +46,7 @@
 `;
   const man = v => (Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(Math.abs(v) >= 1e9 ? 1 : 2) + '億' : Math.round(v / 1e4).toLocaleString() + '万') + '円';
   const num = v => Math.round(v).toLocaleString();
+  const yn = v => (v < 0 ? '−' : '') + Math.abs(Math.round(v)).toLocaleString() + '円';
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
   function load() { try { return JSON.parse(localStorage.getItem(SKEY) || 'null'); } catch (e) { return null; } }
@@ -53,7 +56,7 @@
     E = env;
     host = document.getElementById('keieiHost'); if (!host) return;
     try { cfg = await (await fetch('data/keiei.json')).json(); } catch (e) { host.textContent = '経営の設定（data/keiei.json）を読めませんでした'; return; }
-    try { const L = await (await fetch('data/links.json')).json(); const b = L.links.find(x => x.id === 'keiei-to-rail'); if (b) strength = b.state === 'retired' ? 0 : b.strength; const f = L.links.find(x => x.id === 'ctc-fee-to-keiei'); if (f) feeK = f.state === 'retired' ? 0 : f.strength; } catch (e) { }
+    try { const L = await (await fetch('data/links.json')).json(); const b = L.links.find(x => x.id === 'keiei-to-rail'); if (b) strength = b.state === 'retired' ? 0 : b.strength; const f = L.links.find(x => x.id === 'ctc-fee-to-keiei'); if (f) feeK = f.state === 'retired' ? 0 : f.strength; const dvl = L.links.find(x => x.id === 'group-to-keiei'); if (dvl) divK = dvl.state === 'retired' ? 0 : dvl.strength; } catch (e) { }
     st = K.normalize(load(), cfg, E.day()); save();
     const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
     host.addEventListener('click', onClick); host.addEventListener('input', onInput);
@@ -73,7 +76,24 @@
     if (!cfg || !st || !D || !D.summary) return;
     let late = null; try { late = window.CtcView && CtcView.lateShare ? CtcView.lateShare(D) : null; } catch (e) { }
     const m = K.metrics(D, E.ALL, late); try { m.fee = window.CtcView && CtcView.feeToday ? CtcView.feeToday(D) * feeK : 0; } catch (e) { m.fee = 0; }   /* 線路使用料（橋 ctc-fee-to-keiei） */
+    /* 子会社からの配当（橋 group-to-keiei）：グループの記録は次の運行日の始めにできるので、ふつうは前の日の分がここで入る */
+    try { const dv = K.dividend(cfg, groupDays(), st.divDay != null ? st.divDay : day - 2, day); m.div = dv.yen * divK; st.divDay = dv.last; } catch (e) { m.div = 0; }
     K.closeDay(cfg, st, m, day); save(); render();
+  }
+  function groupDays() { try { const o = JSON.parse(localStorage.getItem('dia-group') || 'null'); return o && Array.isArray(o.days) ? o.days : []; } catch (e) { return []; } }
+  /* グループ全体（連結）の小さな表：いちばん新しい締めた日 */
+  function groupBox() {
+    const days = groupDays(), d = days[days.length - 1];
+    if (!d || !d.co) return `<div class="kei-card"><h2>グループ全体（連結）</h2><div class="sub">まだ記録がありません。売店を出して運行日を締めると、次の運行日の始めに、鉄道と子会社（売店・センター・工場・配送会社）の1日がここに出ます。</div></div>`;
+    const NM = { rail: '鉄道（親会社）', center: 'センター', factory: '工場', haiso: '配送会社' }, rk = k => k === 'rail' ? 0 : k.startsWith('store:') ? 1 : 2;
+    const keys = Object.keys(d.co).sort((a, b) => rk(a) - rk(b)); let sub = 0, tot = 0;
+    const tr = keys.map(k => { const c = d.co[k]; tot += c.net; if (k !== 'rail') sub += c.net;
+      return `<tr><td>${esc((d.names && d.names[k]) || NM[k] || k)}</td><td>${yn(c.inExt)}</td><td>${yn(c.inGrp)}</td><td>${yn(c.outExt)}</td><td>${yn(c.outGrp)}</td><td><b style="color:${c.net < 0 ? '#c0392b' : 'inherit'}">${yn(c.net)}</b></td></tr>`; }).join('');
+    const rate = (cfg.dividend && cfg.dividend.rate) || 0, dv = Math.round(Math.max(0, sub) * rate * divK);
+    return `<div class="kei-card"><h2>グループ全体（連結）</h2><div class="sub">第${d.day}運行日。会社の間のお金（仕入れ・運賃・駅の家賃）は、払った会社と受け取った会社で打ち消し合うので、グループ全体のもうけは「外から入った−外へ出た」。</div>
+      <div style="overflow-x:auto"><table class="kei-grp"><tr><th>会社</th><th>外から</th><th>グループ内から</th><th>外へ</th><th>グループ内へ</th><th>もうけ</th></tr>${tr}
+      <tr><td><b>グループ全体</b></td><td colspan="4">${d.co.rail ? '' : '（この日は鉄道の記録なし・子会社だけ）'}</td><td><b style="color:${tot < 0 ? '#c0392b' : 'inherit'}">${yn(tot)}</b></td></tr></table></div>
+      <div class="sub" style="margin-top:6px">子会社のもうけ ${yn(sub)} → 本社への配当（黒字の${Math.round(rate * 100)}%）<b> ${yn(dv)}</b>。配当は、次に運行日を締めるとき積み立てに入ります。${window.minatoMoney ? ' <button type="button" class="kei-link" data-money="1">お金の流れをくわしく</button>' : ''}</div></div>`;
   }
   const fx = day => (cfg && st ? K.fx(cfg, st, day, strength) : null);
   const incidentK = () => (cfg && st ? K.incidentK(cfg, st) : 1);
@@ -97,9 +117,10 @@
     ${T ? `<div class="kei-parts">きょうの満足度の内わけ：${T.sat.parts.map(p => `${esc(p.name)} ${p.v >= 0 ? '+' : ''}${p.v}`).join('・')}（もとは ${cfg.sat.base}）</div>` : ''}</div>
   <div class="kei-card"><h2>お金の使い道</h2>
     <div class="kei-row"><label>利益のうち投資に回す割合 <input type="range" id="keiShare" min="${cfg.share.min * 100}" max="${cfg.share.max * 100}" step="5" value="${Math.round(st.share * 100)}"> <b id="keiShareV">${Math.round(st.share * 100)}%</b></label>
-      <span class="sub">残りは人件費・借金の返済・配当などに使ったとみなします（まだ計算には入れていません）</span></div>
+      <span class="sub">残りは人件費・借金の返済・株主への配当などに使ったとみなします（まだ計算には入れていません）。積み立てには、このほかに 駅ビルと住宅の家賃・線路使用料・子会社からの配当 が入ります</span></div>
     <div class="kei-row" style="margin-top:8px">線路・車両・信号の保守：<span class="kei-seg" role="group" aria-label="保守の予算">${Object.entries(cfg.maint.levels).map(([k, v]) => `<button type="button" data-maint="${k}" aria-pressed="${st.maint === k}">${v.name}（${v.cost ? man(v.cost) + '／日' : '0円'}）</button>`).join('')}</span>
       <span class="sub">いま：指令パネルの「できごと」×${mt.incident}・満足度 ${mt.sat >= 0 ? '+' : ''}${mt.sat}</span></div></div>
+  ${groupBox()}
   <div class="kei-card"><h2>投資する</h2><div class="sub">積み立てから払います。工事のあと、効き目が少しずつ出ます（乗客の計算に入ります）。数字はすべて仮。</div>
     <div class="kei-inv">${cfg.invest.map(invCard).join('')}${cfg.later.map(l => `<div class="kei-it" style="opacity:.55"><h3>${esc(l.name)}</h3><p>準備中：${esc(l.why)}</p></div>`).join('')}</div></div>
   <div class="kei-card"><h2>持っている投資</h2>${st.owned.length ? `<ul class="kei-own">${st.owned.map(o => { const it = K.item(cfg, o.id), s = K.status(cfg, o, day);
@@ -172,6 +193,7 @@
   }
   function onClick(e) {
     const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.money) { try { minatoMoney.open(); } catch (e2) { } return; }
     if (b.dataset.range != null) { range = +b.dataset.range; render(); return; }
     if (b.dataset.maint) { st.maint = b.dataset.maint; save(); render(); return; }
     if (b.dataset.buy) {

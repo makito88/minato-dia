@@ -66,7 +66,7 @@ const stN=id=>g(()=>ST[id].name,id);
 const coN=id=>g(()=>T.co.companies.find(x=>x.id===id).name,'');
 function loadToday(){if(T.loading||T.links)return;T.loading=true;
   const j=u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null);
-  Promise.all([j('data/links.json?v=20261112k'),window.SurveyCore?j('data/survey.json'):null,j('data/companies.json?v=20261109g')]).then(([l,s,co])=>{T.links=l;T.survey=s;T.co=co;T.loading=false;
+  Promise.all([j('data/links.json?v=20261117a'),window.SurveyCore?j('data/survey.json'):null,j('data/companies.json?v=20261117a')]).then(([l,s,co])=>{T.links=l;T.survey=s;T.co=co;T.loading=false;
     const later=window.requestIdleCallback||(f=>setTimeout(f,200));later(()=>{svChange();paintToday();});paintToday();});}
 // アンケートのいちばん新しい年と前の年で、いちばん大きく動いた駅・質問
 function svChange(){const D=T.survey,SC=window.SurveyCore;if(!D||!SC)return null;const ys=SC.years(D,opNoon());if(ys.length<2)return null;const y=ys[ys.length-1];
@@ -106,7 +106,7 @@ function todayHtml(){const day=g(()=>ENS.day,null),c=g(()=>COND,{}),d=opNoon(),y
     <ul class="blist">${LK.links.map(b=>`<li class="bs-${b.state}"><span class="bst">${esc(st[b.state])}</span><b>${esc(isl(b.from))} → ${esc(isl(b.to))}</b><span class="bv">${b.values.map(v=>`${esc(v.name)}${mark(v.src)}`).join(' ')}</span><small>${esc(b.desc)}</small></li>`).join('')}</ul>`;
   return `<div class="tdhd"><h2>きょうの沿線</h2><p class="date">${day!=null?`第${day}運行日・`:''}${jfmt(d,{month:'long',day:'numeric',weekday:'short'})}・${DK}<span class="wx">${WX[1]} ${WX[0]}${mark(wxReal?'real':'assume')}</span></p></div>
    ${(()=>{const Y=g(()=>minatoMoney.yesterday(),null);if(!Y)return '';const K4={kiosk:'売店',center:'センター',factory:'工場',haiso:'配送'};
-     return `<button type="button" class="money1" data-go="money"><span>第${Y.day}運行日のグループのもうけ</span><b class="${Y.net<0?'neg':'pos'}">${Y.net>0?'+':''}${yen(Y.net)}</b><small>${Object.keys(K4).map(k=>`${K4[k]} ${(Y.co[k].net>0?'+':'')}${yen(Y.co[k].net)}`).join('・')}</small><em>お金の流れ ›</em></button>`;})()}
+     return `<button type="button" class="money1" data-go="money"><span>第${Y.day}運行日の子会社のもうけ</span><b class="${Y.net<0?'neg':'pos'}">${Y.net>0?'+':''}${yen(Y.net)}</b><small>${Object.keys(K4).map(k=>`${K4[k]} ${(Y.co[k].net>0?'+':'')}${yen(Y.co[k].net)}`).join('・')}</small><em>お金の流れ ›</em></button>`;})()}
    <p class="cohd">会社の窓<small>${esc(g(()=>T.co.group,'みなと川グループ'))}の4つの会社は、それぞれ別の会社。押すと、その会社の画面が開きます</small></p>
    <div class="isles co4">
     <button type="button" class="isle" data-go="kiosk:money"><span class="ih">売店<small>${esc(coN('kiosk'))}・きのうの収支</small>${mark('game')}</span>${kiosk}</button>

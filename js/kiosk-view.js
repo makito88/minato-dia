@@ -132,10 +132,11 @@ function groupOf(resM,live){if(!window.MoneyCore||!MoneyCore.groupLedger||!V.mcf
   const dsl=window.DealsToMoney&&DealsToMoney.on(V.links)?g(()=>(loadOrders().days.find(x=>x.day===day)||{}).slip,null):null,deals=dsl?DealsToMoney.rows(dsl):[];   // 取引先・契約の品（第2回）
   const dhl=haulOn()&&window.DealsToMoney&&DealsToMoney.hauls&&DealsToMoney.on(V.links)?g(()=>(loadOrders().days.find(x=>x.day===day)||{}).haul,null):null,hauls=dhl?DealsToMoney.hauls(dhl,V.hcfg):[];   // 配送の契約（第3回）
   const sales=window.DealsToMoney&&DealsToMoney.sales&&DealsToMoney.on(V.links)&&V.dcfg?g(()=>DealsToMoney.sales(window.DealsCore,V.dcfg,loadDeals(),day),[]):[];   // 自分から動く営業の費用（第4回）
-  const L=g(()=>MoneyCore.groupLedger(V.mcfg,{day,live,take,haiso:hz,stores,deals,hauls,sales}),null);if(L){L.portOut=!!(pr&&!inP);}return L;}
+  const rail=g(()=>window.minatoRail?(live?minatoRail.today():minatoRail.day(day)):null,null);   /* 鉄道（親会社）の1日。きょう＝本体の計算、締めた日＝経営のタブの記録（2026-11-17） */
+  const L=g(()=>MoneyCore.groupLedger(V.mcfg,{day,live,take,haiso:hz,stores,deals,hauls,sales,rail}),null);if(L){L.portOut=!!(pr&&!inP);}return L;}
 // 締めた日：両方の店が前の日を締めたあと（運行日の始めの dailyOrder の最後）に1回
 function groupClose(day){const res=V.prevRes;if(!res||res.day!==day)return;try{const L=groupOf(res,false);if(!L)return;const m=loadGroup();m.days=m.days.filter(x=>x.day!==day);
-  const pair={};for(const x of L.inv){const k=x.from+'>'+x.to;pair[k]=(pair[k]||0)+x.yen;}m.days.push({day,co:L.co,ext:L.ext,grp:L.grp,pair,names:L.names,portOut:L.portOut});m.days.sort((a,b)=>a.day-b.day);if(m.days.length>14)m.days=m.days.slice(-14);localStorage.setItem(GKEY,JSON.stringify(m));}catch(e){console.warn('グループの収支を残せませんでした',e);}}
+  const pair={};for(const x of L.inv){const k=x.from+'>'+x.to;pair[k]=(pair[k]||0)+x.yen;}m.days.push({day,co:L.co,ext:L.ext,grp:L.grp,sub:L.sub,pair,names:L.names,portOut:L.portOut});m.days.sort((a,b)=>a.day-b.day);if(m.days.length>14)m.days=m.days.slice(-14);localStorage.setItem(GKEY,JSON.stringify(m));}catch(e){console.warn('グループの収支を残せませんでした',e);}}
 function moneyClose(res){const L=moneyOf(res,false);if(!L)return;const m=loadMoney();m.days=m.days.filter(x=>x.day!==res.day);m.days.push(L);m.days.sort((a,b)=>a.day-b.day);const k=(V.mcfg&&V.mcfg.keepDays)||35;if(m.days.length>k)m.days=m.days.slice(-k);try{localStorage.setItem(MKEY,JSON.stringify(m));}catch(e){}}
 function loadCS(){if(V.csObj)return V.csObj;let o=null;try{o=JSON.parse(localStorage.getItem(CSKEY)||'null');}catch(e){}V.csObj=o&&o.v===1?o:(CC&&CC.csNew?CC.csNew():null);return V.csObj;}
 function saveCS(){try{if(V.csObj)localStorage.setItem(CSKEY,JSON.stringify(V.csObj));}catch(e){}}

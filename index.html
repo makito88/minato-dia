@@ -706,8 +706,8 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/mapseason-view.js?v=20261116a"></script>
 <script src="js/ctc-core.js?v=20261117c"></script>
 <script src="js/ctc-view.js?v=20261117c"></script>
-<script src="js/keiei-core.js?v=20261117b"></script>
-<script src="js/keiei-view.js?v=20261117b"></script>
+<script src="js/keiei-core.js?v=20261117c"></script>
+<script src="js/keiei-view.js?v=20261117c"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -2169,6 +2169,9 @@ if(window.CtcView)CtcView.init({ST,TYPES,DEPOTNAME,D:()=>D,T:()=>T,day:()=>ENS.d
   events:()=>COND.evs.slice(),cond:()=>({day:COND.day,wx:COND.wx}),sp:()=>CX?CX.sp:1,dw:()=>CX?CX.dw:0,   /* 段3：臨時列車はイベントの日だけ・貨物の昼の便は平日だけ */
   nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0,
   evName:(st,t)=>{const e=ACTIVE_EV.find(ev=>(ev.ops||[]).some(o=>o.st===st&&t>=o.from&&t<=o.to));return e?e.name:'';}});
+/* グループの収支（js/money-core.js の groupLedger）が読む、鉄道（親会社）の1日。本体の計算は変えない（読むだけ） */
+window.minatoRail={today:()=>D&&D.summary?{rev:D.summary.rev,eki:D.summary.eki,run:D.summary.run,fixed:D.summary.fixed}:null,
+  day:d=>{const r=window.KeieiView&&KeieiView.state?KeieiView.state.log.find(x=>x.day===d):null;return r?{rev:r.rev,eki:r.profit-r.rev+r.cost,cost:r.cost}:null;}};
 /* 経営（js/keiei-view.js）：利益・乗客・満足度のグラフと投資。投資の効き目は運行日の始めに KFX へ */
 if(window.KeieiView)KeieiView.init({ST,ALL,D:()=>D,day:()=>ENS.day||1,fmt,ready:()=>{KFX=KeieiView.fx(ENS.day||1);if(KFX&&KFX.any)rebuild();}});
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
@@ -3655,15 +3658,15 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/minato-sales-view.js?v=20261111u"></script>
 <script src="js/kiosk-scene.js?v=20261114b"></script>
 <script src="js/minato-store-view.js?v=20261116a"></script>
-<script src="js/kiosk-view.js?v=20261116a"></script>
-<script src="js/center-flow.js?v=20261112p"></script>
+<script src="js/kiosk-view.js?v=20261117a"></script>
+<script src="js/center-flow.js?v=20261117a"></script>
 <script src="js/deals-core.js?v=20261112m"></script>
 <script src="js/deals-view.js?v=20261112x"></script>
 <script src="js/center-view.js?v=20261112d"></script>
 <script src="js/haiso-core.js?v=20261112k"></script>
 <script src="js/haiso-view.js?v=20261112k"></script>
-<script src="js/money-core.js?v=20261112m"></script>
-<script src="js/money-view.js?v=20261112i"></script>
+<script src="js/money-core.js?v=20261117a"></script>
+<script src="js/money-view.js?v=20261117a"></script>
 <!-- 保存と引き継ぎ（一時保存・別の端末への引き継ぎコード） -->
 <script src="js/save.js?v=20261109l"></script>
 <!-- 留守のあいだ：開いたとき・戻ったときに、閉じていたあいだの運行日をまとめて進める -->
@@ -3673,7 +3676,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/route-core.js?v=20261112r"></script>
 <script src="js/route-run-core.js?v=20261112r"></script>
 <script src="js/route-run.js?v=20261115a"></script>
-<script src="js/top.js?v=20261111a"></script>
+<script src="js/top.js?v=20261117a"></script>
 
 </body>
 </html>

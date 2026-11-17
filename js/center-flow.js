@@ -110,13 +110,13 @@ function moneyHtml(){const G=g(()=>minatoKiosk.groupMoney(),null);if(!G)return '
   const T={today:G.today,yday:yd,week:sum(wk)}[MV.tab];
   const tabs=[['today','きょう（見込み）'],['yday','きのう'],['week',`この7日（${wk.length}日）`]].map(([k,l])=>`<button type="button" class="cf-go" data-mt="${k}" aria-pressed="${MV.tab===k}" style="${MV.tab===k?'background:var(--ink);color:var(--paper)':''}">${l}</button>`).join('');
   if(!T)return `<section class="card cfl"><h3>グループの収支<small>2店とセンター・工場・配送会社</small></h3><div>${tabs}</div><div class="cf-na">${MV.tab==='today'?'きょうの計算がまだありません。':'まだ記録がありません（運行日の始めに、前の日の分を1回だけ残します）。'}</div></section>`;
-  const NM={center:'配送センター',factory:'工場',haiso:'配送会社'},nm=k=>(T.names&&T.names[k])||NM[k]||k,y=v=>`${v<0?'−':''}${N(Math.abs(v))}円`;
-  const keys=Object.keys(T.co).sort((a,b)=>(a.startsWith('store:')?0:1)-(b.startsWith('store:')?0:1));
+  const NM={rail:'鉄道（親会社）',center:'配送センター',factory:'工場',haiso:'配送会社'},nm=k=>(T.names&&T.names[k])||NM[k]||k,y=v=>`${v<0?'−':''}${N(Math.abs(v))}円`;
+  const rk=k=>k==='rail'?0:k.startsWith('store:')?1:2,keys=Object.keys(T.co).sort((a,b)=>rk(a)-rk(b));
   const rows=keys.map(k=>{const c=T.co[k];return `<tr><td>${esc(nm(k))}</td><td>${y(c.inExt)}</td><td>${y(c.inGrp)}</td><td>${y(c.outExt)}</td><td>${y(c.outGrp)}</td><td><b style="color:${c.net<0?'#c0392b':'inherit'}">${y(c.net)}</b></td></tr>`;}).join('');
   const inv=MV.tab==='today'&&G.today?G.today.inv:null;
   const invT=inv?`<details><summary>きょうの請求書（見込み）</summary><div class="cf-tw"><table><thead><tr><th>払う</th><th>受け取る</th><th>なに</th><th>金額</th></tr></thead><tbody>${inv.map(x=>`<tr><td>${x.from==='ext'?'グループの外':esc(nm(x.from))}</td><td>${x.to==='ext'?'グループの外':esc(nm(x.to))}</td><td>${esc(x.what)}</td><td>${y(x.yen)}</td></tr>`).join('')}</tbody></table></div></details>`:'';
-  return `<section class="card cfl"><h3>グループの収支<small>2店とセンター・工場・配送会社。数は仮の値段（data/money.json）とその日の計算から</small></h3><div>${tabs}</div>
-    <div class="sum" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div><b>${y(T.ext.in)}</b><span>グループの外から入った</span></div><div><b>${y(T.ext.out)}</b><span>グループの外へ出た</span></div><div><b style="color:${T.ext.net<0?'#c0392b':'inherit'}">${y(T.ext.net)}</b><span>グループのもうけ</span></div><div><b>${y(T.grp)}</b><span>会社の間で動いた（もうけに入れない）</span></div></div>
+  return `<section class="card cfl"><h3>グループの収支<small>鉄道（親会社）と、2店・センター・工場・配送会社（子会社）。数は仮の値段（data/money.json）とその日の計算から</small></h3><div>${tabs}</div>
+    <div class="sum" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div><b>${y(T.ext.in)}</b><span>グループの外から入った</span></div><div><b>${y(T.ext.out)}</b><span>グループの外へ出た</span></div><div><b style="color:${T.ext.net<0?'#c0392b':'inherit'}">${y(T.ext.net)}</b><span>グループ全体のもうけ（連結）</span></div><div><b>${y(T.grp)}</b><span>会社の間で動いた（もうけに入れない）</span></div></div>
     <div class="cf-tw"><table><thead><tr><th>会社・店</th><th>外から入った</th><th>グループ内から</th><th>外へ払った</th><th>グループ内へ</th><th>もうけ</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${invT}
     <p class="cf-src">グループのもうけ＝外から入ったお金−外へ出たお金（会社ごとのもうけの合計と同じ）。会社の間のお金は、払った会社と受け取った会社で同じ額なので、二重に数えない。センターの決まった費用と配送会社の便は1回だけ数える。<b>入れていないもの</b>：工場のほかの店・取引先の売上と費用（未接続）・できたての便を走らせる配送会社の費用（未計算）・工場の朝の組の人件費（未計算）。${T.portOut?'この日、港駅店の注文はまだ工場・センターの流れにのっていなかったので、港駅店の品はセンターから届いたとみなし、配送会社の便には港駅店の分が入っていません。':''}</p>
