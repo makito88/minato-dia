@@ -106,7 +106,8 @@ button{cursor:pointer}
 
 .scrubrow{display:flex;gap:10px;align-items:center}
 /* 画面のタブ（2026-11-09）：走らせる／ダイヤを組む／成績を見る。見えていないタブの地図・ダイヤグラムは描かない */
-.mtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.mtabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+@media (max-width:720px){.mtabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .mtabs button{font:inherit;font-weight:700;font-size:15px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 10px;min-height:48px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;cursor:pointer;text-align:left}
 .mtabs button small{font-weight:400;font-size:11px;color:var(--muted);line-height:1.35}
 .mtabs button[aria-selected="true"]{border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel))}
@@ -486,6 +487,7 @@ canvas{display:block;touch-action:manipulation}
     <button type="button" role="tab" data-pane="plan">ダイヤを組む<small>この日の条件・運行パターン・1日の成績</small></button>
     <button type="button" role="tab" data-pane="stats">成績を見る<small>利用目的・乗車率・駅の様子・運転記録</small></button>
     <button type="button" role="tab" data-pane="ctc">指令パネル<small>線路と列車・待避と接続の理由</small></button>
+    <button type="button" role="tab" data-pane="keiei">経営<small>利益・乗客・満足度・投資</small></button>
   </nav>
   <div class="scrubrow"><span>4:30</span><input type="range" id="scrub" min="270" max="1560" step="1" aria-label="時刻"><span>26:00</span></div>
 
@@ -513,6 +515,7 @@ canvas{display:block;touch-action:manipulation}
   </section>
 
   <section data-pane="ctc" aria-label="指令パネル" style="min-width:0;overflow:hidden"><div id="ctcHost"></div></section>
+  <section data-pane="keiei" aria-label="経営" style="min-width:0"><div id="keieiHost"></div></section>
 
   <section class="kpis" data-pane="run" aria-label="現在の状況">
     <div class="kpi"><b id="k-run">0</b><span>運転中の列車</span></div>
@@ -703,6 +706,8 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/mapseason-view.js?v=20261116a"></script>
 <script src="js/ctc-core.js?v=20261117b"></script>
 <script src="js/ctc-view.js?v=20261117b"></script>
+<script src="js/keiei-core.js?v=20261117a"></script>
+<script src="js/keiei-view.js?v=20261117a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -961,7 +966,8 @@ function ensDayFactors(day){const C=ENS.cfg.econ,ec=econAt(day),N=NSt;
   let late=ENS.cfg.newFlows.factory.late;for(const o of live)if(o.def.late!=null)late=o.def.late;
   return {day,e:ec.e,phase:ec.phase,cost:ec.cost,shocks,T,late};}
 function ecoApply(o,s,d,t){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=ECO.T[b+p];}
-function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;seasRefresh();}
+let KFX=null;   /* 経営の投資の倍率（KeieiView.fx）。運行日の始めに読む */
+function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;KFX=window.KeieiView?KeieiView.fx(ENS.day||1):null;seasRefresh();}
 /* ---- 季節のできごと（計算は js/season-core.js、設定は data/seasonal.json と data/seasonal-extra.json） ----
    いつ・どこで起きるかは「保存の種＋暦の日付」だけで決まる。景気が固定でも起きる（暦の行事なので）。
    その日のイベント（プレイヤーが選ぶもの）と同じ駅なら止める（二重に数えない）。効き目は保存しない */
@@ -1129,6 +1135,7 @@ function rateParts(s,d,t,noSvc){
   if(SEAS.T)seasApply(o,s,d,t);             // 季節のできごと（暦の行事。その日だけ）
   if(ECO)ecoApply(o,s,d,t);                 // 沿線暦：景気の波と地域の小さな波（イベントの上乗せより前に掛けるので、イベント分は二重に変わらない）
   if(ENS.cfg)newFlowsAfter(o,s,d,t,ps,pd);
+  if(KFX)KeieiCore.apply(KFX,o,s,d);        /* 経営の投資（駅の改良・モール・住宅など。橋 keiei-to-rail・js/keiei-core.js） */
   if(ACTIVE_EV.length)addEventDemand(o,s,d,t);
   if(SVF&&!noSvc){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=SVF[b+p];}
   return o;
@@ -1868,7 +1875,7 @@ function renderStation(s){
 let lastInfo='';
 /* 画面のタブ */
 let PANE='run';
-function setPane(p){if(!['run','plan','stats','ctc'].includes(p))p='run';const was=PANE;PANE=p;
+function setPane(p){if(!['run','plan','stats','ctc','keiei'].includes(p))p='run';if(p==='keiei'&&window.KeieiView)setTimeout(()=>KeieiView.render(),0);const was=PANE;PANE=p;
   document.querySelectorAll('.app [data-pane]').forEach(e=>{if(e.tagName!=='BUTTON')e.hidden=e.dataset.pane!==p;});
   document.querySelectorAll('#mtabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.pane===p)));
   if(p==='run'&&was!=='run'){resize();}refreshPanels(true);}
@@ -2158,9 +2165,11 @@ if(window.MapSeasonView)MapSeasonView.init({ymd:()=>SeasonCore.ymdOf(seasDayI())
   wxOf:y=>{const l=wxLog();if(l[y])return l[y];const p=y.split('-').map(Number),r=window.minatoAway&&minatoAway.condFor(SeasonCore.indexOf(p[0],p[1],p[2]));return r?{wx:r.wx}:null;},
   rail:()=>[MAIN].map(L=>{const pts=[];L.forEach((s,i)=>{pts.push([ST[s].x,ST[s].y]);if(i<L.length-1)pts.push(...segMid(s,L[i+1],0,1,0).map(p=>[p.x,p.y]));});return pts;})});
 /* 指令パネル（docs/ctc-plan.md の段1・js/ctc-view.js）。ゲームの計算は読むだけ */
-if(window.CtcView)CtcView.init({ST,TYPES,DEPOTNAME,D:()=>D,T:()=>T,day:()=>ENS.day||1,fmt,onSiding,evDwell,speed:()=>LIVE?0:speed,setSpeed:v=>setSpeed(v),
+if(window.CtcView)CtcView.init({ST,TYPES,DEPOTNAME,D:()=>D,T:()=>T,day:()=>ENS.day||1,incidentK:()=>window.KeieiView?KeieiView.incidentK():1,fmt,onSiding,evDwell,speed:()=>LIVE?0:speed,setSpeed:v=>setSpeed(v),
   nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0,
   evName:(st,t)=>{const e=ACTIVE_EV.find(ev=>(ev.ops||[]).some(o=>o.st===st&&t>=o.from&&t<=o.to));return e?e.name:'';}});
+/* 経営（js/keiei-view.js）：利益・乗客・満足度のグラフと投資。投資の効き目は運行日の始めに KFX へ */
+if(window.KeieiView)KeieiView.init({ST,ALL,D:()=>D,day:()=>ENS.day||1,fmt,ready:()=>{KFX=KeieiView.fx(ENS.day||1);if(KFX&&KFX.any)rebuild();}});
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
 function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '<p class="sub">集計しています…</p>';const st=evState(ev),snap=trafficSnapshot(T);
   const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
@@ -3437,6 +3446,7 @@ const ENSEN_UI=(()=>{
   // 26:00 を過ぎて自然に次の日へ進んだとき（巻き戻しや時刻バーでは呼ばれない）
   function dayEnd(force){if(!ready||!D)return;const minPlay=120;
     if(!force&&played<minPlay){played=0;return;}   // 少ししか進めていない日は数えない（時刻を終わり近くへ動かしてから日をまたぐだけでは、運行日を進めない）
+    if(window.KeieiView)KeieiView.dayEnd(D,st.day);   /* 経営：その日の利益・乗客・満足度を記録 */
     st=ensEndDay(st,D);ENS.day=st.day;played=0;persist();setCond({...COND});rebuild();renderAll();}
   const tick=(dt)=>{if(playing)played+=speed*dt;};
   // 季節のできごと：起きた朝に、初めて便りで知らせる（前もっては出さない）。同じ日・同じできごとは1通だけ

@@ -98,11 +98,11 @@
   const baseOf = t => (t && t.base) || t;
   const onSid = (t, i) => E.onSiding(baseOf(t), i), nomD = (t, i) => E.nomDwell(baseOf(t), i);
   function ensureHl(D) {
-    const day = E.day ? E.day() : 1, key = D.trips.length + '|' + day;
+    const day = E.day ? E.day() : 1, ik = E.incidentK ? E.incidentK() : 1, key = D.trips.length + '|' + day + '|' + ik;
     if (hlKey === D && D2 && D2.key === key) return;
     hlKey = D;
     hl = C.highlights(D.trips, D.sets, { ST: E.ST, TYPES: E.TYPES, onSiding: E.onSiding, DEPOTNAME: E.DEPOTNAME });
-    D2 = C.disrupt(D.trips, hl, { ST: E.ST, TYPES: E.TYPES, onSiding: E.onSiding, nomDwell: E.nomDwell, day }); D2.key = key;
+    D2 = C.disrupt(D.trips, hl, { ST: E.ST, TYPES: E.TYPES, onSiding: E.onSiding, nomDwell: E.nomDwell, day, incidentK: ik }); D2.key = key;
     PX = new Map(); D.trips.forEach(t => PX.set(t, C.actual(t, D2)));
     SETS2 = D.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => PX.get(t)) }));
     D2.decisions.forEach(c => { c.txt = c.what + ' → ' + c.dec; });
@@ -375,5 +375,7 @@
   }
   function nextHighlight() { const T = E.T(); const h = (ran() ? ALLHL : hl).find(h => h.k !== 'depot' && h.t > T); if (h) focusHl(h); }
 
-  window.CtcView = { init, frame: () => draw(false), redraw: () => draw(true) };
+  /* 1分以上遅れて着いた列車の割合（経営のタブの満足度に使う）。指令パネルを開いていなくても計算する */
+  function lateShare(D) { if (!E || !D || !D.trips) return null; ensureHl(D); let n = 0, late = 0; D.trips.forEach(t => { const a = D2.A.get(t); if (!a) return; n++; if (a.arr[a.arr.length - 1] - t.arr[t.arr.length - 1] >= 1) late++; }); return n ? late / n : null; }
+  window.CtcView = { init, frame: () => draw(false), redraw: () => draw(true), lateShare };
 })();

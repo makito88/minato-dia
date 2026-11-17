@@ -203,13 +203,13 @@
     }
     const rush = trips.filter(t => (t.dep[0] > 400 && t.dep[0] < 560) || (t.dep[0] > 1000 && t.dep[0] < 1140));
     const pickStop = tr => { const k = []; tr.seq.forEach((s, i) => { if (i > 0 && i < tr.seq.length - 1 && tr.stop[i]) k.push(i); }); return k.length ? k[Math.floor(R() * k.length)] : -1; };
-    const nS = 3 + Math.floor(R() * 4);
+    const ik = env.incidentK == null ? 1 : env.incidentK, nS = Math.round((3 + Math.floor(R() * 4)) * ik);   /* ik：保守の予算（経営のタブ） */
     for (let n = 0; n < nS && rush.length; n++) {
       const tr = rush[Math.floor(R() * rush.length)], i = pickStop(tr); if (i < 0) continue;
       const k = SMALL[Math.floor(R() * SMALL.length)], m = k[1] + R() * (k[2] - k[1]);
       put(tr, i, { dwell: m, code: 'incident', txt: `${env.ST[tr.seq[i]].name}で${k[0]}` });
     }
-    if (R() < 0.6) {
+    if (R() < Math.min(0.95, 0.6 * ik)) {
       const k = MEDIUM[Math.floor(R() * MEDIUM.length)], pool = k[0] === '線路に動物' ? trips.filter(t => t.seq.includes('O')) : trips.filter(t => t.dep[0] > 330 && t.dep[0] < 1380);
       if (pool.length) {
         const tr = pool[Math.floor(R() * pool.length)], m = k[1] + R() * (k[2] - k[1]);
