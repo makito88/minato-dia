@@ -29,6 +29,7 @@ const r = K.closeDay(cfg, st, m, day);
 const inc = it.income, mc = cfg.maint.levels.mid.cost;
 assert.equal(Math.round(st.bal), Math.round(b0 + 4.5e7 * st.share + inc - mc));
 K.closeDay(cfg, st, m, day); assert.equal(st.log.filter(x => x.day === day).length, 1, '同じ日をもう一度締めても1行');
+{ const b1 = st.bal, r2 = K.closeDay(cfg, st, { ...m, fee: 220000 }, day + 1); assert.equal(Math.round(st.bal - b1), Math.round(4.5e7 * st.share + inc - mc + 220000), '線路使用料も収入に入る'); assert.equal(r2.fee, 220000); }
 assert.ok(r.sat > 0 && r.sat <= 100); assert.equal(r.boardAlight, 240000);
 /* 満足度：混雑が多いほど下がる・保守を手厚くすると上がる・できごとがへる */
 const s1 = K.satisfaction(cfg, st, m, day).score, s2 = K.satisfaction(cfg, st, { ...m, crowdShare: 0.3 }, day).score;

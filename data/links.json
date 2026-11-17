@@ -769,6 +769,28 @@
    },
    "desc": "経営のタブ（js/keiei-core.js・js/keiei-view.js・data/keiei.json）。毎日の利益のうち決めた割合を積み立て、投資に使う。投資の効き目を、乗客の計算（rateParts の最後のほう、イベントの上乗せより前）に倍率として掛ける。強さ0なら投資の前と同じ。満足度は記録と画面だけで、まだ乗客の計算には返さない",
    "since": "2026-11-17"
+  },
+  {
+   "id": "ctc-fee-to-keiei",
+   "name": "指令パネルの臨時・貨物 → 経営（線路使用料）",
+   "from": "rail",
+   "to": "keiei",
+   "state": "temp",
+   "strength": 1,
+   "values": [
+    {
+     "name": "fee",
+     "unit": "円／日（他社の貨物・臨時列車が自社の線路を走ったキロ×1列車1kmあたり 貨物2,600円・臨時1,900円。data/ctc-extra.json）",
+     "src": "assume"
+    }
+   ],
+   "read": {
+    "when": "dayEnd",
+    "at": 1560,
+    "note": "運行日を締めるとき（ENSEN_UI.dayEnd → KeieiView.dayEnd）に1回、CtcView.feeToday の円を積み立てに足す"
+   },
+   "desc": "県央本線から連絡線で入る貨物（毎日）と臨時列車（イベントの日）のスジは、指令パネルの見せ方の層で定期列車のすき間に入れる。乗客・運賃・ダイヤには返さず、線路使用料だけを経営のタブの積み立てに入れる（2026-11-17）。",
+   "since": "2026-11-17"
   }
  ]
 }

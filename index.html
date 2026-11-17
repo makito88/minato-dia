@@ -704,10 +704,10 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/mapseason-core.js?v=20261116a"></script>
 <script src="js/mapseason-render.js?v=20261116a"></script>
 <script src="js/mapseason-view.js?v=20261116a"></script>
-<script src="js/ctc-core.js?v=20261117b"></script>
-<script src="js/ctc-view.js?v=20261117b"></script>
-<script src="js/keiei-core.js?v=20261117a"></script>
-<script src="js/keiei-view.js?v=20261117a"></script>
+<script src="js/ctc-core.js?v=20261117c"></script>
+<script src="js/ctc-view.js?v=20261117c"></script>
+<script src="js/keiei-core.js?v=20261117b"></script>
+<script src="js/keiei-view.js?v=20261117b"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -2166,6 +2166,7 @@ if(window.MapSeasonView)MapSeasonView.init({ymd:()=>SeasonCore.ymdOf(seasDayI())
   rail:()=>[MAIN].map(L=>{const pts=[];L.forEach((s,i)=>{pts.push([ST[s].x,ST[s].y]);if(i<L.length-1)pts.push(...segMid(s,L[i+1],0,1,0).map(p=>[p.x,p.y]));});return pts;})});
 /* 指令パネル（docs/ctc-plan.md の段1・js/ctc-view.js）。ゲームの計算は読むだけ */
 if(window.CtcView)CtcView.init({ST,TYPES,DEPOTNAME,D:()=>D,T:()=>T,day:()=>ENS.day||1,incidentK:()=>window.KeieiView?KeieiView.incidentK():1,fmt,onSiding,evDwell,speed:()=>LIVE?0:speed,setSpeed:v=>setSpeed(v),
+  events:()=>COND.evs.slice(),cond:()=>({day:COND.day,wx:COND.wx}),sp:()=>CX?CX.sp:1,dw:()=>CX?CX.dw:0,   /* 段3：臨時列車はイベントの日だけ・貨物の昼の便は平日だけ */
   nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0,
   evName:(st,t)=>{const e=ACTIVE_EV.find(ev=>(ev.ops||[]).some(o=>o.st===st&&t>=o.from&&t<=o.to));return e?e.name:'';}});
 /* 経営（js/keiei-view.js）：利益・乗客・満足度のグラフと投資。投資の効き目は運行日の始めに KFX へ */

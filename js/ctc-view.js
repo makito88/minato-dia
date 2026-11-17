@@ -6,7 +6,7 @@
   'use strict';
   const C = window.CtcCore; if (!C) return;
   const Y = C.Y;
-  let LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
+  let SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
 .ctc{min-width:0;max-width:100%;background:#0d1620;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
@@ -51,8 +51,9 @@
   const KNAME = { taihi: '通過待ち', conn: '接続', kokan: '行き違い', depot: '車庫' };
 
   function init(env) {
-    E = env;
+    E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
+    fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -63,15 +64,16 @@
     <label title="段2：混雑とできごとの小さな遅れを足し、プロの手順で動かした「きょうの実際」。乗客・運賃の計算には返しません"><input type="checkbox" id="ctcRan" checked>きょうの乱れ</label></div>
   <div class="ctc-sc" id="ctcSc"><div id="ctcSp" style="height:1px"></div><canvas id="ctcCv" aria-label="指令パネル。線路と列車"></canvas></div>
   <div class="ctc-leg">${Object.entries(C.REASON).map(([k, r]) => `<span><i style="background:${r.col}"></i>${r.name}</span>`).join('')}
-    ${['L', 'R', 'E', 'X'].map(k => `<span><i style="background:${C.TYPE_BODY[k]};border:2px solid ${C.TYPE_COL[k]}"></i>${E.TYPES[k].name}</span>`).join('')}</div>
+    ${['L', 'R', 'E', 'X', 'Z', 'G'].map(k => `<span><i style="background:${C.TYPE_BODY[k]};border:2px solid ${C.TYPE_COL[k]}"></i>${TY2[k].name}</span>`).join('')}</div>
   <div class="ctc-grid">
     <div class="ctc-box"><h3>予告（これから10分）</h3><ul id="ctcSoon"></ul></div>
     <div class="ctc-box"><h3>無線（いまの判断）</h3><ul id="ctcRadio"></ul></div>
     <div class="ctc-box"><h3>判断のカード</h3><ul id="ctcCards"></ul></div>
     <div class="ctc-box"><h3>きょうの遅れの内訳（いままで）</h3><div id="ctcBars" class="ctc-bars"></div></div>
+    <div class="ctc-box ctc-wide"><h3>臨時列車・貨物・線路使用料（きょう）</h3><div id="ctcSyn" class="muted">読みこみ中</div></div>
     <div class="ctc-box ctc-wide" id="ctcInfo"><h3>選んだもの</h3><div class="muted">列車か駅名を押してください</div></div>
   </div>
-  <div class="ctc-note">予定（ダイヤに入っている待避・接続・行き違い）と、段2の「きょうの乱れ」（混雑・小さなできごと→前の列車との間かく・単線の順番・接続は5分まで待つ・待避の順番の入れかえ・回復運転）。乱れは見せ方の層で、乗客・運賃の計算には返しません。数字は仮。連絡線・港貨物ターミナル・温泉留置線は線路だけ。臨時列車・貨物・他社線との接続は次の段で。</div>
+  <div class="ctc-note">予定（ダイヤに入っている待避・接続・行き違い）と、段2の「きょうの乱れ」（混雑・小さなできごと→前の列車との間かく・単線の順番・接続は5分まで待つ・待避の順番の入れかえ・回復運転）。乱れは見せ方の層で、乗客・運賃の計算には返しません。数字は仮。段3：県央本線・バス・フェリーとの接続（遅れたら5分まで待つ）、貨物（夜と昼のすいている時間・港貨物ターミナルへ）、イベントの日の臨時列車（県央本線から中央をこえて港・温泉で折り返し）。臨時と貨物は定期列車のすき間に入れ、定期列車のダイヤは変えません。線路使用料だけ経営のタブの収入へ。</div>
 </div>`;
     sc = host.querySelector('#ctcSc'); spacer = host.querySelector('#ctcSp'); cv = host.querySelector('#ctcCv'); ctx = cv.getContext('2d');
     host.querySelector('#ctcZoom').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; setZoom(+b.dataset.v); });
@@ -87,7 +89,7 @@
 
   function setZoom(v, first) {
     const T = E.T(), center = L ? (sc.scrollLeft + sc.clientWidth / 2) / L.pxk : C.Y && 3;
-    pxk = v; L = C.layout(E.ST, pxk); spacer.style.width = L.W + 'px';
+    pxk = v; L = C.layout(SX, pxk); spacer.style.width = L.W + 'px';
     host.querySelectorAll('#ctcZoom button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.v === v)));
     try { localStorage.setItem('dia-ctc-zoom', String(v)); } catch (e) { }
     sc.scrollLeft = first ? L.xm(-0.6) - 20 : center * L.pxk - sc.clientWidth / 2;
@@ -96,20 +98,28 @@
 
   function data() { const D = E.D(); return D && D.trips ? D : null; }
   const baseOf = t => (t && t.base) || t;
-  const onSid = (t, i) => E.onSiding(baseOf(t), i), nomD = (t, i) => E.nomDwell(baseOf(t), i);
+  const senv = () => ({ ST: SX, dw: E.dw ? E.dw() : 0, evDwell: E.evDwell, crew: X ? X.freight.crew : 2 });
+  const onSid = (t, i) => { const b = baseOf(t); return b.synth ? C.synOnSiding(b, i, senv()) : E.onSiding(b, i); };
+  const nomD = (t, i) => { const b = baseOf(t); return b.synth ? C.synDwell(b, i, senv()) : E.nomDwell(b, i); };
   function ensureHl(D) {
-    const day = E.day ? E.day() : 1, ik = E.incidentK ? E.incidentK() : 1, key = D.trips.length + '|' + day + '|' + ik;
+    const day = E.day ? E.day() : 1, ik = E.incidentK ? E.incidentK() : 1, evs = E.events ? E.events() : [], cond = E.cond ? E.cond() : {};
+    const key = D.trips.length + '|' + day + '|' + ik + '|' + (X ? 1 : 0) + '|' + evs.join(',') + '|' + cond.day + cond.wx;
     if (hlKey === D && D2 && D2.key === key) return;
     hlKey = D;
-    hl = C.highlights(D.trips, D.sets, { ST: E.ST, TYPES: E.TYPES, onSiding: E.onSiding, DEPOTNAME: E.DEPOTNAME });
-    D2 = C.disrupt(D.trips, hl, { ST: E.ST, TYPES: E.TYPES, onSiding: E.onSiding, nomDwell: E.nomDwell, day, incidentK: ik }); D2.key = key;
-    PX = new Map(); D.trips.forEach(t => PX.set(t, C.actual(t, D2)));
+    SYN = X ? C.synth(Object.assign(senv(), { trips: D.trips, X, events: evs, holiday: cond.day && cond.day !== 'wd', sp: E.sp ? E.sp() : 1, day })) : { trips: [], sets: [] };
+    ALLT = D.trips.concat(SYN.trips);
+    const henv = { ST: SX, TYPES: TY2, onSiding: onSid, DEPOTNAME: E.DEPOTNAME };
+    EXT = X ? C.extConns(D.trips, SYN.trips, { ST: SX, TYPES: TY2, X, day, wx: cond.wx }) : [];
+    hl = C.synHighlights(C.highlights(ALLT, D.sets, henv), SYN.trips, henv).concat(EXT).sort((a, b) => a.t - b.t);
+    D2 = C.disrupt(ALLT, hl, { ST: SX, TYPES: TY2, onSiding: onSid, nomDwell: nomD, day, incidentK: ik, ext: EXT, pre: X ? C.synLate(SYN.trips, { X, day }) : null }); D2.key = key;
+    FEE = X ? C.fee(SYN.trips, X, SX) : null;
+    PX = new Map(); ALLT.forEach(t => PX.set(t, C.actual(t, D2)));
     SETS2 = D.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => PX.get(t)) }));
     D2.decisions.forEach(c => { c.txt = c.what + ' → ' + c.dec; });
     ALLHL = hl.filter(h => !D2.swaps.has(h)).concat(D2.decisions).sort((a, b) => a.t - b.t);   /* 入れかえた待避は、予定の見どころから外す */
   }
   const ran = () => host.querySelector('#ctcRan').checked;
-  const envCore = D => ({ ST: E.ST, TYPES: E.TYPES, onSiding: onSid, nomDwell: nomD, evDwell: E.evDwell, evName: E.evName, trips: D.trips });
+  const envCore = D => ({ ST: SX, TYPES: TY2, onSiding: onSid, nomDwell: nomD, evDwell: E.evDwell, evName: E.evName, trips: ALLT.length ? ALLT : D.trips });
   /* 列車の、いまの遅れ（分）。乱れを見ていないときは 0 */
   function lateNow(t, T) { if (!t.base) return 0; const b = t.base; let i = 0; while (i < t.seq.length - 1 && t.dep[i] <= T) i++; const k = Math.max(0, i - 1); return T < t.dep[0] ? t.dep[0] - b.dep[0] : (t.arr[i] > T ? t.dep[k] - b.dep[k] : t.arr[i] - b.arr[i]); }
 
@@ -126,16 +136,28 @@
     }
     return { depot: true };
   }
+  /* 臨時・貨物の、いまの状態（パネルの外＝県央本線にいるときは出さない） */
+  function synNow(s, T) {
+    const tr = s.trips, a = tr[0], z = tr[tr.length - 1], end = t => t.arr[t.arr.length - 1];
+    if (s.kind === 'G') { const q0 = a.seq[0] === 'Q';
+      if (T >= a.dep[0] - (q0 ? 30 : 0) && T <= end(a) + (a.seq[a.seq.length - 1] === 'Q' ? 40 : 0)) return { trip: a, wait: T < a.dep[0] };
+      return { depot: true }; }
+    if (T < a.dep[0] || T > end(z)) return { depot: true };
+    if (T <= end(a)) return { trip: a };
+    if (T >= z.dep[0]) return { trip: z };
+    if (T < end(a) + 8 || T > z.dep[0] - 10) return { trip: T < end(a) + 8 ? a : z, wait: true };
+    return { depot: true, rest: s.rest };
+  }
   function depotPt(home, slot) {
     if (home === 'C') { const tr = slot % 14, k = (slot / 14) | 0; return { x: L.xm(-2.15 + k * 0.62) + 8, y: Y.main + 92 + tr * 5.2 }; }
-    const tr = slot % 4, k = (slot / 4) | 0; return { x: L.xm(E.ST.P.km - 1.55 + k * 0.3) + 8, y: Y.main - 78 + tr * 9 };
+    const tr = slot % 4, k = (slot / 4) | 0; return { x: L.xm(SX.P.km - 1.55 + k * 0.3) + 8, y: Y.main - 78 + tr * 9 };
   }
 
   /* ---- 線路 ---- */
   function line(pts, col, w, dash) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.setLineDash([]); }
   function loop(x0, x1, y0, y1, col) { const d = Math.min(0.15 * pxk, (x1 - x0) / 4); line([[x0, y0], [x0 + d, y1], [x1 - d, y1], [x1, y0]], col, 2.6); }
   function drawTrack() {
-    const ST = E.ST, xm = L.xm, xb = L.xb, M = Y.main, TR = '#6c8094', SD = '#4f6276', OLD = '#3b4856', OT = '#8a7fb8', S = L.STA * pxk;
+    const ST = SX, xm = L.xm, xb = L.xb, M = Y.main, TR = '#6c8094', SD = '#4f6276', OLD = '#3b4856', OT = '#8a7fb8', S = L.STA * pxk;
     /* 本線（複線） */
     line([[xm(0.35), M - Y.lane], [xm(ST.P.km - 0.35), M - Y.lane]], TR, 3.2);
     line([[xm(0.35), M + Y.lane], [xm(ST.P.km - 0.35), M + Y.lane]], TR, 3.2);
@@ -199,15 +221,15 @@
     ctx.fillStyle = '#a99be0'; ctx.fillText('県央本線（他社線）← 空港・県の西', xm(-ML_()) + 6, k6 - 8);
     ctx.fillText('県央本線 6・7番線', xm(-0.25), k6 - 8);
     ctx.save(); ctx.translate((xm(0.75) + xm(1.3)) / 2 + 22, (k5 - 40 + 4) / 2 + 10); ctx.rotate(Math.atan2(4 - (k5 - 40), xm(1.3) - xm(0.75))); ctx.fillText('→ 北へ（県央北）', 0, 0); ctx.restore();
-    ctx.fillStyle = '#c9b27a'; ctx.textAlign = 'right'; ctx.fillText('連絡線（臨時・貨物の直通用・準備中）', xm(-0.85), M - Y.side - 6); ctx.textAlign = 'left';
-    ctx.fillText('臨港線・港貨物ターミナル（準備中）', xm(ST.P.km - 0.6), Y.freight + 26);
-    ctx.fillText('温泉留置線（臨時列車用・準備中）', xb(ST.O.bkm - 1.4), Y.br + 48);
+    ctx.fillStyle = '#c9b27a'; ctx.textAlign = 'right'; ctx.fillText('連絡線（臨時・貨物の直通用）', xm(-0.85), M - Y.side - 6); ctx.textAlign = 'left';
+    ctx.fillText('臨港線・港貨物ターミナル', xm(ST.P.km - 0.6), Y.freight + 26);
+    ctx.fillText('温泉留置線（臨時列車用）', xb(ST.O.bkm - 1.4), Y.br + 48);
     ctx.fillStyle = '#8aa0b4'; ctx.fillText('温泉支線（単線）', jx1 + 10, Y.br + 22);
   }
   function ML_() { return L.ML - 0.05; }
 
   function drawStations() {
-    const ST = E.ST; ctx.textAlign = 'center';
+    const ST = SX; ctx.textAlign = 'center';
     const pill = (x, y, t, s) => {
       ctx.font = '700 15px "Zen Kaku Gothic New",sans-serif'; const w = ctx.measureText(t).width + 16;
       ctx.fillStyle = '#1d4a5a'; ctx.strokeStyle = '#4fd1ff'; ctx.lineWidth = 1.2;
@@ -239,7 +261,7 @@
     const up = p.dir > 0, s0 = tr.seq[p.i], term = !p.moving && (s0 === 'C' || s0 === 'P' || s0 === 'O');
     const ty = term ? p.y + 4 : (up ? y0 - 6 : y0 + h + 14);
     ctx.font = '700 10.5px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = term ? (s0 === 'C' ? 'left' : 'right') : 'center';
-    let tag = E.TYPES[tr.type].short + tr.num, col = '#dbe6f0';
+    let tag = TY2[tr.type].short + tr.num, col = '#dbe6f0';
     const late = lateNow(tr, T);
     if (late >= 0.5) { tag += ' 遅れ' + C.fmtMin(late); col = '#ff8a8a'; }
     if (!p.moving && p.i > 0 && p.i < tr.seq.length - 1 && T >= tr.arr[p.i]) {
@@ -268,16 +290,19 @@
       const SS = ran() ? SETS2 : D.sets;
       SS.forEach(s => { tot[s.home]++; const n = setNow(s, T); if (n.depot) { const q = depotPt(s.home, used[s.home]++); ctx.fillStyle = C.TYPE_BODY[s.trips[0].type]; ctx.fillRect(q.x, q.y - 2, Math.min(0.55 * pxk * (s.home === 'C' ? 1 : 0.5), s.cars * 0.02 * pxk * 0.6), 4); } });
       ctx.font = '700 12px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#dbe6f0';
-      ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main + 80); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(E.ST.P.km - 1.15), Y.main - 86);
+      ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main + 80); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(SX.P.km - 1.15), Y.main - 86);
       /* 頭端の駅（中央・港・温泉）で止まっている列車の番線を、重ならないように割りふる */
-      const states = SS.map(s => [s, setNow(s, T)]), env = envCore(D);
+      /* 留置線で休んでいる臨時列車 */
+      SYN.sets.forEach(s => { const n = synNow(s, T); if (!n.rest) return; const q = n.rest === 'O' ? { x: L.xb(SX.O.bkm - 1.3), y: Y.br + 32 } : { x: L.xm(SX.P.km - 2.1), y: Y.main - 51 };
+        ctx.fillStyle = C.TYPE_BODY.Z; ctx.fillRect(q.x, q.y - 3, s.cars * 0.02 * pxk * 0.6, 6); ctx.font = '700 10px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = C.TYPE_COL.Z; ctx.fillText('臨' + s.trips[0].num + ' 休み', q.x, q.y - 6); });
+      const states = SS.map(s => [s, setNow(s, T)]).concat(SYN.sets.map(s => { const n = synNow(s, T); if (n.trip && ran()) n.trip = PX.get(n.trip) || n.trip; return [s, n]; })), env = envCore(D);
       env.laneFix = new Map();
       for (const term of ['C', 'P', 'O']) {
         const lanes = term === 'O' ? [-Y.lane, Y.lane] : C.LANES[term], used = new Set(), wait = [];
         states.forEach(([s, n]) => { if (n.depot || n.dead) return; const tr = n.trip, k = tr.seq.length;
           let i = -1; if (tr.seq[0] === term && T < tr.dep[0]) i = 0; else if (tr.seq[k - 1] === term && T >= tr.arr[k - 1]) i = k - 1;
           if (i >= 0) wait.push({ tr, i, t: i === 0 ? (tr.pair ? tr.pair.arr[tr.pair.arr.length - 1] : tr.dep[0] - 30) : tr.arr[k - 1] }); });
-        wait.sort((a, b) => a.t - b.t).forEach(w => { let o = C.laneOff(w.tr, w.i, { ST: E.ST, onSiding: onSid }); if (used.has(o)) o = lanes.find(l => !used.has(l)) ?? o; used.add(o); env.laneFix.set(w.tr, { i: w.i, o }); });
+        wait.sort((a, b) => a.t - b.t).forEach(w => { let o = C.laneOff(w.tr, w.i, { ST: SX, onSiding: onSid }); if (used.has(o)) o = lanes.find(l => !used.has(l)) ?? o; used.add(o); env.laneFix.set(w.tr, { i: w.i, o }); });
       }
       /* 走っている編成 */
       let selPos = null;
@@ -288,7 +313,7 @@
           const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f = C.smooth(Math.max(0, Math.min(1, n.f)));
           const q = C.trainPos(tr, n.out ? tr.dep[0] - 0.01 : tr.arr[i] + 0.01, L, env), dp = depotPt(s.home, 0);
           /* 車庫と駅のあいだは、入出庫線の上を通る */
-          const via = s.home === 'C' ? [{ x: L.xm(-0.8), y: Y.main + 92 }, { x: L.xm(-0.3), y: Y.main + Y.lane }] : [{ x: L.xm(E.ST.P.km - 0.95), y: Y.main - 50 }, { x: L.xm(E.ST.P.km - 0.75), y: Y.main - Y.lane }];
+          const via = s.home === 'C' ? [{ x: L.xm(-0.8), y: Y.main + 92 }, { x: L.xm(-0.3), y: Y.main + Y.lane }] : [{ x: L.xm(SX.P.km - 0.95), y: Y.main - 50 }, { x: L.xm(SX.P.km - 0.75), y: Y.main - Y.lane }];
           const path = n.out ? [dp, ...via, q] : [q, ...via.slice().reverse(), dp];
           const seg = path.slice(1).map((b, k) => Math.hypot(b.x - path[k].x, b.y - path[k].y)), tot = seg.reduce((x, y) => x + y, 0) || 1;
           let dd = f * tot, k = 0; while (k < seg.length - 1 && dd > seg[k]) { dd -= seg[k]; k++; }
@@ -323,22 +348,33 @@
     host.querySelector('#ctcCards').innerHTML = cards.map(c => `<li class="ctc-card" style="border-color:${(C.REASON[c.k] || {}).col || '#4fd1ff'}"><span class="t">${E.fmt(c.t)}</span>${k(c)}
       <div><span class="lab">起きたこと</span>${esc(c.what)}</div><div><span class="lab">判断</span><b>${esc(c.dec)}</b></div><div><span class="lab">理由</span>${esc(c.why)}</div><div><span class="lab">結果</span>${esc(c.res)}</div>
       <button class="go" data-i="${src.indexOf(c)}">見る</button></li>`).join('') || `<li class="muted">${ran() ? 'まだ判断はありません（3時間以内）' : '「きょうの乱れ」を入れると出ます'}</li>`;
-    bars(D, T);
+    bars(D, T); synBox(T);
     if (sel) info(D, T);
   }
   function bars(D, T) {
     const box = host.querySelector('#ctcBars');
     if (!ran() || !D2) { box.innerHTML = '<div class="muted">「きょうの乱れ」を入れると出ます</div>'; return; }
     const sum = {}; let done = 0, ontime = 0;
-    D.trips.forEach(t => { const a = PX.get(t); a.seq.forEach((s, i) => { if ((i ? a.arr[i] : a.dep[0]) > T) return; (a.why[i] || []).forEach(w => { sum[w.code] = (sum[w.code] || 0) + w.min; }); });
+    ALLT.forEach(t => { const a = PX.get(t); if (!a) return; a.seq.forEach((s, i) => { if ((i ? a.arr[i] : a.dep[0]) > T) return; (a.why[i] || []).forEach(w => { sum[w.code] = (sum[w.code] || 0) + w.min; }); });
       if (a.arr[a.arr.length - 1] <= T) { done++; if (a.arr[a.arr.length - 1] - t.arr[t.arr.length - 1] < 1) ontime++; } });
     const ks = Object.keys(sum).filter(k => Math.abs(sum[k]) >= 0.1).sort((a, b) => sum[b] - sum[a]), mx = Math.max(1, ...ks.map(k => Math.abs(sum[k])));
     box.innerHTML = `<div class="muted">着いた列車 ${done}本・定時（遅れ1分未満）${done ? Math.round(ontime / done * 100) : 100}%</div>` + (ks.map(k => `<div><span class="n">${(C.REASON[k] || {}).name || k}</span><i style="width:${Math.round(Math.abs(sum[k]) / mx * 110)}px;background:${(C.REASON[k] || {}).col}"></i><em>${sum[k] < 0 ? '−' : ''}${Math.round(Math.abs(sum[k]))}分</em></div>`).join('') || '<div class="muted">まだ遅れはありません</div>');
   }
+  function synBox(T) {
+    const box = host.querySelector('#ctcSyn'); if (!box) return;
+    if (!X) { box.innerHTML = '<div class="muted">data/ctc-extra.json を読めませんでした</div>'; return; }
+    const rows = SYN.trips.slice().sort((a, b) => a.dep[0] - b.dep[0]).map(t => { const ax = ran() ? PX.get(t) : t, n = t.seq.length, l = ax.arr[n - 1] - t.arr[n - 1];
+      const from = SX[t.seq[0]].name, to = SX[t.seq[n - 1]].name, now = T >= ax.dep[0] && T <= ax.arr[n - 1];
+      return `<tr${now ? ' style="background:#1d3a4a"' : ''}><td><span class="k" style="background:${C.TYPE_COL[t.type]}">${t.type === 'G' ? '貨物' : '臨時'}</span>${t.num}</td><td>${t.extra ? esc(t.name) : esc(t.load)}</td><td>${E.fmt(t.dep[0])} ${esc(from)}</td><td>${E.fmt(t.arr[n - 1])} ${esc(to)}${l >= 0.5 ? ` <span style="color:#ff8a8a">+${C.fmtMin(l)}</span>` : ''}</td><td>${t.delay >= 1 ? '待ち' + Math.round(t.delay) + '分' : ''}</td></tr>`; }).join('');
+    const ev = (E.events ? E.events() : []).filter(id => X.extra.byEvent[id]);
+    box.innerHTML = `<div class="muted">${ev.length ? 'イベントの日：臨時「' + ev.map(id => X.extra.byEvent[id].name).join('」「') + '」' : 'きょうは臨時列車なし（イベントの日に走ります）'}</div>
+      <div style="overflow-x:auto"><table><tr><th>列車</th><th>中身</th><th>発</th><th>着</th><th>すき間の待ち</th></tr>${rows || '<tr><td colspan="5" class="muted">なし</td></tr>'}</table></div>
+      <div class="muted" style="margin-top:4px">線路使用料（仮）：貨物 ${FEE.km.G.toFixed(1)}km×${X.fee.G.toLocaleString()}円・臨時 ${FEE.km.Z.toFixed(1)}km×${X.fee.Z.toLocaleString()}円 ＝ <b style="color:#ffd36b">${FEE.yen.toLocaleString()}円</b>（経営のタブの収入へ）</div>`;
+  }
   function info(D, T) {
     const box = host.querySelector('#ctcInfo'), env = envCore(D);
     if (sel.tr) {
-      const tr = sel.tr, ty = E.TYPES[tr.type], dest = E.ST[tr.seq[tr.seq.length - 1]].name, ax = ran() ? PX.get(tr) : null, last = tr.seq.length - 1;
+      const tr = sel.tr, ty = TY2[tr.type], dest = SX[tr.seq[tr.seq.length - 1]].name, ax = ran() ? PX.get(tr) : null, last = tr.seq.length - 1;
       const rows = tr.seq.map((s, i) => {
         const r = C.reasons(tr, i, env), pass = !tr.stop[i] && !tr.op[i];
         const t = i === 0 ? '' : E.fmt(tr.arr[i]), d = i === last ? '' : (pass ? 'レ' : E.fmt(tr.dep[i]));
@@ -346,18 +382,18 @@
         const act = ax ? `<td>${pass && i !== last ? 'レ' : E.fmt(at)}${lt >= 0.5 ? ` <span style="color:#ff8a8a">+${C.fmtMin(lt)}</span>` : ''}</td>` : '';
         const why = r.map(x => esc(x.txt)).concat(ax ? (ax.why[i] || []).map(x => `<span style="color:${(C.REASON[x.code] || {}).col}">${esc(x.txt)}${x.min > 0.05 && x.code !== 'crowd' && x.code !== 'incident' ? `（+${C.fmtMin(x.min)}）` : x.code === 'crowd' ? `（+${C.fmtMin(x.min)}）` : ''}</span>`) : []);
         const tt = ax || tr, now = T >= (tt.arr[i] || 0) && T < (tt.dep[i] || 0) ? ' style="background:#1d3a4a"' : '';
-        return `<tr${now}><td>${E.ST[s].name}</td><td>${t}</td><td>${d}</td>${act}<td>${pass ? '' : C.trackNo(tr, i, { ST: E.ST, onSiding: E.onSiding }) + '番線'}</td><td class="why">${why.join('<br>')}</td></tr>`;
+        return `<tr${now}><td>${SX[s].name}</td><td>${t}</td><td>${d}</td>${act}<td>${pass ? '' : C.trackNo(tr, i, { ST: SX, onSiding: onSid }) + '番線'}</td><td class="why">${why.join('<br>')}</td></tr>`;
       }).join('');
       const tot = tr.delay > 0.5 ? `この列車の待ちの合計 +${Math.round(tr.delay)}分（ダイヤに入っている待避・接続・間かく）` : '待ちはほとんどありません';
       box.innerHTML = `<h3>${ty.name} ${tr.num} ${dest}行（${tr.cars}両・${tr.set ? esc(tr.set.label) : ''}）</h3><div class="muted">${tot}</div><div style="overflow-x:auto"><table><tr><th>駅</th><th>予定 着</th><th>予定 発</th>${ax ? '<th>実際</th>' : ''}<th>番線</th><th>理由（予定の待ち・きょうの乱れ）</th></tr>${rows}</table></div>`;
     } else if (sel.st) {
       const s = sel.st, deps = [];
-      D.trips.forEach(tr => { const i = tr.seq.indexOf(s); if (i < 0 || i === tr.seq.length - 1) return; if (!tr.stop[i]) return; if (tr.dep[i] < T - 0.2) return; deps.push({ tr, i, t: tr.dep[i] }); });
+      ALLT.forEach(tr => { const i = tr.seq.indexOf(s); if (i < 0 || i === tr.seq.length - 1) return; if (!tr.stop[i]) return; if (tr.dep[i] < T - 0.2) return; deps.push({ tr, i, t: tr.dep[i] }); });
       deps.sort((a, b) => a.t - b.t);
       const side = down => deps.filter(d => d.tr.down === down).slice(0, 5).map(d => { const ax = ran() ? PX.get(d.tr) : null, lt = ax ? ax.dep[d.i] - d.tr.dep[d.i] : 0;
         const aw = ax ? (ax.why[d.i] || []).filter(x => x.min > 0.05).sort((a, b) => b.min - a.min)[0] : null, r = aw || C.reasons(d.tr, d.i, env)[0];
-        return `<tr><td class="t">${E.fmt(d.t)}${lt >= 0.5 ? `<br><span style="color:#ff8a8a">遅れ${C.fmtMin(lt)}</span>` : ''}</td><td>${E.TYPES[d.tr.type].name}</td><td>${E.ST[d.tr.seq[d.tr.seq.length - 1]].name}</td><td>${C.trackNo(d.tr, d.i, { ST: E.ST, onSiding: E.onSiding })}番線</td><td class="why">${r ? C.REASON[r.code].name + ' ' + C.fmtMin(r.min) : ''}</td></tr>`; }).join('') || '<tr><td class="muted" colspan="5">きょうはもうありません</td></tr>';
-      box.innerHTML = `<h3>${E.ST[s].name}駅 発車標</h3><div style="overflow-x:auto"><table><tr><th colspan="5">${s === 'P' || s === 'O' ? '' : '下り（港・温泉方面）'}</th></tr>${side(true)}<tr><th colspan="5">上り（中央方面）</th></tr>${side(false)}</table></div>`;
+        return `<tr><td class="t">${E.fmt(d.t)}${lt >= 0.5 ? `<br><span style="color:#ff8a8a">遅れ${C.fmtMin(lt)}</span>` : ''}</td><td>${TY2[d.tr.type].name}</td><td>${SX[d.tr.seq[d.tr.seq.length - 1]].name}</td><td>${C.trackNo(d.tr, d.i, { ST: SX, onSiding: onSid })}番線</td><td class="why">${r ? C.REASON[r.code].name + ' ' + C.fmtMin(r.min) : ''}</td></tr>`; }).join('') || '<tr><td class="muted" colspan="5">きょうはもうありません</td></tr>';
+      box.innerHTML = `<h3>${SX[s].name}駅 発車標</h3><div style="overflow-x:auto"><table><tr><th colspan="5">${s === 'P' || s === 'O' ? '' : '下り（港・温泉方面）'}</th></tr>${side(true)}<tr><th colspan="5">上り（中央方面）</th></tr>${side(false)}</table></div>`;
     }
   }
   function onClick(e) {
@@ -367,7 +403,7 @@
     sel = h.tr ? { tr: baseOf(h.tr) } : { st: h.st };
     const D = data(); if (D) info(D, E.T()); draw(true);
   }
-  function stX(s) { return C.MAIN.includes(s) ? L.xm(E.ST[s].km) : L.xb(E.ST[s].bkm); }
+  function stX(s) { return C.MAIN.includes(s) || s === 'W' || s === 'Q' ? L.xm(SX[s].km) : L.xb(SX[s].bkm); }
   function focusHl(h) {
     if (h.a) sel = { tr: baseOf(h.a) };
     sc.scrollLeft = stX(h.st) - sc.clientWidth / 2;
@@ -377,5 +413,7 @@
 
   /* 1分以上遅れて着いた列車の割合（経営のタブの満足度に使う）。指令パネルを開いていなくても計算する */
   function lateShare(D) { if (!E || !D || !D.trips) return null; ensureHl(D); let n = 0, late = 0; D.trips.forEach(t => { const a = D2.A.get(t); if (!a) return; n++; if (a.arr[a.arr.length - 1] - t.arr[t.arr.length - 1] >= 1) late++; }); return n ? late / n : null; }
-  window.CtcView = { init, frame: () => draw(false), redraw: () => draw(true), lateShare };
+  /* きょうの線路使用料（円・仮）。経営のタブが1日の終わりに読む（橋 ctc-fee-to-keiei） */
+  function feeToday(D) { if (!E || !X || !D || !D.trips) return 0; ensureHl(D); return FEE ? FEE.yen : 0; }
+  window.CtcView = { init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2 }) };   /* syn：確かめ用（headless） */
 })();

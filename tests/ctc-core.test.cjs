@@ -67,3 +67,46 @@ console.log('ctc-core ok');
   R2.decisions.forEach(c => ['what', 'dec', 'why', 'res', 'radio'].forEach(k => assert.ok(typeof c[k] === 'string' && c[k], k)));
   console.log('ctc-core 段2 ok');
 }
+
+/* 段3：貨物・臨時列車のスジ、外との接続、線路使用料（data/ctc-extra.json） */
+{
+  const X = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'ctc-extra.json'), 'utf8'));
+  const S3 = C.extST(Object.fromEntries(Object.entries(ST).map(([k, v]) => [k, Object.assign({}, v, { wait: ['C', 'U', 'M', 'K', 'P', 'F', 'T', 'O'].includes(k) })])));
+  assert.ok(S3.W.km < 0 && S3.Q.km === ST.P.km && !ST.W, '駅をふやすのは写しだけ（もとの ST は変えない）');
+  /* 定期列車：中央10:00発の普通（全駅）。すき間に入れる貨物はこれと区間で重ならない */
+  const reg0 = { type: 'L', seq: ['C', 'S', 'U', 'M', 'K', 'N', 'P'], stop: [1, 1, 1, 1, 1, 1, 1].map(Boolean), down: true, num: 1001 };
+  reg0.dep = [600, 604, 608, 612, 617, 622, 627]; reg0.arr = [600, 603.5, 607.5, 611.5, 616.5, 621.5, 627];
+  const syn = C.synth({ ST: S3, trips: [reg0], X, events: ['hanabi', 'nope'], holiday: false, sp: 1, dw: 0, day: 1 });
+  assert.strictEqual(syn.trips.filter(t => t.type === 'Z').length, 2, 'イベントの日は臨時が1往復（知らないイベントは走らない）');
+  assert.strictEqual(syn.trips.filter(t => t.type === 'G').length, 4, '平日の貨物は2往復');
+  assert.strictEqual(C.synth({ ST: S3, trips: [reg0], X, events: [], holiday: true, sp: 1, dw: 0, day: 1 }).trips.length, 2, '休日は夜の貨物だけ');
+  for (const t of syn.trips) {
+    for (let i = 1; i < t.seq.length; i++) assert.ok(t.arr[i] > t.dep[i - 1] && t.dep[i] >= t.arr[i] - 1e-9, '時刻は進む ' + t.num);
+    assert.ok(t.dep[0] >= t.want - 1e-9, '希望より早く出ない');
+    assert.ok(t.seq.includes('C') && t.stop[t.seq.indexOf('C')], '中央で乗務員の交代');
+    /* 同じ区間・同じ向きで追いこさない（走っているあいだの追いこしはない） */
+    for (let i = 0; i < t.seq.length - 1; i++) { const j = reg0.seq.indexOf(t.seq[i]); if (j < 0 || reg0.seq[j + 1] !== t.seq[i + 1]) continue; assert.ok((reg0.dep[j] - t.dep[i]) * (reg0.arr[j + 1] - t.arr[i + 1]) >= 0, '区間で追いこさない'); }
+  }
+  const g = syn.trips.find(t => t.type === 'G' && t.down);
+  assert.deepStrictEqual([g.seq[0], g.seq[g.seq.length - 1]], ['W', 'Q'], '貨物は連絡線から港貨物ターミナルへ');
+  assert.ok(g.num % 2 === 1 && g.num > 8000, '下りは奇数');
+  /* 線路使用料：連絡線の外（W〜中央）は数えない */
+  const f = C.fee(syn.trips, X, S3);
+  assert.ok(Math.abs(f.km.G - 4 * ST.P.km) < 1e-6, '貨物は 中央〜港のキロ×本数');
+  assert.strictEqual(f.yen, Math.round(f.km.G * X.fee.G + f.km.Z * X.fee.Z));
+  /* 外との接続：県央本線の到着から4〜12分で出る下りに乗りかえ。遅れたら5分まで待ち、こえたら打ち切り */
+  const T3 = Object.assign({}, TYPES, C.SYN_TYPES);
+  const ours = mk('L', 1101, ['C', 'S', 'U'], [[440, 440], [444, 444.5], [448, 448]], true);
+  const ext = [{ t: 436, k: 'connOther', st: 'C', a: ours, arr: 432, late: 6, xfer: 4, label: '県央本線 特急 ひばり', ext: true, txt: 'x', radio: 'x' }];
+  const R3 = C.disrupt([ours], ext, { ST, TYPES: T3, onSiding: () => false, nomDwell: () => 0.5, day: 2, ext });
+  const a3 = R3.A.get(ours); assert.ok(Math.abs(a3.dep[0] - 442) < 1e-6, '6分遅れ→2分待つ');
+  assert.ok(a3.why[0].some(w => w.code === 'connOther'), '理由は他社線との接続');
+  assert.ok(R3.decisions.some(c => c.k === 'connOther' && c.what.includes('県央本線')));
+  ext[0].late = 12;
+  const R4 = C.disrupt([ours], ext, { ST, TYPES: T3, onSiding: () => false, nomDwell: () => 0.5, day: 2, ext });
+  assert.ok(R4.A.get(ours).dep[0] < 440.01 && R4.decisions.some(c => c.k === 'connCut' && c.ext), '12分遅れは打ち切り');
+  const hl3 = C.extConns([reg0, ours], syn.trips, { ST: S3, TYPES: T3, X, day: 5, wx: 'sun' });
+  hl3.forEach(h => { assert.ok(C.REASON[h.k] && h.a && h.txt && h.radio, h.k); assert.ok(h.a.dep[h.a.seq.indexOf(h.st)] >= h.arr + h.xfer - 1e-9, '乗りかえの時間がある'); });
+  assert.ok(C.synHighlights([], syn.trips, { ST: S3, TYPES: T3 }).some(h => h.k === 'crew'));
+  console.log('ctc-core 段3 ok');
+}

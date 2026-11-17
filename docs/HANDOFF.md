@@ -839,3 +839,11 @@
 - くわしくは `docs/keiei.md`。index.html に足したのは：スクリプト2本（ctc-view.js の下）・タブのボタン（`.mtabs` を5列、720px 以下は3列）・`<section data-pane="keiei">`・`setPane` の 'keiei'・`let KFX` と `ensRefresh` で `KeieiView.fx`・`rateParts` に `if(KFX)KeieiCore.apply(...)`（newFlowsAfter のあと）・`ENSEN_UI.dayEnd` の頭で `KeieiView.dayEnd(D,st.day)`・`CtcView.init` に `incidentK`・`KeieiView.init`（`flowWho` の上）。橋 `keiei-to-rail` を data/links.json に（島 keiei）。指令パネル：`CtcCore.disrupt` の小さな・大きめのできごとを `incidentK` 倍、`CtcView.lateShare(D)`。
 - 確かめたこと：`tests/keiei-core.test.cjs`（投資なし・強さ0なら倍率なし・積み立ての出し入れ・同じ日は1行・満足度の向き・こわれた保存）、ほかのテストと lint。ヘッドレスで、モールを川辺に建てて運行日を12〜80日進め、記録・グラフ・積み立て・工事と効き目を見た。同じ運行日・同じ条件でくらべると、川辺のモール＋緑ヶ丘の住宅（効き目100%）で1日の乗客 +1.0%・川辺の乗車 +1.6%・緑ヶ丘 +6.0%・運賃収入 +46万円。PC 1280幅・スマホ 390幅。**実機は未確認**。
 - 気になっていること：モールの効き目は、川辺へ買い物に来る人がもともと少ないので小さい（9億円に対して、家賃と運賃の増え方では元が取れるまで長い）。数字は data/keiei.json で直せる。
+
+## 2026-11-17 指令パネルの段3（「途中だった作業を進めて」で続きを作った）
+- くわしくは `docs/ctc-plan.md` の「段3 できたこと」。設定 `data/ctc-extra.json`（すべて仮）。`js/ctc-core.js` に `extST`・`buildReg`・`fitTrip`（index.html の `scheduleTrip` を写したもの）・`synth`・`extConns`・`synHighlights`・`synLate`・`fee`・`synOnSiding`・`synDwell`、`disrupt` に外との接続（`env.ext`）と県央本線の中での遅れ（`env.pre`）。理由のコード `connOther`・`connBus`・`connFerry`・`connExtra`・`passExtra`・`other`・`crew`。
+- 画面：貨物（茶）と臨時（桃）がパネルを走る（連絡線・臨港線・港貨物ターミナル・港留置線と温泉留置線で休む）。「臨時列車・貨物・線路使用料（きょう）」の表。発車標と列車の表にも出る。
+- index.html：`CtcView.init` に `events`・`cond`・`sp`・`dw` を足し、スクリプトの版を上げただけ。経営：`KeieiView.dayEnd` で `CtcView.feeToday(D)` を `m.fee` に、`KeieiCore.closeDay` で収入へ（記録に `fee`）。橋 `ctc-fee-to-keiei`（data/links.json）。
+- **定期列車のダイヤ・乗客・運賃は変えていない**（臨時と貨物はすき間に入れるだけ。線路使用料だけ経営の積み立てへ）。
+- 確かめたこと：`tests/ctc-core.test.cjs`（段3：スジは希望より早く出ない・区間で追いこさない・休日は夜の貨物だけ・使用料のキロ・接続は5分まで待って12分遅れは打ち切り）、`tests/keiei-core.test.cjs`（使用料が収入に入る）、ほかのテストと lint。ヘッドレス（Playwright）で、イベントなし／花火大会＋温泉まつり／観光船＋紅葉 の日の、スジ（貨物4本・臨時2〜4本）・走っているあいだの追いこし0・外との接続 約72件・判断のカード（県央本線の接続待ち・打ち切り）・使用料（約22万〜40万円／日）を確かめ、中央の連絡線・港の臨港線・温泉を画面で見た。幅1400と390。**実機は未確認**。
+- 気になっていること：定期列車は臨時に道をゆずらない（ダイヤを変えないため）ので、`passExtra` はたまにしか出ない。臨時は乗客を数えていない。

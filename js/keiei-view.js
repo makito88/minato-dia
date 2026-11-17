@@ -7,7 +7,7 @@
   'use strict';
   const K = window.KeieiCore; if (!K) return;
   const SKEY = 'dia-keiei';
-  let E = null, cfg = null, st = null, strength = 1, host = null, range = 30, confirmKey = null, hover = null;
+  let E = null, cfg = null, st = null, strength = 1, feeK = 1, host = null, range = 30, confirmKey = null, hover = null;
   const css = `
 .kei{display:grid;gap:14px}
 .kei-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
@@ -53,7 +53,7 @@
     E = env;
     host = document.getElementById('keieiHost'); if (!host) return;
     try { cfg = await (await fetch('data/keiei.json')).json(); } catch (e) { host.textContent = '経営の設定（data/keiei.json）を読めませんでした'; return; }
-    try { const L = await (await fetch('data/links.json')).json(); const b = L.links.find(x => x.id === 'keiei-to-rail'); if (b) strength = b.state === 'retired' ? 0 : b.strength; } catch (e) { }
+    try { const L = await (await fetch('data/links.json')).json(); const b = L.links.find(x => x.id === 'keiei-to-rail'); if (b) strength = b.state === 'retired' ? 0 : b.strength; const f = L.links.find(x => x.id === 'ctc-fee-to-keiei'); if (f) feeK = f.state === 'retired' ? 0 : f.strength; } catch (e) { }
     st = K.normalize(load(), cfg, E.day()); save();
     const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
     host.addEventListener('click', onClick); host.addEventListener('input', onInput);
@@ -72,7 +72,8 @@
   function dayEnd(D, day) {
     if (!cfg || !st || !D || !D.summary) return;
     let late = null; try { late = window.CtcView && CtcView.lateShare ? CtcView.lateShare(D) : null; } catch (e) { }
-    K.closeDay(cfg, st, K.metrics(D, E.ALL, late), day); save(); render();
+    const m = K.metrics(D, E.ALL, late); try { m.fee = window.CtcView && CtcView.feeToday ? CtcView.feeToday(D) * feeK : 0; } catch (e) { m.fee = 0; }   /* 線路使用料（橋 ctc-fee-to-keiei） */
+    K.closeDay(cfg, st, m, day); save(); render();
   }
   const fx = day => (cfg && st ? K.fx(cfg, st, day, strength) : null);
   const incidentK = () => (cfg && st ? K.incidentK(cfg, st) : 1);
