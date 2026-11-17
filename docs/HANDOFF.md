@@ -861,3 +861,9 @@
 - 変えたところ：`js/ctc-core.js`（`POLICY`・`requests`・`boats`・`policyStats`、`disrupt` は `env.rule`・`env.requests`・`env.boats`。方針なしなら前と同じ）、`js/ctc-view.js`、`data/ctc-extra.json`（`requests`・`ferry.dep`。JSON の並びを整えたので差分は大きいが、前の中身は同じ）、index.html は版だけ。
 - 見せ方の層のまま。確かめ：`tests/ctc-core.test.cjs`（段4）・ほかのテストと lint、ヘッドレスで工場の一般公開日＋花火大会の日に4つの方針をくらべた（定時 93〜96%・遅れの合計 60〜126分・要望 0〜4件）。**実機は未確認**。
 - 次は段5（大きな事故）。
+
+## 2026-11-17 指令パネルの段5（大きな事故）
+- くわしくは `docs/ctc-plan.md` の「段5 できたこと」。`js/ctc-core.js`（`bigIncident`、`disrupt` の `env.big`：運転見合わせ・先の駅がふさがる `jam`・始発前の運休・おくれた編成の運休・カード。`trainPos` は事故の列車をその場に止める `hold`）、`js/ctc-view.js`（「大きな事故の訓練」・赤い区間と印・運休の表示・方針の表に運休）。index.html は版だけ。
+- `env.big` がなければ段2〜4の結果は前と同じ。見せ方の層のまま。訓練の事故は `CtcView.lateShare`（経営の満足度）に入れない。ふつうの日の事故（約1割）は入る（運休は遅れに数える）。
+- 確かめ：`tests/ctc-core.test.cjs`（段5）・ほかのテストと lint・ヘッドレス（3つの運行日）。**実機は未確認**。
+- 指令パネルの残り：折り返し運転、定期列車が臨時に道をゆずるダイヤ、要望・運休・振替の乗客とお金への効き目、臨時列車の乗客。ダイヤの計算に「1本の線路に1本」「待避は8分まで」（`docs/track-dia-study.md`）。

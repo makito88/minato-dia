@@ -6,7 +6,7 @@
   'use strict';
   const C = window.CtcCore; if (!C) return;
   const Y = C.Y;
-  let SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
+  let SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
 .ctc{min-width:0;max-width:100%;background:#0d1620;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
@@ -62,7 +62,8 @@
     <label><input type="checkbox" id="ctcSlow" checked>見どころで1倍速に</label>
     <label><input type="checkbox" id="ctcFollow">選んだ列車を追う</label>
     <span class="ctc-seg" role="group" aria-label="指令の方針" id="ctcPol">${Object.entries(C.POLICY).map(([k, v]) => `<button type="button" data-p="${k}" title="${v.say}">${v.name}</button>`).join('')}</span>
-    <label title="段2：混雑とできごとの小さな遅れを足し、プロの手順で動かした「きょうの実際」。乗客・運賃の計算には返しません"><input type="checkbox" id="ctcRan" checked>きょうの乱れ</label></div>
+    <label title="段2：混雑とできごとの小さな遅れを足し、プロの手順で動かした「きょうの実際」。乗客・運賃の計算には返しません"><input type="checkbox" id="ctcRan" checked>きょうの乱れ</label>
+    <label title="段5：大きな事故（運転見合わせ・振替輸送・運転再開・運休）を、きょう、かならず起こして見る。切ると、運行日ごとの運（約1割）にもどる"><input type="checkbox" id="ctcBig">大きな事故の訓練</label></div>
   <div class="ctc-sc" id="ctcSc"><div id="ctcSp" style="height:1px"></div><canvas id="ctcCv" aria-label="指令パネル。線路と列車"></canvas></div>
   <div class="ctc-leg">${Object.entries(C.REASON).map(([k, r]) => `<span><i style="background:${r.col}"></i>${r.name}</span>`).join('')}
     ${['L', 'R', 'E', 'X', 'Z', 'G'].map(k => `<span><i style="background:${C.TYPE_BODY[k]};border:2px solid ${C.TYPE_COL[k]}"></i>${TY2[k].name}</span>`).join('')}</div>
@@ -75,7 +76,7 @@
     <div class="ctc-box ctc-wide"><h3>臨時列車・貨物・線路使用料（きょう）</h3><div id="ctcSyn" class="muted">読みこみ中</div></div>
     <div class="ctc-box ctc-wide" id="ctcInfo"><h3>選んだもの</h3><div class="muted">列車か駅名を押してください</div></div>
   </div>
-  <div class="ctc-note">予定（ダイヤに入っている待避・接続・行き違い）と、段2の「きょうの乱れ」（混雑・小さなできごと→前の列車との間かく・単線の順番・接続は5分まで待つ・待避の順番の入れかえ・回復運転）。乱れは見せ方の層で、乗客・運賃の計算には返しません。数字は仮。段4：方針（バランス・定時重視・接続重視・売上重視）を選ぶと、接続を待つ上限・入れかえ・回復運転・グループ会社の要望への答えが変わります。段3：県央本線・バス・フェリーとの接続（遅れたら5分まで待つ）、貨物（夜と昼のすいている時間・港貨物ターミナルへ）、イベントの日の臨時列車（県央本線から中央をこえて港・温泉で折り返し）。臨時と貨物は定期列車のすき間に入れ、定期列車のダイヤは変えません。線路使用料だけ経営のタブの収入へ。</div>
+  <div class="ctc-note">予定（ダイヤに入っている待避・接続・行き違い）と、段2の「きょうの乱れ」（混雑・小さなできごと→前の列車との間かく・単線の順番・接続は5分まで待つ・待避の順番の入れかえ・回復運転）。乱れは見せ方の層で、乗客・運賃の計算には返しません。数字は仮。段5：大きな事故（運行日ごとに約1割。「大きな事故の訓練」でいつでも）は、その区間の運転を見合わせ、ほかの列車は手前の駅で待ち、振替輸送・運転再開・運休（1往復を休んで定時に戻す）まで。折り返し運転はまだ。段4：方針（バランス・定時重視・接続重視・売上重視）を選ぶと、接続を待つ上限・入れかえ・回復運転・グループ会社の要望への答えが変わります。段3：県央本線・バス・フェリーとの接続（遅れたら5分まで待つ）、貨物（夜と昼のすいている時間・港貨物ターミナルへ）、イベントの日の臨時列車（県央本線から中央をこえて港・温泉で折り返し）。臨時と貨物は定期列車のすき間に入れ、定期列車のダイヤは変えません。線路使用料だけ経営のタブの収入へ。</div>
 </div>`;
     sc = host.querySelector('#ctcSc'); spacer = host.querySelector('#ctcSp'); cv = host.querySelector('#ctcCv'); ctx = cv.getContext('2d');
     host.querySelector('#ctcZoom').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; setZoom(+b.dataset.v); });
@@ -88,6 +89,7 @@
     const polBtn = () => host.querySelectorAll('#ctcPol button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.p === pol)));
     host.querySelector('#ctcPol').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; pol = b.dataset.p; try { localStorage.setItem('dia-ctc-policy', pol); } catch (e2) { } polBtn(); hlKey = null; lastList = 0; draw(true); });
     polBtn();
+    host.querySelector('#ctcBig').addEventListener('change', () => { hlKey = null; lastList = 0; draw(true); const b = BIG; if (b && host.querySelector('#ctcBig').checked) { sc.scrollLeft = stX(b.a) - sc.clientWidth / 2; } });
     host.querySelector('#ctcRan').addEventListener('change', () => { lastList = 0; draw(true); });
     let z = 200; try { z = +localStorage.getItem('dia-ctc-zoom') || 200; } catch (e) { }
     setZoom(PXK.includes(z) ? z : 200, true);
@@ -109,7 +111,7 @@
   const nomD = (t, i) => { const b = baseOf(t); return b.synth ? C.synDwell(b, i, senv()) : E.nomDwell(b, i); };
   function ensureHl(D) {
     const day = E.day ? E.day() : 1, ik = E.incidentK ? E.incidentK() : 1, evs = E.events ? E.events() : [], cond = E.cond ? E.cond() : {};
-    const key = D.trips.length + '|' + day + '|' + ik + '|' + (X ? 1 : 0) + '|' + evs.join(',') + '|' + cond.day + cond.wx + '|' + pol;
+    const key = D.trips.length + '|' + day + '|' + ik + '|' + (X ? 1 : 0) + '|' + evs.join(',') + '|' + cond.day + cond.wx + '|' + (host.querySelector('#ctcBig').checked ? 'B' : 'b') + '|' + pol;
     if (hlKey === D && D2 && D2.key === key) return;
     hlKey = D;
     SYN = X ? C.synth(Object.assign(senv(), { trips: D.trips, X, events: evs, holiday: cond.day && cond.day !== 'wd', sp: E.sp ? E.sp() : 1, day })) : { trips: [], sets: [] };
@@ -121,14 +123,17 @@
     BOATS.forEach(f => hl.push({ t: f.t - 6, k: 'connFerry', st: f.st, a: f.tr, txt: `港で ${TY2[f.tr.type].name} ${f.tr.num} → ${f.label}（${E.fmt(f.t)}発）に乗りつぎ`, radio: `港駅、${f.tr.num}列車から${f.label}への乗りつぎがあります。` }));
     hl.sort((a, b) => a.t - b.t);
     /* 方針ごとに同じ乱れで動かす（段4）。いまの方針の結果を画面に、ほかの方針は「くらべる」の表に */
-    const run = k => C.disrupt(ALLT, hl, { ST: SX, TYPES: TY2, onSiding: onSid, nomDwell: nomD, day, incidentK: ik, ext: EXT, pre: X ? C.synLate(SYN.trips, { X, day }) : null, rule: C.POLICY[k],
+    const force = host.querySelector('#ctcBig').checked; NAT = C.bigIncident(D.trips, { day, incidentK: ik });
+    BIG = force ? C.bigIncident(D.trips, { day, incidentK: ik, force: true }) : NAT;
+    const run = (k, big) => C.disrupt(ALLT, hl, { big: big === undefined ? BIG : big, ST: SX, TYPES: TY2, onSiding: onSid, nomDwell: nomD, day, incidentK: ik, ext: EXT, pre: X ? C.synLate(SYN.trips, { X, day }) : null, rule: C.POLICY[k],
       requests: X ? C.requests(D.trips, { ST: SX, TYPES: TY2, X, events: evs, holiday: cond.day && cond.day !== 'wd', policy: k }) : [], boats: BOATS });
-    D2 = run(pol); D2.key = key;
+    D2 = run(pol); D2.key = key; RUNF = force ? () => run(pol, NAT) : null;
     const ck = key.replace(/\|[a-z]+$/, '');
     if (CMPKEY !== ck) { CMPKEY = ck; CMP = null; setTimeout(() => { if (CMPKEY !== ck) return; CMP = {}; for (const k in C.POLICY) CMP[k] = C.policyStats(D.trips, k === pol ? D2 : run(k)); lastList = 0; }, 30); }
     FEE = X ? C.fee(SYN.trips, X, SX) : null;
     PX = new Map(); ALLT.forEach(t => PX.set(t, C.actual(t, D2)));
-    SETS2 = D.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => PX.get(t)) }));
+    if (BIG) { const px = PX.get(BIG.tr); if (px) px.hold = { i: BIG.i, f: BIG.f, dur: BIG.dur, run: BIG.tr.arr[BIG.i + 1] - BIG.tr.dep[BIG.i] }; }
+    SETS2 = D.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => PX.get(t)).filter(t => !t.cancel) }));   /* 運休の列車は走らせない（編成は車庫のある駅で待つ） */
     D2.decisions.forEach(c => { c.txt = c.what + ' → ' + c.dec; });
     ALLHL = hl.filter(h => !D2.swaps.has(h)).concat(D2.decisions).sort((a, b) => a.t - b.t);   /* 入れかえた待避は、予定の見どころから外す */
   }
@@ -139,7 +144,7 @@
 
   /* ---- 編成の、いまの状態（車庫・回送・列車） ---- */
   function setNow(s, T) {
-    if (C.inDepot(s, T)) return { depot: true };
+    if (C.inDepot(s, T) || !s.trips.length) return { depot: true };
     const tr0 = s.trips[0], trL = s.trips[s.trips.length - 1];
     if (T < s.first - 1) return { dead: true, out: true, f: (T - (s.first - 8)) / 7, trip: tr0 };
     if (T > trL.arr[trL.arr.length - 1] + 3) return { dead: true, out: false, f: (T - (trL.arr[trL.arr.length - 1] + 3)) / 6, trip: trL };
@@ -240,6 +245,17 @@
     ctx.fillText('温泉留置線（臨時列車用）', xb(ST.O.bkm - 1.4), Y.br + 48);
     ctx.fillStyle = '#8aa0b4'; ctx.fillText('温泉支線（単線）', jx1 + 10, Y.br + 22);
   }
+  /* 段5：事故の区間を赤く、場所に印。再開までの残りの分 */
+  function drawBig(T) {
+    const br = !C.MAIN.includes(BIG.a) || !C.MAIN.includes(BIG.b) || (BIG.tr.seq.includes('O') && (BIG.a === 'K' || BIG.b === 'K') && (BIG.a === 'F' || BIG.b === 'F'));
+    const kx = s => br ? L.xb(s === 'K' ? 0 : SX[s].bkm) : L.xm(SX[s].km), xa = kx(BIG.a), xb2 = kx(BIG.b), y = br ? Y.br : Y.main, x0 = Math.min(xa, xb2), x1 = Math.max(xa, xb2);
+    ctx.fillStyle = 'rgba(255,77,77,.13)'; ctx.fillRect(x0, y - 34, x1 - x0, 68);
+    ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]); ctx.strokeRect(x0, y - 34, x1 - x0, 68); ctx.setLineDash([]);
+    const xm = xa + (xb2 - xa) * (BIG.f * 0.35 + 0.65 * C.smooth(BIG.f)), blink = Math.floor(performance.now() / 500) % 2;
+    ctx.fillStyle = blink ? '#ff4d4d' : '#ffb3b3'; ctx.beginPath(); ctx.moveTo(xm, y - 58); ctx.lineTo(xm + 11, y - 38); ctx.lineTo(xm - 11, y - 38); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#0d1620'; ctx.font = '700 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('!', xm, y - 42);
+    ctx.font = '700 12px "Zen Kaku Gothic New",sans-serif'; ctx.fillStyle = '#ff8a8a'; ctx.fillText(`運転見合わせ：${BIG.name}（再開まで あと約${Math.max(1, Math.ceil(BIG.t1 - T))}分）`, (x0 + x1) / 2, y - 64);
+  }
   function ML_() { return L.ML - 0.05; }
 
   function drawStations() {
@@ -297,6 +313,7 @@
     ctx.save(); ctx.translate(-ox, 0); hits = [];
     drawTrack(); drawStations();
     const D = data(), T = E.T();
+    if (D) { ensureHl(D); if (ran() && BIG && T >= BIG.t0 - 0.01 && T < BIG.t1) drawBig(T); }
     if (D) {
       ensureHl(D);
       /* 車庫の編成 */
@@ -369,16 +386,17 @@
     const box = host.querySelector('#ctcBars');
     if (!ran() || !D2) { box.innerHTML = '<div class="muted">「きょうの乱れ」を入れると出ます</div>'; return; }
     const sum = {}; let done = 0, ontime = 0;
-    ALLT.forEach(t => { const a = PX.get(t); if (!a) return; a.seq.forEach((s, i) => { if ((i ? a.arr[i] : a.dep[0]) > T) return; (a.why[i] || []).forEach(w => { sum[w.code] = (sum[w.code] || 0) + w.min; }); });
+    let canc = 0;
+    ALLT.forEach(t => { const a = PX.get(t); if (!a) return; if (a.cancel) { if (t.dep[0] <= T) canc++; return; } a.seq.forEach((s, i) => { if ((i ? a.arr[i] : a.dep[0]) > T) return; (a.why[i] || []).forEach(w => { sum[w.code] = (sum[w.code] || 0) + w.min; }); });
       if (a.arr[a.arr.length - 1] <= T) { done++; if (a.arr[a.arr.length - 1] - t.arr[t.arr.length - 1] < 1) ontime++; } });
     const ks = Object.keys(sum).filter(k => Math.abs(sum[k]) >= 0.1).sort((a, b) => sum[b] - sum[a]), mx = Math.max(1, ...ks.map(k => Math.abs(sum[k])));
-    box.innerHTML = `<div class="muted">着いた列車 ${done}本・定時（遅れ1分未満）${done ? Math.round(ontime / done * 100) : 100}%</div>` + (ks.map(k => `<div><span class="n">${(C.REASON[k] || {}).name || k}</span><i style="width:${Math.round(Math.abs(sum[k]) / mx * 110)}px;background:${(C.REASON[k] || {}).col}"></i><em>${sum[k] < 0 ? '−' : ''}${Math.round(Math.abs(sum[k]))}分</em></div>`).join('') || '<div class="muted">まだ遅れはありません</div>');
+    box.innerHTML = `<div class="muted">着いた列車 ${done}本・定時（遅れ1分未満）${done ? Math.round(ontime / done * 100) : 100}%${canc ? '・運休 ' + canc + '本' : ''}</div>` + (ks.map(k => `<div><span class="n">${(C.REASON[k] || {}).name || k}</span><i style="width:${Math.round(Math.abs(sum[k]) / mx * 110)}px;background:${(C.REASON[k] || {}).col}"></i><em>${sum[k] < 0 ? '−' : ''}${Math.round(Math.abs(sum[k]))}分</em></div>`).join('') || '<div class="muted">まだ遅れはありません</div>');
   }
   function cmpBox() {
     const box = host.querySelector('#ctcCmp'); if (!box) return;
     if (!CMP) { box.innerHTML = '<div class="muted">計算中</div>'; return; }
-    const rows = Object.entries(C.POLICY).map(([k, v]) => { const s = CMP[k]; return `<tr${k === pol ? ' style="background:#1d3a4a"' : ''}><td><b>${v.name}</b>${k === pol ? '（いま）' : ''}</td><td>${Math.round(s.ontime * 100)}%</td><td>${Math.round(s.late)}分</td><td>${s.held}回</td><td>${s.cut}回</td><td>${s.swap}回</td><td>${s.req}件${s.reqNo ? '（ことわる' + s.reqNo + '）' : ''}</td></tr>`; }).join('');
-    box.innerHTML = `<div style="overflow-x:auto"><table><tr><th>方針</th><th>定時（遅れ1分未満）</th><th>遅れの合計</th><th>接続を待った</th><th>接続を打ち切った</th><th>順番の入れかえ</th><th>要望を受けた</th></tr>${rows}</table></div>
+    const rows = Object.entries(C.POLICY).map(([k, v]) => { const s = CMP[k]; return `<tr${k === pol ? ' style="background:#1d3a4a"' : ''}><td><b>${v.name}</b>${k === pol ? '（いま）' : ''}</td><td>${Math.round(s.ontime * 100)}%</td><td>${Math.round(s.late)}分</td><td>${s.held}回</td><td>${s.cut}回</td><td>${s.swap}回</td><td>${s.cancel}本</td><td>${s.req}件${s.reqNo ? '（ことわる' + s.reqNo + '）' : ''}</td></tr>`; }).join('');
+    box.innerHTML = `<div style="overflow-x:auto"><table><tr><th>方針</th><th>定時（遅れ1分未満）</th><th>遅れの合計</th><th>接続を待った</th><th>接続を打ち切った</th><th>順番の入れかえ</th><th>運休</th><th>要望を受けた</th></tr>${rows}</table></div>
       <div class="muted" style="margin-top:4px">${C.POLICY[pol].name}：${C.POLICY[pol].say}。同じ日の同じ混雑・できごと・他社線の遅れで、方針だけ変えた結果（定期列車だけ数える）。</div>`;
   }
   function synBox(T) {
@@ -406,12 +424,13 @@
         return `<tr${now}><td>${SX[s].name}</td><td>${t}</td><td>${d}</td>${act}<td>${pass ? '' : C.trackNo(tr, i, { ST: SX, onSiding: onSid }) + '番線'}</td><td class="why">${why.join('<br>')}</td></tr>`;
       }).join('');
       const tot = tr.delay > 0.5 ? `この列車の待ちの合計 +${Math.round(tr.delay)}分（ダイヤに入っている待避・接続・間かく）` : '待ちはほとんどありません';
-      box.innerHTML = `<h3>${ty.name} ${tr.num} ${dest}行（${tr.cars}両・${tr.set ? esc(tr.set.label) : ''}）</h3><div class="muted">${tot}</div><div style="overflow-x:auto"><table><tr><th>駅</th><th>予定 着</th><th>予定 発</th>${ax ? '<th>実際</th>' : ''}<th>番線</th><th>理由（予定の待ち・きょうの乱れ）</th></tr>${rows}</table></div>`;
+      box.innerHTML = `<h3>${ty.name} ${tr.num} ${dest}行（${tr.cars}両・${tr.set ? esc(tr.set.label) : ''}）${ax && ax.cancel ? ' <span style="color:#ff8a8a">きょうは運休</span>' : ''}</h3><div class="muted">${tot}</div><div style="overflow-x:auto"><table><tr><th>駅</th><th>予定 着</th><th>予定 発</th>${ax ? '<th>実際</th>' : ''}<th>番線</th><th>理由（予定の待ち・きょうの乱れ）</th></tr>${rows}</table></div>`;
     } else if (sel.st) {
       const s = sel.st, deps = [];
       ALLT.forEach(tr => { const i = tr.seq.indexOf(s); if (i < 0 || i === tr.seq.length - 1) return; if (!tr.stop[i]) return; if (tr.dep[i] < T - 0.2) return; deps.push({ tr, i, t: tr.dep[i] }); });
       deps.sort((a, b) => a.t - b.t);
       const side = down => deps.filter(d => d.tr.down === down).slice(0, 5).map(d => { const ax = ran() ? PX.get(d.tr) : null, lt = ax ? ax.dep[d.i] - d.tr.dep[d.i] : 0;
+        if (ax && ax.cancel) return `<tr style="opacity:.6"><td class="t">${E.fmt(d.t)}</td><td>${TY2[d.tr.type].name}</td><td>${SX[d.tr.seq[d.tr.seq.length - 1]].name}</td><td></td><td class="why" style="color:#ff8a8a">運休</td></tr>`;
         const aw = ax ? (ax.why[d.i] || []).filter(x => x.min > 0.05).sort((a, b) => b.min - a.min)[0] : null, r = aw || C.reasons(d.tr, d.i, env)[0];
         return `<tr><td class="t">${E.fmt(d.t)}${lt >= 0.5 ? `<br><span style="color:#ff8a8a">遅れ${C.fmtMin(lt)}</span>` : ''}</td><td>${TY2[d.tr.type].name}</td><td>${SX[d.tr.seq[d.tr.seq.length - 1]].name}</td><td>${C.trackNo(d.tr, d.i, { ST: SX, onSiding: onSid })}番線</td><td class="why">${r ? C.REASON[r.code].name + ' ' + C.fmtMin(r.min) : ''}</td></tr>`; }).join('') || '<tr><td class="muted" colspan="5">きょうはもうありません</td></tr>';
       box.innerHTML = `<h3>${SX[s].name}駅 発車標</h3><div style="overflow-x:auto"><table><tr><th colspan="5">${s === 'P' || s === 'O' ? '' : '下り（港・温泉方面）'}</th></tr>${side(true)}<tr><th colspan="5">上り（中央方面）</th></tr>${side(false)}</table></div>`;
@@ -433,7 +452,8 @@
   function nextHighlight() { const T = E.T(); const h = (ran() ? ALLHL : hl).find(h => h.k !== 'depot' && h.t > T); if (h) focusHl(h); }
 
   /* 1分以上遅れて着いた列車の割合（経営のタブの満足度に使う）。指令パネルを開いていなくても計算する */
-  function lateShare(D) { if (!E || !D || !D.trips) return null; ensureHl(D); let n = 0, late = 0; D.trips.forEach(t => { const a = D2.A.get(t); if (!a) return; n++; if (a.arr[a.arr.length - 1] - t.arr[t.arr.length - 1] >= 1) late++; }); return n ? late / n : null; }
+  function lateShare(D) { if (!E || !D || !D.trips) return null; ensureHl(D); const R = RUNF ? RUNF() : D2; let n = 0, late = 0;   /* 訓練の事故は、満足度には入れない。運休は遅れに数える */
+    D.trips.forEach(t => { const a = R.A.get(t); if (!a) return; n++; if (a.cancel) { late++; return; } if (a.arr[a.arr.length - 1] - t.arr[t.arr.length - 1] >= 1) late++; }); return n ? late / n : null; }
   /* きょうの線路使用料（円・仮）。経営のタブが1日の終わりに読む（橋 ctc-fee-to-keiei） */
   function feeToday(D) { if (!E || !X || !D || !D.trips) return 0; ensureHl(D); return FEE ? FEE.yen : 0; }
   window.CtcView = { init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2 }) };   /* syn：確かめ用（headless） */

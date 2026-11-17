@@ -143,3 +143,37 @@ console.log('ctc-core ok');
   const st4 = C.policyStats([ours], go(C.POLICY.balance)); assert.ok(st4.n === 1 && st4.held === 1 && st4.cut === 0 && st4.ontime === 0);
   console.log('ctc-core 段4 ok');
 }
+
+/* 段5：大きな事故（運転見合わせ・先の駅がふさがる・運転再開・運休） */
+{
+  const T5 = Object.assign({}, TYPES, C.SYN_TYPES);
+  const seq = ['C', 'S', 'U', 'M'], line = (num, t) => mk('L', num, seq, [[t, t], [t + 4, t + 4.5], [t + 8.5, t + 9], [t + 13, t + 13]], true);
+  const t1 = line(1001, 600), t2 = line(1003, 610), t3 = line(1005, 620), t4 = line(1007, 630), all = [t1, t2, t3, t4];
+  /* 桜町〜大学前で 30分。事故にあうのは 1003（610発・桜町 614.5発） */
+  const big = { name: '架線にビニールがからまった', a: 'S', b: 'U', t0: 616, t1: 646, dur: 30, tr: t2, i: 1, f: 0.4 };
+  const env5 = { ST, TYPES: T5, onSiding: () => false, nomDwell: (tr, i) => tr.stop[i] ? 0.5 : 0, day: 4, big };
+  const R = C.disrupt(all, [], env5), a = t => R.A.get(t);
+  assert.ok(a(t1).arr[3] < 613.5, '事故の前に通った列車はそのまま');
+  assert.ok(a(t2).arr[2] > 640, '事故にあった列車は再開まで動けない');
+  assert.ok(a(t3).dep[1] >= 646 - 1e-6 && a(t3).why[1].some(w => w.code === 'stop'), '次の列車は桜町で運転見合わせ');
+  assert.ok(a(t4).dep[0] >= a(t3).dep[1] + 0.3 - 4 - 1e-6 && a(t4).why[0].some(w => w.code === 'jam'), 'その次は中央で待つ（桜町がふさがっている）');
+  assert.ok(a(t4).arr[1] >= a(t3).dep[1], '同じ駅に2本入らない');
+  for (const k of ['stop', 'furikae', 'resume']) { const c = R.decisions.find(x => x.k === k); assert.ok(c, k); ['what', 'dec', 'why', 'res', 'radio'].forEach(f => assert.ok(c[f], k + f)); }
+  const R0 = C.disrupt(all, [], Object.assign({}, env5, { big: null })); assert.ok(R0.A.get(t3).dep[1] < 626 && !R0.decisions.some(c => c.big), '事故がなければ前と同じ');
+  /* 運休：車庫のある駅に20分をこえて遅れて戻った編成は、次の1往復を休む */
+  const o1 = line(1101, 590), r1 = mk('L', 1102, seq.slice().reverse(), [[640, 640], [644, 644.5], [648.5, 649], [653, 653]], false);
+  const o2 = line(1103, 660), r2 = mk('L', 1104, seq.slice().reverse(), [[680, 680], [684, 684.5], [688.5, 689], [693, 693]], false);
+  const o3 = line(1105, 700), set = { label: '通勤車09編成', trips: [o1, r1, o2, r2, o3] }; [o1, r1, o2, r2, o3].forEach(t => { t.set = set; });
+  const big2 = { name: '人身事故', a: 'S', b: 'U', t0: 642, t1: 682, dur: 40, tr: r1, i: 1, f: 0.5 };
+  const Rc = C.disrupt([o1, r1, o2, r2, o3], [], Object.assign({}, env5, { big: big2 }));
+  assert.ok(Rc.cancelled.has(o2) && Rc.cancelled.has(r2) && Rc.A.get(o2).cancel, '1往復を運休');
+  assert.ok(Rc.A.get(o3).dep[0] < 700.01, '次の列車から定時');
+  assert.ok(Rc.decisions.some(c => c.k === 'cancel' && c.dec.includes('2本')), '始発駅を出る前の1往復を運休');
+  assert.strictEqual(C.policyStats([o1, r1, o2, r2, o3], Rc).cancel, 2);
+  assert.ok(C.actual(o2, Rc).cancel);
+  /* 起きる日は運行日で決まる・訓練ならかならず */
+  const b1 = C.bigIncident(all, { day: 9, force: true }), b2 = C.bigIncident(all, { day: 9, force: true });
+  assert.ok(b1 && b1.t1 > b1.t0 && all.includes(b1.tr) && b1.tr.seq[b1.i] === b1.a && b1.a === b2.a && b1.t0 === b2.t0);
+  let hit = 0; for (let d = 1; d <= 300; d++) if (C.bigIncident(all, { day: d })) hit++; assert.ok(hit > 10 && hit < 60, 'ふつうの日は約1割 ' + hit);
+  console.log('ctc-core 段5 ok');
+}
