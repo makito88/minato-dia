@@ -8,58 +8,365 @@
     "st": "C",
     "xfer": 4,
     "win": 12,
-    "lateP": 0.3, "lateMax": 7, "bigP": 0.35, "bigMin": 9, "bigMax": 16,
+    "lateP": 0.3,
+    "lateMax": 7,
+    "bigP": 0.35,
+    "bigMin": 9,
+    "bigMax": 16,
     "trains": [
-      { "name": "特急 ひばり", "first": 432, "last": 1272, "int": 60, "want": ["E", "R", "L"] },
-      { "name": "快速", "first": 392, "last": 1352, "int": 30, "want": ["R", "L", "E"] }
+      {
+        "name": "特急 ひばり",
+        "first": 432,
+        "last": 1272,
+        "int": 60,
+        "want": [
+          "E",
+          "R",
+          "L"
+        ]
+      },
+      {
+        "name": "快速",
+        "first": 392,
+        "last": 1352,
+        "int": 30,
+        "want": [
+          "R",
+          "L",
+          "E"
+        ]
+      }
     ]
   },
   "bus": {
     "_note": "路線バスが駅に着く時刻。バスからの乗りかえを待つ。ラッシュ（7〜9時・17〜19時）は道が混んで遅れやすい",
-    "xfer": 3, "win": 10, "lateP": 0.25, "rushP": 0.5, "lateMax": 6,
+    "xfer": 3,
+    "win": 10,
+    "lateP": 0.25,
+    "rushP": 0.5,
+    "lateMax": 6,
     "lines": [
-      { "name": "中央駅北口線（県庁・市役所）", "st": "C", "first": 1290, "last": 1410, "int": 30, "dir": "down" },
-      { "name": "大学循環バス", "st": "U", "first": 425, "last": 545, "int": 20, "dir": "down" },
-      { "name": "川辺団地線", "st": "K", "first": 410, "last": 530, "int": 15, "dir": "up" },
-      { "name": "温泉旅館の送迎バス", "st": "O", "first": 595, "last": 955, "int": 60, "dir": "up" }
+      {
+        "name": "中央駅北口線（県庁・市役所）",
+        "st": "C",
+        "first": 1290,
+        "last": 1410,
+        "int": 30,
+        "dir": "down"
+      },
+      {
+        "name": "大学循環バス",
+        "st": "U",
+        "first": 425,
+        "last": 545,
+        "int": 20,
+        "dir": "down"
+      },
+      {
+        "name": "川辺団地線",
+        "st": "K",
+        "first": 410,
+        "last": 530,
+        "int": 15,
+        "dir": "up"
+      },
+      {
+        "name": "温泉旅館の送迎バス",
+        "st": "O",
+        "first": 595,
+        "last": 955,
+        "int": 60,
+        "dir": "up"
+      }
     ]
   },
   "ferry": {
     "_note": "ひのき島フェリーが港の桟橋に着く時刻。桟橋から駅まで歩く分（xfer）。雨・雪の日は遅れやすい",
-    "name": "ひのき島フェリー", "st": "P", "xfer": 7, "win": 14, "lateP": 0.3, "wxP": 0.7, "lateMax": 9, "bigP": 0.15, "bigMin": 10, "bigMax": 20,
-    "arr": [450, 650, 860, 1060, 1250],
-    "dep": [{ "t": 1290, "name": "最終便", "waitFor": "down", "max": 5 }]
+    "name": "ひのき島フェリー",
+    "st": "P",
+    "xfer": 7,
+    "win": 14,
+    "lateP": 0.3,
+    "wxP": 0.7,
+    "lateMax": 9,
+    "bigP": 0.15,
+    "bigMin": 10,
+    "bigMax": 20,
+    "arr": [
+      450,
+      650,
+      860,
+      1060,
+      1250
+    ],
+    "dep": [
+      {
+        "t": 1290,
+        "name": "最終便",
+        "max": 5
+      }
+    ]
   },
   "freight": {
     "_note": "貨物は県央本線から連絡線で中央へ、本線を港の手前まで走り、臨港線で港貨物ターミナルへ。夜と昼のすいている時間だけ（want は希望の発時刻・分。すき間に入れる）。holiday：休日も走るか",
     "name": "貨物",
     "runs": [
-      { "id": "night-in", "dir": "in", "want": 1465, "holiday": true, "load": "コンテナ（県の西から）" },
-      { "id": "early-out", "dir": "out", "want": 275, "holiday": true, "load": "コンテナ（港の工場の部品）" },
-      { "id": "day-in", "dir": "in", "want": 630, "holiday": false, "load": "コンテナ（問屋への品物）" },
-      { "id": "day-out", "dir": "out", "want": 790, "holiday": false, "load": "コンテナ（港の工場の製品）" }
+      {
+        "id": "night-in",
+        "dir": "in",
+        "want": 1465,
+        "holiday": true,
+        "load": "コンテナ（県の西から）"
+      },
+      {
+        "id": "early-out",
+        "dir": "out",
+        "want": 275,
+        "holiday": true,
+        "load": "コンテナ（港の工場の部品）"
+      },
+      {
+        "id": "day-in",
+        "dir": "in",
+        "want": 630,
+        "holiday": false,
+        "load": "コンテナ（問屋への品物）"
+      },
+      {
+        "id": "day-out",
+        "dir": "out",
+        "want": 790,
+        "holiday": false,
+        "load": "コンテナ（港の工場の製品）"
+      }
     ],
     "crew": 2
   },
   "extra": {
     "_note": "イベントの日だけ走る臨時列車。県央本線から連絡線で中央へ（中央で乗務員交代）、港か温泉で折り返す。out は行きの希望の発時刻、back は帰りの希望の発時刻（分）。名前は架空",
     "byEvent": {
-      "hanabi": { "name": "花火号", "to": "P", "out": 1000, "back": 1265, "cars": 8 },
-      "ship": { "name": "客船リレー号", "to": "P", "out": 520, "back": 1065, "cars": 6 },
-      "umibiraki": { "name": "うみ号", "to": "P", "out": 560, "back": 1000, "cars": 8 },
-      "asaichi": { "name": "朝市号", "to": "P", "out": 365, "back": 640, "cars": 6 },
-      "matsuri": { "name": "夏祭り号", "to": "P", "out": 1010, "back": 1300, "cars": 8 },
-      "onsen": { "name": "湯けむり号", "to": "O", "out": 545, "back": 980, "cars": 6 },
-      "momiji": { "name": "もみじ号", "to": "O", "out": 520, "back": 960, "cars": 6 },
-      "hatsuhinode": { "name": "初日の出号", "to": "O", "out": 290, "back": 760, "cars": 6 },
-      "nightfes": { "name": "ドリーム号", "to": "O", "out": 960, "back": 1305, "cars": 6 },
-      "gourmet": { "name": "グルメ号", "to": "O", "out": 580, "back": 965, "cars": 6 }
+      "hanabi": {
+        "name": "花火号",
+        "to": "P",
+        "out": 1000,
+        "back": 1265,
+        "cars": 8
+      },
+      "ship": {
+        "name": "客船リレー号",
+        "to": "P",
+        "out": 520,
+        "back": 1065,
+        "cars": 6
+      },
+      "umibiraki": {
+        "name": "うみ号",
+        "to": "P",
+        "out": 560,
+        "back": 1000,
+        "cars": 8
+      },
+      "asaichi": {
+        "name": "朝市号",
+        "to": "P",
+        "out": 365,
+        "back": 640,
+        "cars": 6
+      },
+      "matsuri": {
+        "name": "夏祭り号",
+        "to": "P",
+        "out": 1010,
+        "back": 1300,
+        "cars": 8
+      },
+      "onsen": {
+        "name": "湯けむり号",
+        "to": "O",
+        "out": 545,
+        "back": 980,
+        "cars": 6
+      },
+      "momiji": {
+        "name": "もみじ号",
+        "to": "O",
+        "out": 520,
+        "back": 960,
+        "cars": 6
+      },
+      "hatsuhinode": {
+        "name": "初日の出号",
+        "to": "O",
+        "out": 290,
+        "back": 760,
+        "cars": 6
+      },
+      "nightfes": {
+        "name": "ドリーム号",
+        "to": "O",
+        "out": 960,
+        "back": 1305,
+        "cars": 6
+      },
+      "gourmet": {
+        "name": "グルメ号",
+        "to": "O",
+        "out": 580,
+        "back": 965,
+        "cars": 6
+      }
     },
-    "late": { "p": 0.45, "max": 8, "_note": "県央本線の中での遅れ（中央に着くまで）" },
-    "xfer": 3, "win": 12
+    "late": {
+      "p": 0.45,
+      "max": 8,
+      "_note": "県央本線の中での遅れ（中央に着くまで）"
+    },
+    "xfer": 3,
+    "win": 12
   },
   "fee": {
     "_note": "線路使用料（他社の列車が自社の線路を走ると入る）。1列車1kmあたり（円）",
-    "G": 2600, "Z": 1900
-  }
+    "G": 2600,
+    "Z": 1900
+  },
+  "requests": [
+    {
+      "id": "kojo-stop",
+      "from": "港浜フーズ（工場）",
+      "when": {
+        "events": [
+          "kojo"
+        ]
+      },
+      "ask": "工場の一般公開日なので、新田に快速を止めてほしい（9:30〜16:00）",
+      "act": "快速を新田に臨時停車（1分）",
+      "effect": {
+        "kind": "stop",
+        "st": "N",
+        "types": [
+          "R"
+        ],
+        "from": 570,
+        "to": 960,
+        "min": 1
+      },
+      "accept": [
+        "balance",
+        "conn",
+        "sales"
+      ],
+      "whyOk": "お客さんの乗りかえがへり、グループの行事を助ける。快速が1分ずつおそくなる",
+      "whyNo": "快速を止めると後ろの列車まで遅れるので、定時を守る"
+    },
+    {
+      "id": "event-dwell-P",
+      "from": "みなとスタンド（売店）",
+      "when": {
+        "events": [
+          "hanabi",
+          "umibiraki",
+          "asaichi",
+          "ship"
+        ]
+      },
+      "ask": "港のイベントの日、港駅でおりた人が店に寄れるよう、折り返しの発車を30秒おそくしてほしい",
+      "act": "港駅の発車を30秒おそく（10:00〜15:00）",
+      "effect": {
+        "kind": "dwell",
+        "st": "P",
+        "dir": "up",
+        "from": 600,
+        "to": 900,
+        "min": 0.5
+      },
+      "accept": [
+        "sales"
+      ],
+      "whyOk": "売店の売上になる。昼のすいている時間なので、遅れは小さい",
+      "whyNo": "列車の時刻を店の都合では変えない"
+    },
+    {
+      "id": "onsen-dwell-O",
+      "from": "みなとスタンド（売店）",
+      "when": {
+        "events": [
+          "onsen",
+          "gourmet",
+          "nightfes"
+        ]
+      },
+      "ask": "温泉のイベントの帰りの時間、ホームが混むので、温泉駅の発車を30秒おそくしてほしい",
+      "act": "温泉駅の発車を30秒おそく（15:30〜18:00）",
+      "effect": {
+        "kind": "dwell",
+        "st": "O",
+        "dir": "up",
+        "from": 930,
+        "to": 1080,
+        "min": 0.5
+      },
+      "accept": [
+        "balance",
+        "conn",
+        "sales"
+      ],
+      "whyOk": "ホームの安全のためでもある。単線なので行き違いの相手に少しうつる",
+      "whyNo": "単線の行き違いがずれて、支線ぜんたいが遅れる"
+    },
+    {
+      "id": "bread-train",
+      "from": "みなと川運輸（配送会社）",
+      "when": {
+        "weekday": true
+      },
+      "ask": "昼前のパンのコンテナを、トラックのかわりに列車で運びたい（港で積んで中央でおろす・貨客混載）",
+      "act": "港10:40すぎの上り普通1本に、荷物の積みこみ1分",
+      "effect": {
+        "kind": "dwell",
+        "st": "P",
+        "dir": "up",
+        "types": [
+          "L"
+        ],
+        "from": 640,
+        "to": 700,
+        "min": 1,
+        "first": true
+      },
+      "accept": [
+        "balance",
+        "sales"
+      ],
+      "whyOk": "トラック1便ぶんの運転手と燃料がへる（運転手不足の助け）。昼の1本だけ",
+      "whyNo": "荷物の積みおろしで発車がおくれるので受けない"
+    },
+    {
+      "id": "last-hold",
+      "from": "川辺ロジスティクス（センター）",
+      "when": {
+        "weekday": true
+      },
+      "ask": "夜の仕分けの人が帰れるよう、川辺23:30ごろの上り普通を1分待たせてほしい",
+      "act": "川辺の上り普通1本を1分待たせる",
+      "effect": {
+        "kind": "dwell",
+        "st": "K",
+        "dir": "up",
+        "types": [
+          "L"
+        ],
+        "from": 1405,
+        "to": 1440,
+        "min": 1,
+        "first": true
+      },
+      "accept": [
+        "conn",
+        "sales"
+      ],
+      "whyOk": "働く人の足を守る。夜おそくで、うしろの列車が少ない",
+      "whyNo": "1つの会社の都合で、列車を待たせない"
+    }
+  ],
+  "_requests": "段4：グループ会社から指令への要望（仮）。when＝いつ（events：その行事の日／weekday：平日）。effect＝kind dwell（止まる列車の停車をのばす）・stop（通過の列車を臨時に止める）、st 駅、types 種別、dir 向き、from〜to 時刻（分）、min のばす分、first＝当てはまる最初の1本だけ。accept＝受ける方針"
 }

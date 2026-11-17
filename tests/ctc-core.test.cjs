@@ -110,3 +110,36 @@ console.log('ctc-core ok');
   assert.ok(C.synHighlights([], syn.trips, { ST: S3, TYPES: T3 }).some(h => h.k === 'crew'));
   console.log('ctc-core 段3 ok');
 }
+
+/* 段4：方針と自社の要望・フェリーの最終便 */
+{
+  const X = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'ctc-extra.json'), 'utf8'));
+  const T4 = Object.assign({}, TYPES, C.SYN_TYPES, { R: { name: '快速', prio: 2 } });
+  for (const k in C.POLICY) assert.ok(C.POLICY[k].name && C.POLICY[k].say && C.POLICY[k].connMax > 0, k);
+  /* 接続を待つ上限：4分おくれの県央本線（予定の余裕なし）→ バランスは待つ・定時重視は打ち切る */
+  const ours = mk('L', 1101, ['C', 'S', 'U'], [[436, 436], [440, 440.5], [444, 444]], true);
+  const ext = [{ t: 436, k: 'connOther', st: 'C', a: ours, arr: 432, late: 4, xfer: 4, label: '県央本線 快速', ext: true, txt: 'x', radio: 'x' }];
+  const go = rule => C.disrupt([ours], ext, { ST, TYPES: T4, onSiding: () => false, nomDwell: () => 0.5, day: 2, ext, rule });
+  assert.ok(Math.abs(go(C.POLICY.balance).A.get(ours).dep[0] - 440) < 1e-6, 'バランス：4分待つ');
+  const g2 = go(C.POLICY.ontime); assert.ok(g2.A.get(ours).dep[0] < 436.01 && g2.decisions.some(c => c.k === 'connCut' && c.why.includes('2分')), '定時重視：2分をこえるので打ち切り');
+  assert.strictEqual(go().A.get(ours).dep[0], go(C.POLICY.balance).A.get(ours).dep[0], '方針なし＝バランス（前と同じ）');
+  /* 売上重視：特急は待たせない */
+  const exp4 = mk('E', 5101, ['C', 'U'], [[436, 436], [441, 441]], true), ext4 = [Object.assign({}, ext[0], { a: exp4 })];
+  assert.ok(C.disrupt([exp4], ext4, { ST, TYPES: T4, onSiding: () => false, nomDwell: () => 0.5, day: 2, ext: ext4, rule: C.POLICY.sales }).A.get(exp4).dep[0] < 436.01, '売上重視：特急は1.5分まで');
+  /* 要望：工場の一般公開日に、新田を通過する快速を止める。定時重視はことわる */
+  const rap = mk('R', 3001, ['K', 'N', 'P'], [[600, 600], [603, 603], [607, 607]], true); rap.stop = [true, false, true];
+  const loc = mk('L', 1201, ['K', 'N', 'P'], [[610, 610], [614, 614.5], [619, 619]], true);
+  const renv = pol => ({ ST, TYPES: T4, X, events: ['kojo'], holiday: false, policy: pol });
+  const qb = C.requests([rap, loc], renv('balance')).find(q => q.id === 'kojo-stop'), qo = C.requests([rap, loc], renv('ontime')).find(q => q.id === 'kojo-stop');
+  assert.ok(qb.ok && qb.n === 1 && qb.hits[0].tr === rap && !qo.ok, '快速だけ・定時重視はことわる');
+  assert.ok(!C.requests([rap, loc], Object.assign(renv('balance'), { events: [] })).some(q => q.id === 'kojo-stop'), '行事のない日は要望なし');
+  const R5 = C.disrupt([rap, loc], [], { ST, TYPES: T4, onSiding: () => false, nomDwell: (tr, i) => tr.stop[i] ? 0.5 : 0, day: 2, requests: [qb] });
+  const a5 = R5.A.get(rap); assert.ok(Math.abs(a5.dep[1] - a5.arr[1] - 1) < 1e-6 && a5.why[1].some(w => w.code === 'request'), '新田に1分止まる・理由は自社の要望');
+  const c5 = R5.decisions.find(c => c.req); ['what', 'dec', 'why', 'res', 'radio'].forEach(k => assert.ok(c5[k], k)); assert.ok(c5.dec.startsWith('受ける'));
+  assert.ok(C.disrupt([rap, loc], [], { ST, TYPES: T4, onSiding: () => false, nomDwell: () => 0, day: 2, requests: [qo] }).decisions.find(c => c.req).dec === 'ことわる');
+  /* フェリーの最終便：乗りつげるいちばんおそい下り */
+  const d1 = mk('L', 1301, ['N', 'P'], [[1270, 1270], [1276, 1276]], true), d2 = mk('L', 1303, ['N', 'P'], [[1281, 1281], [1287, 1287]], true);
+  const bt = C.boats([d1, d2], { X }); assert.ok(bt.length === 1 && bt[0].tr === d1 && bt[0].t === 1290, '21:30の最終便には 21:16着の列車（歩いて7分）');
+  const st4 = C.policyStats([ours], go(C.POLICY.balance)); assert.ok(st4.n === 1 && st4.held === 1 && st4.cut === 0 && st4.ontime === 0);
+  console.log('ctc-core 段4 ok');
+}

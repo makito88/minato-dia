@@ -245,11 +245,18 @@
         }
       }
     }
+    /* 自社の要望（段4）：受けた要望の分だけ、止まる時間をのばす */
+    for (const q of env.requests || []) if (q.ok) for (const h of q.hits) put(h.tr, h.i, { dwell: h.min, code: 'request', txt: h.txt });
     if (env.pre) env.pre.forEach((o, tr) => put(tr, 0, { dwell: o.min, code: 'other', txt: o.txt }));
     return dist;
   }
 
   function disrupt(trips, hl, env) {
+    /* 段4：方針（POLICY）で決まりの数字を変える。env.rule がなければ今までと同じ */
+    const RL = Object.assign({}, RULE, env.rule || {}); env = Object.assign({}, env, { RL });
+    const paid = t => t && (t.type === 'E' || t.type === 'X');
+    /* 接続を待つ上限（分）。売上重視：料金のいる列車（特急・観光特急）は待たせず、特急からの乗りかえは長く待つ */
+    const cmax = (tr, srcPaid) => RL.paid ? (paid(tr) ? RL.paidHold : srcPaid ? RL.paidWait : RL.connMax) : RL.connMax;
     const dist = disturb(trips, env), name = t => env.TYPES[t.type].name + ' ' + t.num;
     const A = new Map();
     trips.forEach(tr => A.set(tr, { arr: tr.arr.slice(), dep: tr.dep.slice(), why: tr.seq.map(() => []) }));
@@ -261,13 +268,13 @@
     const brSec = {};
     trips.filter(t => t.seq.includes('O')).forEach(tr => tr.seq.forEach((s, i) => { if (i === tr.seq.length - 1) return; const b = tr.seq[i + 1]; if (!(onBranch(s) || onBranch(b))) return; const key = [s, b].sort().join(''); (brSec[key] || (brSec[key] = [])).push({ tr, i }); }));
     let swaps = new Set(), decisions = [];
-    for (let it = 0; it < RULE.iter; it++) {
+    for (let it = 0; it < RL.iter; it++) {
       const nextSwaps = new Set();
       /* 待避の順番の入れかえ：追いこす予定の列車が大きく遅れていたら、待っている列車を先に出す */
       for (const h of passes) {
         const L = h.a, X = h.b, i = L.seq.indexOf(h.st), j = X.seq.indexOf(h.st);
         const xa = A.get(X).arr[j], lReady = A.get(L).arr[i] + env.nomDwell(L, i);
-        if ((h.k === 'taihi' || h.k === 'passExtra') && !L.freight && xa - Math.max(lReady, L.dep[i]) > RULE.swapMin) nextSwaps.add(h);   /* 貨物は遅いので先に出さない */
+        if ((h.k === 'taihi' || h.k === 'passExtra') && !L.freight && xa - Math.max(lReady, L.dep[i]) > RL.swapMin) nextSwaps.add(h);   /* 貨物は遅いので先に出さない */
       }
       swaps = nextSwaps;
       const swapEarly = new Set([...swaps].map(h => h.a.num + '@' + h.a.seq.indexOf(h.st)));
@@ -286,7 +293,7 @@
           if (i > 0) {
             const plannedRun = tr.arr[i] - tr.dep[i - 1], late = a.dep[i - 1] - tr.dep[i - 1];
             let run = plannedRun + ((d[i] && d[i].run) || 0);
-            const rec = late > 0.3 ? Math.min(late, plannedRun * RULE.recover) : 0;
+            const rec = late > 0.3 ? Math.min(late, plannedRun * RL.recover) : 0;
             run -= rec;
             let arr = Math.max(tr.arr[i], a.dep[i - 1] + run);
             if (d[i] && d[i].run) a.why[i].push(...d[i].txt.map(o => ({ code: o.code, min: d[i].run, txt: o.txt, big: o.big })));
@@ -301,12 +308,12 @@
           /* 折り返し：同じ編成の前の列車が遅れて着いたら */
           if (i === 0 && tr.set) {
             const k = tr.set.trips.indexOf(tr), pv = k > 0 ? tr.set.trips[k - 1] : null;
-            if (pv) { const pa = A.get(pv), ready = pa.arr[pa.arr.length - 1] + RULE.turn; if (ready > dep + 0.01) { dep = ready; cause = { code: 'late', by: pv, txt: `${env.ST[s].name}で、折り返す前の${name(pv)}が遅れて着いたため` }; } }
+            if (pv) { const pa = A.get(pv), ready = pa.arr[pa.arr.length - 1] + RL.turn; if (ready > dep + 0.01) { dep = ready; cause = { code: 'late', by: pv, txt: `${env.ST[s].name}で、折り返す前の${name(pv)}が遅れて着いたため` }; } }
           }
           if (d[i] && d[i].dwell) a.why[i].push(...d[i].txt.map(o => ({ code: o.code, min: o.dwell != null ? o.dwell : extra, txt: o.txt, big: o.big })));
           /* 前の列車との間かく（同じ向き・同じ駅から） */
           const pred = ord[tr.num + '@' + i];
-          if (pred) { const pd = A.get(pred.tr).dep[pred.i] + (onBranch(s) ? RULE.hws : RULE.hw); if (pd > dep + 0.01) { dep = pd; cause = { code: 'late', by: pred.tr, txt: `${env.ST[s].name}で、前を走る${name(pred.tr)}が遅れているため発車を待つ` }; } }
+          if (pred) { const pd = A.get(pred.tr).dep[pred.i] + (onBranch(s) ? RL.hws : RL.hw); if (pd > dep + 0.01) { dep = pd; cause = { code: 'late', by: pred.tr, txt: `${env.ST[s].name}で、前を走る${name(pred.tr)}が遅れているため発車を待つ` }; } }
           /* 単線：反対から来る列車が先に区間を出るまで */
           const b = tr.seq[i + 1];
           if (onBranch(s) || onBranch(b)) {
@@ -314,24 +321,24 @@
             for (const o of list) {
               if (o.tr.down === tr.down) continue;
               const oa = A.get(o.tr), oEnter = o.tr.dep[o.i], tEnter = tr.dep[i];
-              if (oEnter < tEnter - 0.01) { const free = oa.arr[o.i + 1] + RULE.hws; if (free > dep + 0.01) { dep = free; cause = { code: 'late', by: o.tr, txt: `${env.ST[s].name}で、単線の反対から来る${name(o.tr)}の遅れを待つ（行き違いの順番はそのまま）` }; } }
+              if (oEnter < tEnter - 0.01) { const free = oa.arr[o.i + 1] + RL.hws; if (free > dep + 0.01) { dep = free; cause = { code: 'late', by: o.tr, txt: `${env.ST[s].name}で、単線の反対から来る${name(o.tr)}の遅れを待つ（行き違いの順番はそのまま）` }; } }
             }
           }
           /* 接続：相手が遅れても上限まで待つ */
           for (const h of conns) {
             if (h.a !== tr || h.st !== s) continue;
-            const o = h.b, j = o.seq.indexOf(s), oa = A.get(o).arr[j], need = oa + 0.5;
+            const o = h.b, j = o.seq.indexOf(s), oa = A.get(o).arr[j], need = oa + 0.5, mx = cmax(tr, paid(o));
             if (need <= dep + 0.01) continue;
-            if (need - tr.dep[i] <= RULE.connMax) { dep = need; cause = { code: 'conn', by: o, txt: `${env.ST[s].name}で、遅れている${name(o)}からの乗りかえを待つ（上限${RULE.connMax}分以内）` }; decisions.push({ t: tr.dep[i], k: 'conn', st: s, a: tr, b: o, hold: need - tr.dep[i] }); }
-            else { decisions.push({ t: tr.dep[i], k: 'connCut', st: s, a: tr, b: o, late: oa - o.arr[j] }); a.why[i].push({ code: 'connCut', min: 0, by: o, txt: `${env.ST[s].name}：${name(o)}の遅れが上限${RULE.connMax}分をこえたので、接続を打ち切って発車` }); }
+            if (need - tr.dep[i] <= mx) { dep = need; cause = { code: 'conn', by: o, txt: `${env.ST[s].name}で、遅れている${name(o)}からの乗りかえを待つ（上限${mx}分以内）` }; decisions.push({ t: tr.dep[i], k: 'conn', st: s, a: tr, b: o, hold: need - tr.dep[i], max: mx }); }
+            else { decisions.push({ t: tr.dep[i], k: 'connCut', st: s, a: tr, b: o, late: oa - o.arr[j], max: mx }); a.why[i].push({ code: 'connCut', min: 0, by: o, txt: `${env.ST[s].name}：${name(o)}の遅れが上限${mx}分をこえたので、接続を打ち切って発車` }); }
           }
           /* 外との接続（他社線・バス・フェリー・臨時列車）：相手が遅れても上限まで待つ */
           for (const h of ext) {
             if (h.a !== tr || h.st !== s) continue;
-            const oa = h.from ? A.get(h.from).arr[h.from.seq.indexOf(s)] : h.arr + h.late, need = oa + h.xfer;
+            const oa = h.from ? A.get(h.from).arr[h.from.seq.indexOf(s)] : h.arr + h.late, need = oa + h.xfer, mx = cmax(tr, /特急/.test(h.label));
             if (need <= dep + 0.01) continue;
-            if (need - tr.dep[i] <= RULE.connMax) { dep = need; cause = { code: h.k, txt: `${env.ST[s].name}で、${h.from ? '遅れている' : fmtMin(oa - h.arr) + '遅れている'}${h.label}からの乗りかえを待つ（上限${RULE.connMax}分以内）` }; decisions.push({ t: tr.dep[i], k: h.k, st: s, a: tr, ext: h, hold: need - tr.dep[i], late: oa - h.arr }); }
-            else { decisions.push({ t: tr.dep[i], k: 'connCut', st: s, a: tr, ext: h, late: oa - h.arr }); a.why[i].push({ code: 'connCut', min: 0, txt: `${env.ST[s].name}：${h.label}の遅れ（${fmtMin(oa - h.arr)}）が上限${RULE.connMax}分をこえたので、接続を打ち切って発車` }); }
+            if (need - tr.dep[i] <= mx) { dep = need; cause = { code: h.k, txt: `${env.ST[s].name}で、${h.from ? '遅れている' : fmtMin(oa - h.arr) + '遅れている'}${h.label}からの乗りかえを待つ（上限${mx}分以内）` }; decisions.push({ t: tr.dep[i], k: h.k, st: s, a: tr, ext: h, hold: need - tr.dep[i], late: oa - h.arr, max: mx }); }
+            else { decisions.push({ t: tr.dep[i], k: 'connCut', st: s, a: tr, ext: h, late: oa - h.arr, max: mx }); a.why[i].push({ code: 'connCut', min: 0, txt: `${env.ST[s].name}：${h.label}の遅れ（${fmtMin(oa - h.arr)}）が上限${mx}分をこえたので、接続を打ち切って発車` }); }
           }
           if (cause) { cause.min = dep - Math.max(minDep, (i === 0 ? tr.dep[0] : a.arr[i] + nom) + extra); if (cause.min > 0.05) a.why[i].push(cause); }
           a.dep[i] = dep;
@@ -340,26 +347,33 @@
     }
     for (const h of swaps) decisions.push({ t: h.a.dep[h.a.seq.indexOf(h.st)], k: 'swap', st: h.st, a: h.a, b: h.b });
     dist.forEach((m, tr) => { for (const i in m) for (const o of m[i].txt) if (o.big || o.code === 'incident') decisions.push({ t: tr.arr[+i] || tr.dep[0], k: 'incident', st: tr.seq[+i], a: tr, txt: o.txt, min: (m[i].dwell || m[i].run) }); });
+    /* 自社の要望（段4）：受けた・ことわったをカードに */
+    for (const q of env.requests || []) decisions.push({ t: q.t, k: 'request', st: q.st, a: q.first || null, req: q });
+    /* フェリーの最終便（段3の残り）：列車が遅れたら、出港を少し待ってもらう */
+    for (const f of env.boats || []) { const at = A.get(f.tr).arr[f.i], late = at - f.tr.arr[f.i], need = at + f.xfer - f.t; if (late >= 0.5 && need > 0) decisions.push({ t: f.t, k: 'connFerry', st: f.st, a: f.tr, boat: f, late, need }); }
     decisions.sort((x, y) => x.t - y.t);
     decisions.forEach(c => card(c, A, trips, env));
-    return { A, decisions, swaps, rule: RULE };
+    return { A, decisions, swaps, rule: RL };
   }
   /* 判断のカード：起きたこと → 判断 → 理由 → 結果（もしも） */
+  const RULE0 = RULE;
   function card(c, A, trips, env) {
-    const name = t => env.TYPES[t.type].name + ' ' + t.num, sn = env.ST[c.st].name, ml = (t, i) => A.get(t).dep[i] - t.dep[i];
+    const RULE = env.RL || RULE0, name = t => env.TYPES[t.type].name + ' ' + t.num, sn = env.ST[c.st].name, ml = (t, i) => A.get(t).dep[i] - t.dep[i];
     const nextSame = (tr, i) => { let best = null; for (const o of trips) { if (o === tr || o.down !== tr.down) continue; const j = o.seq.indexOf(tr.seq[i]); if (j < 0 || j === o.seq.length - 1 || !o.stop[j]) continue; if (o.seq[o.seq.length - 1] !== tr.seq[tr.seq.length - 1]) continue; if (o.dep[j] > tr.dep[i] && (!best || o.dep[j] < best.t)) best = { o, t: o.dep[j] }; } return best; };
+    if (c.req) { const q = c.req; c.what = `${q.from}から要望：${q.ask}`; c.dec = q.ok ? `受ける（${q.act}）` : 'ことわる'; c.why = q.why; c.res = q.ok ? (q.n ? `${q.n}本の列車が合わせて約${fmtMin(q.min)}長く止まる` : 'きょうは当てはまる列車なし') : 'ダイヤはそのまま'; c.radio = q.ok ? `指令から${sn}駅、${q.act}。${q.from}からの要望です。` : `指令から${q.from}、きょうは${q.why}のため、お受けできません。`; return c; }
+    if (c.boat) { const f = c.boat, ok = c.need <= f.max; c.what = `${f.label}に乗りつぐ${name(c.a)}が${fmtMin(c.late)}遅れ（${sn}）`; c.dec = ok ? `${f.label}に、出港を${fmtMin(c.need)}待ってもらう` : `${f.label}は定時に出港（待てない）`; c.why = ok ? `島へ帰る最後の便。待つのは${f.max}分まで` : `待つ上限${f.max}分をこえる（船のダイヤの都合）`; c.res = ok ? '乗りかえの人は島へ帰れる' : '乗りかえの人は、あしたの始発便へ。港駅で宿の案内'; c.radio = ok ? `指令から${sn}駅、${f.label}に連絡。${c.a.num}列車の到着を待って出港します。` : `指令から${sn}駅、${f.label}は待てません。お客さまのご案内をお願いします。`; return c; }
     if (c.k === 'incident') { c.what = c.txt; c.dec = '安全を確かめてから運転を続ける'; c.why = '安全が先'; c.res = `${name(c.a)}が約${fmtMin(c.min)}遅れ、後ろの列車にもうつる`; c.radio = `${c.a.num}列車から指令、${c.txt}。確認して報告します。`; }
     if (c.k === 'conn') { const i = c.a.seq.indexOf(c.st), nx = nextSame(c.a, i);
-      c.what = `${name(c.b)}が遅れて${sn}に着く`; c.dec = `${name(c.a)}は接続を待つ（+${fmtMin(c.hold)}）`; c.why = `遅れが上限${RULE.connMax}分以内`;
+      c.what = `${name(c.b)}が遅れて${sn}に着く`; c.dec = `${name(c.a)}は接続を待つ（+${fmtMin(c.hold)}）`; c.why = `遅れが上限${c.max != null ? c.max : RULE.connMax}分以内`;
       c.res = `${name(c.a)}が${fmtMin(c.hold)}遅れて発車。待たなかったら、乗りかえの人は次の列車まで${nx ? Math.round(nx.t - c.a.dep[i]) + '分' : '長く'}待つ`; c.radio = `指令から${c.a.num}列車、${sn}で${c.b.num}列車の到着を待って発車してください。`; }
     if (c.ext) { const i = c.a.seq.indexOf(c.st), nx = nextSame(c.a, i), lb = c.ext.label;
-      if (c.k === 'connCut') { c.what = `${lb}が${fmtMin(c.late)}遅れ`; c.dec = `${name(c.a)}は接続を打ち切って定時に発車`; c.why = `待つ上限${RULE.connMax}分をこえる（待つと後ろのダイヤ全体が遅れる）`;
+      if (c.k === 'connCut') { c.what = `${lb}が${fmtMin(c.late)}遅れ`; c.dec = `${name(c.a)}は接続を打ち切って定時に発車`; c.why = `待つ上限${c.max != null ? c.max : RULE.connMax}分をこえる（待つと後ろのダイヤ全体が遅れる）`;
         c.res = `乗りかえの人は次の${nx ? name(nx.o) + '（' + Math.round(nx.t - c.a.dep[i]) + '分後）' : '列車'}へ案内`; c.radio = `指令から${sn}駅、${lb}からの乗りかえのお客さまを、次の列車へご案内ください。`; }
-      else { c.what = `${lb}が${c.late >= 0.1 ? fmtMin(c.late) + '遅れて' : '遅れて'}${sn}に着く`; c.dec = `${name(c.a)}は接続を待つ（+${fmtMin(c.hold)}）`; c.why = `遅れが上限${RULE.connMax}分以内。${c.k === 'connFerry' ? '島へ帰る人・島から来る人は、次の列車まで長く待つことになる' : c.k === 'connBus' ? 'バスの人は駅まで走ってくる' : '乗りかえの人が多い'}`;
+      else { c.what = `${lb}が${c.late >= 0.1 ? fmtMin(c.late) + '遅れて' : '遅れて'}${sn}に着く`; c.dec = `${name(c.a)}は接続を待つ（+${fmtMin(c.hold)}）`; c.why = `遅れが上限${c.max != null ? c.max : RULE.connMax}分以内。${c.k === 'connFerry' ? '島へ帰る人・島から来る人は、次の列車まで長く待つことになる' : c.k === 'connBus' ? 'バスの人は駅まで走ってくる' : '乗りかえの人が多い'}`;
         c.res = `${name(c.a)}が${fmtMin(c.hold)}遅れて発車。待たなかったら、乗りかえの人は次の列車まで${nx ? Math.round(nx.t - c.a.dep[i]) + '分' : '長く'}待つ`; c.radio = `指令から${c.a.num}列車、${sn}で${lb}からの乗りかえを待って発車してください。`; }
       return c; }
     if (c.k === 'connCut') { const i = c.a.seq.indexOf(c.st), nx = nextSame(c.a, i);
-      c.what = `${name(c.b)}が${fmtMin(c.late)}遅れ`; c.dec = `${name(c.a)}は接続を打ち切って定時に発車`; c.why = `待つ上限${RULE.connMax}分をこえる（待つと後ろのダイヤ全体が遅れる）`;
+      c.what = `${name(c.b)}が${fmtMin(c.late)}遅れ`; c.dec = `${name(c.a)}は接続を打ち切って定時に発車`; c.why = `待つ上限${c.max != null ? c.max : RULE.connMax}分をこえる（待つと後ろのダイヤ全体が遅れる）`;
       c.res = `乗りかえの人は次の${nx ? name(nx.o) + '（' + Math.round(nx.t - c.a.dep[i]) + '分後）' : '列車'}へ案内`; c.radio = `指令から${sn}駅、${c.b.num}列車からの乗りかえのお客さまを、次の列車へご案内ください。`; }
     if (c.k === 'swap') { const i = c.a.seq.indexOf(c.st), j = c.b.seq.indexOf(c.st), xl = A.get(c.b).arr[j] - c.b.arr[j];
       c.what = `${sn}で通過待ちの予定の${name(c.b)}が${fmtMin(xl)}遅れ`; c.dec = `${name(c.a)}を先に出す（順番の入れかえ）`; c.why = `待つと${name(c.a)}まで${fmtMin(xl)}近く遅れる`;
@@ -578,13 +592,61 @@
     return out;
   }
 
+  /* ===== 段4：方針と、自社（グループ会社）の要望（数字は仮） =====
+     方針は、指令員の決まりの数字を変えるだけ（接続を待つ上限・入れかえを決める遅れ・回復運転の強さ）。プレイヤーが決めるのは方針だけ。 */
+  const POLICY = {
+    balance: { name: 'バランス', say: '接続は5分まで待つ。ふつうの指令', connMax: 5, swapMin: 2, recover: 0.03 },
+    ontime: { name: '定時重視', say: '遅れを広げない。接続は2分まで・入れかえは早めに・回復運転を強める・要望はことわる', connMax: 2, swapMin: 1.5, recover: 0.05 },
+    conn: { name: '接続重視', say: '乗りかえの人を置いていかない。接続は8分まで待つ', connMax: 8, swapMin: 3, recover: 0.03 },
+    sales: { name: '売上重視', say: '料金のいる特急・観光特急は待たせず（1.5分まで）、特急からの乗りかえは8分まで待つ。グループ会社の要望を受ける', connMax: 5, swapMin: 2, recover: 0.03, paid: true, paidHold: 1.5, paidWait: 8 },
+  };
+  REASON.request = { name: '自社の要望', col: '#f29fb5' }; SHORT.request = '要望';
+  /* その日の要望。env：{ST, TYPES, X, events:[id], holiday, policy}。返すもの [{id, from, ask, act, st, t, ok, why, n, min, hits:[{tr,i,min,txt}], first}] */
+  function requests(trips, env) {
+    const out = [], pol = env.policy || 'balance';
+    for (const r of (env.X.requests || [])) {
+      const w = r.when || {};
+      if (w.events && !w.events.some(id => (env.events || []).includes(id))) continue;
+      if (w.weekday && env.holiday) continue;
+      const e = r.effect, hits = [];
+      for (const tr of trips) {
+        if (tr.synth || (e.types && !e.types.includes(tr.type)) || (e.dir && (e.dir === 'down') !== tr.down)) continue;
+        const i = tr.seq.indexOf(e.st); if (i < 0 || i === tr.seq.length - 1) continue;
+        const t = i === 0 ? tr.dep[0] : tr.arr[i]; if (t < e.from || t > e.to) continue;
+        if (e.kind === 'stop' ? tr.stop[i] : !tr.stop[i]) continue;   /* stop＝通過する列車を臨時に止める／dwell＝止まる列車の停車をのばす */
+        hits.push({ tr, i, min: e.min, txt: `${env.ST[e.st].name}で${r.from}の要望（${r.act}）` });
+      }
+      if (e.first) hits.splice(1);
+      const ok = (r.accept || []).includes(pol);
+      out.push({ id: r.id, from: r.from, ask: r.ask, act: r.act, st: e.st, t: Math.max(280, e.from - 20), ok, why: `方針「${POLICY[pol].name}」：${ok ? r.whyOk : r.whyNo}`, n: hits.length, min: hits.reduce((a, h) => a + h.min, 0), hits, first: hits[0] ? hits[0].tr : null });
+    }
+    return out;
+  }
+  /* フェリーの最終便：その便に乗りつげる、いちばんおそい下りの列車 */
+  function boats(trips, env) {
+    const F = env.X.ferry, out = [];
+    for (const d of F.dep || []) {
+      let best = null;
+      for (const tr of trips) { if (tr.synth || !tr.down) continue; const i = tr.seq.length - 1; if (tr.seq[i] !== F.st) continue; const at = tr.arr[i]; if (at + F.xfer <= d.t && (!best || at > best.tr.arr[best.i])) best = { tr, i }; }
+      if (best) out.push({ t: d.t, tr: best.tr, i: best.i, st: F.st, xfer: F.xfer, max: d.max, label: F.name + ' ' + d.name });
+    }
+    return out;
+  }
+  /* 方針をくらべる数字：定時の割合（着・遅れ1分未満）、遅れの合計、接続を待った・打ち切った回数、受けた要望 */
+  function policyStats(trips, D2) {
+    let n = 0, on = 0, late = 0;
+    for (const t of trips) { if (t.synth) continue; const a = D2.A.get(t); if (!a) continue; const l = a.arr[a.arr.length - 1] - t.arr[t.arr.length - 1]; n++; if (l < 1) on++; late += Math.max(0, l); }
+    const cnt = k => D2.decisions.filter(k).length;
+    return { n, ontime: n ? on / n : 1, late, held: cnt(c => !c.req && !c.boat && c.hold != null), cut: cnt(c => c.k === 'connCut'), swap: cnt(c => c.k === 'swap'), req: cnt(c => c.req && c.req.ok), reqNo: cnt(c => c.req && !c.req.ok) };
+  }
+
   /* 実際の発着をもった列車（元の列車をうけつぐ。パネルの位置・札に使う） */
   function actual(tr, D2) { const a = D2.A.get(tr); if (!a) return tr; const p = Object.create(tr); p.arr = a.arr; p.dep = a.dep; p.base = tr; p.why = a.why; return p; }
 
   /* 編成がいま車庫にいるか */
   const inDepot = (s, T) => T < s.first - 8 || T > s.last + 9;
 
-  const api = { SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
+  const api = { POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CtcCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
