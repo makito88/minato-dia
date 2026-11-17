@@ -10,7 +10,7 @@
   /* 川辺の分かれ道（川辺から支線の道のり km）：駅の東で本線から分かれ、少し上がって平らな所で上下がまとまり、上の段へのぼる
      下り：下りの本線から JUNC0 で分かれる／上り：上りの本線から UP0 で、下りの本線を平面交差して UP1 で合流 */
   const JUNC0 = 0.4, LV0 = 0.5, LV1 = 0.9, JUNC1 = 1.3, UP0 = 0.5, UP1 = 0.75, LVY = -50;
-  const OS = 0.22;
+  const OS = 0.36;   /* 温泉：駅の手前で2線に分かれる長さ（ホーム 0.22km の外で分かれる） */
   const LANES = { C: [-Y.side, -Y.lane, Y.lane, Y.side, Y.side + 18], P: [-Y.side, -Y.lane, Y.lane, Y.side] };
   const SIGBOX = 2.0;   /* 森下〜峠の交換信号所（森下から km・計画） */   /* 温泉の手前で2線に分かれる長さ */
   const STA = 0.35;                  /* 駅のポイントの範囲（駅の中心から km） */
@@ -44,20 +44,43 @@
 
   /* 駅 i で、その列車が使う番線のずれ（y）。本線は Y.main から、支線は Y.br から */
   function laneOff(tr, i, env) {
+    if (tr.lanes && tr.lanes[i] != null) return tr.lanes[i];   /* 配線の層（yard）が決めた番線 */
     const fx = env.laneFix && env.laneFix.get(tr);
     if (fx && fx.i === i) return fx.o;   /* 頭端の駅で、ほかの列車と同じ番線にならないように画面で決めた番線 */
+    if (env.hs && env.hs.stations && env.hs.stations[tr.seq[i]]) return prefLanes(tr, i, env)[0];
+    return laneOld(tr, i, env);
+  }
+  function laneOld(tr, i, env) {
     const s = tr.seq[i], p = tr.set ? tr.set.plat : 0, toBr = tr.seq.includes('O');
     if (s === 'C') return LANES.C[tr.synth ? 0 : p % 5];   /* 中央5線・港4線（docs/track-dia-study.md のユーザーの決め） */
     if (s === 'P') return LANES.P[p % 4];
     if (s === 'O') return [-Y.lane, Y.lane][tr.num % 2];
     if (s === 'F' || s === 'T') return tr.down ? -Y.brLoop : Y.brLoop;
-    if (s === 'K' && toBr) return tr.down ? -Y.side : Y.lane;   /* 川辺：温泉へは1番線、温泉からは3番線（指令盤の試作と同じ） */
+    if (s === 'K' && toBr) return tr.down ? -Y.side : (env.onSiding && env.onSiding(tr, i) ? Y.side : Y.lane);   /* 川辺：温泉へは1番線、温泉からは3番線（通過待ちのときは4番線。指令盤の試作と同じ） */
     const base = tr.down ? -Y.lane : Y.lane;
     return (env.ST[s].taihi && env.onSiding(tr, i)) ? base * 3 : base;
+  }
+  /* ---- 駅の形（data/ctc-haisen.json・2026-11-17） ---- */
+  const LCODE = { '-s': -Y.side, '-l': -Y.lane, l: Y.lane, s: Y.side, s5: Y.side + 18, '-b': -Y.brLoop, b: Y.brLoop, b3: Y.brLoop * 2.6 };
+  const lc = c => LCODE[c];
+  /* その列車が駅 i で使える番線（はじめのものから）。今までの決め方（待避は外側など）を先に */
+  function prefLanes(tr, i, env) {
+    const s = tr.seq[i], st = env.hs.stations[s], old = laneOld(tr, i, env), A = st.alt || {};
+    let list;
+    if (A.any) list = (tr.synth && A.syn ? A.syn : A.any);
+    else {
+      const d = tr.down ? 'down' : 'up', pass = !tr.stop[i] && i > 0 && i < tr.seq.length - 1, toBr = tr.seq.includes('O') && s === 'K';
+      list = (toBr && tr.down && A.toBr) || (toBr && !tr.down && A.fromBr) || (pass && A[d + 'Pass']) || A[d] || st.lanes;
+    }
+    const L = list.map(lc);
+    if (st.rule === 'outerStop') return L;   /* 緑ヶ丘：止まる列車はいつもホームの線（外側）、通過は まん中の通過線 */
+    const k = L.indexOf(old); if (k > 0) { L.splice(k, 1); L.unshift(old); }
+    return L;
   }
   /* 駅 i の番線の番号（1から）。発車標に出す */
   function trackNo(tr, i, env) {
     const s = tr.seq[i];
+    if (env.hs && env.hs.stations && env.hs.stations[s]) { const st = env.hs.stations[s], k = st.lanes.map(lc).indexOf(laneOff(tr, i, env)); if (k >= 0) return st.num[k] || '通過線'; }
     if (s === 'W' || s === 'Q') return tr.down ? 1 : 2;
     const o = laneOff(tr, i, env);
     if (s === 'C' || s === 'P') return LANES[s].indexOf(o) + 1;
@@ -90,15 +113,25 @@
     }
     return { x: L.xm(km), y, dir: tr.down ? 1 : -1, moving: true, i, f: raw };
   }
+  /* 止まる位置のずれ（km・列車の先頭）。env.hs があるときだけ。中ほどの駅はホームの真ん中に、頭端の駅は車止め側に、千鳥の駅はずらす */
+  function frontOff(tr, i, env) {
+    const st = env.hs && env.hs.stations && env.hs.stations[tr.seq[i]]; if (!st) return 0;
+    const n = tr.seq.length, len = (tr.cars || 6) * 0.02, s = tr.seq[i];
+    if (st.stop === 'head') { const west = s === 'C'; if (west) return tr.down && (i === 0 || tr.seq[i - 1] === 'W') ? len : 0;   /* 中央：下りは東のはしまで出て止まる（連絡線から来る臨時・貨物も） */ return !tr.down && i === 0 ? -len : 0; }
+    const stops = i === 0 || i === n - 1 || tr.stop[i];
+    if (!stops) return 0;
+    if (st.stop === 'stagger') return tr.down ? -0.025 : 0.025;   /* 千鳥：まん中の踏切をふさがない位置に止まる */
+    return tr.down ? len / 2 : -len / 2;
+  }
   function trainPos(tr, T, L, env) {
     const n = tr.seq.length;
     let i = 0; while (i < n - 1 && tr.arr[i + 1] <= T) i++;
     if (tr.synth) { const a = tr.seq[i], b = tr.seq[Math.min(n - 1, i + 1)], stopped = T < tr.dep[i] || i === n - 1; if (a === 'W' || a === 'Q' || (!stopped && (b === 'W' || b === 'Q'))) return extPos(tr, i, T, L, env); }
     const st = k => tr.seq[k];
     const atSt = k => {
-      const s = st(k), o = laneOff(tr, k, env);
-      if (onBranch(s)) return { x: L.xb(env.ST[s].bkm), y: Y.br + o };
-      return { x: L.xm(env.ST[s].km), y: Y.main + o };
+      const s = st(k), o = laneOff(tr, k, env), fo = frontOff(tr, k, env);
+      if (onBranch(s)) return { x: L.xb(env.ST[s].bkm + fo), y: Y.br + o };
+      return { x: L.xm(env.ST[s].km + fo), y: Y.main + o };
     };
     if (T < tr.dep[i] || i === n - 1) { const p = atSt(i); return { x: p.x, y: p.y, dir: tr.down ? 1 : -1, moving: false, i }; }
     const a = st(i), b = st(i + 1), br = onBranch(a) || onBranch(b);
@@ -107,8 +140,10 @@
       const h = tr.hold, a0 = tr.dep[i] + h.f * h.run, a1 = a0 + h.dur;
       raw = T < a0 ? h.f * (T - tr.dep[i]) / Math.max(0.01, a0 - tr.dep[i]) : T < a1 ? h.f : h.f + (1 - h.f) * Math.min(1, (T - a1) / Math.max(0.01, tr.arr[i + 1] - a1));
     }
-    const f = raw * 0.35 + 0.65 * smooth(raw);
-    const ka = kmOf(a, env, br), kb = kmOf(b, env, br), km = ka + (kb - ka) * f;
+    /* 止まる駅でだけ、ゆっくり出て・ゆっくり止まる（通過する駅では速いまま。追いこしの前後で列車が重ならないように） */
+    const sa = i === 0 || tr.stop[i], sb = i + 1 === n - 1 || tr.stop[i + 1];
+    const f = sa && sb ? raw * 0.35 + 0.65 * smooth(raw) : sa ? raw * 0.35 + 0.65 * raw * raw : sb ? raw * 0.35 + 0.65 * (1 - (1 - raw) * (1 - raw)) : raw;
+    const ka = kmOf(a, env, br) + frontOff(tr, i, env), kb = kmOf(b, env, br) + frontOff(tr, i + 1, env), km = ka + (kb - ka) * f;
     const oa = laneOff(tr, i, env), ob = laneOff(tr, i + 1, env);
     if (!br) {
       const run = tr.down ? -Y.lane : Y.lane;
@@ -725,13 +760,111 @@
     return { n, cancel: can, ontime: n ? on / n : 1, late, held: cnt(c => !c.req && !c.boat && c.hold != null), cut: cnt(c => c.k === 'connCut'), swap: cnt(c => c.k === 'swap'), req: cnt(c => c.req && c.req.ok), reqNo: cnt(c => c.req && !c.req.ok) };
   }
 
+
+  /* ---- 配線の層（2026-11-17）：同じ番線に2本が入らないように、番線を割りふり、入れないときは手前で待たせる ----
+     sets：[{trips:[…時刻の順]}]（車庫の編成と、臨時・貨物の編成）。env：{ ST, hs（data/ctc-haisen.json）, onSiding }
+     返すもの：Map（元の列車 → 見せる列車〈arr・dep・lanes を持つ〉）と、編成ごとの休み（頭端の駅で次の発車まで長いときは、ホームをあけて車庫・留置線へ）。
+     見せ方の層だけ（ゲームの計算・乱れの計算は変えない）。ずらすのは、ふさがっていた分だけ。 */
+  const BRSEG = new Set(['K|F', 'F|K', 'F|T', 'T|F', 'T|O', 'O|T']);
+  function yard(sets, env) {
+    const hs = env.hs, YD = hs.yards || {}, REST = YD.rest || 16, EPS = 0.3, EIN = 0.6, TURN = 2, HW = 1.0;   /* EIN：番線に入る前から、その番線をおさえる分・HW：同じ線路へ続けて出るときの間かく */
+    const occ = new Map(), segs = new Map(), single = new Map(), yuse = {}, out = new Map(), rests = new Map(), TH = new Map();
+    const key = (s, o) => s + '|' + o, inHs = s => !!(hs.stations && hs.stations[s]);
+    const busy = (k, t0, t1, me) => (occ.get(k) || []).find(r => r !== me && r[0] < t1 && t0 < r[1]);
+    const put = (k, t0, t1) => { if (!occ.has(k)) occ.set(k, []); const r = [t0, t1]; occ.get(k).push(r); return r; };
+    const nextFree = (k, t0, t1) => { let t = t0; const d = t1 - t0; for (let g = 0; g < 60; g++) { const c = busy(k, t, t + d); if (!c) return t; t = c[1] + 0.05; } return t; };
+    function pick(tr, i, t0, t1) {
+      const s = tr.seq[i], L = prefLanes(tr, i, env);
+      for (const o of L) if (!busy(key(s, o), t0, t1)) return { o, wait: 0 };
+      let best = null; for (const o of L) { const t = nextFree(key(s, o), t0, t1); if (!best || t < best.t) best = { o, t }; }
+      return { o: best.o, wait: best.t - t0 };
+    }
+    /* その番線のおさえを t1 までのばす。うしろに別の列車のおさえがあれば、その手前まで */
+    function extend(k, r, t1) { if (!r) return t1; let lim = Infinity; for (const x of occ.get(k) || []) if (x !== r && x[0] >= r[0] && x[0] < lim) lim = x[0]; r[1] = Math.max(r[1], Math.min(t1, lim - 0.02)); return r[1]; }
+    const yardFree = (at, t0, t1) => { const c = (YD[at] && YD[at].cap) || 0; return (yuse[at] || []).filter(r => r[0] < t1 && t0 < r[1]).length < c; };
+    /* 頭端の駅（中央・港）ののど：ほかの本線を横切る出発と到着は、同時に動かない */
+    const crossMove = (s, o, kind) => s === 'C' ? (kind === 'dep' ? o > 0 : o < 0) : s === 'P' ? (kind === 'arr' ? o > 0 : o < 0) : false;
+    const winOf = (t, kind) => kind === 'dep' ? [t - 0.05, t + 0.7] : [t - 0.8, t + 0.05];
+    function throat(s, t, o, kind) {
+      if ((s !== 'C' && s !== 'P') || o == null) return t; const cx = crossMove(s, o, kind);
+      for (let g = 0; g < 20; g++) { const [a, b] = winOf(t, kind), hit = (TH.get(s) || []).find(r => r.kind !== kind && (cx || r.cx) && r.a < b && a < r.b); if (!hit) return t; t = kind === 'dep' ? hit.b + 0.05 : hit.b + 0.85; }
+      return t;
+    }
+    const noteThroat = (s, t, o, kind) => { if ((s !== 'C' && s !== 'P') || o == null) return; const [a, b] = winOf(t, kind); if (!TH.has(s)) TH.set(s, []); TH.get(s).push({ a, b, kind, cx: crossMove(s, o, kind) }); };
+    const Q = [];   /* 出発のできごと（時刻の早いものから処理する） */
+    function begin(ss, c) {
+      const tr = ss.st.trips[ss.k]; if (!tr) return; const n = tr.seq.length, s = tr.seq[0];
+      ss.tr = tr; ss.A = tr.arr.slice(); ss.D = tr.dep.slice(); ss.L = new Array(n).fill(null); ss.R = new Array(n).fill(null); ss.i = 0;
+      if (c && c.lane != null && c.s === s) { ss.L[0] = c.lane; ss.R[0] = c.rec; ss.D[0] = Math.max(tr.dep[0], c.floor); }   /* 折り返し：着いた番線のまま */
+      else if (inHs(s)) {
+        const from = c && c.s === s ? c.from : tr.dep[0] - 2.5, floor = c && c.s === s ? c.floor : -1e9;
+        const p = pick(tr, 0, from, Math.max(tr.dep[0], from) + EPS); ss.L[0] = p.o; ss.D[0] = Math.max(tr.dep[0] + p.wait, floor);
+        ss.R[0] = put(key(s, p.o), from + p.wait, ss.D[0] + EPS); if (p.wait > 0 && c && c.rest) c.rest.t1 += p.wait;   /* ホームがあくまで、車庫・留置線で長く休む */
+      } else ss.D[0] = Math.max(tr.dep[0], c && c.floor != null ? c.floor : -1e9);
+      Q.push({ t: ss.D[0], ss });
+    }
+    function finish(ss, plan) {
+      const tr = ss.tr, n = tr.seq.length; ss.D[n - 1] = Math.max(ss.D[n - 1], ss.A[n - 1]);
+      const cp = Object.create(tr); cp.arr = ss.A; cp.dep = ss.D; cp.lanes = ss.L; cp.yardOf = tr; out.set(tr, cp);
+      ss.k++; begin(ss, plan);
+    }
+    sets.forEach(st => { if (st.trips.length) begin({ st, k: 0 }, null); });
+    for (let guard = 0; Q.length && guard < 200000; guard++) {
+      let m = 0; for (let q = 1; q < Q.length; q++) if (Q[q].t < Q[m].t) m = q;
+      const ss = Q.splice(m, 1)[0].ss, tr = ss.tr, n = tr.seq.length, i = ss.i, s = tr.seq[i], nx = tr.seq[i + 1];
+      const run = tr.arr[i + 1] - tr.dep[i], sk = s + '|' + nx, sd = sk + '|' + (tr.down ? 'd' : 'u'), last = i + 1 === n - 1;
+      const stopN = last || tr.stop[i + 1], nt = ss.st.trips[ss.k + 1], same = last && nt && nt.seq[0] === nx, at = nx === 'C' || nx === 'P' || nx === 'O' ? nx : null;
+      let d = ss.D[i], a = 0, p = null, plan = null, win = null;
+      for (let g = 0; g < 12; g++) {
+        const d0 = d;
+        for (const r of (segs.get(sd) || [])) if (r[0] <= d && d < r[0] + HW) d = r[0] + HW;   /* 前の列車が出てから HW 分は、同じ線路へ出ない */
+        if (i === 0) d = throat(s, d, ss.L[0], 'dep');                                     /* 頭端の駅の出口で、入ってくる列車と交差しない */
+        if (BRSEG.has(sk)) { const u = [s, nx].sort().join('|'); for (let h = 0; h < 20; h++) { const r = (single.get(u) || []).find(x => x[2] !== tr.down && x[0] < d + run && d < x[1]); if (!r) break; d = r[1] + 0.2; } }   /* 単線：反対の列車が使っているあいだは出ない */
+        a = d + run; for (const r of (segs.get(sd) || [])) if (r[0] <= d && a < r[1] + HW) a = r[1] + HW;   /* 前の列車を追いこさない */
+        if (inHs(nx)) {
+          if (last) {
+            a = throat(nx, a, prefLanes(tr, i + 1, env)[0], 'arr');
+            const nd = same ? Math.max(nt.dep[0], a + TURN) : a + 3, restOk = same && at && nd - a >= REST && yardFree(at, a + 3, nd - 5);
+            win = !same || restOk ? [a - EIN, a + 3] : [a - EIN, nd + EPS]; plan = { nd, rest: !!restOk };
+            p = pick(tr, i + 1, win[0], win[1]);
+            if (p.wait > 0 && same && !restOk && at && nd - a >= 9 && yardFree(at, a + 3, nd - 5)) { win = [a - EIN, a + 3]; plan.rest = true; p = pick(tr, i + 1, win[0], win[1]); }   /* ホームがあかないときは、短くても休ませる */
+          } else { const dn = Math.max(tr.dep[i + 1], a + (stopN ? 0.3 : 0)); win = [a - EIN, dn + EPS]; p = pick(tr, i + 1, win[0], win[1]); }
+          if (p.wait > 0) { d += p.wait; continue; }   /* 次の駅の番線があかないときは、いまの駅で待つ */
+        }
+        if (d === d0) break;
+      }
+      /* いまの駅の番線のおさえをのばす（うしろの列車のおさえの手前まで） */
+      if (ss.R[i]) { const lim = extend(key(s, ss.L[i]), ss.R[i], d + EPS) - EPS; if (lim < d) d = Math.max(ss.D[i], lim); }   /* うしろの列車のために、いまの番線はあける（次の駅へはゆっくり進み、着く時刻はそのまま） */
+      ss.D[i] = d; ss.A[i + 1] = a;
+      if (env.log) env.log({ num: tr.num, at: nx, d, a, lane: p && p.o, win, busyNow: p ? (occ.get(key(nx, p.o)) || []).map(r => r.slice()) : null });   /* 確かめ用 */
+      if (!segs.has(sd)) segs.set(sd, []); segs.get(sd).push([d, a]);
+      if (BRSEG.has(sk)) { const u = [s, nx].sort().join('|'); if (!single.has(u)) single.set(u, []); single.get(u).push([d, a, tr.down]); }
+      if (i === 0) noteThroat(s, d, ss.L[0], 'dep');
+      ss.i = i + 1;
+      if (!inHs(nx)) { ss.D[i + 1] = Math.max(tr.dep[i + 1], a + (stopN && !last ? 0.3 : 0)); if (last) { finish(ss, null); continue; } Q.push({ t: ss.D[i + 1], ss }); continue; }
+      const o = p.o; ss.L[i + 1] = o;
+      if (!last) { const dn = Math.max(tr.dep[i + 1], a + (stopN ? 0.3 : 0)); ss.D[i + 1] = dn; ss.R[i + 1] = put(key(nx, o), a - EIN, dn + EPS); Q.push({ t: dn, ss }); continue; }
+      /* 終点 */
+      noteThroat(nx, a, o, 'arr');
+      const nd = same ? Math.max(nt.dep[0], a + TURN) : a + 3;
+      if (!same) { put(key(nx, o), a - EIN, a + 3); finish(ss, nt ? { s: nt.seq[0], lane: null, from: nt.dep[0] - 2.5, floor: a + TURN } : null); continue; }
+      if (plan.rest) {
+        put(key(nx, o), a - EIN, a + 3); (yuse[at] = yuse[at] || []).push([a + 3, nd - 5]);
+        const rr = { at, t0: a + 3, t1: nd - 5, after: tr }; if (!rests.has(ss.st)) rests.set(ss.st, []); rests.get(ss.st).push(rr);
+        finish(ss, { s: nx, lane: null, from: nd - 5, floor: nd, rest: rr }); continue;
+      }
+      finish(ss, { s: nx, lane: o, floor: nd, rec: put(key(nx, o), a - EIN, nd + EPS) });
+    }
+    return { map: out, rests };
+  }
+
   /* 実際の発着をもった列車（元の列車をうけつぐ。パネルの位置・札に使う） */
   function actual(tr, D2) { const a = D2.A.get(tr); if (!a) return tr; const p = Object.create(tr); p.arr = a.arr; p.dep = a.dep; p.base = tr; p.why = a.why; p.cancel = !!a.cancel; return p; }
 
   /* 編成がいま車庫にいるか */
   const inDepot = (s, T) => T < s.first - 8 || T > s.last + 9;
 
-  const api = { bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
+  const api = { yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CtcCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
