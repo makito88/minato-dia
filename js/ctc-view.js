@@ -41,7 +41,7 @@
         a: 0, b: 1, trunk: 0, y0: J[1], x: J[0], len: Math.min(N.len, Rr.len), side: 'E', out: false, rule: null, cross: false, br, small: yard });
     }));
   }
-  let GST = 'K', GKEY = null, BLOCKHOLD = false, LAG = new Map(), LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
+  let GST = 'K', GKEY = null, BLOCKHOLD = false, LAG = new Map(), DLAG = new Map(), LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
 .ctc{min-width:0;max-width:100%;background:#0c1826;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
@@ -90,7 +90,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261119e').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261119p').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -497,9 +497,10 @@
     return A.some(q => near(B, q)) || B.some(q => near(A, q));
   }
   /* いまの全部の編成の位置（車庫の中は除く）。画面と確かめ（CtcView.pos）が同じものを使う */
+  const dkey = (s, tr, out) => baseOf(tr) + (out ? 'o' : 'i') + '|' + (s && s.id != null ? s.id : s && s.trips && s.trips[0] ? s.trips[0].num : '');   /* 回送の待ちの記録：編成ごと */
   function posAll(D, T) {
       const Y3 = yardSets(D);
-      if (LAGT == null || T < LAGT - 0.001 || T - LAGT > 1.5) LAG.clear(); const lagDt = LAGT == null ? 0 : Math.max(0, T - LAGT); LAGT = T;   /* 時刻を飛ばしたら、待ちの記録を消す */
+      if (LAGT == null || T < LAGT - 0.001 || T - LAGT > 1.5) { LAG.clear(); DLAG.clear(); } const lagDt = LAGT == null ? 0 : Math.max(0, T - LAGT); LAGT = T;   /* 時刻を飛ばしたら、待ちの記録を消す */
       const states = Y3.reg.map(s => [s, setNow(s, T)]).concat(Y3.syn.map(s => [s, synNow(s, T)])), env = envCore(D);
       const out = [];
       states.forEach(([s, n0]) => { let n = n0;
@@ -510,8 +511,12 @@
           const r = (s.rests || []).find(x => s.trips[s.trips.indexOf(x.after) + 1] === n.trip && T >= x.t1);
           if (n.trip === s.trips[0] && T >= s.first - C.lead0(s)) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true };
           else if (r) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: r.at }; }
+        /* 待った出庫の回送が、まだホームに着いていなければ、回送のまま続ける（ホームへ飛ばない。2026-11-19） */
+        if (!n.dead && n.trip && (n.wait || T < n.trip.dep[0] + 0.5)) { const dm = DLAG.get(dkey(s, n.trip, true)); if (dm && dm.f < 0.999 && dm.at === T - lagDt) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: dm.yard }; }
         if (n.dead) {
-          const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f0 = Math.max(0, Math.min(1, n.f)), f = n.out ? f0 * f0 : Math.sqrt(f0);   /* 入庫は番線をすぐあける・出庫はホームに入るのを最後に（ほかの列車と重ならないように。2026-11-18 点検） */
+          const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, dk = dkey(s, tr, n.out), dm = DLAG.get(dk);
+          let f0 = Math.max(0, Math.min(1, n.f)); if (dm && f0 > dm.f) { const fs0 = n.out ? (u => u * u) : Math.sqrt, inv = n.out ? Math.sqrt : (u => u * u); f0 = Math.min(f0, inv(Math.min(1, fs0(dm.f) + lagDt * 0.6))); }   /* 道のりで1分に6割まで */   /* 待った回送は、止まった所から少し速く進んで追いつく（飛ばない。2026-11-19） */
+          const f = n.out ? f0 * f0 : Math.sqrt(f0);   /* 入庫は番線をすぐあける・出庫はホームに入るのを最後に（ほかの列車と重ならないように。2026-11-18 点検） */
           const q = C.trainPos(tr, n.out ? tr.dep[0] - 0.01 : tr.arr[i] + 0.01, L, env), at = n.yard || s.home, dp = depotPt(at, slotOf(s, at, T)), sl = Math.max(10, tr.cars * 0.02 * pxk);
           /* 車庫・留置線と駅のあいだは、はしご・入出庫線の上を通る（yardPath） */
           const via = yardPath(at, dp, sl, q), path = n.out ? via : via.slice().reverse();
@@ -522,24 +527,11 @@
           n.track = { at, t: dp.t };
           p = deadAt(path, f, sl, i);
           out.push({ s, n, p, tr, dead: true, path, sl, f0, fs: n.out ? (u => u * u) : Math.sqrt });
-        } else { const m = LAG.get(baseOf(n.trip)), tD = m && m.tr === n.trip ? Math.min(T, m.t + lagDt * 1.6) : T;   /* 閉塞で待った列車は、少し速く進んで追いつく */
+        } else { const m0 = LAG.get(baseOf(n.trip)), m = m0 && m0.at != null && m0.at < T - lagDt - 1e-6 ? null : m0, tD = m && m.tr === n.trip ? Math.min(T, m.t + lagDt * 1.6) : T;   /* ひとつ前の画面の記録だけ使う（回送のまま待っていたあいだの古い記録で遅れない） */   /* 閉塞で待った列車は、少し速く進んで追いつく */
           p = withBody(n.trip, C.trainPos(n.trip, tD, L, env), env); p.tD = tD;
           out.push({ s, n, p, tr: n.trip, dead: false }); }
       });
       /* 回送は、ほかの列車とぶつかるなら、その手前（車庫・留置線の側）で待つ（2026-11-18 点検） */
-      /* 回送は、ほかの列車の「いま」だけでなく、30秒先までに進む所も避ける（向かってくる列車の前に出ない。2026-11-19） */
-      const sweep = new Map(), bodyX = o => { if (o.dead) return o.p.body || [[o.p.x, o.p.y]]; if (!sweep.has(o)) { const B = o.p.body || [[o.p.x, o.p.y]];
-        const f = [0.5, 0.25].map(dt => { const r = C.trainPos(o.tr, (o.p.tD != null ? o.p.tD : T) + dt, L, env); return [r.x, r.y]; }); sweep.set(o, o.p.moving || T >= o.tr.dep[o.p.i || 0] - 0.5 ? f.concat(B) : B); } return sweep.get(o); };
-      for (const d of out) { if (!d.dead || !d.path) continue;
-        const others = () => out.filter(o => o !== d).map(o => ({ p: { body: bodyX(o), x: o.p.x, y: o.p.y } }));
-        /* ポイントの分かれ目では、となりの線の列車にもかからない所（車両限界：8px）で止まる（2026-11-19） */
-        const HT = 8;
-        if (!others().some(o => bodyHit(d.p.body, o.p.body || [[o.p.x, o.p.y]], HT))) continue;
-        for (let k = 1; k <= 51; k++) { const f0 = Math.max(0, d.f0 - k * 0.02); const p2 = deadAt(d.path, d.fs(f0), d.sl, d.p.i);   /* 出はじめなら、もとの番線・置き場所で待つ */
-          if (!others().some(o => bodyHit(p2.body, o.p.body || [[o.p.x, o.p.y]], HT))) { d.p = Object.assign(p2, { held: true }); break; } if (f0 === 0) break; } }
-      /* 回送のまま待たなくてよかった始発の列車は、ふつうの列車にもどす */
-      for (let k = 0; k < out.length; k++) { const d = out[k]; if (!d.n || !d.n.origin || d.p.held) continue;
-        const p = withBody(d.tr, C.trainPos(d.tr, T, L, env), env); p.tD = T; out[k] = { s: d.s, n: { trip: d.tr, wait: true }, p, tr: d.tr, dead: false }; }
       /* 閉塞（2026-11-18 点検）：次の信号の先の区間に列車がいれば、信号の手前で待つ（ダイヤより遅れて見える。あいたら少し速く進んで追いつく） */
       /* 赤の信号の手前で止まる（2026-11-18 点検）：閉塞・場内・出発が赤なら、列車は信号の手前で待つ。
          ダイヤどおりの位置より遅れて見えるので、あいたら少し速く進んで追いつく（LAG）。時刻を飛ばしたときは待ちを消す */
@@ -559,7 +551,29 @@
             f.p = withBody(f.tr, Object.assign(C.trainPos(f.tr, lo, L, env), { held: true, moving: true, tD: lo, redAt: hit.id }), env);
           }
         } }
-      out.forEach(q => { if (!q.dead && q.p.tD != null) LAG.set(baseOf(q.tr), { t: q.p.tD, x: q.p.x, y: q.p.y, tr: q.tr }); });
+      /* 回送の待ち・始発へのもどし（列車が赤信号で止まったあとの位置で決める。2026-11-19） */
+      /* 回送は、ほかの列車の「いま」だけでなく、30秒先までに進む所も避ける（向かってくる列車の前に出ない。2026-11-19） */
+      const sweep = new Map(), bodyX = o => { if (o.dead) return o.p.body || [[o.p.x, o.p.y]]; if (!sweep.has(o)) { const B = o.p.body || [[o.p.x, o.p.y]];
+        const f = [0.5, 0.25].map(dt => { const r = C.trainPos(o.tr, (o.p.tD != null ? o.p.tD : T) + dt, L, env); return [r.x, r.y]; }); sweep.set(o, !o.p.held && (o.p.moving || T >= o.tr.dep[o.p.i || 0] - 0.5) ? f.concat(B) : B); } return sweep.get(o); };   /* 赤信号で止まっている列車は、いる所だけ */
+      for (const d of out) { if (!d.dead || !d.path) continue;
+        const others = () => out.filter(o => o !== d).map(o => ({ p: { body: bodyX(o), x: o.p.x, y: o.p.y } }));
+        /* ポイントの分かれ目では、となりの線の列車にもかからない所（車両限界：8px）で止まる（2026-11-19） */
+        const HT = 8;
+        /* ほかの列車が上にいる・転換中のポイントには入らない（2026-11-19） */
+        const PJ = HS && window.CtcSignal ? layOf().pts.filter(q => q.a != null && q.b != null && !q.cross).map(q => [q, q.gen ? q.J : [q.x, q.y0 + q.trunk]]) : [];
+        const segd2 = (q, A, B) => { const dx = B[0] - A[0], dy = B[1] - A[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((q[0] - A[0]) * dx + (q[1] - A[1]) * dy) / LL)); return Math.hypot(A[0] + u * dx - q[0], A[1] + u * dy - q[1]); };
+        const ptBusy = B => PJ.some(([q, J]) => { if (!B.some((v, k) => k && segd2(J, B[k - 1], v) < 3)) return false; const v = CtcSignal.ptNow(q, T); return v && v.id && v.id !== d.tr && (v.on || v.lock || v.phase === 'move'); });   /* ほかの列車・回送のために転換・鎖錠しようとしているポイントにも入らない */   /* ほかの列車・回送の進路で鎖錠中も入らない */
+        const blocked = B => others().some(o => bodyHit(B, o.p.body || [[o.p.x, o.p.y]], HT)) || ptBusy(B);
+        if (!blocked(d.p.body)) continue;
+        /* さがるのは、ひとつ前の画面でいた所まで（止まっている回送は、うしろへは動かない） */
+        const dm = DLAG.get(dkey(d.s, d.tr, d.n.out)), fmin = dm && dm.at === T - lagDt ? Math.min(dm.f, d.f0) : 0;
+        for (let k = 1; k <= 51; k++) { const f0 = Math.max(fmin, d.f0 - k * 0.02); const p2 = deadAt(d.path, d.fs(f0), d.sl, d.p.i);   /* 出はじめなら、もとの番線・置き場所で待つ */
+          if (!blocked(p2.body) || f0 === fmin) { d.p = Object.assign(p2, { held: true }); d.f0 = f0; break; } } }
+      /* 回送のまま待たなくてよかった始発の列車は、ふつうの列車にもどす */
+      for (let k = 0; k < out.length; k++) { const d = out[k]; if (!d.n || !d.n.origin || d.p.held || d.f0 < 0.999) continue;
+        const p = withBody(d.tr, C.trainPos(d.tr, T, L, env), env); p.tD = T; out[k] = { s: d.s, n: { trip: d.tr, wait: true }, p, tr: d.tr, dead: false }; }
+      out.forEach(q => { if (!q.dead && q.p.tD != null) LAG.set(baseOf(q.tr), { t: q.p.tD, x: q.p.x, y: q.p.y, tr: q.tr, at: T }); });
+      out.forEach(q => { if (q.dead && q.n && q.f0 != null) DLAG.set(dkey(q.s, q.tr, q.n.out), { f: q.f0, yard: q.n.yard, at: T }); });
       /* 閉塞：同じ線路を同じ向きに走る列車は、前の列車の最後尾より先へ出ない（時刻の計算のずれで重なって見えないように） */
       const run = out.filter(q => !q.dead && q.p.moving);
       for (const f of run) {
@@ -727,7 +741,7 @@
     return {
       trains: QQ.map(q => ({ key: q.tr.num + '@' + (q.tr.yardOf || q.tr).dep[0].toFixed(2) + (q.dead ? 'd' : ''), num: q.tr.num, type: q.tr.type, dead: q.dead, held: !!q.p.held, xwait: !!q.p.xwait, moving: q.p.moving, dir: q.p.dir, i: q.p.i, seq: q.tr.seq.join(''), st: q.tr.seq[q.p.i], nx: q.tr.seq[q.p.i + 1] || null, x: q.p.x, y: q.p.y, body: CtcSignal.bodyOf(q.p, q.tr, pxk), cars: q.tr.cars, synth: !!(q.tr.synth || (q.tr.base && q.tr.base.synth)), track: q.n && q.n.track || null, lane: q.tr.lanes ? q.tr.lanes[q.p.i] : null })),
       sig: lay.sig.map(o => ({ trk: o.trk, id: o.id, kind: o.kind, line: o.line, dir: o.dir, st: o.st || null, km: o.km, x: o.x, lane: o.lane, asp: o.plan ? null : st.asp.get(o), br: !!o.br })),
-      pts: lay.pts.map(p => { const v = st.pst.get(p) || {}; return { gen: !!p.gen, J: p.J, uN: p.uN, uR: p.uR, lenN: p.lenN, lenR: p.lenR, st: p.st, no: p.no, x: p.x, y0: p.y0, a: p.a, b: p.b, trunk: p.trunk, len: p.len, side: p.side, out: p.out, cross: p.cross, rule: p.rule, br: p.br, rev: !!v.rev, lock: !!v.lock, phase: v.phase || '', by: v.t ? v.t.tr.num : null }; }),
+      pts: lay.pts.map(p => { const v = st.pst.get(p) || {}; return { gen: !!p.gen, J: p.J, uN: p.uN, uR: p.uR, lenN: p.lenN, lenR: p.lenR, st: p.st, no: p.no, x: p.x, y0: p.y0, a: p.a, b: p.b, trunk: p.trunk, len: p.len, side: p.side, out: p.out, cross: p.cross, rule: p.rule, br: p.br, rev: !!v.rev, lock: !!v.lock, phase: v.phase || '', by: v.t ? v.t.tr.num : null, claim: !!v.id }; }),
       one: (st.one || []).map(u => ({ a: u.a, b: u.b, t: u.t ? u.t.tr.num : null, ts: (u.ts || []).map(x => [x.tr.num, x.dir, x.moving ? 1 : 0]) })), shunt: (lay.shunt || []).map(sh => ({ at: sh.at, t: sh.t, main: !!sh.main, on: !!(st.sst && st.sst.get(sh)) })),
       routes: st.routes.map(r => ({ kind: r.kind, st: r.st, num: r.t.tr.num, prep: !!r.prep })), xings: lay.xings.map(x => ({ km: x.km, br: x.br, on: !!st.xst.get(x) })),
       sets, syn, slotOver: SLOTOVER, pxk, big: BIG ? { a: BIG.a, b: BIG.b, t0: BIG.t0, t1: BIG.t1, name: BIG.name } : null };
