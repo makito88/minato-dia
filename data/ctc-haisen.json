@@ -447,7 +447,8 @@
      "trunk": "-s",
      "a": "-l",
      "b": "-k",
-     "side": "E",
+     "len": 0.1,
+      "side": "E",
      "legs": "out",
      "rule": "toBr"
     },
