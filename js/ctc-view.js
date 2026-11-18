@@ -9,7 +9,7 @@
   let YMAP = null;
   let HS = null, YS = null, YSKEY = null, LAY = null, LAYK = null, SIG = null;
   const layOf = () => { const k = pxk + '|' + (HS ? 1 : 0); if (!LAY || LAYK !== k) { LAY = CtcSignal.build(HS, SX, L, C); LAYK = k; } return LAY; };
-  let BLOCKHOLD = false, LAG = new Map(), LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
+  let GST = 'K', GKEY = null, BLOCKHOLD = false, LAG = new Map(), LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
 .ctc{min-width:0;max-width:100%;background:#0c1826;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
@@ -49,6 +49,7 @@
 .ctc-box th{color:#8aa0b4;font-weight:400}
 .ctc-box td.why{white-space:normal;color:#f0b44c}
 .ctc-note{font-size:11px;color:#6f8597;padding:8px 12px 0}
+.ctc-gantt{margin:10px 12px 0;background:#0f1d2c;border-radius:10px;padding:8px 8px 6px}.ctc-gh{font-size:12.5px;color:#cfe0f2;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ctc-gh select{margin-left:auto;background:#0c1826;color:#dbe6f0;border:1px solid #35506c;border-radius:6px;padding:2px 6px}#ctcGantt{width:100%;height:230px;display:block}
 `;
   const KCOL = { taihi: '#f0b44c', conn: '#5fc6e8', kokan: '#c59cf0', depot: '#9fb3c4' };
   const KNAME = { taihi: '通過待ち', conn: '接続', kokan: '行き違い', depot: '車庫' };
@@ -57,7 +58,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261118f').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261118g').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -72,6 +73,8 @@
   <div class="ctc-leg ctc-leg2"><span><i style="background:#f4f7fb;height:4px;width:18px"></i>進路ができた（白）</span><span><i style="background:#ff3b3b;opacity:.6;height:8px;width:18px"></i>列車がいる区間（赤）</span><span><i style="background:#ff3b3b;border-radius:50%"></i>止まれ <i style="background:#ffcc33;border-radius:50%;margin-left:4px"></i>注意 <i style="background:#3ddc84;border-radius:50%;margin-left:4px"></i>進め</span><span><i style="background:#4fd8ff;height:4px;width:18px"></i>ポイントがつながっている向き（反対側はすき間）　点滅＝転換中　🔒＝鎖錠</span><span><i style="background:none;border-top:2px dashed #f4f7fb;height:0;width:18px"></i>進路を作っているところ（点線）</span><span>▶▶ 単線区間を使っている列車の向き</span><span>入換信号（白い灯がよこ＝止まれ・ななめ＝進んでよい）</span><span>名札の％＝乗車率：<b style="color:#9fe8ff">〜99%</b> <b style="color:#ffe14a">100〜149%</b> <b style="color:#ffb35c">150〜179%</b> <b style="color:#ff7ad9">180%〜</b></span><span class="muted">信号機やポイント（①〜）を押すと、理由が見られます</span></div>
   <div class="ctc-leg">${Object.entries(C.REASON).map(([k, r]) => `<span><i style="background:${r.col}"></i>${r.name}</span>`).join('')}
     ${['L', 'R', 'E', 'X', 'Z', 'G'].map(k => `<span><i style="background:${tyCol({ type: k })};width:18px;height:6px;border-radius:3px"></i>${TY2[k].name}</span>`).join('')}</div>
+  <div class="ctc-gantt"><div class="ctc-gh"><b>番線の予定</b>（いつ、どの番線に、どの列車がいるか・前6分〜後24分）<select id="ctcGSt" aria-label="駅をえらぶ"></select></div><svg id="ctcGantt" viewBox="0 0 1000 230" preserveAspectRatio="none"></svg>
+    <div class="ctc-note" style="padding-top:2px">同じ行にならんだ2本が重なっている所が「待ち合わせ」。いちばん下は単線区間（1本ずつしか入れない）。帯の色は種別。白い線がいま。</div></div>
   <div class="ctc-grid">
     <div class="ctc-box"><h3>予告（これから10分）</h3><ul id="ctcSoon"></ul></div>
     <div class="ctc-box"><h3>無線（いまの判断）</h3><ul id="ctcRadio"></ul></div>
@@ -83,6 +86,7 @@
   </div>
   <div class="ctc-note">予定（ダイヤに入っている待避・接続・行き違い）と、段2の「きょうの乱れ」（混雑・小さなできごと→前の列車との間かく・単線の順番・接続は5分まで待つ・待避の順番の入れかえ・回復運転）。乱れは見せ方の層で、乗客・運賃の計算には返しません。数字は仮。段5：大きな事故（運行日ごとに約1割。「大きな事故の訓練」でいつでも）は、その区間の運転を見合わせ、ほかの列車は手前の駅で待ち、振替輸送・運転再開・運休（1往復を休んで定時に戻す）まで。折り返し運転はまだ。段4：方針（バランス・定時重視・接続重視・売上重視）を選ぶと、接続を待つ上限・入れかえ・回復運転・グループ会社の要望への答えが変わります。段3：県央本線・バス・フェリーとの接続（遅れたら5分まで待つ）、貨物（夜と昼のすいている時間・港貨物ターミナルへ）、イベントの日の臨時列車（県央本線から中央をこえて港・温泉で折り返し）。臨時と貨物は定期列車のすき間に入れ、定期列車のダイヤは変えません。線路使用料だけ経営のタブの収入へ。</div>
 </div>`;
+    { const sel = host.querySelector('#ctcGSt'); sel.innerHTML = ['C', 'S', 'U', 'M', 'K', 'N', 'P', 'F', 'T', 'O'].map(k => `<option value="${k}"${k === 'K' ? ' selected' : ''}>${k}</option>`).join(''); sel.addEventListener('change', () => { GST = sel.value; GKEY = null; draw(true); }); }
     sc = host.querySelector('#ctcSc'); spacer = host.querySelector('#ctcSp'); cv = host.querySelector('#ctcCv'); ctx = cv.getContext('2d');
     host.querySelector('#ctcZoom').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; setZoom(+b.dataset.v); });
     host.querySelector('#ctcNext').addEventListener('click', nextHighlight);
@@ -393,10 +397,17 @@
     /* 名札 */
     const s0 = tr.seq[p.i], term = !p.moving && (s0 === 'C' || s0 === 'P' || s0 === 'O');
     let late = lateNow(tr, T), why = '', whyCol = '#ffb070';
-    if (!p.moving && p.i > 0 && p.i < tr.seq.length - 1 && T >= tr.arr[p.i]) {
-      const act = (tr.why && tr.why[p.i] || []).filter(x => x.min > 0.05).sort((a, b) => b.min - a.min)[0];
-      const r = act || C.reasons(baseOf(tr), p.i, envCore(D))[0];
-      if (r) { why = ' ' + (C.SHORT[r.code] || C.REASON[r.code].name) + ' +' + C.fmtMin(r.min); whyCol = C.REASON[r.code].col; }
+    /* 止まっている理由（2026-11-18・ユーザーの頼み）：信号待ち・通過待ち・接続・行き違い・時間調整・発車待ち・運転見合わせ を名札に。あと何分かも */
+    { const n = tr.seq.length, i = p.i, left = tr.dep[i] - T, aft = left > 0.15 ? ' あと' + C.fmtMin(left) : '', hd = tr.hold && tr.hold.i === i;
+      if (p.redAt != null) { why = ' 信号待ち'; whyCol = '#ff8b8b'; }
+      else if (p.held && p.moving) { why = ' 進路待ち'; whyCol = '#ff8b8b'; }
+      else if (hd && p.moving && T > tr.dep[i] + tr.hold.f * tr.hold.run) { why = ' 運転見合わせ'; whyCol = C.REASON.incident.col; }
+      else if (!p.moving && i === 0) { why = (['C', 'P', 'O'].includes(tr.seq[0]) ? ' 折り返し 発車' : ' 発車待ち') + aft; whyCol = '#9fb6cc'; }
+      else if (!p.moving && i > 0 && i < n - 1 && T >= tr.arr[i]) {
+        const act = (tr.why && tr.why[i] || []).filter(x => x.min > 0.05).sort((a, b) => b.min - a.min)[0];
+        const r = act || C.reasons(baseOf(tr), i, envCore(D))[0];
+        if (r) { why = ' ' + (C.SHORT[r.code] || C.REASON[r.code].name) + aft; whyCol = C.REASON[r.code].col; }
+        else if (left > 1.0) { why = ' 時間調整' + aft; whyCol = '#8fd18f'; } }
     }
     const ld = loadOf(tr, p, T), name = TY2[tr.type].name + tr.num, pc = ld == null ? '' : ' ' + Math.round(ld * 100) + '%', dl = late >= 0.5 ? ' +' + Math.round(late) + '分' : '';
     const fs = pxk >= 200 ? 11 : 9.5; ctx.font = `${fs}px "Zen Kaku Gothic New",sans-serif`; const wN = ctx.measureText(name).width;
@@ -557,6 +568,7 @@
       if (HS && window.CtcSignal) { lay = layOf(); SIG = CtcSignal.state(lay, QQ, T, L, C, SX, envCore(D)); gg = { L, C, T, pxk, hits, env: envCore(D), view: [ox, ox + w], sel: selSig, name: tr => TY2[tr.type].name + tr.num }; CtcSignal.draw(ctx, lay, SIG, gg); CtcSignal.drawOcc(ctx, SIG, gg); }   /* 進路・踏切・ポイント・列車がいる区間（川辺の指令室と同じ部品・2026-11-18） */
       for (const q of QQ) { drawTrain(q.p, q.tr, q.dead, T, D); if (sel && sel.tr === baseOf(q.tr)) selPos = q.p; }
       if (lay) CtcSignal.drawTop(ctx, lay, SIG, gg);   /* 信号機・入換信号・単線区間は列車の上 */
+      drawGantt(T);
       if (selPos && host.querySelector('#ctcFollow').checked) { const want = selPos.x - w / 2; if (Math.abs(sc.scrollLeft - want) > 40) sc.scrollLeft += (want - sc.scrollLeft) * 0.15; }
       /* 見どころの前で1倍速に */
       if (host.querySelector('#ctcSlow').checked && E.speed() > 1.01) {
@@ -673,6 +685,28 @@
       one: (st.one || []).map(u => ({ a: u.a, b: u.b, t: u.t ? u.t.tr.num : null })), shunt: (lay.shunt || []).map(sh => ({ at: sh.at, t: sh.t, main: !!sh.main, on: !!(st.sst && st.sst.get(sh)) })),
       routes: st.routes.map(r => ({ kind: r.kind, st: r.st, num: r.t.tr.num, prep: !!r.prep })), xings: lay.xings.map(x => ({ km: x.km, br: x.br, on: !!st.xst.get(x) })),
       sets, syn, slotOver: SLOTOVER, pxk, big: BIG ? { a: BIG.a, b: BIG.b, t0: BIG.t0, t1: BIG.t1, name: BIG.name } : null };
+  }
+  /* 番線の予定（川辺の指令盤と同じ図・2026-11-18）：えらんだ駅の番線ごとに、列車がいる時間を帯で。単線区間の行も */
+  function drawGantt(T) {
+    const g = host && host.querySelector('#ctcGantt'); if (!g || !YS || !HS) return;
+    const key = GST + '|' + Math.round(T * 20); if (key === GKEY) return; GKEY = key;
+    const st = HS.stations[GST]; if (!st) return; const names = SX ? (k => SX[k] ? SX[k].name : k) : (k => k);
+    { const sel = host.querySelector('#ctcGSt'); if (sel && sel.options[0] && sel.options[0].textContent === sel.options[0].value) [...sel.options].forEach(o => { o.textContent = names(o.value); }); }
+    const one = { K: [['K', 'F']], F: [['K', 'F'], ['F', 'T']], T: [['F', 'T'], ['T', 'O']], O: [['T', 'O']] }[GST] || [];
+    const rows = st.lanes.map((c, j) => ({ lab: (st.num[j] || j + 1) + '番線', o: C.LCODE[c] })).concat(one.map(([a, b]) => ({ lab: '単線 ' + names(a) + '〜' + names(b), one: [a, b] })));
+    const RH = Math.min(38, 200 / rows.length), t0 = T - 6, X = m => 120 + (m - t0) / 30 * 870, el = (n, a, txt) => { const e = document.createElementNS('http://www.w3.org/2000/svg', n); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; g.appendChild(e); return e; };
+    g.innerHTML = '';
+    rows.forEach((r, i) => { const y = 8 + i * RH; el('rect', { x: 120, y, width: 870, height: RH - 6, fill: i % 2 ? '#112234' : '#0e1d2d' }); el('text', { x: 112, y: y + RH / 2, fill: '#cfe0f2', 'font-size': r.one ? 11 : 13, 'text-anchor': 'end' }, r.lab); });
+    const H = 8 + rows.length * RH;
+    for (let m = Math.ceil(t0 / 5) * 5; m <= t0 + 30; m += 5) { el('line', { x1: X(m), y1: 6, x2: X(m), y2: H - 4, stroke: '#24384e' }); const mm = ((Math.round(m) % 1440) + 1440) % 1440; el('text', { x: X(m), y: H + 12, fill: '#8ea3b8', 'font-size': 11, 'text-anchor': 'middle' }, String(Math.floor(mm / 60)).padStart(2, '0') + ':' + String(mm % 60).padStart(2, '0')); }
+    const bar = (row, a, b, tr, txt) => { const x0 = Math.max(120, X(a)), x1 = Math.min(990, X(b)); if (x1 <= x0) return; const y = 8 + row * RH + 3;
+      el('rect', { x: x0, y, width: x1 - x0, height: RH - 12, rx: 4, fill: tyCol(tr), opacity: 0.92 }); if (x1 - x0 > 34) el('text', { x: x0 + 4, y: y + (RH - 12) / 2 + 4, fill: '#0b1420', 'font-size': 11, 'font-weight': 700 }, txt); };
+    const trips = YS.reg.concat(YS.syn).flatMap(s => s.trips);
+    for (const tr of trips) { const n = tr.seq.length, dest = names(tr.seq[n - 1]), nm = (TY2[tr.type] ? TY2[tr.type].name : '') ;
+      tr.seq.forEach((s0, i) => { if (s0 !== GST || !tr.lanes) return; const a = i > 0 ? tr.arr[i] : tr.dep[i] - 2, b = i < n - 1 ? Math.max(tr.dep[i], a + 0.35) : tr.arr[i] + 3;
+        if (b < t0 - 1 || a > t0 + 31) return; const r = rows.findIndex(r => r.o === tr.lanes[i]); if (r >= 0) bar(r, a, b, tr, nm + (i === n - 1 ? '着' : dest)); });
+      rows.forEach((r, ri) => { if (!r.one) return; for (let i = 0; i < n - 1; i++) { const u = tr.seq[i], v = tr.seq[i + 1]; if (!((u === r.one[0] && v === r.one[1]) || (u === r.one[1] && v === r.one[0]))) continue; bar(ri, tr.dep[i], tr.arr[i + 1], tr, nm + ' ' + (tr.down ? '→' + names(v) : names(v) + '←')); } }); }
+    el('line', { x1: X(T), y1: 4, x2: X(T), y2: H - 2, stroke: '#fff', 'stroke-width': 2 });
   }
   /* 確かめ用：描いた線路（折れ線）を全部 */
   function tracks() { if (!L) return null; REC = []; ctx.save(); try { drawTrack(); } finally { ctx.restore(); } const r = REC; REC = null; draw(true); return r; }
