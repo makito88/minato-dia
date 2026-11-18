@@ -52,4 +52,16 @@ for (const k of ['単式', '島式', '相対式', '2面3線', '2面4線', '千�
   assert.strictEqual(st.asp.get(s1), S.R, '列車のいる区間は止まれ'); assert.strictEqual(st.asp.get(s0), S.Y, '手前は注意');
   assert.ok(lay.xings.length >= 10 && lay.pts.length >= 15, '踏切とポイント');
 }
+/* 6) 2026-11-18：出発信号は駅・向きごとに縦一列。ポイントは分かれる線の上（支線・温泉は分かれる前のまん中から）。連絡線と入換信号がある */
+{
+  const L = C.layout(SX, 200), lay = S.build(HS, SX, L, C), g = {};
+  lay.sig.filter(o => o.kind === '出発').forEach(o => { const k = o.st + o.line + o.dir; (g[k] = g[k] || new Set()).add(o.km.toFixed(4)); });
+  for (const k in g) assert.strictEqual(g[k].size, 1, '出発信号が縦一列：' + k);
+  for (const s of ['F', 'T', 'O']) assert.ok(lay.pts.filter(p => p.st === s && p.a != null).every(p => p.trunk === 0), 'ポイントは分かれる前の線から：' + s);
+  assert.ok(lay.sig.some(o => o.line === 'w' && o.dir === 1) && lay.sig.some(o => o.line === 'w' && o.dir === -1) && lay.sig.some(o => o.line === 'n'), '中央の連絡線（入り・出・県央北）の信号');
+  assert.ok(lay.shunt.length >= 4, '入換信号（車庫・留置線・臨港線）');
+  /* 乗り入れの貨物：西から入りの線（北）、西へは出の線（南）。途中で線路の高さが飛ばない */
+  const K = C.LINK, at = (P, k) => { const A = P.slice().sort((p, q) => p[0] - q[0]); for (let j = 1; j < A.length; j++) if (k <= A[j][0]) return true; return false; };
+  assert.ok(K.inW[0][1] === C.YK6 && K.outW[K.outW.length - 1][1] === C.YK5 && at(K.inW, -1) && at(K.outW, -1), '入りは東行き（北）から、出は西行き（南）へ');
+}
 console.log('ctc-signal ok');

@@ -61,13 +61,13 @@
     return (env.ST[s].taihi && env.onSiding(tr, i)) ? base * 3 : base;
   }
   /* ---- 駅の形（data/ctc-haisen.json・2026-11-17） ---- */
-  const LCODE = { '-s': -Y.side, '-l': -Y.lane, l: Y.lane, s: Y.side, s5: Y.side + 18, '-b': -Y.brLoop, b: Y.brLoop, b3: Y.brLoop * 2.6 };
+  const LCODE = { c: 0, '-s': -Y.side, '-l': -Y.lane, l: Y.lane, s: Y.side, s5: Y.side + 18, '-b': -Y.brLoop, b: Y.brLoop, b3: Y.brLoop * 2.6 };
   const lc = c => LCODE[c];
   /* その列車が駅 i で使える番線（はじめのものから）。今までの決め方（待避は外側など）を先に */
   function prefLanes(tr, i, env) {
     const s = tr.seq[i], st = env.hs.stations[s], old = laneOld(tr, i, env), A = st.alt || {};
     let list;
-    if (A.any) list = (tr.synth && A.syn ? A.syn : A.any);
+    if (A.any) list = (tr.synth && A.synOut && tr.seq[i + 1] === 'W' ? A.synOut : tr.synth && A.syn ? A.syn : A.any);   /* 中央：県央本線の西へ出る乗り入れは南側（出の線） */
     else {
       const d = tr.down ? 'down' : 'up', pass = !tr.stop[i] && i > 0 && i < tr.seq.length - 1, toBr = tr.seq.includes('O') && s === 'K';
       list = (toBr && tr.down && A.toBr) || (toBr && !tr.down && A.fromBr) || (pass && A[d + 'Pass']) || A[d] || st.lanes;
@@ -93,23 +93,38 @@
   function kmOf(s, env, br) { return br ? (s === 'K' ? 0 : env.ST[s].bkm) : env.ST[s].km; }
 
   /* 列車の位置 {x,y,dir,moving,i,dwell} */
-  const YK5 = Y.main - Y.side - 20;   /* 県央本線の5番線の高さ（連絡線の西のはし） */
+  const YK5 = Y.main - Y.side - 20, YK6 = YK5 - 16;   /* 県央本線の高さ：K5＝西行き（南側）、K6＝東行き（北側） */
+  /* 中央の西の連絡線と港の臨港線の形（km, y）。ctc-view.js の drawTrack もこれを描く（2026-11-18・ユーザーの図）。
+     入り：県央本線（東行き K6）から K5 を平面交差して1番線へ（2番線へは渡り線）。出：4・5番線から西へ出て、南西を回って K5（西行き）へ。
+     臨港線：下りは下りの本線から上りの本線をまたいで南へ、上りは上りの本線へ合流。県央北：1番線の東のはしから北東の県央本線へ（乗り入れだけ） */
+  const LINK = {
+    inW: [[-9, YK6], [-1.05, YK6], [-0.55, Y.main - Y.side]],
+    in2: [[-0.5, Y.main - Y.side], [-0.35, Y.main - Y.lane]],
+    outW: [[-0.7, Y.main + Y.side + 18], [-1.0, Y.main + Y.side + 18], [-1.5, YK5], [-9, YK5]],
+    out4: [[-0.45, Y.main + Y.side], [-0.6, Y.main + Y.side + 18]],
+    north: [[0.34, Y.main - Y.side], [0.66, YK5 - 40 * (0.36 / 0.45)]],
+    frt: [-1.5, -1.35, -1.05, -0.75, -0.6],   /* 港からの km：下りの本線をはなれる・上りの本線・南へ下りきる・ターミナルの手前・ターミナルの線 */
+  };
+  const poly = (P, k) => { if (k <= P[0][0]) return P[0][1]; for (let j = 1; j < P.length; j++) if (k <= P[j][0]) { const a = P[j - 1], b = P[j]; return a[1] + (b[1] - a[1]) * (k - a[0]) / ((b[0] - a[0]) || 1); } return P[P.length - 1][1]; };
   function extPos(tr, i, T, L, env) {
     const n = tr.seq.length, a = tr.seq[i], b = tr.seq[Math.min(n - 1, i + 1)], M = Y.main, run = tr.down ? -Y.lane : Y.lane;
     const qy = Y.freight - 5 + ((tr.num >> 1) % 2) * 9;
-    const stopAt = s => s === 'W' ? { x: L.xm(env.ST.W.km), y: YK5 } : { x: L.xm(env.ST.Q.km), y: qy };
+    const stopAt = s => s === 'W' ? { x: L.xm(env.ST.W.km), y: tr.down ? YK6 : YK5 } : { x: L.xm(env.ST.Q.km), y: qy };
     if (T < tr.dep[i] || i === n - 1) { const p = stopAt(a); return { x: p.x, y: p.y, dir: tr.down ? 1 : -1, moving: false, i }; }
     const raw = Math.max(0, Math.min(1, (T - tr.dep[i]) / (tr.arr[i + 1] - tr.dep[i]))), f = raw * 0.35 + 0.65 * smooth(raw);
-    const ka = env.ST[a].km, kb = env.ST[b].km, km = ka + (kb - ka) * f;
+    const ka = env.ST[a].km + (a === 'C' ? frontOff(tr, i, env) : 0), kb = env.ST[b].km + (b === 'C' ? frontOff(tr, i + 1, env) : 0), km = ka + (kb - ka) * f;
     let y;
-    if (a === 'W' || b === 'W') {   /* 連絡線：県央本線の5番線から、中央の1番線へ */
+    if (a === 'W' || b === 'W') {
       const yc = M + laneOff(tr, a === 'C' ? i : i + 1, env);
-      y = km < -0.65 ? YK5 : km < -0.42 ? YK5 + (M - Y.side - YK5) * smooth((km + 0.65) / 0.23) : M - Y.side + (yc - (M - Y.side)) * smooth((km + 0.42) / 0.42);
-    } else {   /* 臨港線：港の手前 1.3km で本線から南へ */
-      const P = env.ST.P.km, oN = laneOff(tr, a === 'N' ? i : i + 1, env), dN = Math.abs(km - env.ST.N.km);
-      if (km < P - 1.3) y = M + (dN < STA ? oN + (run - oN) * smooth((dN - 0.08) / (STA - 0.08)) : run);
-      else if (km < P - 1.0) y = M + run + (Y.freight - 10 - M - run) * smooth((km - (P - 1.3)) / 0.3);
-      else y = Y.freight - 10 + (qy - (Y.freight - 10)) * smooth((km - (P - 1.0)) / 0.4);
+      if (tr.down) { y = km < -0.55 ? poly(LINK.inW, km) : yc === M - Y.lane ? poly(LINK.in2, km) : M - Y.side;   /* 入り（北） */
+        if (km > -0.35) y = yc; }
+      else { const asc = P => P.slice().sort((p, q) => p[0] - q[0]);   /* 出（南） */
+        y = km < -0.7 ? poly(asc(LINK.outW), km) : yc === M + Y.side ? (km < -0.45 ? poly(asc(LINK.out4), km) : yc) : M + Y.side + 18; }
+    } else {   /* 臨港線 */
+      const P = env.ST.P.km, F = LINK.frt.map(d => P + d), N = env.ST.N.km, oN = laneOff(tr, a === 'N' ? i : i + 1, env);
+      const tq = [[F[0], tr.down ? M - Y.lane : M + Y.lane], [F[1], M + Y.lane], [F[2], Y.freight - 10], [F[3], Y.freight - 10], [F[4], qy], [P + 1, qy]];
+      if (km < F[0]) y = M + (Math.abs(km - N) < 0.8 ? laneGeo('N', Math.abs(km - N), oN, run) : run);
+      else y = poly(tq, km);
     }
     return { x: L.xm(km), y, dir: tr.down ? 1 : -1, moving: true, i, f: raw };
   }
@@ -122,6 +137,17 @@
     if (!stops) return 0;
     if (st.stop === 'stagger') return tr.down ? -0.025 : 0.025;   /* 千鳥：まん中の踏切をふさがない位置に止まる */
     return tr.down ? len / 2 : -len / 2;
+  }
+  /* 駅のまわりの線路の形（駅の中心からの km）：cross＝下りと上りを入れかえる渡り線・シーサス、fan＝本線から外側の番線へ分かれる所。
+     ctc-view.js の drawTrack と同じ数字（どちらかを変えたら両方）。まっすぐな線なので、あいだは直線でつなぐ */
+  const GEO = { C: { cross: [0.57, 0.68], fan: [0.34, 0.54] }, P: { cross: [0.5, 0.65], fan: [0.32, 0.45] }, U: { cross: [0.42, 0.56], fan: [0.2, 0.35] }, S: { cross: [0.21, 0.35], fan: [0.2, 0.35] }, N: { cross: [0.21, 0.35], fan: [0.2, 0.35] } };
+  const lin = u => Math.max(0, Math.min(1, u));
+  function laneGeo(s, d, o, run) {
+    const G = GEO[s] || { cross: [0.42, 0.56], fan: [0.2, 0.35] }, base = o < 0 ? -Y.lane : Y.lane;
+    let y = run;
+    if (Math.sign(base) !== Math.sign(run)) y = run + (base - run) * lin((G.cross[1] - d) / (G.cross[1] - G.cross[0]));
+    if (o !== base) y += (o - base) * lin((G.fan[1] - d) / (G.fan[1] - G.fan[0]));
+    return y;
   }
   function trainPos(tr, T, L, env) {
     const n = tr.seq.length;
@@ -147,10 +173,9 @@
     const oa = laneOff(tr, i, env), ob = laneOff(tr, i + 1, env);
     if (!br) {
       const run = tr.down ? -Y.lane : Y.lane;
-      const da = Math.abs(km - ka), db = Math.abs(km - kb);
-      let o = run;
-      if (da < STA) o = oa + (run - oa) * smooth((da - 0.08) / (STA - 0.08));
-      else if (db < STA) o = ob + (run - ob) * smooth((db - 0.08) / (STA - 0.08));
+      /* 番線を変えるのは、線路の絵と同じ所（渡り線・シーサス・分かれる線）だけ。駅の中心からの距離で決める（2026-11-18） */
+      const ca = env.ST[a].km, cb = env.ST[b].km, da = Math.abs(km - ca), db = Math.abs(km - cb);
+      const o = da <= db ? laneGeo(a, da, oa, run) : laneGeo(b, db, ob, run);
       return { x: L.xm(km), y: Y.main + o, dir: tr.down ? 1 : -1, moving: true, i, f: raw };
     }
     /* 支線：川辺から JUNC0〜JUNC1 で上の段へ上がる */
@@ -168,9 +193,9 @@
       y = Y.br;
       if (sF[0]) {
         const s = sF[0], d = Math.abs(bkm - env.ST[s].bkm), o = s === a ? oa : s === b ? ob : 0;
-        y = Y.br + o * (1 - smooth((d - 0.08) / (STA - 0.08)));
+        y = Y.br + o * lin((STA - d) / 0.15);   /* 分かれる線（駅の中心から 0.35〜0.2km）と同じ所で */
       }
-      if ((a === 'O' || b === 'O') && Math.abs(bkm - env.ST.O.bkm) < OS) { const d = Math.abs(bkm - env.ST.O.bkm); y = Y.br + (b === 'O' ? ob : oa) * (1 - smooth((d - 0.06) / (OS - 0.06))); }
+      if ((a === 'O' || b === 'O') && Math.abs(bkm - env.ST.O.bkm) < OS) { const d = Math.abs(bkm - env.ST.O.bkm); y = Y.br + (b === 'O' ? ob : oa) * lin((OS - d) / (OS - 0.06)); }
     }
     return { x: L.xb(bkm), y, dir: tr.down ? 1 : -1, moving: true, i, f: raw };
   }
@@ -864,7 +889,7 @@
   /* 編成がいま車庫にいるか */
   const inDepot = (s, T) => T < s.first - 8 || T > s.last + 9;
 
-  const api = { yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
+  const api = { LINK, GEO, YK5, YK6, yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CtcCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
