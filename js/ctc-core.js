@@ -853,7 +853,7 @@
      見せ方の層だけ（ゲームの計算・乱れの計算は変えない）。ずらすのは、ふさがっていた分だけ。 */
   const BRSEG = new Set(['K|F', 'F|K', 'F|T', 'T|F', 'T|O', 'O|T']);
   function yard(sets, env) {
-    const hs = env.hs, YD = hs.yards || {}, REST = YD.rest || 16, EPS = 0.3, EIN = 0.6, TURN = 2, HW = 1.0;   /* EIN：番線に入る前から、その番線をおさえる分・HW：同じ線路へ続けて出るときの間かく */
+    const hs = env.hs, YD = hs.yards || {}, REST = YD.rest || 16, EPS = 0.3, EIN = 0.6, TURN = 2, HW = 2.0;   /* EIN：番線に入る前から、その番線をおさえる分・HW：同じ線路へ続けて出るときの間かく */
     const occ = new Map(), segs = new Map(), single = new Map(), yuse = {}, out = new Map(), rests = new Map(), TH = new Map();
     const key = (s, o) => s + '|' + o, inHs = s => !!(hs.stations && hs.stations[s]);
     const busy = (k, t0, t1, me) => (occ.get(k) || []).find(r => r !== me && r[0] < t1 && t0 < r[1]);
@@ -907,6 +907,9 @@
         if (i === 0) d = throat(s, d, ss.L[0], 'dep');                                     /* 頭端の駅の出口で、入ってくる列車と交差しない */
         if (BRSEG.has(sk)) { const u = [s, nx].sort().join('|'); for (let h = 0; h < 20; h++) { const r = (single.get(u) || []).find(x => x[2] !== tr.down && x[0] < d + run && d < x[1]); if (!r) break; d = r[1] + 0.2; } }   /* 単線：反対の列車が使っているあいだは出ない */
         a = d + run; for (const r of (segs.get(sd) || [])) if (r[0] <= d && a < r[1] + HW) a = r[1] + HW;   /* 前の列車を追いこさない */
+        { let back = false; const lim = ss.R[i] ? (occ.get(key(s, ss.L[i])) || []).filter(x => x !== ss.R[i] && x[0] >= ss.R[i][0]).reduce((m, x) => Math.min(m, x[0]), Infinity) : Infinity;   /* いまの番線を、次の列車が使い始める時刻 */
+          for (const r of (segs.get(sd) || [])) if (r[0] > d && (r[0] < d + HW || r[1] < a + HW) && r[0] + HW + EPS < lim) { d = Math.max(d, r[0] + HW); back = true; }   /* あとから出る列車に追いこされる・すぐうしろにつかれるなら、その列車を先に通す（待避。2026-11-18 点検） */
+          if (back) continue; }
         if (inHs(nx)) {
           if (last) {
             a = throat(nx, a, prefLanes(tr, i + 1, env)[0], 'arr');
@@ -920,7 +923,14 @@
         if (d === d0) break;
       }
       /* いまの駅の番線のおさえをのばす（うしろの列車のおさえの手前まで） */
-      if (ss.R[i]) { const lim = extend(key(s, ss.L[i]), ss.R[i], d + EPS) - EPS; if (lim < d) d = Math.max(ss.D[i], lim); }   /* うしろの列車のために、いまの番線はあける（次の駅へはゆっくり進み、着く時刻はそのまま） */
+      if (ss.R[i]) { const lim = extend(key(s, ss.L[i]), ss.R[i], d + EPS) - EPS;
+        if (lim < d) {   /* うしろの列車のために、いまの番線はあける（次の駅へはゆっくり進み、着く時刻はそのまま）。
+                            ただし、先に出た列車を追いこす・すぐうしろにつく出かたはしない（2026-11-18 点検：川辺で快速が普通のすぐうしろを走っていた） */
+          let e = lim; for (let h = 0; h < 10; h++) { let moved = false; for (const r of (segs.get(sd) || [])) if (e < r[0] + HW && !(e + HW <= r[0] && a + HW <= r[1])) { e = r[0] + HW; moved = true; }
+            if (BRSEG.has(sk)) { const u = [s, nx].sort().join('|'), r = (single.get(u) || []).find(x => x[2] !== tr.down && x[0] < a && e < x[1]); if (r) { e = r[1] + 0.2; moved = true; } }   /* 単線：反対の列車がいるうちは出ない（早く出すときも） */
+            if (!moved) break; }
+          if (e < d) d = Math.max(ss.D[i], e);
+        } }
       ss.D[i] = d; ss.A[i + 1] = a;
       if (env.log) env.log({ num: tr.num, at: nx, d, a, lane: p && p.o, win, busyNow: p ? (occ.get(key(nx, p.o)) || []).map(r => r.slice()) : null });   /* 確かめ用 */
       if (!segs.has(sd)) segs.set(sd, []); segs.get(sd).push([d, a]);

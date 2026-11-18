@@ -114,16 +114,28 @@
 
   /* ---- いまの様子 ---- */
   /* Q：[{tr, p:{x,y,dir,moving,i}, dead}]（CtcView の posAll）。T：いまの時刻（分） */
-  function state(lay, Q, T, L, C, SX) {
+  /* 列車の線（d 下り・u 上り・b 支線・w 連絡線）とキロ（先頭 km、車体の lo〜hi） */
+  function info(q, L, C) {
+    const Y = C.Y, pxk = L.pxk, tr = q.tr, i = q.p.i, wl = tr.seq[i] === 'W' || tr.seq[i + 1] === 'W', ql = tr.seq[i] === 'Q' || tr.seq[i + 1] === 'Q';   /* 連絡線・臨港線の列車は本線の段（高さで支線と見まちがえない） */
+    const br = !wl && !ql && q.p.y < Y.main - Y.side - 14,   /* 1番線（-42）は本線、川辺の支線の高さ（-70）から上が支線 */ len = (tr.cars || 6) * 0.02;
+    const km = br ? (q.p.x - L.xK) / pxk : q.p.x / pxk - L.ML;
+    const lo = q.p.dir > 0 ? km - len : km, hi = q.p.dir > 0 ? km : km + len;
+    const line = br ? 'b' : wl ? 'w' : q.p.dir > 0 ? 'd' : 'u';
+    return { q, tr, br, km, lo, hi, line, dir: q.p.dir, i: q.p.i, moving: q.p.moving };
+  }
+  /* 閉塞：列車 f の先頭の次の信号と、その先の区間（次の信号まで）に、ほかの列車がいるか。いれば その信号 */
+  function nextBlocked(lay, f, others) {
+    const key = f.line === 'b' || f.line === 'w' ? f.line + (f.dir > 0 ? '+' : '-') : f.line, ch = lay.chain[key]; if (!ch) return null;
+    const j = ch.findIndex(o => (o.km - f.km) * f.dir > 0.003); if (j < 0) return null;
+    const o = ch[j], nx = ch.slice(j + 1).find(x => !(o.st && x.st === o.st && x.kind === o.kind && Math.abs(x.km - o.km) < 0.02)), kn = nx ? nx.km : o.km + f.dir * 3;
+    if (o.kind === '出発' && o.lane != null && Math.abs(f.q.p.y - (o.trk)) > 4) return null;   /* となりの番線の出発信号ではない */
+    const a = Math.min(o.km, kn), b = Math.max(o.km, kn), single = f.line === 'b';
+    const busy = others.some(t => t.q !== f.q && (t.line === f.line || (single && t.line === 'b')) && t.hi > a && t.lo < b);
+    return busy ? o : null;
+  }
+  function state(lay, Q, T, L, C, SX, env) {
     const Y = C.Y, pxk = L.pxk;
-    const trains = Q.filter(q => !q.dead).map(q => {
-      const tr = q.tr, i = q.p.i, wl = tr.seq[i] === 'W' || tr.seq[i + 1] === 'W', ql = tr.seq[i] === 'Q' || tr.seq[i + 1] === 'Q';   /* 連絡線・臨港線の列車は本線の段（高さで支線と見まちがえない） */
-      const br = !wl && !ql && q.p.y < Y.main - 40, len = (tr.cars || 6) * 0.02;
-      const km = br ? (q.p.x - L.xK) / pxk : q.p.x / pxk - L.ML;
-      const lo = q.p.dir > 0 ? km - len : km, hi = q.p.dir > 0 ? km : km + len;
-      const line = br ? 'b' : wl ? 'w' : q.p.dir > 0 ? 'd' : 'u';
-      return { q, tr, br, km, lo, hi, line, dir: q.p.dir, i: q.p.i, moving: q.p.moving };
-    });
+    const trains = Q.filter(q => !q.dead).map(q => info(q, L, C)); void pxk;
     const occ = (line, a, b, not) => trains.some(t => t !== not && t.line === line && t.hi > Math.min(a, b) && t.lo < Math.max(a, b));
     const asp = new Map();
     /* 列車がいま止まっている駅と番線 */
@@ -134,23 +146,29 @@
     for (const ln of Object.keys(lay.chain)) {
       const ch = lay.chain[ln], line = ln[0];
       for (let j = ch.length - 1; j >= 0; j--) {
-        const o = ch[j], nx = ch[j + 1], dir = o.dir, kn = nx ? nx.km : o.km + dir * 3;
-        const ahead = occ(line, o.km + dir * 0.01, kn);
+        /* 次の信号：同じ駅のとなりの番線の出発信号（同じキロに並ぶ）は飛ばす（2026-11-18 点検） */
+        const o = ch[j], nx = ch.slice(j + 1).find(x => !(o.st && x.st === o.st && x.kind === o.kind && Math.abs(x.km - o.km) < 0.02)), dir = o.dir, kn = nx ? nx.km : o.km + dir * 3;
+        let ahead = occ(line, o.km + dir * 0.01, kn);
         const nxA = nx ? (asp.get(nx) ?? R) : G;
         if (o.kind === '閉塞') { asp.set(o, ahead ? R : nxA === R ? Yw : G); continue; }
         if (o.kind === '出発') {
-          const t = trains.find(t => t.line === line && t.dir === dir && ((atSt(t) === o.st && laneAt(t, t.i) === o.lane && t.tr.dep[t.i] - T < 0.45 && T >= t.tr.arr[t.i] - 0.01) ||
+          const t = trains.find(t => t.line === line && t.dir === dir && ((atSt(t) === o.st && laneAt(t, t.i) === o.lane && t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01)) ||   /* 始発は着く時刻がない */
+            (t.moving && t.tr.seq[t.i] === o.st && laneAt(t, t.i) === o.lane && (o.km - t.km) * dir > -0.03) ||   /* 出たばかりで、先頭がまだ信号を越えていない */
             (t.moving && t.tr.seq[t.i + 1] === o.st && !t.tr.stop[t.i + 1] && laneAt(t, t.i + 1) === o.lane && t.tr.arr[t.i + 1] - T < 0.9)));
-          const single = line === 'b' && nx && occ('b', o.km, kn) || (line === 'b' && trains.some(x => x.line === 'b' && x.dir !== dir && x.moving && (x.km - o.km) * dir > 0 && (x.km - kn) * dir < 0.5));
+          if (t) ahead = occ(line, o.km + dir * 0.01, kn, t);   /* 出ていく列車じしんは数えない */
+          const single = line === 'b' && nx && occ('b', o.km, kn, t) || (line === 'b' && trains.some(x => x.line === 'b' && x.dir !== dir && x.moving && (x.km - o.km) * dir > 0 && (x.km - kn) * dir < 0.5));
           const prep = t && atSt(t) === o.st && t.tr.dep[t.i] - T > 0.3;   /* 進路を作っているところ（点線）：まだ信号は開かない */
           asp.set(o, !t || ahead || single || prep ? R : nxA === R ? Yw : G); if (t && !ahead && !single) routes.push({ t, kind: 'dep', st: o.st, o, nx, prep });
           continue;
         }
         if (o.kind === '場内') {
-          const t = trains.find(t => t.line === line && t.dir === dir && t.moving && t.tr.seq[t.i + 1] === o.st && (o.km - t.km) * dir > -0.05 && (o.km - t.km) * dir < 2.6);
+          const t = trains.filter(t => t.line === line && t.dir === dir && t.moving && t.tr.seq[t.i + 1] === o.st && (o.km - t.km) * dir > -0.05 && (o.km - t.km) * dir < 2.6).sort((a, b) => (o.km - a.km) * dir - (o.km - b.km) * dir)[0];   /* いちばん近い列車（2026-11-18 点検） */
           if (!t) { asp.set(o, R); continue; }
           const j2 = t.i + 1, lane = laneAt(t, j2), stops = j2 === t.tr.seq.length - 1 || t.tr.stop[j2];
-          const busy = trains.some(x => x !== t && atSt(x) === o.st && laneAt(x, x.i) === lane);
+          const G0 = C.GEO[o.st], near = x => x.moving && x.tr.seq[x.i] === o.st && G0 && Math.abs(x.km - (SX[o.st].km || 0)) < G0.d0 + (G0.L || 0.16) && laneAt(x, x.i) === lane;   /* 出たばかりで、まだ番線にいる列車 */
+          const sx = o.br ? L.xb(SX[o.st].bkm) : L.xm(SX[o.st].km), sy = (o.br ? Y.br : Y.main) + lane, span = ((G0 ? G0.d0 + G0.L : 0.3)) * L.pxk;
+          const deadIn = Q.some(q => q.dead && q.p.body && q.p.body.some(b => Math.abs(b[0] - sx) < span && Math.abs(b[1] - sy) < 3));   /* 回送がその番線にいる */
+          const busy = deadIn || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
           if (busy) { asp.set(o, R); continue; }
           const dep = lay.sig.find(x => x.kind === '出発' && x.st === o.st && x.lane === lane && x.dir === dir);
           const prep = (o.km - t.km) * dir > 1.6;
@@ -158,28 +176,34 @@
         }
       }
     }
-    /* ポイント：その番線へ、次に通る列車の向きにそろえる。進路ができていれば鎖錠 */
-    const pst = new Map();
+    /* ポイント（2026-11-18 点検で作りなおし）：線路の形から決める。
+       - 列車の車体がポイントの上にいるあいだは鎖錠（最後尾が通りすぎるまで＝区分進路解錠）
+       - これから通る列車（先頭の行き先を少し先まで見る）がいれば、その列車が通る側（定位 N／反位 R）へ転換 → 密着確認 → 鎖錠
+       - 向きは、車体や行き先が N・R どちらの分かれた線の上を通るかで決める（川辺の③⑥⑦、港・中央の扇形も同じ決まり） */
+    const pst = new Map(), segd = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / LL)); return Math.hypot(a[0] + u * dx - p[0], a[1] + u * dy - p[1]); };
+    const nearB = (B, pt, d) => B.length > 1 ? B.some((q, k) => k && segd(pt, B[k - 1], q) < d) : Math.hypot(B[0][0] - pt[0], B[0][1] - pt[1]) < d;
+    const all = Q.filter(q => q.p && (q.p.body || q.dead));
     for (const p of lay.pts) {
-      if (p.cross) { pst.set(p, { rev: false, lock: false }); continue; }
+      if (p.cross || p.a == null || p.b == null) { pst.set(p, { rev: false, lock: false }); continue; }
+      const yt = p.y0 + p.trunk, pt = [p.x, yt], dx = (p.side === 'W' ? 1 : -1) * (p.out ? -1 : 1);
+      const mN = [p.x + dx * p.len * 0.5, (yt + p.y0 + p.a) / 2], mR = [p.x + dx * p.len * 0.5, (yt + p.y0 + p.b) / 2], same = p.a === p.b;
       let best = null;
-      for (const t of trains) {
-        const s = p.st, seq = t.tr.seq; let j = -1, when = 0;
-        if (t.moving && seq[t.i + 1] === s) { j = t.i + 1; when = t.tr.arr[j]; } else if (!t.moving && seq[t.i] === s) { j = t.i; when = t.tr.dep[j]; } else continue;
-        const entry = !t.moving ? false : true, lane = laneAt(t, j); if (lane == null) continue;
-        const toBr = t.tr.seq.includes('O') && t.tr.down, fromBr = t.tr.seq.includes('O') && !t.tr.down;
-        if (p.rule) { if (p.rule === 'toBr' ? lane !== p.trunk : !(fromBr || (toBr && p.no === '⑥'))) continue; }   /* 川辺の③⑥⑦：温泉支線へ行く・来る列車 */
-        else if (p.a != null && lane !== p.a && lane !== p.b) continue;
-        const sideOk = p.side === 'W' ? (entry ? t.dir > 0 : t.dir < 0) : (entry ? t.dir < 0 : t.dir > 0);
-        if (!sideOk) continue;
-        if (!best || when < best.when) best = { t, lane, when, entry };
+      for (const q of all) {
+        if (Math.abs(q.p.x - p.x) > p.len + 0.9 * L.pxk + 40) continue;
+        const B = q.p.body || [[q.p.x, q.p.y]], P = B.slice(); let when = nearB(B, pt, 3) ? T : null;
+        if (when == null && !q.dead && env && C.trainPos) {   /* 先頭の行き先：1.2分先まで */
+          const F = []; let hitK = -1;
+          for (let k = 1; k <= 24; k++) { const r = C.trainPos(q.tr, T + k * 0.05, L, env); F.push([r.x, r.y]); if (hitK < 0 && Math.hypot(r.x - pt[0], r.y - pt[1]) < 6) hitK = k; if (hitK > 0 && k > hitK + 8) break; }
+          if (hitK > 0 || nearB(F.length > 1 ? F : [[q.p.x, q.p.y]].concat(F), pt, 3)) { when = T + Math.max(1, hitK) * 0.05; P.push(...F); }
+        }
+        if (when == null) continue;
+        const onR = !same && nearB(P, mR, 3), onN = nearB(P, mN, 3), leg = onR && !onN ? 'R' : 'N';
+        if (!best || when < best.when) best = { t: q.dead ? null : { tr: q.tr }, when, leg, on: when === T };
       }
       if (!best) { pst.set(p, { rev: false, lock: false }); continue; }
-      /* 進路ができるまで（川辺の指令室と同じ）：ポイントの転換（点滅）→ 密着の確認 → 鎖錠 */
-      const bt = best.t.tr, toB = bt.seq.includes('O') && bt.down, fromB = bt.seq.includes('O') && !bt.down;
-      const lead = best.when - T, win = best.entry ? 1.2 : 0.45, lock = lead < win, rev = p.rule === 'toBr' ? toB : p.rule === 'fromBr' ? fromB : p.b != null && best.lane === p.b;
-      const phase = lock ? 'lock' : lead < win + 0.05 ? 'check' : lead < win + 0.15 && rev ? 'move' : '';
-      pst.set(p, { rev: rev && lead < win + 0.15, lock, phase, lane: best.lane, t: best.t });
+      const lead = best.when - T, rev = best.leg === 'R', lock = best.on || lead < 0.6;
+      const phase = lock ? 'lock' : lead < 0.65 ? 'check' : lead < 0.8 && rev ? 'move' : '';
+      pst.set(p, { rev: rev && lead < 0.8, lock, phase, t: best.t });
     }
     /* 踏切：列車が近づくと鳴る */
     const xst = new Map();
@@ -194,8 +218,9 @@
     for (const sh of lay.shunt || []) sst.set(sh, sh.at === 'Q' ? frt.some(t => sh.t == null || (t.tr.num >> 1) % 4 === sh.t)
       : dead.some(q => q.n.track.at === sh.at && (sh.t != null ? q.n.track.t === sh.t : sh.lad == null || (C.yardGeo().C.tracks[q.n.track.t] || {}).lad === sh.lad)));
     /* 単線区間（川辺〜森下・森下〜峠・峠〜温泉）：使っている列車と向き */
+    /* 単線区間：出発の進路ができた時（発車の少し前）から、となりの駅に着くまで「使用中」（もとの川辺の指令盤と同じ） */
     const one = [['K', 'F'], ['F', 'T'], ['T', 'O']].map(([a, b]) => { const ka = a === 'K' ? 0 : SX[a].bkm, kb = SX[b].bkm;
-      const t = trains.find(t => t.line === 'b' && t.moving && t.hi > ka + (a === 'K' ? C.GEO.K.X6 : 0.25) && t.lo < kb - 0.25);
+      const t = trains.find(t => { const s0 = t.tr.seq[t.i], s1 = t.tr.seq[t.i + 1]; if (!((s0 === a && s1 === b) || (s0 === b && s1 === a))) return false; return t.moving || (t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01)); });
       return { a, b, ka, kb, t }; });
     return { trains, asp, routes, pst, xst, sst, one };
   }
@@ -329,6 +354,6 @@
     if (h.point) { const p = h.point, s = h.ps || {}; return `<b>ポイント${p.no}</b>（${p.what}）：${p.cross ? 'ふだんは使わない（非常用・臨時）' : s.rev ? 'となりの線へ（反位）' : 'まっすぐ（定位）'}${s.lock ? '・鎖錠中（進路ができている）' : ''}${s.t ? `<br><span class="muted">次に通る列車：${TY[s.t.tr.type].name} ${s.t.tr.num}</span>` : ''}`; }
     return '';
   }
-  const api = { build, state, draw, drawOcc, drawTop, bodyOf, explain, R, Y: Yw, G };
+  const api = { info, nextBlocked, build, state, draw, drawOcc, drawTop, bodyOf, explain, R, Y: Yw, G };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.CtcSignal = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -9,7 +9,7 @@
   let YMAP = null;
   let HS = null, YS = null, YSKEY = null, LAY = null, LAYK = null, SIG = null;
   const layOf = () => { const k = pxk + '|' + (HS ? 1 : 0); if (!LAY || LAYK !== k) { LAY = CtcSignal.build(HS, SX, L, C); LAYK = k; } return LAY; };
-  let PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
+  let BLOCKHOLD = false, LAG = new Map(), LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
 .ctc{min-width:0;max-width:100%;background:#0c1826;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
@@ -57,7 +57,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261118d').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261118e').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -224,9 +224,26 @@
     }
     P.push({ x: q.x, y: q.y }); return P;
   }
-  /* 編成ごとの決まった線（同じ線に2編成まで） */
-  let SLOT = new Map();
-  function slotOf(s, at) { const k = at + '|'; let m = SLOT.get(k); if (!m) { m = new Map(); SLOT.set(k, m); } if (!m.has(s.base || s)) m.set(s.base || s, m.size); return m.get(s.base || s); }
+  /* 車庫・留置線の置き場所の割りふり（2026-11-18 点検で作りなおし）：編成が車庫・留置線にいるあいだ（出入りの回送も入れて）を区間にして、
+     始まる時刻の順に、あいている置き場所のいちばん若い番号へ。同じ時刻に同じ置き場所へ2編成が入らない。いるあいだは同じ番号のまま */
+  let SLOT = null, SLOTKEY = null, SLOTOVER = {};
+  function buildSlots(Y3) {
+    const iv = { C: [], P: [], O: [] }, endOf = t => t.arr[t.arr.length - 1];
+    Y3.reg.forEach(s => { if (!s.trips.length) return; const h = s.home, a = s.trips[0], z = s.trips[s.trips.length - 1];
+      if (iv[h]) { iv[h].push({ s, t0: -1e9, t1: a.dep[0] - 1 }); iv[h].push({ s, t0: endOf(z) + 3, t1: 1e9 }); }
+      (s.rests || []).forEach(r => iv[r.at] && iv[r.at].push({ s, t0: r.t0, t1: r.t1 })); });
+    Y3.syn.forEach(s => { if (!s.rest || !iv[s.rest] || s.trips.length < 2) return; const a = s.trips[0], z = s.trips[s.trips.length - 1]; iv[s.rest].push({ s, t0: endOf(a), t1: z.dep[0] }); });
+    const cap = { C: 28, P: 8, O: 2 }; SLOTOVER = {};
+    for (const k in iv) { const L2 = iv[k].sort((x, y) => x.t0 - y.t0), busy = [];
+      for (const v of L2) { let j = busy.findIndex(e => e < v.t0 - 0.01); if (j < 0) { j = busy.length; busy.push(0); } busy[j] = v.t1; v.slot = j; if (j >= cap[k]) SLOTOVER[k] = Math.max(SLOTOVER[k] || 0, j + 1); } }
+    return iv;
+  }
+  function slotOf(s, at, T) {
+    const Y3 = YS; if (!Y3) return 0; if (SLOTKEY !== Y3) { SLOT = buildSlots(Y3); SLOTKEY = Y3; }
+    const L2 = (SLOT[at] || []).filter(v => v.s === s || v.s === s.base || (s.base && v.s.base === s.base)); if (!L2.length) return 0;
+    const v = L2.find(v => T >= v.t0 - 0.01 && T <= v.t1 + 0.01) || L2.reduce((a, b) => Math.min(Math.abs(T - a.t0), Math.abs(T - a.t1)) < Math.min(Math.abs(T - b.t0), Math.abs(T - b.t1)) ? a : b);
+    return v.slot;
+  }
 
   /* ---- 線路 ---- */
   function line(pts, col, w, dash) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.setLineDash([]); }
@@ -411,29 +428,68 @@
       let k = 1; while (k < P.length - 1 && cum[k] < d) k++; const a = P[k - 1], b = P[k], u = (d - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1); return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; };
     const out = [at(s)]; for (let k = P.length - 1; k >= 0; k--) if (cum[k] < s && cum[k] > s - len) out.push(P[k]); out.push(at(s - len)); return out;
   }
+  /* 回送の、折れ線 path の上で f（0〜1）の所の位置と車体 */
+  function deadAt(path, f, sl, i) {
+    const seg = path.slice(1).map((b, k) => Math.hypot(b.x - path[k].x, b.y - path[k].y)), tot = seg.reduce((x, y) => x + y, 0) || 1;
+    let dd = f * tot, k = 0; while (k < seg.length - 1 && dd > seg[k]) { dd -= seg[k]; k++; }
+    const a = path[k], b = path[k + 1] || path[k], u = seg[k] ? Math.min(1, dd / seg[k]) : 0;
+    const p = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, dir: (b.x >= a.x ? 1 : -1), moving: true, i, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+    p.body = pathBody(path, f * tot, sl);   /* 回送も、はしご・入出庫線の上を1両ずつ */
+    return p;
+  }
+  /* 車体どうしが近すぎるか（3.5px） */
+  function bodyHit(A, B) {
+    const segd = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / LL)); return Math.hypot(a[0] + u * dx - p[0], a[1] + u * dy - p[1]); };
+    const near = (P, q) => P.length > 1 ? P.some((r, k) => k && segd(q, P[k - 1], r) < 3.5) : Math.hypot(P[0][0] - q[0], P[0][1] - q[1]) < 3.5;
+    return A.some(q => near(B, q)) || B.some(q => near(A, q));
+  }
   /* いまの全部の編成の位置（車庫の中は除く）。画面と確かめ（CtcView.pos）が同じものを使う */
   function posAll(D, T) {
       const Y3 = yardSets(D);
+      if (LAGT == null || T < LAGT - 0.001 || T - LAGT > 1.5) LAG.clear(); const lagDt = LAGT == null ? 0 : Math.max(0, T - LAGT); LAGT = T;   /* 時刻を飛ばしたら、待ちの記録を消す */
       const states = Y3.reg.map(s => [s, setNow(s, T)]).concat(Y3.syn.map(s => [s, synNow(s, T)])), env = envCore(D);
       const out = [];
       states.forEach(([s, n]) => {
         if (n.depot) return;
         let p;
         if (n.dead) {
-          const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f = C.smooth(Math.max(0, Math.min(1, n.f)));
-          const q = C.trainPos(tr, n.out ? tr.dep[0] - 0.01 : tr.arr[i] + 0.01, L, env), at = n.yard || s.home, dp = depotPt(at, slotOf(s, at)), sl = Math.max(10, tr.cars * 0.02 * pxk);
+          const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f0 = Math.max(0, Math.min(1, n.f)), f = n.out ? f0 * f0 : Math.sqrt(f0);   /* 入庫は番線をすぐあける・出庫はホームに入るのを最後に（ほかの列車と重ならないように。2026-11-18 点検） */
+          const q = C.trainPos(tr, n.out ? tr.dep[0] - 0.01 : tr.arr[i] + 0.01, L, env), at = n.yard || s.home, dp = depotPt(at, slotOf(s, at, T)), sl = Math.max(10, tr.cars * 0.02 * pxk);
           /* 車庫・留置線と駅のあいだは、はしご・入出庫線の上を通る（yardPath） */
           const via = yardPath(at, dp, sl, q), path = n.out ? via : via.slice().reverse();
           n.track = { at, t: dp.t };
-          const seg = path.slice(1).map((b, k) => Math.hypot(b.x - path[k].x, b.y - path[k].y)), tot = seg.reduce((x, y) => x + y, 0) || 1;
-          let dd = f * tot, k = 0; while (k < seg.length - 1 && dd > seg[k]) { dd -= seg[k]; k++; }
-          const a = path[k], b = path[k + 1], u = seg[k] ? Math.min(1, dd / seg[k]) : 0;
-          p = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, dir: (b.x >= a.x ? 1 : -1), moving: true, i, ang: Math.atan2(b.y - a.y, b.x - a.x) };
-          p.body = pathBody(path, f * tot, sl);   /* 回送も、はしご・入出庫線の上を1両ずつ */
-          out.push({ s, n, p, tr, dead: true });
-        } else { p = withBody(n.trip, C.trainPos(n.trip, T, L, env), env);
+          p = deadAt(path, f, sl, i);
+          out.push({ s, n, p, tr, dead: true, path, sl, f0, fs: n.out ? (u => u * u) : Math.sqrt });
+        } else { const m = LAG.get(baseOf(n.trip)), tD = m && m.tr === n.trip ? Math.min(T, m.t + lagDt * 1.6) : T;   /* 閉塞で待った列車は、少し速く進んで追いつく */
+          p = withBody(n.trip, C.trainPos(n.trip, tD, L, env), env); p.tD = tD;
           out.push({ s, n, p, tr: n.trip, dead: false }); }
       });
+      /* 回送は、ほかの列車とぶつかるなら、その手前（車庫・留置線の側）で待つ（2026-11-18 点検） */
+      for (const d of out) { if (!d.dead || !d.path) continue;
+        const others = () => out.filter(o => o !== d);
+        if (!others().some(o => bodyHit(d.p.body, o.p.body || [[o.p.x, o.p.y]]))) continue;
+        for (let k = 1; k <= 50; k++) { const f0 = d.n.out ? d.f0 - k * 0.02 : d.f0 - k * 0.02; if (f0 < 0) break; const p2 = deadAt(d.path, d.fs(f0), d.sl, d.p.i);
+          if (!others().some(o => bodyHit(p2.body, o.p.body || [[o.p.x, o.p.y]]))) { d.p = Object.assign(p2, { held: true }); break; } } }
+      /* 閉塞（2026-11-18 点検）：次の信号の先の区間に列車がいれば、信号の手前で待つ（ダイヤより遅れて見える。あいたら少し速く進んで追いつく） */
+      /* 赤の信号の手前で止まる（2026-11-18 点検）：閉塞・場内・出発が赤なら、列車は信号の手前で待つ。
+         ダイヤどおりの位置より遅れて見えるので、あいたら少し速く進んで追いつく（LAG）。時刻を飛ばしたときは待ちを消す */
+      if (HS && window.CtcSignal) { const lay = layOf();
+        const yAt = (B, x) => { for (let k = 1; k < B.length; k++) { const a = B[k - 1], b = B[k]; if ((a[0] - x) * (b[0] - x) <= 0 && a[0] !== b[0]) return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); } return null; };
+        for (let pass = 0; pass < 2; pass++) {
+          /* 信号の色は、ひとつ前の画面の位置で決める（動こうとしている列車じしんが、先の区間をふさいで赤に見えないように） */
+          const prevQ = out.map(q => { if (q.dead) return q; const m = LAG.get(baseOf(q.tr)); if (!m || m.tr !== q.tr) return q; return Object.assign({}, q, { p: withBody(q.tr, C.trainPos(q.tr, m.t, L, env), env) }); });
+          const st0 = CtcSignal.state(lay, prevQ, T, L, C, SX, env);
+          for (const f of out) {
+            if (f.dead) continue; const m = LAG.get(baseOf(f.tr)); if (!m || m.tr !== f.tr) continue;
+            const dir = f.p.dir, x0 = m.x, x1 = f.p.x;  if ((x1 - x0) * dir <= 0.2) continue;
+            const hit = lay.sig.filter(o => o.dir === dir && !o.plan && st0.asp.get(o) === CtcSignal.R && (o.x - x0) * dir > 2 && (x1 - (o.x - dir * 3)) * dir > 0)
+              .filter(o => { let yy = yAt(f.p.body || [[x1, f.p.y]], o.x); if (yy == null) return Math.abs(m.y - o.trk) < 4; return Math.abs(yy - o.trk) < 4; })   /* 車体が信号の所までないときは、前の画面で信号の線にいたか */.sort((a, b) => (a.x - b.x) * dir)[0];
+            if (!hit) continue;
+            let lo = m.t, hi = f.p.tD; for (let k = 0; k < 14; k++) { const mid = (lo + hi) / 2, r = C.trainPos(f.tr, mid, L, env); if ((r.x - (hit.x - dir * 3)) * dir > 0) hi = mid; else lo = mid; }
+            f.p = withBody(f.tr, Object.assign(C.trainPos(f.tr, lo, L, env), { held: true, moving: true, tD: lo, redAt: hit.id }), env);
+          }
+        } }
+      out.forEach(q => { if (!q.dead && q.p.tD != null) LAG.set(baseOf(q.tr), { t: q.p.tD, x: q.p.x, y: q.p.y, tr: q.tr }); });
       /* 閉塞：同じ線路を同じ向きに走る列車は、前の列車の最後尾より先へ出ない（時刻の計算のずれで重なって見えないように） */
       const run = out.filter(q => !q.dead && q.p.moving);
       for (const f of run) {
@@ -475,17 +531,17 @@
       /* 車庫・留置線で休む編成：決まった線の奥に、本当の長さで（両数が分かるように、1両ずつ区切る） */
       const parked = (x, y, cars, col) => { const len = cars * 0.02 * pxk; ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y); ctx.stroke();
         if (pxk >= 200) { ctx.strokeStyle = '#0c1826'; ctx.lineWidth = 1; for (let c = 1; c < cars; c++) { const cx = x + c * 0.02 * pxk; ctx.beginPath(); ctx.moveTo(cx, y - 2.5); ctx.lineTo(cx, y + 2.5); ctx.stroke(); } } };
-      Y3.reg.forEach(s => { tot[s.home]++; const n = setNow(s, T); if (!n.depot) return; const at = n.yard || s.home, q = depotPt(at, slotOf(s, at)); if (at !== 'O') used[at]++; parked(q.x, q.y, s.cars, tyCol(s.trips[0])); });
+      Y3.reg.forEach(s => { tot[s.home]++; const n = setNow(s, T); if (!n.depot) return; const at = n.yard || s.home, q = depotPt(at, slotOf(s, at, T)); if (at !== 'O') used[at]++; parked(q.x, q.y, s.cars, tyCol(s.trips[0])); });
       ctx.font = '700 12px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#dbe6f0';
       ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main + Y.dep - 6); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(SX.P.km - 1.3), Y.main - Y.pyd - 8);
       /* 頭端の駅（中央・港・温泉）で止まっている列車の番線を、重ならないように割りふる */
       /* 留置線で休んでいる臨時列車 */
-      Y3.syn.forEach(s => { const n = synNow(s, T); if (!n.rest) return; const q = depotPt(n.rest, slotOf(s, n.rest));
+      Y3.syn.forEach(s => { const n = synNow(s, T); if (!n.rest) return; const q = depotPt(n.rest, slotOf(s, n.rest, T));
         parked(q.x, q.y, s.cars, tyCol(s.trips[0])); ctx.font = '700 10px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = tyCol(s.trips[0]); ctx.fillText('臨' + s.trips[0].num + ' 休み', q.x, q.y - 6); });
       let selPos = null;
       const QQ = posAll(D, T);
       let lay = null, gg = null;
-      if (HS && window.CtcSignal) { lay = layOf(); SIG = CtcSignal.state(lay, QQ, T, L, C, SX); gg = { L, C, T, pxk, hits, env: envCore(D), view: [ox, ox + w], sel: selSig, name: tr => TY2[tr.type].name + tr.num }; CtcSignal.draw(ctx, lay, SIG, gg); CtcSignal.drawOcc(ctx, SIG, gg); }   /* 進路・踏切・ポイント・列車がいる区間（川辺の指令室と同じ部品・2026-11-18） */
+      if (HS && window.CtcSignal) { lay = layOf(); SIG = CtcSignal.state(lay, QQ, T, L, C, SX, envCore(D)); gg = { L, C, T, pxk, hits, env: envCore(D), view: [ox, ox + w], sel: selSig, name: tr => TY2[tr.type].name + tr.num }; CtcSignal.draw(ctx, lay, SIG, gg); CtcSignal.drawOcc(ctx, SIG, gg); }   /* 進路・踏切・ポイント・列車がいる区間（川辺の指令室と同じ部品・2026-11-18） */
       for (const q of QQ) { drawTrain(q.p, q.tr, q.dead, T, D); if (sel && sel.tr === baseOf(q.tr)) selPos = q.p; }
       if (lay) CtcSignal.drawTop(ctx, lay, SIG, gg);   /* 信号機・入換信号・単線区間は列車の上 */
       if (selPos && host.querySelector('#ctcFollow').checked) { const want = selPos.x - w / 2; if (Math.abs(sc.scrollLeft - want) > 40) sc.scrollLeft += (want - sc.scrollLeft) * 0.15; }
@@ -591,6 +647,20 @@
     D.trips.forEach(t => { const a = R.A.get(t); if (!a) return; n++; if (a.cancel) { late++; return; } if (a.arr[a.arr.length - 1] - t.arr[t.arr.length - 1] >= 1) late++; }); return n ? late / n : null; }
   /* きょうの線路使用料（円・仮）。経営のタブが1日の終わりに読む（橋 ctc-fee-to-keiei） */
   function feeToday(D) { if (!E || !X || !D || !D.trips) return 0; ensureHl(D); return FEE ? FEE.yen : 0; }
-  window.CtcView = { init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2, YS }),
+  /* 確かめ用（headless）：時刻 T の、列車（車体）・信号・ポイント・単線区間・入換信号・車庫の編成。画面は描かない */
+  function probe(T) {
+    const D = data(); if (!D || !L || !HS) return null; ensureHl(D);
+    const QQ = posAll(D, T), lay = layOf(), st = CtcSignal.state(lay, QQ, T, L, C, SX, envCore(D)), Y3 = yardSets(D);
+    const sets = Y3.reg.map(s => { const n = setNow(s, T); return { id: s.id != null ? s.id : s.trips[0].num, home: s.home, depot: !!n.depot, yard: n.yard || null, slot: n.depot ? slotOf(s, n.yard || s.home, T) : null, first: s.trips[0].seq[0], last: s.trips[s.trips.length - 1].seq.slice(-1)[0] }; });
+    const syn = Y3.syn.map(s => { const n = synNow(s, T); return { kind: s.kind, depot: !!n.depot, rest: n.rest || null }; });
+    return {
+      trains: QQ.map(q => ({ key: q.tr.num + '@' + (q.tr.yardOf || q.tr).dep[0].toFixed(2) + (q.dead ? 'd' : ''), num: q.tr.num, type: q.tr.type, dead: q.dead, held: !!q.p.held, moving: q.p.moving, dir: q.p.dir, i: q.p.i, seq: q.tr.seq.join(''), st: q.tr.seq[q.p.i], nx: q.tr.seq[q.p.i + 1] || null, x: q.p.x, y: q.p.y, body: CtcSignal.bodyOf(q.p, q.tr, pxk), cars: q.tr.cars, synth: !!(q.tr.synth || (q.tr.base && q.tr.base.synth)), track: q.n && q.n.track || null, lane: q.tr.lanes ? q.tr.lanes[q.p.i] : null })),
+      sig: lay.sig.map(o => ({ trk: o.trk, id: o.id, kind: o.kind, line: o.line, dir: o.dir, st: o.st || null, km: o.km, x: o.x, lane: o.lane, asp: o.plan ? null : st.asp.get(o), br: !!o.br })),
+      pts: lay.pts.map(p => { const v = st.pst.get(p) || {}; return { st: p.st, no: p.no, x: p.x, y0: p.y0, a: p.a, b: p.b, trunk: p.trunk, len: p.len, side: p.side, out: p.out, cross: p.cross, rule: p.rule, br: p.br, rev: !!v.rev, lock: !!v.lock, phase: v.phase || '', by: v.t ? v.t.tr.num : null }; }),
+      one: (st.one || []).map(u => ({ a: u.a, b: u.b, t: u.t ? u.t.tr.num : null })), shunt: (lay.shunt || []).map(sh => ({ at: sh.at, t: sh.t, main: !!sh.main, on: !!(st.sst && st.sst.get(sh)) })),
+      routes: st.routes.map(r => ({ kind: r.kind, st: r.st, num: r.t.tr.num, prep: !!r.prep })), xings: lay.xings.map(x => ({ km: x.km, br: x.br, on: !!st.xst.get(x) })),
+      sets, syn, slotOver: SLOTOVER, pxk, big: BIG ? { a: BIG.a, b: BIG.b, t0: BIG.t0, t1: BIG.t1, name: BIG.name } : null };
+  }
+  window.CtcView = { probe, init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2, YS }),
     pos: T => { const D = data(); if (!D || !L) return []; ensureHl(D); return posAll(D, T).map(q => ({ num: q.tr.num, type: q.tr.type, down: q.tr.down, dead: q.dead, x: q.p.x, y: q.p.y, moving: q.p.moving, st: q.tr.seq[q.p.i], len: Math.max(10, q.tr.cars * 0.02 * L.pxk), dir: q.p.dir })); } };   /* syn：確かめ用（headless） */
 })();
