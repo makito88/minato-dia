@@ -106,28 +106,60 @@
     frt: [-1.5, -1.4, -1.07, -0.8, -0.7],   /* 港からの km：下りの本線をはなれる・上りの本線・南へ下りきる・ターミナルの手前・ターミナルの線 */
   };
   const poly = (P, k) => { if (k <= P[0][0]) return P[0][1]; for (let j = 1; j < P.length; j++) if (k <= P[j][0]) { const a = P[j - 1], b = P[j]; return a[1] + (b[1] - a[1]) * (k - a[0]) / ((b[0] - a[0]) || 1); } return P[P.length - 1][1]; };
-  function extPos(tr, i, T, L, env) {
+  /* 連絡線・臨港線の線路の形：区間 i の km での高さ（2026-11-18：列車の動きと車体の両方がこれを使う） */
+  function extY(tr, i, km, env) {
     const n = tr.seq.length, a = tr.seq[i], b = tr.seq[Math.min(n - 1, i + 1)], M = Y.main, run = tr.down ? -Y.lane : Y.lane;
-    const qk = (tr.num >> 1) % 4, qy = Y.freight - 14 + qk * 9;   /* 港貨物ターミナルの4本のどれか */
-    const stopAt = s => s === 'W' ? { x: L.xm(env.ST.W.km), y: tr.down ? YK6 : YK5 } : { x: L.xm(env.ST.Q.km), y: qy };
-    if (T < tr.dep[i] || i === n - 1) { const p = stopAt(a); return { x: p.x, y: p.y, dir: tr.down ? 1 : -1, moving: false, i }; }
-    const raw = Math.max(0, Math.min(1, (T - tr.dep[i]) / (tr.arr[i + 1] - tr.dep[i]))), f = raw * 0.35 + 0.65 * smooth(raw);
-    const ka = env.ST[a].km + (a === 'C' ? frontOff(tr, i, env) : 0), kb = env.ST[b].km + (b === 'C' ? frontOff(tr, i + 1, env) : 0), km = ka + (kb - ka) * f;
-    let y;
+    const qk = (tr.num >> 1) % 4, qy = Y.freight - 14 + qk * 9;
     if (a === 'W' || b === 'W') {
       const yc = M + laneOff(tr, a === 'C' ? i : i + 1, env);
-      if (tr.down) { y = km < -0.55 ? poly(LINK.inW, km) : yc === M - Y.lane ? poly(LINK.in2, km) : M - Y.side;   /* 入り（北） */
-        if (km > -0.35) y = yc; }
-      else { const asc = P => P.slice().sort((p, q) => p[0] - q[0]);   /* 出（南） */
-        y = km < -0.7 ? poly(asc(LINK.outW), km) : yc === M + Y.side ? (km < -0.45 ? poly(asc(LINK.out4), km) : yc) : M + Y.l5; }
-    } else {   /* 臨港線 */
-      const P = env.ST.P.km, F = LINK.frt.map(d => P + d), N = env.ST.N.km, oN = laneOff(tr, a === 'N' ? i : i + 1, env);
-      const y0 = Y.freight - 14, jx = P + LINK.frt[3] + qk * 9 * PER;
-      const tq = [[F[0], tr.down ? M - Y.lane : M + Y.lane], [F[1], M + Y.lane], [F[2], y0], [F[3], y0], [jx, qy], [P + 1, qy]];
-      if (km < F[0]) y = M + (Math.abs(km - N) < 0.8 ? laneGeo('N', Math.abs(km - N), oN, run) : run);
-      else y = poly(tq, km);
+      if (tr.down) { if (km > -0.35) return yc; return km < -0.55 ? poly(LINK.inW, km) : yc === M - Y.lane ? poly(LINK.in2, km) : M - Y.side; }   /* 入り（北） */
+      const asc = P => P.slice().sort((p, q) => p[0] - q[0]);   /* 出（南） */
+      return km < -0.7 ? poly(asc(LINK.outW), km) : yc === M + Y.side ? (km < -0.45 ? poly(asc(LINK.out4), km) : yc) : M + Y.l5;
     }
-    return { x: L.xm(km), y, dir: tr.down ? 1 : -1, moving: true, i, f: raw };
+    /* 臨港線 */
+    const P = env.ST.P.km, F = LINK.frt.map(d => P + d), N = env.ST.N.km, oN = laneOff(tr, a === 'N' ? i : i + 1, env);
+    const y0 = Y.freight - 14, jx = P + LINK.frt[3] + qk * 9 * PER;
+    const tq = [[F[0], tr.down ? M - Y.lane : M + Y.lane], [F[1], M + Y.lane], [F[2], y0], [F[3], y0], [jx, qy], [P + 1, qy]];
+    if (km < F[0]) return M + (Math.abs(km - N) < 0.8 ? laneGeo('N', Math.abs(km - N), oN, run) : run);
+    return poly(tq, km);
+  }
+  const isExt = (tr, i) => { const n = tr.seq.length, a = tr.seq[i], b = tr.seq[Math.min(n - 1, i + 1)]; return tr.synth && (a === 'W' || a === 'Q' || b === 'W' || b === 'Q'); };
+  /* 区間 i（seq[i]→seq[i+1]）の線路の上の、km の所の点。br の区間は支線のキロ（川辺から） */
+  function segPt(tr, i, km, L, env) {
+    const n = tr.seq.length; i = Math.max(0, Math.min(n - 2, i));
+    if (isExt(tr, i)) return { x: L.xm(km), y: extY(tr, i, km, env) };
+    const a = tr.seq[i], b = tr.seq[i + 1], br = onBranch(a) || onBranch(b), oa = laneOff(tr, i, env), ob = laneOff(tr, i + 1, env);
+    if (!br) {
+      const run = tr.down ? -Y.lane : Y.lane, ca = env.ST[a].km, cb = env.ST[b].km, da = Math.abs(km - ca), db = Math.abs(km - cb);
+      return { x: L.xm(km), y: Y.main + (da <= db ? laneGeo(a, da, oa, run) : laneGeo(b, db, ob, run)) };
+    }
+    if (km < GEO.K.J1) return { x: L.xb(km), y: poly(kPath(tr.down, a === 'K' ? oa : ob), km) };
+    let y = Y.br;
+    for (const s of ['F', 'T', 'O']) { const d = Math.abs(km - env.ST[s].bkm); if (d < GEO[s].d0 + STEP) { const o = s === a ? oa : s === b ? ob : 0; y = Y.br + laneGeo(s, d, o, 0, true); } }
+    return { x: L.xb(km), y };
+  }
+  const segIsBr = (tr, i) => { const n = tr.seq.length; i = Math.max(0, Math.min(n - 2, i)); return !isExt(tr, i) && (onBranch(tr.seq[i]) || onBranch(tr.seq[i + 1])); };
+  /* 車体：先頭（区間 j・km）から、通ってきた線路をさかのぼって len px ぶんの点（先頭から最後尾へ）。駅をまたぐと、ひとつ前の区間の線路へ */
+  function bodyPts(tr, j, km, lenPx, L, env) {
+    const dir = tr.down ? 1 : -1, n = tr.seq.length, out = [], dk = 1.5 / L.pxk; let got = 0, prev = segPt(tr, j, km, L, env);
+    out.push([prev.x, prev.y]);
+    for (let k = 0; k < 600 && got < lenPx; k++) {
+      km -= dir * dk;
+      const s0 = tr.seq[j], k0 = kmOf(s0, env, segIsBr(tr, j));
+      if (j > 0 && (km - k0) * dir < 0) { const k1 = kmOf(s0, env, segIsBr(tr, j - 1)); km = k1 + (km - k0); j--; }
+      const q = segPt(tr, j, km, L, env), d = Math.hypot(q.x - prev.x, q.y - prev.y);
+      if (got + d >= lenPx) { const u = (lenPx - got) / (d || 1); out.push([prev.x + (q.x - prev.x) * u, prev.y + (q.y - prev.y) * u]); got = lenPx; break; }
+      got += d; out.push([q.x, q.y]); prev = q;
+    }
+    void n; return out;
+  }
+  function extPos(tr, i, T, L, env) {
+    const n = tr.seq.length, a = tr.seq[i], b = tr.seq[Math.min(n - 1, i + 1)];
+    if (T < tr.dep[i] || i === n - 1) { const km = env.ST[a].km + (a === 'C' ? frontOff(tr, i, env) : 0), j = i === n - 1 ? i - 1 : i, p = segPt(tr, j, km, L, env); return { x: p.x, y: p.y, dir: tr.down ? 1 : -1, moving: false, i, seg: j, km }; }
+    const raw = Math.max(0, Math.min(1, (T - tr.dep[i]) / (tr.arr[i + 1] - tr.dep[i]))), f = raw * 0.35 + 0.65 * smooth(raw);
+    const ka = env.ST[a].km + (a === 'C' ? frontOff(tr, i, env) : 0), kb = env.ST[b].km + (b === 'C' ? frontOff(tr, i + 1, env) : 0), km = ka + (kb - ka) * f;
+    const p = segPt(tr, i, km, L, env);
+    return { x: p.x, y: p.y, dir: tr.down ? 1 : -1, moving: true, i, f: raw, seg: i, km };
   }
   /* 止まる位置のずれ（km・列車の先頭）。env.hs があるときだけ。中ほどの駅はホームの真ん中に、頭端の駅は車止め側に、千鳥の駅はずらす */
   function frontOff(tr, i, env) {
@@ -211,12 +243,10 @@
     let i = 0; while (i < n - 1 && tr.arr[i + 1] <= T) i++;
     if (tr.synth) { const a = tr.seq[i], b = tr.seq[Math.min(n - 1, i + 1)], stopped = T < tr.dep[i] || i === n - 1; if (a === 'W' || a === 'Q' || (!stopped && (b === 'W' || b === 'Q'))) return extPos(tr, i, T, L, env); }
     const st = k => tr.seq[k];
-    const atSt = k => {
-      const s = st(k), o = laneOff(tr, k, env), fo = frontOff(tr, k, env);
-      if (onBranch(s)) return { x: L.xb(env.ST[s].bkm + fo), y: Y.br + o };
-      return { x: L.xm(env.ST[s].km + fo), y: Y.main + o };
-    };
-    if (T < tr.dep[i] || i === n - 1) { const p = atSt(i); return { x: p.x, y: p.y, dir: tr.down ? 1 : -1, moving: false, i }; }
+    if (T < tr.dep[i] || i === n - 1) {   /* 駅に止まっている：先頭の位置（ひとつ前の区間の線路の上。始発は次の区間） */
+      const j = i > 0 ? i - 1 : 0, km = kmOf(st(i), env, segIsBr(tr, j)) + frontOff(tr, i, env), p = segPt(tr, j, km, L, env);
+      return { x: p.x, y: p.y, dir: tr.down ? 1 : -1, moving: false, i, seg: j, km };
+    }
     const a = st(i), b = st(i + 1), br = onBranch(a) || onBranch(b);
     let raw = Math.max(0, Math.min(1, (T - tr.dep[i]) / (tr.arr[i + 1] - tr.dep[i])));
     if (tr.hold && tr.hold.i === i) {   /* 段5：事故にあった列車は、その場所で再開まで止まる */
@@ -227,25 +257,8 @@
     const sa = i === 0 || tr.stop[i], sb = i + 1 === n - 1 || tr.stop[i + 1];
     const f = sa && sb ? raw * 0.35 + 0.65 * smooth(raw) : sa ? raw * 0.35 + 0.65 * raw * raw : sb ? raw * 0.35 + 0.65 * (1 - (1 - raw) * (1 - raw)) : raw;
     const ka = kmOf(a, env, br) + frontOff(tr, i, env), kb = kmOf(b, env, br) + frontOff(tr, i + 1, env), km = ka + (kb - ka) * f;
-    const oa = laneOff(tr, i, env), ob = laneOff(tr, i + 1, env);
-    if (!br) {
-      const run = tr.down ? -Y.lane : Y.lane;
-      /* 番線を変えるのは、線路の絵と同じ所（渡り線・シーサス・分かれる線）だけ。駅の中心からの距離で決める（2026-11-18） */
-      const ca = env.ST[a].km, cb = env.ST[b].km, da = Math.abs(km - ca), db = Math.abs(km - cb);
-      const o = da <= db ? laneGeo(a, da, oa, run) : laneGeo(b, db, ob, run);
-      return { x: L.xm(km), y: Y.main + o, dir: tr.down ? 1 : -1, moving: true, i, f: raw };
-    }
-    /* 支線：川辺（もとの指令盤と同じ形）から上の段へ。森下・峠・温泉は単線から分かれる */
-    const bkm = km;
-    let y;
-    if (bkm < GEO.K.J1) {
-      const oK = a === 'K' ? oa : ob;
-      y = poly(kPath(tr.down, oK), bkm);
-    } else {
-      y = Y.br;
-      for (const s of ['F', 'T', 'O']) { const d = Math.abs(bkm - env.ST[s].bkm); if (d < GEO[s].d0 + STEP) { const o = s === a ? oa : s === b ? ob : 0; y = Y.br + laneGeo(s, d, o, 0, true); } }
-    }
-    return { x: L.xb(bkm), y, dir: tr.down ? 1 : -1, moving: true, i, f: raw };
+    const p = segPt(tr, i, km, L, env);
+    return { x: p.x, y: p.y, dir: tr.down ? 1 : -1, moving: true, i, f: raw, seg: i, km };
   }
 
   /* 停車が長い理由（いくつでも）。[{code, min, txt, by}] */
@@ -937,7 +950,7 @@
   /* 編成がいま車庫にいるか */
   const inDepot = (s, T) => T < s.first - 8 || T > s.last + 9;
 
-  const api = { yardGeo, PER, LINK, GEO, STEP, setPL, kPath, laneGeo, YK5, YK6, yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
+  const api = { bodyPts, segPt, yardGeo, PER, LINK, GEO, STEP, setPL, kPath, laneGeo, YK5, YK6, yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CtcCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

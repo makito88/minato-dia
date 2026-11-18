@@ -57,7 +57,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261118c').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261118d').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -398,6 +398,19 @@
     hits.push({ x0: cx - w / 2, x1: cx + w / 2, y0: cy - hh / 2, y1: cy + hh / 2, tr });
   }
 
+  /* 車体を線路の上に（1両ずつ、通ってきた線路をさかのぼる。ポイント・連絡線・臨港線・支線もそのまま。2026-11-18） */
+  function withBody(tr, p, env) {
+    const len = Math.max(10, tr.cars * 0.02 * pxk);
+    if (p.seg != null && p.km != null) { p.body = C.bodyPts(tr, p.seg, p.km, len, L, env); const B = p.body; if (B.length > 1) p.ang = Math.atan2(B[0][1] - B[1][1], B[0][0] - B[1][0]); }
+    return p;
+  }
+  /* 折れ線 path（{x,y} の並び）の上で、はじめから s px の所を先頭に、len px ぶんうしろへ。はじめより前は、最初の線をそのままのばす */
+  function pathBody(path, s, len) {
+    const P = path.map(q => [q.x, q.y]), cum = [0]; for (let k = 1; k < P.length; k++) cum.push(cum[k - 1] + Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]));
+    const at = d => { if (d <= 0) { const a = P[0], b = P[1] || [P[0][0] + 1, P[0][1]], L0 = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [a[0] + (a[0] - b[0]) / L0 * -d, a[1] + (a[1] - b[1]) / L0 * -d]; }
+      let k = 1; while (k < P.length - 1 && cum[k] < d) k++; const a = P[k - 1], b = P[k], u = (d - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1); return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u]; };
+    const out = [at(s)]; for (let k = P.length - 1; k >= 0; k--) if (cum[k] < s && cum[k] > s - len) out.push(P[k]); out.push(at(s - len)); return out;
+  }
   /* いまの全部の編成の位置（車庫の中は除く）。画面と確かめ（CtcView.pos）が同じものを使う */
   function posAll(D, T) {
       const Y3 = yardSets(D);
@@ -416,15 +429,9 @@
           let dd = f * tot, k = 0; while (k < seg.length - 1 && dd > seg[k]) { dd -= seg[k]; k++; }
           const a = path[k], b = path[k + 1], u = seg[k] ? Math.min(1, dd / seg[k]) : 0;
           p = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, dir: (b.x >= a.x ? 1 : -1), moving: true, i, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+          p.body = pathBody(path, f * tot, sl);   /* 回送も、はしご・入出庫線の上を1両ずつ */
           out.push({ s, n, p, tr, dead: true });
-        } else { p = C.trainPos(n.trip, T, L, env);
-          /* 進む向きの角度（斜めの線路では、車両も斜めに。2026-11-18） */
-          if (p.moving) { const q = C.trainPos(n.trip, T - 0.04, L, env), dx = p.x - q.x, dy = p.y - q.y; p.ang = Math.hypot(dx, dy) > 0.3 && Math.abs(dy) > 0.05 ? Math.atan2(dy, dx) : (p.dir > 0 ? 0 : Math.PI);
-            /* 車体：先頭が通ってきた所をさかのぼって、線路に沿って曲げる（分かれる線の上で車体がはみ出さないように） */
-            const len = Math.max(10, n.trip.cars * 0.02 * pxk), body = [[p.x, p.y]]; let got = 0, t = T;
-            for (let k = 0; k < 60 && got < len; k++) { t -= 0.012; const r = C.trainPos(n.trip, t, L, env), b = body[body.length - 1], d = Math.hypot(r.x - b[0], r.y - b[1]); if (d < 0.05) break; if (got + d > len) { const u = (len - got) / d; body.push([b[0] + (r.x - b[0]) * u, b[1] + (r.y - b[1]) * u]); got = len; break; } body.push([r.x, r.y]); got += d; }
-            if (got < len) { const b = body[body.length - 1]; body.push([b[0] - p.dir * (len - got), b[1]]); }
-            if (body.length > 2 || Math.abs(body[0][1] - body[body.length - 1][1]) > 0.5) p.body = body; }
+        } else { p = withBody(n.trip, C.trainPos(n.trip, T, L, env), env);
           out.push({ s, n, p, tr: n.trip, dead: false }); }
       });
       /* 閉塞：同じ線路を同じ向きに走る列車は、前の列車の最後尾より先へ出ない（時刻の計算のずれで重なって見えないように） */
@@ -435,7 +442,8 @@
           if (l === f || l.dead || l.p.dir !== f.p.dir || Math.abs(l.p.y - f.p.y) > 3) continue;
           const ll = Math.max(10, l.tr.cars * 0.02 * pxk), tail = l.p.x - ll * l.p.dir;   /* 前の列車の最後尾 */
           const ahead = (l.p.x - f.p.x) * f.p.dir; if (ahead <= 0 || ahead > fl + ll + 60) continue;
-          const lim = tail - 6 * f.p.dir; if ((f.p.x - lim) * f.p.dir > 0) { f.p = Object.assign({}, f.p, { x: lim, held: true, body: null }); }
+          const lim = tail - 6 * f.p.dir; if ((f.p.x - lim) * f.p.dir > 0) {   /* 少し前の時刻の位置にもどす（線路の上のまま） */
+            for (let k = 1; k <= 80; k++) { const p2 = C.trainPos(f.tr, T - k * 0.02, L, envCore(D)); if ((p2.x - lim) * f.p.dir <= 0) { f.p = withBody(f.tr, Object.assign(p2, { held: true, moving: true }), envCore(D)); break; } } }
         }
       }
       /* 頭端の駅ののど：出ていく列車の最後尾が抜けるまで、同じ番線へ着く列車は手前で待つ（時刻の計算では同時に見えることがあるので、画面で少し前の位置に止める） */
@@ -444,7 +452,7 @@
       for (const f of run) {
         const tr = f.tr, j = f.p.i + 1; if (j !== tr.seq.length - 1 || !['C', 'P', 'O'].includes(tr.seq[j])) continue;   /* 終点の頭端の駅へ着く列車だけ */
         const foe = out.filter(o => o !== f && !o.dead && o.p.dir !== f.p.dir); if (!foe.some(o => hit(f, o))) continue;
-        for (let k = 1; k <= 40; k++) { const p2 = C.trainPos(tr, T - k * 0.05, L, envCore(D)); const g = { p: Object.assign({}, p2, { held: true, moving: true }), tr }; if (!foe.some(o => hit(g, o))) { f.p = g.p; break; } }
+        for (let k = 1; k <= 40; k++) { const p2 = C.trainPos(tr, T - k * 0.05, L, envCore(D)); const g = { p: withBody(tr, Object.assign({}, p2, { held: true, moving: true }), envCore(D)), tr }; if (!foe.some(o => hit(g, o))) { f.p = g.p; break; } }
       }
       return out;
   }
