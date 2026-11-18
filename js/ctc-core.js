@@ -5,13 +5,13 @@
    - 数字・名前はすべて架空。線路の数は docs/map-tiles/haisen.json（配線図の案）にそろえる。 */
 (function (root) {
   'use strict';
-  const Y = { main: 300, br: 118, lane: 9, side: 27, brLoop: 10, kenou: 372, freight: 410 };
+  const Y = { main: 300, br: 118, lane: 14, side: 42, l5: 70, brLoop: 14, pyd: 96, dep: 112, kenou: 372, freight: 420 };   /* 2026-11-18：川辺の指令室と同じ部品が入るように、番線のあいだを広げた（lane 9→14・side 27→42）。l5＝中央5番線、pyd＝港留置線のいちばん上（本線から上へ） */
   const MAIN = ['C', 'S', 'U', 'M', 'K', 'N', 'P'], BR = ['K', 'F', 'T', 'O'];
   /* 川辺の分かれ道（川辺から支線の道のり km）：駅の東で本線から分かれ、少し上がって平らな所で上下がまとまり、上の段へのぼる
      下り：下りの本線から JUNC0 で分かれる／上り：上りの本線から UP0 で、下りの本線を平面交差して UP1 で合流 */
   const JUNC0 = 0.4, LV0 = 0.5, LV1 = 0.9, JUNC1 = 1.3, UP0 = 0.5, UP1 = 0.75, LVY = -50;
   const OS = 0.36;   /* 温泉：駅の手前で2線に分かれる長さ（ホーム 0.22km の外で分かれる） */
-  const LANES = { C: [-Y.side, -Y.lane, Y.lane, Y.side, Y.side + 18], P: [-Y.side, -Y.lane, Y.lane, Y.side] };
+  const LANES = { C: [-Y.side, -Y.lane, Y.lane, Y.side, Y.l5], P: [-Y.side, -Y.lane, Y.lane, Y.side] };
   const SIGBOX = 2.0;   /* 森下〜峠の交換信号所（森下から km・計画） */   /* 温泉の手前で2線に分かれる長さ */
   const STA = 0.35;                  /* 駅のポイントの範囲（駅の中心から km） */
   const ML = 2.8;                    /* 中央より西に取る幅（km）：中央車庫と県央本線 */
@@ -38,7 +38,7 @@
     const xK = xm(ST.K.km);
     const xb = bkm => xK + bkm * pxk;
     const W = Math.ceil(Math.max(xm(ST.P.km + 1.4), xb(ST.O.bkm + 1.2)));
-    return { pxk, xm, xb, xK, W, H: 495, Y, ML, JUNC0, LV0, LV1, JUNC1, UP0, UP1, LVY, OS, STA };
+    return { pxk, xm, xb, xK, W, H: 520, Y, ML, JUNC0, LV0, LV1, JUNC1, UP0, UP1, LVY, OS, STA };
   }
   const smooth = u => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
 
@@ -61,7 +61,7 @@
     return (env.ST[s].taihi && env.onSiding(tr, i)) ? base * 3 : base;
   }
   /* ---- 駅の形（data/ctc-haisen.json・2026-11-17） ---- */
-  const LCODE = { c: 0, '-s': -Y.side, '-l': -Y.lane, l: Y.lane, s: Y.side, s5: Y.side + 18, '-b': -Y.brLoop, b: Y.brLoop, b3: Y.brLoop * 2.6 };
+  const LCODE = { c: 0, '-s': -Y.side, '-l': -Y.lane, l: Y.lane, s: Y.side, s5: Y.l5, '-b': -Y.brLoop, b: Y.brLoop, b3: Y.brLoop * 2.6 };
   const lc = c => LCODE[c];
   /* その列車が駅 i で使える番線（はじめのものから）。今までの決め方（待避は外側など）を先に */
   function prefLanes(tr, i, env) {
@@ -100,8 +100,8 @@
   const LINK = {
     inW: [[-9, YK6], [-1.05, YK6], [-0.55, Y.main - Y.side]],
     in2: [[-0.5, Y.main - Y.side], [-0.35, Y.main - Y.lane]],
-    outW: [[-0.7, Y.main + Y.side + 18], [-1.0, Y.main + Y.side + 18], [-1.5, YK5], [-9, YK5]],
-    out4: [[-0.45, Y.main + Y.side], [-0.6, Y.main + Y.side + 18]],
+    outW: [[-0.7, Y.main + Y.l5], [-1.0, Y.main + Y.l5], [-1.5, YK5], [-9, YK5]],
+    out4: [[-0.45, Y.main + Y.side], [-0.6, Y.main + Y.l5]],
     north: [[0.34, Y.main - Y.side], [0.66, YK5 - 40 * (0.36 / 0.45)]],
     frt: [-1.5, -1.35, -1.05, -0.75, -0.6],   /* 港からの km：下りの本線をはなれる・上りの本線・南へ下りきる・ターミナルの手前・ターミナルの線 */
   };
@@ -119,7 +119,7 @@
       if (tr.down) { y = km < -0.55 ? poly(LINK.inW, km) : yc === M - Y.lane ? poly(LINK.in2, km) : M - Y.side;   /* 入り（北） */
         if (km > -0.35) y = yc; }
       else { const asc = P => P.slice().sort((p, q) => p[0] - q[0]);   /* 出（南） */
-        y = km < -0.7 ? poly(asc(LINK.outW), km) : yc === M + Y.side ? (km < -0.45 ? poly(asc(LINK.out4), km) : yc) : M + Y.side + 18; }
+        y = km < -0.7 ? poly(asc(LINK.outW), km) : yc === M + Y.side ? (km < -0.45 ? poly(asc(LINK.out4), km) : yc) : M + Y.l5; }
     } else {   /* 臨港線 */
       const P = env.ST.P.km, F = LINK.frt.map(d => P + d), N = env.ST.N.km, oN = laneOff(tr, a === 'N' ? i : i + 1, env);
       const tq = [[F[0], tr.down ? M - Y.lane : M + Y.lane], [F[1], M + Y.lane], [F[2], Y.freight - 10], [F[3], Y.freight - 10], [F[4], qy], [P + 1, qy]];

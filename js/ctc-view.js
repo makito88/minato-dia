@@ -9,10 +9,10 @@
   let YMAP = null;
   let HS = null, YS = null, YSKEY = null, LAY = null, LAYK = null, SIG = null;
   const layOf = () => { const k = pxk + '|' + (HS ? 1 : 0); if (!LAY || LAYK !== k) { LAY = CtcSignal.build(HS, SX, L, C); LAYK = k; } return LAY; };
-  let SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
+  let selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
-.ctc{min-width:0;max-width:100%;background:#0d1620;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
+.ctc{min-width:0;max-width:100%;background:#0c1826;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
 .ctc-bar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:0 12px 8px}
 .ctc-bar h2{font-size:16px;margin:0;color:#fff}
 .ctc-bar .sub{font-size:11.5px;color:#8aa0b4}
@@ -57,7 +57,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261118a').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261118b').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -69,9 +69,9 @@
     <label title="段2：混雑とできごとの小さな遅れを足し、プロの手順で動かした「きょうの実際」。乗客・運賃の計算には返しません"><input type="checkbox" id="ctcRan" checked>きょうの乱れ</label>
     <label title="段5：大きな事故（運転見合わせ・振替輸送・運転再開・運休）を、きょう、かならず起こして見る。切ると、運行日ごとの運（約1割）にもどる"><input type="checkbox" id="ctcBig">大きな事故の訓練</label></div>
   <div class="ctc-sc" id="ctcSc"><div id="ctcSp" style="height:1px"></div><canvas id="ctcCv" aria-label="指令パネル。線路と列車"></canvas></div>
-  <div class="ctc-leg ctc-leg2"><span><i style="background:#f0f6fc"></i>進路ができた（白）</span><span><i style="background:rgba(255,72,96,.6)"></i>列車がいる区間（赤）</span><span><i style="background:#ff4040;border-radius:50%"></i>止まれ</span><span><i style="background:#ffcc33;border-radius:50%"></i>注意</span><span><i style="background:#3fd36b;border-radius:50%"></i>進め</span><span><i style="background:#4fd1ff"></i>ポイントがつながっている向き</span><span>🔒 鎖錠</span><span><i style="background:#1b3346;border:1px solid #3e6482"></i>ホーム（数字は番線）</span><span><i style="background:#ffcc33;width:4px"></i>踏切（列車が近づくと鳴る）</span><span class="muted">信号・ポイントを押すと理由</span></div>
+  <div class="ctc-leg ctc-leg2"><span><i style="background:#f4f7fb;height:4px;width:18px"></i>進路ができた（白）</span><span><i style="background:#ff3b3b;opacity:.6;height:8px;width:18px"></i>列車がいる区間（赤）</span><span><i style="background:#ff3b3b;border-radius:50%"></i>止まれ <i style="background:#ffcc33;border-radius:50%;margin-left:4px"></i>注意 <i style="background:#3ddc84;border-radius:50%;margin-left:4px"></i>進め</span><span><i style="background:#4fd8ff;height:4px;width:18px"></i>ポイントがつながっている向き（反対側はすき間）　点滅＝転換中　🔒＝鎖錠</span><span><i style="background:none;border-top:2px dashed #f4f7fb;height:0;width:18px"></i>進路を作っているところ（点線）</span><span>▶▶ 単線区間を使っている列車の向き</span><span>入換信号（白い灯がよこ＝止まれ・ななめ＝進んでよい）</span><span>名札の％＝乗車率：<b style="color:#9fe8ff">〜99%</b> <b style="color:#ffe14a">100〜149%</b> <b style="color:#ffb35c">150〜179%</b> <b style="color:#ff7ad9">180%〜</b></span><span class="muted">信号機やポイント（①〜）を押すと、理由が見られます</span></div>
   <div class="ctc-leg">${Object.entries(C.REASON).map(([k, r]) => `<span><i style="background:${r.col}"></i>${r.name}</span>`).join('')}
-    ${['L', 'R', 'E', 'X', 'Z', 'G'].map(k => `<span><i style="background:${C.TYPE_BODY[k]};border:2px solid ${C.TYPE_COL[k]}"></i>${TY2[k].name}</span>`).join('')}</div>
+    ${['L', 'R', 'E', 'X', 'Z', 'G'].map(k => `<span><i style="background:${tyCol({ type: k })};width:18px;height:6px;border-radius:3px"></i>${TY2[k].name}</span>`).join('')}</div>
   <div class="ctc-grid">
     <div class="ctc-box"><h3>予告（これから10分）</h3><ul id="ctcSoon"></ul></div>
     <div class="ctc-box"><h3>無線（いまの判断）</h3><ul id="ctcRadio"></ul></div>
@@ -195,15 +195,15 @@
     return { depot: true, rest: s.rest };
   }
   function depotPt(home, slot) {
-    if (home === 'C') { const tr = slot % 14, k = (slot / 14) | 0; return { x: L.xm(-2.15 + k * 0.62) + 8, y: Y.main + 92 + tr * 5.2 }; }
-    const tr = slot % 4, k = (slot / 4) | 0; return { x: L.xm(SX.P.km - 1.6 + k * 0.25) + 8, y: Y.main - 78 + tr * 9 };
+    if (home === 'C') { const tr = slot % 14, k = (slot / 14) | 0; return { x: L.xm(-2.15 + k * 0.62) + 8, y: (Y.main + Y.dep + 6) + tr * 5.2 }; }
+    const tr = slot % 4, k = (slot / 4) | 0; return { x: L.xm(SX.P.km - 1.6 + k * 0.25) + 8, y: Y.main - Y.pyd + tr * 9 };
   }
 
   /* ---- 線路 ---- */
   function line(pts, col, w, dash) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.setLineDash([]); }
   function loop(x0, x1, y0, y1, col) { const d = Math.min(0.15 * pxk, (x1 - x0) / 4); line([[x0, y0], [x0 + d, y1], [x1 - d, y1], [x1, y0]], col, 2.6); }
   function drawTrack() {
-    const ST = SX, xm = L.xm, xb = L.xb, M = Y.main, TR = '#6c8094', SD = '#4f6276', OLD = '#3b4856', OT = '#8a7fb8', S = L.STA * pxk;
+    const ST = SX, xm = L.xm, xb = L.xb, M = Y.main, TR = '#4a5d72', SD = '#3f5268', OLD = '#3b4856', OT = '#8a7fb8', S = L.STA * pxk;
     /* 本線（複線） */
     line([[xm(0.35), M - Y.lane], [xm(ST.P.km - 0.35), M - Y.lane]], TR, 3.2);
     line([[xm(0.35), M + Y.lane], [xm(ST.P.km - 0.35), M + Y.lane]], TR, 3.2);
@@ -218,8 +218,8 @@
     /* 県央本線との連絡線（乗り入れの列車だけ）：入り（北）・出（南）・県央北 */
     P2(K.inW.slice(1), TR, 2.8); P2(K.in2, SD, 2); P2(asc(K.outW).slice(1), TR, 2.8); P2(asc(K.out4), SD, 2); P2(K.north, TR, 2.8);
     /* 中央車庫（駅の南西）：入出庫線2本を、はしご（斜めの線）で14本の留置線すべてにつなぐ */
-    const dTop = M + 86, dBot = dTop + 14 * 5.2 + 6, ladX = y => -0.8 - 0.35 * (y - (dTop + 6)) / (13 * 5.2);
-    line([[xm(-0.3), M + Y.lane], [xm(-0.55), M + Y.side + 14], [xm(-0.8), dTop + 6]], SD, 2.4);
+    const dTop = M + Y.dep, dBot = dTop + 14 * 5.2 + 6, ladX = y => -0.8 - 0.35 * (y - (dTop + 6)) / (13 * 5.2);
+    line([[xm(-0.3), M + Y.lane], [xm(-0.55), M + Y.dep - 30], [xm(-0.8), dTop + 6]], SD, 2.4);
     line([[xm(-0.3), M + C.LANES.C[4]], [xm(-0.5), M + C.LANES.C[4] + 14], [xm(ladX(dTop + 30)), dTop + 30]], SD, 2.4);
     ctx.fillStyle = 'rgba(109,98,80,.25)'; ctx.fillRect(xm(-2.25), dTop, xm(-0.8) - xm(-2.25), dBot - dTop);
     for (let k = 0; k < 14; k++) { const y = dTop + 6 + k * 5.2; line([[xm(-2.2), y], [xm(ladX(y)), y]], '#6d6250', 1.2); }
@@ -243,9 +243,9 @@
     [-Y.side, Y.side].forEach(o => line([[pk(GP.fan[1]), M + Math.sign(o) * Y.lane], [pk(GP.fan[0]), M + o], [px + 6, M + o]], TR, 3.2));
     C.LANES.P.forEach(o => { ctx.fillStyle = '#c96b4e'; ctx.fillRect(px + 6, M + o - 6, 4, 12); });
     line([[pk(GP.cross[1]), M - Y.lane], [pk(GP.cross[0]), M + Y.lane]], SD, 2); line([[pk(GP.cross[1]), M + Y.lane], [pk(GP.cross[0]), M - Y.lane]], SD, 2);
-    const pLad = y => 1.0 + 0.2 * (M - 51 - y) / 27;   /* 港留置線のはしご（港からの km） */
-    line([[pk(0.8), M - Y.lane], [pk(1.0), M - 51]], SD, 2.2); line([[pk(1.0), M - 51], [pk(pLad(M - 78)), M - 78]], SD, 2);
-    for (let k = 0; k < 4; k++) { const y = M - 78 + k * 9; line([[pk(1.7), y], [pk(pLad(y)), y]], '#6d6250', 1.6); }
+    const pLad = y => 1.0 + 0.2 * ((M - Y.pyd + 27) - y) / 27;   /* 港留置線のはしご（港からの km） */
+    line([[pk(0.8), M - Y.lane], [pk(1.0), (M - Y.pyd + 27)]], SD, 2.2); line([[pk(1.0), (M - Y.pyd + 27)], [pk(pLad(M - Y.pyd)), M - Y.pyd]], SD, 2);
+    for (let k = 0; k < 4; k++) { const y = M - Y.pyd + k * 9; line([[pk(1.7), y], [pk(pLad(y)), y]], '#6d6250', 1.6); }
     const F = K.frt;
     line([[pk(-F[0]), M - Y.lane], [pk(-F[1]), M + Y.lane], [pk(-F[2]), Y.freight - 10], [pk(-F[3]), Y.freight - 10]], '#b59a5a', 2.4, [6, 4]);
     ctx.fillStyle = 'rgba(181,154,90,.12)'; ctx.fillRect(pk(-F[4]), Y.freight - 20, xm(ST.P.km + 0.6) - pk(-F[4]), 32);
@@ -266,19 +266,28 @@
     ctx.fillStyle = '#c96b4e'; ctx.fillRect(ox + 6, Y.br - Y.lane - 6, 4, 12); ctx.fillRect(ox + 6, Y.br + Y.lane - 6, 4, 12);
     line([[xb(ST.O.bkm - 0.58), Y.br], [xb(ST.O.bkm - 0.75), Y.br + 32], [xb(ST.O.bkm - 1.55), Y.br + 32]], '#b59a5a', 2.2, [6, 4]);   /* 温泉留置線：駅の手前で分かれて西（左）へ */
     /* ホーム（data/ctc-haisen.json）：島式・相対式・単式・千鳥 */
-    if (HS && window.CtcSignal) for (const p of layOf().plats) { ctx.fillStyle = '#1b3346'; ctx.strokeStyle = '#3e6482'; ctx.lineWidth = 1; ctx.fillRect(p.x0, p.y0, p.x1 - p.x0, p.y1 - p.y0); ctx.strokeRect(p.x0 + 0.5, p.y0 + 0.5, p.x1 - p.x0 - 1, p.y1 - p.y0 - 1);
-      if (pxk >= 400 && p.y1 - p.y0 >= 8) { ctx.font = '8.5px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#7fa3c0'; ctx.fillText(p.type + 'ホーム', (p.x0 + p.x1) / 2, (p.y0 + p.y1) / 2 + 3); } }
+    if (HS && window.CtcSignal) for (const p of layOf().plats) {   /* 川辺の指令室と同じホーム：うすい青の板、左に ↑↓番線、右にホームの行き先 */
+      const w = p.x1 - p.x0, h = p.y1 - p.y0;
+      ctx.fillStyle = '#22364b'; ctx.strokeStyle = '#35506c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(p.x0 + 0.5, p.y0 + 0.5, w - 1, h - 1, 3) : ctx.rect(p.x0 + 0.5, p.y0 + 0.5, w - 1, h - 1); ctx.fill(); ctx.stroke();
+      const fs = h >= 18 ? 9 : 8.5; ctx.font = `${fs}px "Zen Kaku Gothic New",sans-serif`; ctx.textAlign = 'left'; ctx.fillStyle = '#9fb6cc';
+      const lw = Math.max(...p.lines.map(t => ctx.measureText(t).width), 0);
+      if (lw + 8 < w && pxk >= 200) { if (p.lines.length > 1) { ctx.fillText(p.lines[0], p.x0 + 4, p.y0 + h / 2 - 1); ctx.fillText(p.lines[1], p.x0 + 4, p.y0 + h / 2 + fs - 0.5); } else ctx.fillText(p.lines[0], p.x0 + 4, p.y0 + h / 2 + fs * 0.35);
+        ctx.font = `${fs + 1}px "Zen Kaku Gothic New",sans-serif`; const ww = ctx.measureText(p.what).width;
+        if (lw + ww + 18 < w) { ctx.textAlign = 'right'; ctx.fillStyle = '#6f8aa5'; ctx.fillText(p.what, p.x1 - 5, p.y0 + h / 2 + (fs + 1) * 0.35); } } }
     /* ラベル（設備） */
     ctx.font = '11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#8aa0b4';
     ctx.fillText('中央車庫', xm(-2.25), dTop - 6);
-    ctx.fillText('港留置線', xm(ST.P.km - 1.7), M - 86);
+    ctx.fillText('港留置線', xm(ST.P.km - 1.7), M - Y.pyd - 8);
     ctx.fillStyle = '#a99be0'; ctx.fillText('県央本線（他社線）← 空港・県の西', xm(-ML_()) + 6, k6 - 8);
     ctx.fillText('県央本線 6・7番線', xm(-0.25), k6 - 8);
     ctx.save(); ctx.translate((xm(0.75) + xm(1.3)) / 2 + 22, (k5 - 40 + 4) / 2 + 10); ctx.rotate(Math.atan2(4 - (k5 - 40), xm(1.3) - xm(0.75))); ctx.fillText('→ 北へ（県央北）', 0, 0); ctx.restore();
     ctx.fillStyle = '#c9b27a'; ctx.textAlign = 'left'; ctx.fillText('連絡線・入り（乗り入れ）', xm(-1.0), M - Y.side - 6); ctx.textAlign = 'right'; ctx.fillText('連絡線・出（乗り入れ）', xm(-1.05) - 6, M + Y.side + 32); ctx.textAlign = 'left'; ctx.fillText('県央北へ（乗り入れ）', xm(0.72) + 6, C.YK5 - 22);
     ctx.fillText('臨港線・港貨物ターミナル', xm(ST.P.km + C.LINK.frt[4]), Y.freight + 26);
     ctx.fillText('温泉留置線（臨時列車用）', xb(ST.O.bkm - 1.55), Y.br + 48);
-    ctx.fillStyle = '#8aa0b4'; ctx.fillText('温泉支線（単線）', jx1 + 10, Y.br + 22);
+    ctx.fillStyle = '#8aa0b4'; ctx.fillText('温泉支線（単線）', jx1 + 10, Y.br + 50);
+    /* 川辺の分かれ道（川辺の指令室と同じ言葉）：上りが下りの本線を横切る所と、本線に合流する所 */
+    ctx.font = '10.5px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#7f98b2'; ctx.fillText('平面交差', xb((L.UP0 + L.UP1) / 2) + 26, M - 24);
+    ctx.fillStyle = '#4fd8ff'; ctx.fillText('合流点', xb(L.UP0 + 0.16), M + Y.lane - 7); ctx.textAlign = 'left';
   }
   /* 段5：事故の区間を赤く、場所に印。再開までの残りの分 */
   function drawBig(T) {
@@ -302,7 +311,7 @@
       ctx.fillStyle = '#fff'; ctx.fillText(t, x, y + 5); hits.push({ x0: x - w / 2, x1: x + w / 2, y0: y - 13, y1: y + 11, st: s });
     };
     const kmTxt = (x, y, k) => { ctx.font = '10.5px "IBM Plex Mono",monospace'; ctx.fillStyle = '#6f8597'; ctx.fillText(k.toFixed(1) + 'km', x, y); };
-    C.MAIN.forEach(s => { const x = L.xm(ST[s].km); if (s === 'C') { pill(x, Y.main + 76, ST[s].name, s); kmTxt(x, Y.main + 102, ST[s].km); } else { pill(x, Y.main - (HS ? 70 : 52), ST[s].name, s); kmTxt(x, Y.main + (HS ? 66 : 44), ST[s].km); } });   /* 中央は北に県央本線があるので、駅名を下に */
+    C.MAIN.forEach(s => { const x = L.xm(ST[s].km); if (s === 'C') { pill(x, Y.main + 104, ST[s].name, s); kmTxt(x, Y.main + 130, ST[s].km); } else { pill(x, Y.main - (HS ? 86 : 52), ST[s].name, s); kmTxt(x, Y.main + (HS ? 84 : 44), ST[s].km); } });   /* 中央は北に県央本線があるので、駅名を下に */
     ['F', 'T', 'O'].forEach(s => { const x = L.xb(ST[s].bkm); pill(x, Y.br - (HS ? 56 : 34), ST[s].name, s); kmTxt(x, Y.br + (HS ? 52 : 30), ST[s].bkm); });
     /* キロの目盛り */
     ctx.strokeStyle = '#1d2f40'; ctx.lineWidth = 1; ctx.font = '10px "IBM Plex Mono",monospace'; ctx.fillStyle = '#4f6476';
@@ -310,42 +319,46 @@
   }
 
   /* ---- 列車 ---- */
+  /* 列車（川辺の指令室と同じ）：種別の色の太い線、名札は黒い板に「種別番号 乗車率」と遅れ。列車がいる区間の赤いにじみは CtcSignal.drawOcc */
+  const KTY = { L: '#a9b8c7', R: '#ffa630', E: '#ff5470', X: '#b892ff' };
+  const tyCol = tr => KTY[tr.type] || C.TYPE_COL[tr.type] || '#a9b8c7';
+  const crowdCol = r => r < 1 ? '#9fe8ff' : r < 1.5 ? '#ffe14a' : r < 1.8 ? '#ffb35c' : '#ff7ad9';
+  function loadOf(tr, p, T) { const b = baseOf(tr); if (!b.loadAfter || !b.cap) return null; const i = p.i;
+    if (p.moving) return b.loadAfter[i] / b.cap; if (i === 0) return b.loadAfter[0] / b.cap; return (T < (tr.arr[i] + tr.dep[i]) / 2 ? b.loadAfter[i - 1] : b.loadAfter[i]) / b.cap; }
   function drawTrain(p, tr, dead, T, D) {
-    const len = Math.max(10, tr.cars * 0.02 * pxk), h = 8, x0 = p.dir > 0 ? p.x - len : p.x, y0 = p.y - h / 2;
-    ctx.globalAlpha = dead ? 0.45 : 1;
-    /* 進む向きの座標で描く：先頭が原点、車体はうしろへ len（斜めの線路では車体も斜め） */
-    if (p.body) {   /* 線路に沿って曲がった車体 */
-      const B = p.body, a0 = Math.atan2(B[0][1] - B[1][1], B[0][0] - B[1][0]), path = () => { ctx.beginPath(); B.forEach((q, k) => k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); };
-      ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
-      ctx.strokeStyle = C.TYPE_BODY[tr.type]; ctx.lineWidth = h; path(); ctx.stroke();
-      ctx.strokeStyle = C.TYPE_COL[tr.type]; ctx.lineWidth = 2; path(); ctx.stroke(); ctx.lineJoin = 'miter';
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(a0); ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(5, 0); ctx.lineTo(0, h / 2); ctx.fill(); ctx.restore();
-    } else {
-    const ang = p.ang != null ? p.ang : (p.dir > 0 ? 0 : Math.PI);
-    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang);
-    ctx.fillStyle = C.TYPE_BODY[tr.type]; ctx.fillRect(-len, -h / 2, len, h);
-    ctx.fillStyle = C.TYPE_COL[tr.type]; ctx.fillRect(-len, -1, len, 2);
-    ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(5, 0); ctx.lineTo(0, h / 2); ctx.fill();
-    ctx.restore(); }
+    const len = Math.max(10, tr.cars * 0.02 * pxk), B = CtcSignal.bodyOf(p, tr, pxk), col = tyCol(tr);
+    ctx.globalAlpha = dead ? 0.45 : 1; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const isSel = sel && sel.tr === baseOf(tr);
-    if (isSel) { ctx.strokeStyle = '#4fd1ff'; ctx.lineWidth = 2; ctx.strokeRect(x0 - 3, y0 - 3, len + 6, h + 6); }
-    ctx.globalAlpha = 1;
-    hits.push({ x0: x0 - 4, x1: x0 + len + 8, y0: y0 - 6, y1: y0 + h + 6, tr });
+    if (isSel) { ctx.strokeStyle = '#4fd1ff'; ctx.lineWidth = 13; ctx.beginPath(); B.forEach((q, k) => k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.stroke(); }
+    ctx.strokeStyle = col; ctx.lineWidth = 8; ctx.beginPath(); B.forEach((q, k) => k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.stroke();
+    ctx.lineCap = 'butt'; ctx.lineJoin = 'miter'; ctx.globalAlpha = 1;
+    const xs = B.map(q => q[0]), ys = B.map(q => q[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+    hits.push({ x0: x0 - 5, x1: Math.max(...xs) + 5, y0: y0 - 7, y1: Math.max(...ys) + 7, tr });
     if (dead) return;
-    /* 札：種別と番号、停車中で待ちが長いときは理由 */
-    const up = p.dir > 0, s0 = tr.seq[p.i], term = !p.moving && (s0 === 'C' || s0 === 'P' || s0 === 'O');
-    const ty = term ? p.y + 4 : (up ? y0 - 6 : y0 + h + 14);
-    ctx.font = '700 10.5px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = term ? (s0 === 'C' ? 'left' : 'right') : 'center';
-    let tag = TY2[tr.type].short + tr.num, col = '#dbe6f0';
-    const late = lateNow(tr, T);
-    if (late >= 0.5) { tag += ' 遅れ' + C.fmtMin(late); col = '#ff8a8a'; }
+    /* 名札 */
+    const s0 = tr.seq[p.i], term = !p.moving && (s0 === 'C' || s0 === 'P' || s0 === 'O');
+    let late = lateNow(tr, T), why = '', whyCol = '#ffb070';
     if (!p.moving && p.i > 0 && p.i < tr.seq.length - 1 && T >= tr.arr[p.i]) {
       const act = (tr.why && tr.why[p.i] || []).filter(x => x.min > 0.05).sort((a, b) => b.min - a.min)[0];
       const r = act || C.reasons(baseOf(tr), p.i, envCore(D))[0];
-      if (r) { tag += ' ' + (C.SHORT[r.code] || C.REASON[r.code].name) + ' +' + C.fmtMin(r.min); if (late < 0.5 || act) col = C.REASON[r.code].col; }
+      if (r) { why = ' ' + (C.SHORT[r.code] || C.REASON[r.code].name) + ' +' + C.fmtMin(r.min); whyCol = C.REASON[r.code].col; }
     }
-    const tx = term ? (s0 === 'C' ? x0 + len + 30 : x0 - 12) : x0 + len / 2;   /* 頭端の駅では、札を横に出して重ならないように */
-    ctx.lineWidth = 3; ctx.strokeStyle = '#0d1620'; ctx.strokeText(tag, tx, ty); ctx.fillStyle = col; ctx.fillText(tag, tx, ty);
+    const ld = loadOf(tr, p, T), name = TY2[tr.type].name + tr.num, pc = ld == null ? '' : ' ' + Math.round(ld * 100) + '%', dl = late >= 0.5 ? ' +' + Math.round(late) + '分' : '';
+    const fs = pxk >= 200 ? 11 : 9.5; ctx.font = `${fs}px "Zen Kaku Gothic New",sans-serif`; const wN = ctx.measureText(name).width;
+    ctx.font = `700 ${fs}px "Zen Kaku Gothic New",sans-serif`; const wP = ctx.measureText(pc).width, wD = ctx.measureText(dl).width, wW = ctx.measureText(why).width;
+    const w = wN + wP + wD + wW + 12, hh = fs + 5;
+    const mx = (B[0][0] + B[B.length - 1][0]) / 2, my = (B[0][1] + B[B.length - 1][1]) / 2, up = p.dir > 0;
+    /* 頭端の駅で止まっている列車：中央は列車の西（引上線の側）、港・温泉は車止めの先に、同じ番線の高さで（信号・ホームの字と重ならないように） */
+    const endX = s0 === 'P' ? L.xm(SX.P.km) + 16 : s0 === 'O' ? L.xb(SX.O.bkm) + 16 : 0;
+    let cx = term ? (s0 === 'C' ? x0 - 10 - w / 2 : endX + w / 2) : mx, cy = term ? my : my + (up ? -17 : 19);
+    ctx.fillStyle = '#05090e'; ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx - w / 2 + 0.5, cy - hh / 2 + 0.5, w, hh, 3) : ctx.rect(cx - w / 2, cy - hh / 2, w, hh); ctx.fill(); ctx.stroke();
+    let tx = cx - w / 2 + 6; const ty = cy + fs * 0.36; ctx.textAlign = 'left';
+    ctx.font = `${fs}px "Zen Kaku Gothic New",sans-serif`; ctx.fillStyle = '#fff'; ctx.fillText(name, tx, ty); tx += wN;
+    ctx.font = `700 ${fs}px "Zen Kaku Gothic New",sans-serif`;
+    if (pc) { ctx.fillStyle = crowdCol(ld); ctx.fillText(pc, tx, ty); tx += wP; }
+    if (dl) { ctx.fillStyle = '#ffb070'; ctx.fillText(dl, tx, ty); tx += wD; }
+    if (why) { ctx.fillStyle = whyCol; ctx.fillText(why, tx, ty); }
+    hits.push({ x0: cx - w / 2, x1: cx + w / 2, y0: cy - hh / 2, y1: cy + hh / 2, tr });
   }
 
   /* いまの全部の編成の位置（車庫の中は除く）。画面と確かめ（CtcView.pos）が同じものを使う */
@@ -360,8 +373,8 @@
           const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f = C.smooth(Math.max(0, Math.min(1, n.f)));
           const q = C.trainPos(tr, n.out ? tr.dep[0] - 0.01 : tr.arr[i] + 0.01, L, env), at = n.yard || s.home, dp = at === 'O' ? { x: L.xb(SX.O.bkm - 1.1), y: Y.br + 32 } : depotPt(at, 0);
           /* 車庫・留置線と駅のあいだは、入出庫線の上を通る */
-          const ladC = y => -0.8 - 0.35 * (y - (Y.main + 92)) / (13 * 5.2), ladP = y => SX.P.km - (1.0 + 0.2 * (Y.main - 51 - y) / 27);   /* 車庫・留置線のはしご（drawTrack と同じ） */
-          const via = at === 'C' ? [{ x: L.xm(ladC(dp.y)), y: dp.y }, { x: L.xm(-0.8), y: Y.main + 92 }, { x: L.xm(-0.55), y: Y.main + Y.side + 14 }, { x: L.xm(-0.3), y: Y.main + Y.lane }, { x: L.xm(-0.22), y: q.y }] : at === 'O' ? [{ x: L.xb(SX.O.bkm - 0.75), y: Y.br + 32 }, { x: L.xb(SX.O.bkm - 0.58), y: Y.br }] : [{ x: L.xm(ladP(dp.y)), y: dp.y }, { x: L.xm(SX.P.km - 1.0), y: Y.main - 51 }, { x: L.xm(SX.P.km - 0.8), y: Y.main - Y.lane }];
+          const ladC = y => -0.8 - 0.35 * (y - ((Y.main + Y.dep + 6))) / (13 * 5.2), ladP = y => SX.P.km - (1.0 + 0.2 * ((Y.main - Y.pyd + 27) - y) / 27);   /* 車庫・留置線のはしご（drawTrack と同じ） */
+          const via = at === 'C' ? [{ x: L.xm(ladC(dp.y)), y: dp.y }, { x: L.xm(-0.8), y: (Y.main + Y.dep + 6) }, { x: L.xm(-0.55), y: Y.main + Y.dep - 30 }, { x: L.xm(-0.3), y: Y.main + Y.lane }, { x: L.xm(-0.22), y: q.y }] : at === 'O' ? [{ x: L.xb(SX.O.bkm - 0.75), y: Y.br + 32 }, { x: L.xb(SX.O.bkm - 0.58), y: Y.br }] : [{ x: L.xm(ladP(dp.y)), y: dp.y }, { x: L.xm(SX.P.km - 1.0), y: (Y.main - Y.pyd + 27) }, { x: L.xm(SX.P.km - 0.8), y: Y.main - Y.lane }];
           const path = n.out ? [dp, ...via, q] : [q, ...via.slice().reverse(), dp];
           const seg = path.slice(1).map((b, k) => Math.hypot(b.x - path[k].x, b.y - path[k].y)), tot = seg.reduce((x, y) => x + y, 0) || 1;
           let dd = f * tot, k = 0; while (k < seg.length - 1 && dd > seg[k]) { dd -= seg[k]; k++; }
@@ -405,7 +418,7 @@
     const dpr = Math.min(2, window.devicePixelRatio || 1), w = sc.clientWidth, H = L.H;
     if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(H * dpr); cv.style.width = w + 'px'; cv.style.height = H + 'px'; }
     const ox = sc.scrollLeft;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#0d1620'; ctx.fillRect(0, 0, w, H);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#0c1826'; ctx.fillRect(0, 0, w, H);
     ctx.save(); ctx.translate(-ox, 0); hits = [];
     drawTrack(); drawStations();
     const D = data(), T = E.T();
@@ -418,15 +431,17 @@
       Y3.reg.forEach(s => { tot[s.home]++; const n = setNow(s, T); if (n.depot && n.yard === 'O') { const q = { x: L.xb(SX.O.bkm - 1.5 + oRest++ * 0.4), y: Y.br + 32 }; ctx.fillStyle = C.TYPE_BODY[s.trips[0].type]; ctx.fillRect(q.x, q.y - 3, s.cars * 0.02 * pxk * 0.6, 6); return; }
         if (n.depot) { const at = n.yard || s.home, q = depotPt(at, used[at]++); ctx.fillStyle = C.TYPE_BODY[s.trips[0].type]; ctx.fillRect(q.x, q.y - 2, Math.min(0.55 * pxk * (s.home === 'C' ? 1 : 0.5), s.cars * 0.02 * pxk * 0.6), 4); } });
       ctx.font = '700 12px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = '#dbe6f0';
-      ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main + 80); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(SX.P.km - 1.15), Y.main - 86);
+      ctx.fillText(`${used.C}/${tot.C}編成`, L.xm(-1.45), Y.main + Y.dep - 6); ctx.fillText(`${used.P}/${tot.P}編成`, L.xm(SX.P.km - 1.3), Y.main - Y.pyd - 8);
       /* 頭端の駅（中央・港・温泉）で止まっている列車の番線を、重ならないように割りふる */
       /* 留置線で休んでいる臨時列車 */
-      Y3.syn.forEach(s => { const n = synNow(s, T); if (!n.rest) return; const q = n.rest === 'O' ? { x: L.xb(SX.O.bkm - 1.45), y: Y.br + 32 } : { x: L.xm(SX.P.km - 1.69), y: Y.main - 78 + 3 * 9 };
+      Y3.syn.forEach(s => { const n = synNow(s, T); if (!n.rest) return; const q = n.rest === 'O' ? { x: L.xb(SX.O.bkm - 1.45), y: Y.br + 32 } : { x: L.xm(SX.P.km - 1.69), y: Y.main - Y.pyd + 3 * 9 };
         ctx.fillStyle = C.TYPE_BODY.Z; ctx.fillRect(q.x, q.y - 3, s.cars * 0.02 * pxk * 0.6, 6); ctx.font = '700 10px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = C.TYPE_COL.Z; ctx.fillText('臨' + s.trips[0].num + ' 休み', q.x, q.y - 6); });
       let selPos = null;
       const QQ = posAll(D, T);
-      if (HS && window.CtcSignal) { const lay = layOf(); SIG = CtcSignal.state(lay, QQ, T, L, C, SX); CtcSignal.draw(ctx, lay, SIG, { L, C, T, pxk, hits, env: envCore(D), view: [ox, ox + w] }); }   /* 信号・ポイント・踏切・区間と進路（2026-11-17） */
+      let lay = null, gg = null;
+      if (HS && window.CtcSignal) { lay = layOf(); SIG = CtcSignal.state(lay, QQ, T, L, C, SX); gg = { L, C, T, pxk, hits, env: envCore(D), view: [ox, ox + w], sel: selSig, name: tr => TY2[tr.type].name + tr.num }; CtcSignal.draw(ctx, lay, SIG, gg); CtcSignal.drawOcc(ctx, SIG, gg); }   /* 進路・踏切・ポイント・列車がいる区間（川辺の指令室と同じ部品・2026-11-18） */
       for (const q of QQ) { drawTrain(q.p, q.tr, q.dead, T, D); if (sel && sel.tr === baseOf(q.tr)) selPos = q.p; }
+      if (lay) CtcSignal.drawTop(ctx, lay, SIG, gg);   /* 信号機・入換信号・単線区間は列車の上 */
       if (selPos && host.querySelector('#ctcFollow').checked) { const want = selPos.x - w / 2; if (Math.abs(sc.scrollLeft - want) > 40) sc.scrollLeft += (want - sc.scrollLeft) * 0.15; }
       /* 見どころの前で1倍速に */
       if (host.querySelector('#ctcSlow').checked && E.speed() > 1.01) {
@@ -513,7 +528,7 @@
     const r = cv.getBoundingClientRect(), x = e.clientX - r.left + sc.scrollLeft, y = e.clientY - r.top;
     const h = hits.slice().reverse().find(h => x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1);
     if (!h) return;
-    if (h.sig || h.point || h.shunt) { const box = host.querySelector('#ctcInfo'); box.innerHTML = '<h3>選んだもの</h3><p>' + CtcSignal.explain(h, SIG, E.fmt, TY2) + '</p>'; return; }
+    if (h.sig || h.point || h.shunt) { selSig = h.sig || null; draw(true); const box = host.querySelector('#ctcInfo'); box.innerHTML = '<h3>選んだもの</h3><p>' + CtcSignal.explain(h, SIG, E.fmt, TY2) + '</p>'; return; }
     sel = h.tr ? { tr: baseOf(h.tr) } : { st: h.st };
     const D = data(); if (D) info(D, E.T()); draw(true);
   }
