@@ -57,7 +57,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261118e').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261118f').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -246,7 +246,8 @@
   }
 
   /* ---- 線路 ---- */
-  function line(pts, col, w, dash) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.setLineDash([]); }
+  let REC = null;   /* 確かめ用：描いた線路の折れ線を集める */
+  function line(pts, col, w, dash) { if (REC) REC.push({ pts: pts.map(p => [p[0], p[1]]), col, w, dash: !!(dash && dash.length) }); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.setLineDash(dash || []); ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.setLineDash([]); }
   function loop(x0, x1, y0, y1, col) { const d = Math.min(0.15 * pxk, (x1 - x0) / 4); line([[x0, y0], [x0 + d, y1], [x1 - d, y1], [x1, y0]], col, 2.6); }
   function drawTrack() {
     const ST = SX, xm = L.xm, xb = L.xb, M = Y.main, TR = '#4a5d72', SD = '#3f5268', OLD = '#3b4856', OT = '#8a7fb8', S = L.STA * pxk;
@@ -449,14 +450,23 @@
       if (LAGT == null || T < LAGT - 0.001 || T - LAGT > 1.5) LAG.clear(); const lagDt = LAGT == null ? 0 : Math.max(0, T - LAGT); LAGT = T;   /* 時刻を飛ばしたら、待ちの記録を消す */
       const states = Y3.reg.map(s => [s, setNow(s, T)]).concat(Y3.syn.map(s => [s, synNow(s, T)])), env = envCore(D);
       const out = [];
-      states.forEach(([s, n]) => {
+      states.forEach(([s, n0]) => { let n = n0;
         if (n.depot) return;
         let p;
+        /* 出庫してきて、始発の発車を待つ列車：前の列車がまだ番線から出きっていなければ、回送のまま手前で待たせる（下でたしかめる。2026-11-18 点検） */
+        if (!n.dead && n.wait && s.home && s.trips && T < n.trip.dep[0]) {
+          const r = (s.rests || []).find(x => s.trips[s.trips.indexOf(x.after) + 1] === n.trip && T >= x.t1);
+          if (n.trip === s.trips[0] && T >= s.first - 1) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true };
+          else if (r) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: r.at }; }
         if (n.dead) {
           const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f0 = Math.max(0, Math.min(1, n.f)), f = n.out ? f0 * f0 : Math.sqrt(f0);   /* 入庫は番線をすぐあける・出庫はホームに入るのを最後に（ほかの列車と重ならないように。2026-11-18 点検） */
           const q = C.trainPos(tr, n.out ? tr.dep[0] - 0.01 : tr.arr[i] + 0.01, L, env), at = n.yard || s.home, dp = depotPt(at, slotOf(s, at, T)), sl = Math.max(10, tr.cars * 0.02 * pxk);
           /* 車庫・留置線と駅のあいだは、はしご・入出庫線の上を通る（yardPath） */
           const via = yardPath(at, dp, sl, q), path = n.out ? via : via.slice().reverse();
+          /* 向きを変えるとき（港・温泉：着いた向きと反対へ入庫、出庫して反対へ発車）は、駅の側のはしを車体の反対のはしに（車止めの先へはみ出ないように。2026-11-18 点検） */
+          { const dr = tr.down ? 1 : -1;
+            if (n.out) { const e = path.length - 1; if ((path[e].x - path[e - 1].x) * dr < 0) path[e] = { x: q.x - dr * sl, y: q.y }; }
+            else if ((path[1].x - path[0].x) * dr < 0) path[0] = { x: q.x - dr * sl, y: q.y }; }
           n.track = { at, t: dp.t };
           p = deadAt(path, f, sl, i);
           out.push({ s, n, p, tr, dead: true, path, sl, f0, fs: n.out ? (u => u * u) : Math.sqrt });
@@ -470,6 +480,9 @@
         if (!others().some(o => bodyHit(d.p.body, o.p.body || [[o.p.x, o.p.y]]))) continue;
         for (let k = 1; k <= 50; k++) { const f0 = d.n.out ? d.f0 - k * 0.02 : d.f0 - k * 0.02; if (f0 < 0) break; const p2 = deadAt(d.path, d.fs(f0), d.sl, d.p.i);
           if (!others().some(o => bodyHit(p2.body, o.p.body || [[o.p.x, o.p.y]]))) { d.p = Object.assign(p2, { held: true }); break; } } }
+      /* 回送のまま待たなくてよかった始発の列車は、ふつうの列車にもどす */
+      for (let k = 0; k < out.length; k++) { const d = out[k]; if (!d.n || !d.n.origin || d.p.held) continue;
+        const p = withBody(d.tr, C.trainPos(d.tr, T, L, env), env); p.tD = T; out[k] = { s: d.s, n: { trip: d.tr, wait: true }, p, tr: d.tr, dead: false }; }
       /* 閉塞（2026-11-18 点検）：次の信号の先の区間に列車がいれば、信号の手前で待つ（ダイヤより遅れて見える。あいたら少し速く進んで追いつく） */
       /* 赤の信号の手前で止まる（2026-11-18 点検）：閉塞・場内・出発が赤なら、列車は信号の手前で待つ。
          ダイヤどおりの位置より遅れて見えるので、あいたら少し速く進んで追いつく（LAG）。時刻を飛ばしたときは待ちを消す */
@@ -661,6 +674,8 @@
       routes: st.routes.map(r => ({ kind: r.kind, st: r.st, num: r.t.tr.num, prep: !!r.prep })), xings: lay.xings.map(x => ({ km: x.km, br: x.br, on: !!st.xst.get(x) })),
       sets, syn, slotOver: SLOTOVER, pxk, big: BIG ? { a: BIG.a, b: BIG.b, t0: BIG.t0, t1: BIG.t1, name: BIG.name } : null };
   }
-  window.CtcView = { probe, init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2, YS }),
+  /* 確かめ用：描いた線路（折れ線）を全部 */
+  function tracks() { if (!L) return null; REC = []; ctx.save(); try { drawTrack(); } finally { ctx.restore(); } const r = REC; REC = null; draw(true); return r; }
+  window.CtcView = { tracks, probe, init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2, YS }),
     pos: T => { const D = data(); if (!D || !L) return []; ensureHl(D); return posAll(D, T).map(q => ({ num: q.tr.num, type: q.tr.type, down: q.tr.down, dead: q.dead, x: q.p.x, y: q.p.y, moving: q.p.moving, st: q.tr.seq[q.p.i], len: Math.max(10, q.tr.cars * 0.02 * L.pxk), dir: q.p.dir })); } };   /* syn：確かめ用（headless） */
 })();

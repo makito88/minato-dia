@@ -165,10 +165,15 @@
           const t = trains.filter(t => t.line === line && t.dir === dir && t.moving && t.tr.seq[t.i + 1] === o.st && (o.km - t.km) * dir > -0.05 && (o.km - t.km) * dir < 2.6).sort((a, b) => (o.km - a.km) * dir - (o.km - b.km) * dir)[0];   /* いちばん近い列車（2026-11-18 点検） */
           if (!t) { asp.set(o, R); continue; }
           const j2 = t.i + 1, lane = laneAt(t, j2), stops = j2 === t.tr.seq.length - 1 || t.tr.stop[j2];
-          const G0 = C.GEO[o.st], near = x => x.moving && x.tr.seq[x.i] === o.st && G0 && Math.abs(x.km - (SX[o.st].km || 0)) < G0.d0 + (G0.L || 0.16) && laneAt(x, x.i) === lane;   /* 出たばかりで、まだ番線にいる列車 */
+          const G0 = C.GEO[o.st], near = x => { if (!x.moving || !G0) return false; const j = x.tr.seq[x.i] === o.st ? x.i : x.tr.seq[x.i + 1] === o.st ? x.i + 1 : -1; return j >= 0 && Math.abs(x.km - (o.br ? SX[o.st].bkm : SX[o.st].km)) < G0.d0 + (G0.L || 0.16) && laneAt(x, j) === lane; };   /* 出たばかり・入ってきたところで、その番線にいる列車 */
           const sx = o.br ? L.xb(SX[o.st].bkm) : L.xm(SX[o.st].km), sy = (o.br ? Y.br : Y.main) + lane, span = ((G0 ? G0.d0 + G0.L : 0.3)) * L.pxk;
-          const deadIn = Q.some(q => q.dead && q.p.body && q.p.body.some(b => Math.abs(b[0] - sx) < span && Math.abs(b[1] - sy) < 3));   /* 回送がその番線にいる */
-          const busy = deadIn || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
+          const pl = G0 ? (Array.isArray(G0.plat) ? G0.plat : [G0.plat.down[0], G0.plat.up[1]]) : [-0.2, 0.2], px0 = sx + (pl[0] - 0.03) * L.pxk, px1 = sx + (pl[1] + 0.03) * L.pxk; void span;
+          const deadIn = Q.some(q => q.dead && q.p.body && q.p.body.some(b => b[0] > px0 && b[0] < px1 && Math.abs(b[1] - sy) < 3));   /* 回送がその番線のホームの所にいる */
+          /* 頭端の駅（中央・港）ののど：反対向きの列車が、ホームと場内信号のあいだ（渡り線のあたり）を動いているうちは開かない */
+          const head = o.st === 'C' || o.st === 'P', crossA = head && (o.st === 'C' ? lane < 0 : lane > 0);   /* 着く番線へ行くのに、反対の本線を横切るか */
+          const thr = head && trains.some(x => x !== t && x.dir !== dir && ((x.moving && x.hi > Math.min(o.km, SX[o.st].km) && x.lo < Math.max(o.km, SX[o.st].km)) ||
+            (!x.moving && atSt(x) === o.st && x.tr.dep[x.i] - T < 0.6 && (crossA || (o.st === 'C' ? laneAt(x, x.i) > 0 : laneAt(x, x.i) < 0)))));   /* もうすぐ出る列車と、のどで交差するなら開かない */
+          const busy = thr || deadIn || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
           if (busy) { asp.set(o, R); continue; }
           const dep = lay.sig.find(x => x.kind === '出発' && x.st === o.st && x.lane === lane && x.dir === dir);
           const prep = (o.km - t.km) * dir > 1.6;
