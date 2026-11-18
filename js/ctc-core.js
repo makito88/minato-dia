@@ -336,7 +336,7 @@
         radio: `指令から${A.num}列車・${B.num}列車、${env.ST[X].name}で行き違い。単線区間の進路を順に開きます。` });
     }
     for (const s of sets) {
-      ev.push({ t: s.first - 8, k: 'depot', st: s.home, set: s, txt: `${env.DEPOTNAME[s.home]}から ${s.label}（${s.cars}両）が出庫`, radio: `${env.DEPOTNAME[s.home]}、${s.label}の出庫を許可します。` });
+      ev.push({ t: s.first - (s.trips[0] && s.trips[0].lead0 != null ? s.trips[0].lead0 : 1) - 7, k: 'depot', st: s.home, set: s, txt: `${env.DEPOTNAME[s.home]}から ${s.label}（${s.cars}両）が出庫`, radio: `${env.DEPOTNAME[s.home]}、${s.label}の出庫を許可します。` });
       ev.push({ t: s.last + 3, k: 'depot', st: s.home, set: s, txt: `${s.label} が${env.DEPOTNAME[s.home]}に入庫`, radio: `${s.label}、本日の仕業おわり。${env.DEPOTNAME[s.home]}へ入庫してください。` });
     }
     ev.sort((a, b) => a.t - b.t);
@@ -927,18 +927,20 @@
     const Q = [];   /* 出発のできごと（時刻の早いものから処理する） */
     function begin(ss, c) {
       const tr = ss.st.trips[ss.k]; if (!tr) return; const n = tr.seq.length, s = tr.seq[0];
-      ss.tr = tr; ss.A = tr.arr.slice(); ss.D = tr.dep.slice(); ss.L = new Array(n).fill(null); ss.R = new Array(n).fill(null); ss.i = 0; ss.XW = {};
+      ss.tr = tr; ss.A = tr.arr.slice(); ss.D = tr.dep.slice(); ss.L = new Array(n).fill(null); ss.R = new Array(n).fill(null); ss.i = 0; ss.XW = {}; ss.lead0 = null;
       if (c && c.lane != null && c.s === s) { ss.L[0] = c.lane; ss.R[0] = c.rec; ss.D[0] = Math.max(tr.dep[0], c.floor); if (c.rec && c.rec.own) c.rec.own.push({ L: ss.L, j: 0, tr }); }   /* 折り返し：着いた番線のまま */
       else if (inHs(s)) {
-        const from = c && c.s === s ? c.from : tr.dep[0] - 2.5, floor = c && c.s === s ? c.floor : -1e9;
-        const p = pick(tr, 0, from, Math.max(tr.dep[0], from) + EPS); ss.L[0] = p.o; ss.D[0] = Math.max(tr.dep[0] + p.wait, floor);
+        /* 始発（車庫・留置線から出てくる列車）は、発車の5分前にはホームに入って待つ（2026-11-19）。番線があかないときは4・3・2・1分前 */
+        let from = c && c.s === s ? c.from : tr.dep[0] - 2.5, p = null; const floor = c && c.s === s ? c.floor : -1e9;
+        if (!(c && c.s === s)) { for (const ld of [6.5, 5.5, 4.5, 3.5, 2.5]) { from = tr.dep[0] - ld; p = pick(tr, 0, from, Math.max(tr.dep[0], from) + EPS); if (!p.wait) break; } ss.lead0 = tr.dep[0] - from - 1.5; }
+        else p = pick(tr, 0, from, Math.max(tr.dep[0], from) + EPS); ss.L[0] = p.o; ss.D[0] = Math.max(tr.dep[0] + p.wait, floor);
         ss.R[0] = put(key(s, p.o), from + p.wait, ss.D[0] + EPS); if (p.wait > 0 && c && c.rest) c.rest.t1 += p.wait;   /* ホームがあくまで、車庫・留置線で長く休む */
       } else ss.D[0] = Math.max(tr.dep[0], c && c.floor != null ? c.floor : -1e9);
       Q.push({ t: ss.D[0], ss });
     }
     function finish(ss, plan) {
       const tr = ss.tr, n = tr.seq.length; ss.D[n - 1] = Math.max(ss.D[n - 1], ss.A[n - 1]);
-      const cp = Object.create(tr); cp.arr = ss.A; cp.dep = ss.D; cp.lanes = ss.L; cp.yardOf = tr; cp.xw = ss.XW; out.set(tr, cp);
+      const cp = Object.create(tr); cp.arr = ss.A; cp.dep = ss.D; cp.lanes = ss.L; cp.yardOf = tr; cp.xw = ss.XW; if (ss.lead0 != null) cp.lead0 = ss.lead0; out.set(tr, cp);
       ss.k++; begin(ss, plan);
     }
     sets.forEach(st => { if (st.trips.length) begin({ st, k: 0 }, null); });
@@ -1020,9 +1022,10 @@
   function actual(tr, D2) { const a = D2.A.get(tr); if (!a) return tr; const p = Object.create(tr); p.arr = a.arr; p.dep = a.dep; p.base = tr; p.why = a.why; p.cancel = !!a.cancel; return p; }
 
   /* 編成がいま車庫にいるか */
-  const inDepot = (s, T) => T < s.first - 8 || T > s.last + 9;
+  const lead0 = s => { const t = s.trips && s.trips[0]; return t && t.lead0 != null ? t.lead0 : 1; };   /* 始発が発車の何分前にホームに入るか */
+  const inDepot = (s, T) => T < s.first - lead0(s) - 7 || T > s.last + 9;
 
-  const api = { bodyPts, segPt, yardGeo, PER, LINK, GEO, STEP, setPL, kPath, laneGeo, YK5, YK6, yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
+  const api = { lead0, bodyPts, segPt, yardGeo, PER, LINK, GEO, STEP, setPL, kPath, laneGeo, YK5, YK6, yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CtcCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

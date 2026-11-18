@@ -38,13 +38,14 @@ const { spawn } = require('child_process');
       /* 2. ポイント：列車が上にいるときは鎖錠、向きは列車のいる線 */
       for (const pt of P.pts) {
         if (pt.cross || pt.a == null || pt.b == null) continue;
-        const yt = pt.y0 + pt.trunk, dx = (pt.side === 'W' ? 1 : -1) * (pt.out ? -1 : 1), on = [];
-        const legN = [pt.x + dx * pt.len * 0.5, (yt + pt.y0 + pt.a) / 2], legR = [pt.x + dx * pt.len * 0.5, (yt + pt.y0 + pt.b) / 2];
-        for (const t of tr) { if (!near(t.body, [pt.x, yt], 2.5)) continue; const r = near(t.body, legR, 2.5) && !(pt.a === pt.b), n = near(t.body, legN, 2.5); on.push({ t, leg: r && !n ? 'R' : n && !r ? 'N' : '?' }); }
-        for (const o of on) { if (o.t.dead) continue;
-          if (!pt.lock) push(out.ptLock, `${fmt(T)} ${pt.st}${pt.no} ${o.t.num}`);
-          if (o.leg !== '?' && (o.leg === 'R') !== pt.rev) push(out.ptLeg, `${fmt(T)} ${pt.st}${pt.no} ${o.t.num} 列車=${o.leg} ポイント=${pt.rev ? 'R' : 'N'}`); }
-        const legs = new Set(on.filter(o => o.leg !== '?').map(o => o.leg)); if (legs.size > 1) push(out.ptFoul, `${fmt(T)} ${pt.st}${pt.no} ${on.map(o => o.t.num + o.leg).join(',')}`);
+        let yt = pt.y0 + pt.trunk, legN, legR, tl = 2.5, J = [pt.x, yt]; const on = [];
+        if (pt.gen) { const m = Math.max(3, Math.min(9, pt.lenN * 0.6, pt.lenR * 0.6)); J = pt.J; tl = Math.min(2.5, m * 0.4); legN = [J[0] + pt.uN[0] * m, J[1] + pt.uN[1] * m]; legR = [J[0] + pt.uR[0] * m, J[1] + pt.uR[1] * m]; }
+        else { const dx = (pt.side === 'W' ? 1 : -1) * (pt.out ? -1 : 1); legN = [pt.x + dx * pt.len * 0.5, (yt + pt.y0 + pt.a) / 2]; legR = [pt.x + dx * pt.len * 0.5, (yt + pt.y0 + pt.b) / 2]; }
+        for (const t of tr) { if (!near(t.body, J, tl)) continue; const r = near(t.body, legR, tl) && !(pt.a === pt.b), n = near(t.body, legN, tl); on.push({ t, leg: r && !n ? 'R' : n && !r ? 'N' : '?' }); }
+        for (const o of on) { if (o.t.dead && !pt.gen) continue;
+          if (!pt.lock) push(out.ptLock, `${fmt(T)} ${pt.st}${pt.no || '分' + Math.round(J[0]) + ',' + Math.round(J[1])} ${o.t.num}${o.t.dead ? '回' : ''}`);
+          if (o.leg !== '?' && (o.leg === 'R') !== pt.rev) push(out.ptLeg, `${fmt(T)} ${pt.st}${pt.no || '分' + Math.round(J[0]) + ',' + Math.round(J[1])} ${o.t.num}${o.t.dead ? '回' : ''} 列車=${o.leg} ポイント=${pt.rev ? 'R' : 'N'}`); }
+        const legs = new Set(on.filter(o => o.leg !== '?').map(o => o.leg)); if (legs.size > 1) push(out.ptFoul, `${fmt(T)} ${pt.st}${pt.no || '分' + Math.round(J[0]) + ',' + Math.round(J[1])} ${on.map(o => o.t.num + o.leg).join(',')}`);
       }
       /* 3. 赤の信号を越えない（前の時刻で赤だった信号を、同じ線の同じ向きの列車の先頭が越えた） */
       if (prev) for (const t of live) { const q = prev.trains.find(u => u.key === t.key); if (!q || !t.moving) continue;

@@ -8,7 +8,39 @@
   const Y = C.Y;
   let YMAP = null;
   let HS = null, YS = null, YSKEY = null, LAY = null, LAYK = null, SIG = null;
-  const layOf = () => { const k = pxk + '|' + (HS ? 1 : 0); if (!LAY || LAYK !== k) { LAY = CtcSignal.build(HS, SX, L, C); LAYK = k; } return LAY; };
+  const layOf = () => { const k = pxk + '|' + (HS ? 1 : 0); if (!LAY || LAYK !== k) { LAY = CtcSignal.build(HS, SX, L, C); LAYK = k; genPoints(LAY); } return LAY; };
+  /* 描いた線路から、線が分かれる所をすべて見つけてポイントにする（2026-11-19）。
+     中央・港・車庫や留置線のはしご・貨物ターミナル・連絡線など、駅の形の表（haisen）で向きを決めていない所。
+     はじめから向きを決めてあるポイント（川辺・森下・峠・温泉・交換信号所・途中の駅）の近くはそのまま */
+  function genPoints(lay) {
+    const c0 = ctx, oc = document.createElement('canvas'); oc.width = oc.height = 4; let R; ctx = oc.getContext('2d'); REC = [];
+    try { drawTrack(); } finally { R = REC; REC = null; ctx = c0; }
+    const segs = []; R.forEach((r, li) => { for (let k = 1; k < r.pts.length; k++) segs.push({ li, a: r.pts[k - 1], b: r.pts[k] }); });
+    const old = lay.pts.filter(p => p.a != null && p.b != null && !p.gen).map(p => [p.x, p.y0 + p.trunk]), kx = L.xm(SX.K.km), kw = (C.GEO.K.J1 + 0.2) * pxk;
+    const seen = [];
+    R.forEach(r => r.pts.forEach(J => {
+      if (seen.some(n => Math.hypot(n[0] - J[0], n[1] - J[1]) < 2)) return; seen.push(J);
+      if (J[0] > kx - kw && J[0] < kx + kw && J[1] > L.Y.br - 30) return;   /* 川辺は決めてある */
+      if (old.some(q => Math.hypot(q[0] - J[0], q[1] - J[1]) < 10)) return;
+      const dirs = [];
+      for (const s of segs) {
+        const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], LL = dx * dx + dy * dy || 1, t = ((J[0] - s.a[0]) * dx + (J[1] - s.a[1]) * dy) / LL;
+        if (t < -0.01 || t > 1.01 || Math.hypot(s.a[0] + t * dx - J[0], s.a[1] + t * dy - J[1]) > 1.2) continue;
+        for (const [to, ok] of [[s.a, t > 0.01], [s.b, t < 0.99]]) { if (!ok) continue; const ex = to[0] - J[0], ey = to[1] - J[1], l = Math.hypot(ex, ey); if (l < 0.5) continue;
+          const u = [ex / l, ey / l], d0 = dirs.find(d => d.u[0] * u[0] + d.u[1] * u[1] > 0.999); if (d0) d0.len = Math.min(d0.len, l); else dirs.push({ u, len: l, col: R[s.li].col }); }
+      }
+      if (dirs.length < 3) return;
+      const dot = (a, b) => a.u[0] * b.u[0] + a.u[1] * b.u[1];
+      if (dirs.length === 4 && dirs.every(a => dirs.some(b => dot(a, b) < -0.999))) return;   /* ひし形の交差（平面交差）はポイントではない */
+      const tk = dirs.find(t => dirs.filter(d => d !== t && dot(d, t) < -0.2).length >= 2); if (!tk) return;
+      const legs = dirs.filter(d => d !== tk && dot(d, tk) < -0.2).sort((a, b) => dot(a, tk) - dot(b, tk)), N = legs[0], Rr = legs[1];
+      const yard = [N, Rr, tk].some(d => d.col === '#6d6250' || /^#8a7a52|^#b59a5a/.test(d.col));
+      const nm = J[1] < L.Y.br + 40 ? null : (() => { let b = null; for (const k of ['C', 'S', 'U', 'M', 'N', 'P']) { if (!SX[k]) continue; const d = Math.abs(L.xm(SX[k].km) - J[0]); if (!b || d < b[1]) b = [k, d]; } return b && b[0]; })();
+      const br = J[1] < L.Y.br + 40, st = br ? (() => { let b = null; for (const k of ['F', 'T', 'O']) { const d = Math.abs(L.xb(SX[k].bkm) - J[0]); if (!b || d < b[1]) b = [k, d]; } return b[0]; })() : nm;
+      lay.pts.push({ gen: true, st, no: '', what: (SX[st] ? SX[st].name : '') + (yard ? 'の車庫・留置線・ターミナルのポイント' : 'のポイント'), J, uT: tk.u, uN: N.u, uR: Rr.u, lenN: N.len, lenR: Rr.len,
+        a: 0, b: 1, trunk: 0, y0: J[1], x: J[0], len: Math.min(N.len, Rr.len), side: 'E', out: false, rule: null, cross: false, br, small: yard });
+    }));
+  }
   let GST = 'K', GKEY = null, BLOCKHOLD = false, LAG = new Map(), LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
@@ -58,7 +90,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261119a').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261119e').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -173,7 +205,7 @@
     if (C.inDepot(s, T) || !s.trips.length) return { depot: true };
     { const r = restAt(s, T); if (r) return restNow(s, r, T); }
     const tr0 = s.trips[0], trL = s.trips[s.trips.length - 1];
-    if (T < s.first - 1) return { dead: true, out: true, f: (T - (s.first - 8)) / 7, trip: tr0 };
+    { const ld = C.lead0(s); if (T < s.first - ld) return { dead: true, out: true, f: (T - (s.first - ld - 7)) / 7, trip: tr0 }; }
     if (T > trL.arr[trL.arr.length - 1] + 3) return { dead: true, out: false, f: (T - (trL.arr[trL.arr.length - 1] + 3)) / 6, trip: trL };
     for (let k = 0; k < s.trips.length; k++) {
       const tr = s.trips[k];
@@ -227,7 +259,14 @@
       const k = SX.O.bkm, O = YG.O, g = G.O;
       add(xb(k + O.lead[1][0]), O.lead[1][1]); add(xb(k + O.lead[0][0]), O.lead[0][1]); add(xb(k - g.d0 - C.STEP / 2), Y.br); add(xb(k - g.d0), q.y);
     }
-    P.push({ x: q.x, y: q.y }); return P;
+    P.push({ x: q.x, y: q.y });
+    /* 折り返す入換（2026-11-19）：向きが逆になる所では、編成がポイントを通りこして全部ぬけてから、もどる（車体がポイントの上で折れ曲がらないように） */
+    for (let k = 1; k < P.length - 1; k++) { const a = P[k - 1], v = P[k], b = P[k + 1], ux = v.x - a.x, uy = v.y - a.y, wx = b.x - v.x, wy = b.y - v.y, lu = Math.hypot(ux, uy), lw = Math.hypot(wx, wy);
+      if (lu < 0.5 || lw < 0.5 || (ux * wx + uy * wy) / (lu * lw) > -0.2) continue;
+      /* 通りこす向きは、ポイントのまっすぐな側（線路の続き）：来た向きのまま か 出ていく向きの反対 の、水平に近いほう */
+      const ov = len + 6, d1 = [ux / lu, uy / lu], d2 = [-wx / lw, -wy / lw], d = Math.abs(d1[1]) <= Math.abs(d2[1]) ? d1 : d2;
+      P.splice(k + 1, 0, { x: v.x + d[0] * ov, y: v.y + d[1] * ov, rev: true }, { x: v.x, y: v.y }); k += 2; }
+    return P;
   }
   /* 車庫・留置線の置き場所の割りふり（2026-11-18 点検で作りなおし）：編成が車庫・留置線にいるあいだ（出入りの回送も入れて）を区間にして、
      始まる時刻の順に、あいている置き場所のいちばん若い番号へ。同じ時刻に同じ置き場所へ2編成が入らない。いるあいだは同じ番号のまま */
@@ -452,9 +491,9 @@
     return p;
   }
   /* 車体どうしが近すぎるか（3.5px） */
-  function bodyHit(A, B) {
-    const segd = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / LL)); return Math.hypot(a[0] + u * dx - p[0], a[1] + u * dy - p[1]); };
-    const near = (P, q) => P.length > 1 ? P.some((r, k) => k && segd(q, P[k - 1], r) < 3.5) : Math.hypot(P[0][0] - q[0], P[0][1] - q[1]) < 3.5;
+  function bodyHit(A, B, tl) {
+    tl = tl || 3.5; const segd = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / LL)); return Math.hypot(a[0] + u * dx - p[0], a[1] + u * dy - p[1]); };
+    const near = (P, q) => P.length > 1 ? P.some((r, k) => k && segd(q, P[k - 1], r) < tl) : Math.hypot(P[0][0] - q[0], P[0][1] - q[1]) < tl;
     return A.some(q => near(B, q)) || B.some(q => near(A, q));
   }
   /* いまの全部の編成の位置（車庫の中は除く）。画面と確かめ（CtcView.pos）が同じものを使う */
@@ -469,7 +508,7 @@
         /* 出庫してきて、始発の発車を待つ列車：前の列車がまだ番線から出きっていなければ、回送のまま手前で待たせる（下でたしかめる。2026-11-18 点検） */
         if (!n.dead && n.wait && s.home && s.trips && T < n.trip.dep[0]) {
           const r = (s.rests || []).find(x => s.trips[s.trips.indexOf(x.after) + 1] === n.trip && T >= x.t1);
-          if (n.trip === s.trips[0] && T >= s.first - 1) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true };
+          if (n.trip === s.trips[0] && T >= s.first - C.lead0(s)) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true };
           else if (r) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: r.at }; }
         if (n.dead) {
           const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, f0 = Math.max(0, Math.min(1, n.f)), f = n.out ? f0 * f0 : Math.sqrt(f0);   /* 入庫は番線をすぐあける・出庫はホームに入るのを最後に（ほかの列車と重ならないように。2026-11-18 点検） */
@@ -488,11 +527,16 @@
           out.push({ s, n, p, tr: n.trip, dead: false }); }
       });
       /* 回送は、ほかの列車とぶつかるなら、その手前（車庫・留置線の側）で待つ（2026-11-18 点検） */
+      /* 回送は、ほかの列車の「いま」だけでなく、30秒先までに進む所も避ける（向かってくる列車の前に出ない。2026-11-19） */
+      const sweep = new Map(), bodyX = o => { if (o.dead) return o.p.body || [[o.p.x, o.p.y]]; if (!sweep.has(o)) { const B = o.p.body || [[o.p.x, o.p.y]];
+        const f = [0.5, 0.25].map(dt => { const r = C.trainPos(o.tr, (o.p.tD != null ? o.p.tD : T) + dt, L, env); return [r.x, r.y]; }); sweep.set(o, o.p.moving || T >= o.tr.dep[o.p.i || 0] - 0.5 ? f.concat(B) : B); } return sweep.get(o); };
       for (const d of out) { if (!d.dead || !d.path) continue;
-        const others = () => out.filter(o => o !== d);
-        if (!others().some(o => bodyHit(d.p.body, o.p.body || [[o.p.x, o.p.y]]))) continue;
-        for (let k = 1; k <= 50; k++) { const f0 = d.n.out ? d.f0 - k * 0.02 : d.f0 - k * 0.02; if (f0 < 0) break; const p2 = deadAt(d.path, d.fs(f0), d.sl, d.p.i);
-          if (!others().some(o => bodyHit(p2.body, o.p.body || [[o.p.x, o.p.y]]))) { d.p = Object.assign(p2, { held: true }); break; } } }
+        const others = () => out.filter(o => o !== d).map(o => ({ p: { body: bodyX(o), x: o.p.x, y: o.p.y } }));
+        /* ポイントの分かれ目では、となりの線の列車にもかからない所（車両限界：8px）で止まる（2026-11-19） */
+        const HT = 8;
+        if (!others().some(o => bodyHit(d.p.body, o.p.body || [[o.p.x, o.p.y]], HT))) continue;
+        for (let k = 1; k <= 51; k++) { const f0 = Math.max(0, d.f0 - k * 0.02); const p2 = deadAt(d.path, d.fs(f0), d.sl, d.p.i);   /* 出はじめなら、もとの番線・置き場所で待つ */
+          if (!others().some(o => bodyHit(p2.body, o.p.body || [[o.p.x, o.p.y]], HT))) { d.p = Object.assign(p2, { held: true }); break; } if (f0 === 0) break; } }
       /* 回送のまま待たなくてよかった始発の列車は、ふつうの列車にもどす */
       for (let k = 0; k < out.length; k++) { const d = out[k]; if (!d.n || !d.n.origin || d.p.held) continue;
         const p = withBody(d.tr, C.trainPos(d.tr, T, L, env), env); p.tD = T; out[k] = { s: d.s, n: { trip: d.tr, wait: true }, p, tr: d.tr, dead: false }; }
@@ -683,7 +727,7 @@
     return {
       trains: QQ.map(q => ({ key: q.tr.num + '@' + (q.tr.yardOf || q.tr).dep[0].toFixed(2) + (q.dead ? 'd' : ''), num: q.tr.num, type: q.tr.type, dead: q.dead, held: !!q.p.held, xwait: !!q.p.xwait, moving: q.p.moving, dir: q.p.dir, i: q.p.i, seq: q.tr.seq.join(''), st: q.tr.seq[q.p.i], nx: q.tr.seq[q.p.i + 1] || null, x: q.p.x, y: q.p.y, body: CtcSignal.bodyOf(q.p, q.tr, pxk), cars: q.tr.cars, synth: !!(q.tr.synth || (q.tr.base && q.tr.base.synth)), track: q.n && q.n.track || null, lane: q.tr.lanes ? q.tr.lanes[q.p.i] : null })),
       sig: lay.sig.map(o => ({ trk: o.trk, id: o.id, kind: o.kind, line: o.line, dir: o.dir, st: o.st || null, km: o.km, x: o.x, lane: o.lane, asp: o.plan ? null : st.asp.get(o), br: !!o.br })),
-      pts: lay.pts.map(p => { const v = st.pst.get(p) || {}; return { st: p.st, no: p.no, x: p.x, y0: p.y0, a: p.a, b: p.b, trunk: p.trunk, len: p.len, side: p.side, out: p.out, cross: p.cross, rule: p.rule, br: p.br, rev: !!v.rev, lock: !!v.lock, phase: v.phase || '', by: v.t ? v.t.tr.num : null }; }),
+      pts: lay.pts.map(p => { const v = st.pst.get(p) || {}; return { gen: !!p.gen, J: p.J, uN: p.uN, uR: p.uR, lenN: p.lenN, lenR: p.lenR, st: p.st, no: p.no, x: p.x, y0: p.y0, a: p.a, b: p.b, trunk: p.trunk, len: p.len, side: p.side, out: p.out, cross: p.cross, rule: p.rule, br: p.br, rev: !!v.rev, lock: !!v.lock, phase: v.phase || '', by: v.t ? v.t.tr.num : null }; }),
       one: (st.one || []).map(u => ({ a: u.a, b: u.b, t: u.t ? u.t.tr.num : null, ts: (u.ts || []).map(x => [x.tr.num, x.dir, x.moving ? 1 : 0]) })), shunt: (lay.shunt || []).map(sh => ({ at: sh.at, t: sh.t, main: !!sh.main, on: !!(st.sst && st.sst.get(sh)) })),
       routes: st.routes.map(r => ({ kind: r.kind, st: r.st, num: r.t.tr.num, prep: !!r.prep })), xings: lay.xings.map(x => ({ km: x.km, br: x.br, on: !!st.xst.get(x) })),
       sets, syn, slotOver: SLOTOVER, pxk, big: BIG ? { a: BIG.a, b: BIG.b, t0: BIG.t0, t1: BIG.t1, name: BIG.name } : null };
@@ -712,6 +756,6 @@
   }
   /* 確かめ用：描いた線路（折れ線）を全部 */
   function tracks() { if (!L) return null; REC = []; ctx.save(); try { drawTrack(); } finally { ctx.restore(); } const r = REC; REC = null; draw(true); return r; }
-  window.CtcView = { tracks, probe, init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2, YS }),
+  window.CtcView = { posq: T => { const D = data(); return D ? posAll(D, T) : null; }, tracks, probe, init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2, YS }),
     pos: T => { const D = data(); if (!D || !L) return []; ensureHl(D); return posAll(D, T).map(q => ({ num: q.tr.num, type: q.tr.type, down: q.tr.down, dead: q.dead, x: q.p.x, y: q.p.y, moving: q.p.moving, st: q.tr.seq[q.p.i], len: Math.max(10, q.tr.cars * 0.02 * L.pxk), dir: q.p.dir })); } };   /* syn：確かめ用（headless） */
 })();

@@ -25,7 +25,7 @@
         lanes.forEach((o, j) => add({ kind: '出発', line: 'd', dir: 1, st: s, lane: o, km: k + g.sig, sub: j }));   /* 出発信号は番線ごとに縦一列 */
         add({ kind: '場内', line: 'u', dir: -1, st: s, km: k + homeD(s) });
       } else if (s === 'P') {
-        add({ kind: '場内', line: 'd', dir: 1, st: s, km: k - homeD(s) });
+        add({ kind: '場内', line: 'd', dir: 1, st: s, km: k - Math.max(homeD(s), -C.yardGeo().P.lead[0][0] + 0.08) });   /* 港の場内は、留置線の入出庫線が分かれる所より外（2026-11-19） */
         lanes.forEach((o, j) => add({ kind: '出発', line: 'u', dir: -1, st: s, lane: o, km: k - g.sig, sub: j }));
       } else {
         add({ kind: '場内', line: 'd', dir: 1, st: s, km: k - homeD(s) });
@@ -139,6 +139,16 @@
   function state(lay, Q, T, L, C, SX, env) {
     const Y = C.Y, pxk = L.pxk;
     const trains = Q.filter(q => !q.dead).map(q => info(q, L, C)); void pxk;
+    /* 回送（入換）が本線の、ある線の高さ y で km a〜b を使っているか。車体と、これから通る残りの道すじ（入換進路）で見る（2026-11-19） */
+    const DB = Q.filter(q => q.dead && q.p && q.p.body).map(q => q.p.body);   /* 車体だけ */
+    const DQs = [];   /* もう動き出した回送の、車体と残りの進路 */
+    const DQ = Q.filter(q => q.dead && q.p && q.p.body).map(q => { let R = q.p.body.slice();
+      if (q.path && q.path.length > 1) { const P0 = q.path.map(v => [v.x, v.y]), h = [q.p.x, q.p.y]; let kb = 1, db = 1e9;
+        for (let k = 1; k < P0.length; k++) { const a = P0[k - 1], b = P0[k], dx = b[0] - a[0], dy = b[1] - a[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((h[0] - a[0]) * dx + (h[1] - a[1]) * dy) / LL)), d = Math.hypot(a[0] + u * dx - h[0], a[1] + u * dy - h[1]); if (d < db) { db = d; kb = k; } }
+        if (!(q.p.held && q.f0 === 0 && !(q.n && q.n.out))) R = R.concat([h], P0.slice(kb)); }
+      if ((q.f0 || 0) > 0.005) DQs.push(R); return R; });
+    const x0 = L.xm(0), deadOn = (y, a, b, bodyOnly) => { const lo = x0 + Math.min(a, b) * L.pxk, hi = x0 + Math.max(a, b) * L.pxk;
+      return (bodyOnly === 2 ? DQs : bodyOnly ? DB : DQ).some(R => R.some((v, k) => { if (Math.abs(v[1] - y) < 2 && v[0] > lo && v[0] < hi) return true; const w = R[k + 1]; return w && Math.abs(v[1] - y) < 2 && Math.abs(w[1] - y) < 2 && Math.min(v[0], w[0]) < hi && Math.max(v[0], w[0]) > lo; })); };
     const occ = (line, a, b, not) => trains.some(t => t !== not && t.line === line && t.hi > Math.min(a, b) && t.lo < Math.max(a, b));
     const asp = new Map();
     /* 列車がいま止まっている駅と番線 */
@@ -177,7 +187,8 @@
           const head = o.st === 'C' || o.st === 'P', crossA = head && (o.st === 'C' ? lane < 0 : lane > 0);   /* 着く番線へ行くのに、反対の本線を横切るか */
           const thr = head && trains.some(x => x !== t && x.dir !== dir && ((x.moving && x.hi > Math.min(o.km, SX[o.st].km) && x.lo < Math.max(o.km, SX[o.st].km)) ||
             (!x.moving && atSt(x) === o.st && x.tr.dep[x.i] - T < 0.6 && (crossA || (o.st === 'C' ? laneAt(x, x.i) > 0 : laneAt(x, x.i) < 0)))));   /* もうすぐ出る列車と、のどで交差するなら開かない */
-          const busy = thr || deadIn || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
+          const dy = Y.main + (line === 'd' ? -Y.lane : Y.lane), deadRt = !o.br && (line === 'u' || line === 'd') && (deadOn(dy, o.km, SX[o.st].km, true) || deadOn(dy, o.km, SX[o.st].km, 2) || ((o.km - t.km) * dir > 0.45 && deadOn(dy, o.km, SX[o.st].km)));   /* 回送（入換）が場内信号の内側の本線を使っている・進路がある（2026-11-19）。列車がもう信号の近く（進路ができている）なら、まだ動き出していない回送のほうが待つ */
+          const busy = thr || deadIn || deadRt || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
           if (busy) { asp.set(o, R); continue; }
           const dep = lay.sig.find(x => x.kind === '出発' && x.st === o.st && x.lane === lane && x.dir === dir);
           const prep = (o.km - t.km) * dir > 1.6;
@@ -192,28 +203,43 @@
     const pst = new Map(), segd = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / LL)); return Math.hypot(a[0] + u * dx - p[0], a[1] + u * dy - p[1]); };
     const nearB = (B, pt, d) => B.length > 1 ? B.some((q, k) => k && segd(pt, B[k - 1], q) < d) : Math.hypot(B[0][0] - pt[0], B[0][1] - pt[1]) < d;
     const all = Q.filter(q => q.p && (q.p.body || q.dead));
+    /* 先頭の行き先（1.2分先まで）は列車ごとに一度だけ計算する。回送は、車庫・留置線までの進路（残りの道すじ）全部 */
+    const FUT = new Map(), fut = q => { if (FUT.has(q)) return FUT.get(q); let F = [];
+      if (q.dead && q.path && q.path.length > 1) { const P0 = q.path.map(v => [v.x, v.y]), h = [q.p.x, q.p.y]; let kb = 0, db = 1e9;
+        for (let k = 1; k < P0.length; k++) { const d = segd(h, P0[k - 1], P0[k]); if (d < db) { db = d; kb = k; } } F = [h].concat(P0.slice(kb)); F.dead = true; }
+      else if (!q.dead && env && C.trainPos) for (let k = 1; k <= 24; k++) { const r = C.trainPos(q.tr, T + k * 0.05, L, env); F.push([r.x, r.y]); }
+      FUT.set(q, F); return F; };
+    const geo = p => { if (p.gen) { const m = Math.max(3, Math.min(9, p.lenN * 0.6, p.lenR * 0.6)), J = p.J; return { pt: J, mN: [J[0] + p.uN[0] * m, J[1] + p.uN[1] * m], mR: [J[0] + p.uR[0] * m, J[1] + p.uR[1] * m], tol: Math.min(3, m * 0.45), same: false }; }
+      const yt = p.y0 + p.trunk, dx = (p.side === 'W' ? 1 : -1) * (p.out ? -1 : 1);
+      return { pt: [p.x, yt], mN: [p.x + dx * p.len * 0.5, (yt + p.y0 + p.a) / 2], mR: [p.x + dx * p.len * 0.5, (yt + p.y0 + p.b) / 2], tol: 3, same: p.a === p.b }; };
     for (const p of lay.pts) {
       if (p.cross || p.a == null || p.b == null) { pst.set(p, { rev: false, lock: false }); continue; }
-      const yt = p.y0 + p.trunk, pt = [p.x, yt], dx = (p.side === 'W' ? 1 : -1) * (p.out ? -1 : 1);
-      const mN = [p.x + dx * p.len * 0.5, (yt + p.y0 + p.a) / 2], mR = [p.x + dx * p.len * 0.5, (yt + p.y0 + p.b) / 2], same = p.a === p.b;
+      const { pt, mN, mR, tol, same } = geo(p);
       let best = null;
       for (const q of all) {
-        if (Math.abs(q.p.x - p.x) > p.len + 0.9 * L.pxk + 40) continue;
-        const B = q.p.body || [[q.p.x, q.p.y]], P = B.slice(); let when = nearB(B, pt, 3) ? T : null;
-        if (when == null && !q.dead && env && C.trainPos) {   /* 先頭の行き先：1.2分先まで */
-          const F = []; let hitK = -1;
-          for (let k = 1; k <= 24; k++) { const r = C.trainPos(q.tr, T + k * 0.05, L, env); F.push([r.x, r.y]); if (hitK < 0 && Math.hypot(r.x - pt[0], r.y - pt[1]) < 6) hitK = k; if (hitK > 0 && k > hitK + 8) break; }
-          if (hitK > 0 || nearB(F.length > 1 ? F : [[q.p.x, q.p.y]].concat(F), pt, 3)) { when = T + Math.max(1, hitK) * 0.05; P.push(...F); }
+        const F = fut(q);
+        if (Math.abs(q.p.x - p.x) > p.len + 0.9 * L.pxk + 40 && !(F.dead && F.some(v => Math.abs(v[0] - p.x) < 40))) continue;
+        const B = q.p.body || [[q.p.x, q.p.y]], P = B.slice(); let when = nearB(B, pt, tol) ? T : null;
+        if (when == null && F.length) {
+          if (F.dead) { const k = F.findIndex((v, j) => j && segd(pt, F[j - 1], v) < tol);   /* 回送：車庫・留置線までの進路を先に作って、まとめて鎖錠。
+                                                                                          折り返す入換（中央車庫）は同じポイントを2度通るので、次に通るときの向き */
+            if (k > 0) { when = T + 0.2; P.length = 0; P.push(...F.slice(Math.max(0, k - 2), k + 2)); } }
+          else { let hitK = -1; for (let k = 0; k < F.length; k++) if (Math.hypot(F[k][0] - pt[0], F[k][1] - pt[1]) < 6) { hitK = k + 1; break; }
+            if (hitK > 0 || nearB([[q.p.x, q.p.y]].concat(F), pt, tol)) { when = T + Math.max(1, hitK) * 0.05; P.push(...F.slice(0, hitK > 0 ? Math.min(F.length, hitK + 8) : F.length)); } }
         }
         if (when == null) continue;
-        const onR = !same && nearB(P, mR, 3), onN = nearB(P, mN, 3), leg = onR && !onN ? 'R' : 'N';
-        if (!best || when < best.when) best = { t: q.dead ? null : { tr: q.tr }, when, leg, on: when === T };
+        const onR = !same && nearB(P, mR, tol), onN = nearB(P, mN, tol), leg = onR && !onN ? 'R' : 'N';
+        if (!best || when < best.when) best = { t: q.dead ? null : { tr: q.tr }, when, leg, on: when === T, dead: !!q.dead };
       }
       if (!best) { pst.set(p, { rev: false, lock: false }); continue; }
       const lead = best.when - T, rev = best.leg === 'R', lock = best.on || lead < 0.6;
       const phase = lock ? 'lock' : lead < 0.65 ? 'check' : lead < 0.8 && rev ? 'move' : '';
-      pst.set(p, { rev: rev && lead < 0.8, lock, phase, t: best.t });
+      pst.set(p, { rev: rev && lead < 0.8, lock, phase, t: best.t, dead: best.dead });
     }
+    /* 番号だけのポイント（中央①〜⑥・港③シーサス）：近くの分かれ目のどれかが転換・鎖錠していれば、そのとおりに見せる */
+    for (const p of lay.pts) { if (p.gen || !(p.cross || p.a == null || p.b == null)) continue;
+      const near = lay.pts.filter(g => g.gen && !g.small && Math.abs(g.x - p.x) < (p.cross ? 0.12 : 0.18) * L.pxk && Math.abs(g.J[1] - (p.y0 + (p.ly != null ? p.ly : 0))) < 60).map(g => pst.get(g) || {});
+      pst.set(p, { rev: near.some(v => v.rev), lock: near.some(v => v.lock) }); }
     /* 踏切：列車が近づくと鳴る */
     const xst = new Map();
     for (const x of lay.xings) {
@@ -275,6 +301,15 @@
     for (const p of lay.pts) {
       if (!vis(p.x)) continue; const s = st.pst.get(p) || {};
       const yt = p.y0 + (p.trunk != null ? p.trunk : p.ly != null ? p.ly : 0), pt = [p.x, yt];
+      if (p.gen) {   /* 線路の分かれ目から作ったポイント：開いている側を水色で、閉じている側は線路を少し消す。鎖錠中は小さな錠 */
+        const J = p.J, pos = s.rev ? p.uR : p.uN, off = s.rev ? p.uN : p.uR, lp = s.rev ? p.lenR : p.lenN, lo = s.rev ? p.lenN : p.lenR, moving = s.phase === 'move';
+        const at = (u, d) => [J[0] + u[0] * d, J[1] + u[1] * d], w = p.small ? 3.4 * sc : 5 * sc, ln = Math.min(p.small ? 16 * sc : 28 * sc, lp * 0.9);
+        ctx.lineCap = 'butt'; ctx.strokeStyle = K.bg; ctx.lineWidth = p.small ? 4.5 : 7; seg(ctx, at(off, 2.5), at(off, Math.min(p.small ? 7 : 13, lo * 0.8)));
+        if (!moving || blink) { ctx.lineCap = 'round'; ctx.strokeStyle = K.sw; ctx.lineWidth = w; ctx.setLineDash(moving ? [3, 3] : []); seg(ctx, J, at(pos, ln)); ctx.setLineDash([]); }
+        if (s.lock && mid) { ctx.font = `${Math.round((p.small ? 8 : 10) * sc + 1)}px sans-serif`; ctx.textAlign = 'center'; ctx.fillText('🔒', J[0] - p.uT[0] * 6, J[1] - p.uT[1] * 6 + (p.uT[1] >= 0 ? -6 : 10)); }
+        hits.push({ x0: J[0] - 6, x1: J[0] + 6, y0: J[1] - 6, y1: J[1] + 6, point: p, ps: s });
+        continue;
+      }
       if (p.a != null && p.b != null) {
         const dx = (p.side === 'W' ? 1 : -1) * (p.out ? -1 : 1), leg = { N: [p.x + dx * p.len, p.y0 + p.a], R: [p.x + dx * p.len, p.y0 + p.b] };
         const pos = s.rev ? 'R' : 'N', off = pos === 'N' ? 'R' : 'N', moving = s.phase === 'move';
@@ -366,7 +401,7 @@
       return `<b>${o.kind}信号</b>${o.st ? '（' + o.st + '）' : ''}：${nm}<br><span class="muted">${why}</span>`;
     }
     if (h.shunt) return `<b>入換信号</b>（${h.shunt.name}）：${h.on ? '進んでよい（白い灯がななめ）' : '止まれ（白い灯がよこ）'}<br><span class="muted">${h.on ? '回送が車庫・留置線へ出入りしているため' : 'いま出入りする車両がないため'}</span>`;
-    if (h.point) { const p = h.point, s = h.ps || {}; return `<b>ポイント${p.no}</b>（${p.what}）：${p.cross ? 'ふだんは使わない（非常用・臨時）' : s.rev ? 'となりの線へ（反位）' : 'まっすぐ（定位）'}${s.lock ? '・鎖錠中（進路ができている）' : ''}${s.t ? `<br><span class="muted">次に通る列車：${TY[s.t.tr.type].name} ${s.t.tr.num}</span>` : ''}`; }
+    if (h.point) { const p = h.point, s = h.ps || {}; return `<b>ポイント${p.no}</b>（${p.what}）：${s.rev ? 'となりの線へ（反位）' : p.cross ? 'まっすぐ（定位。ふだんは使わない：非常用・臨時）' : 'まっすぐ（定位）'}${s.lock ? (s.dead ? '・鎖錠中（回送の入換進路ができている）' : '・鎖錠中（進路ができている）') : ''}${s.t ? `<br><span class="muted">次に通る列車：${TY[s.t.tr.type].name} ${s.t.tr.num}</span>` : ''}`; }
     return '';
   }
   const api = { info, nextBlocked, build, state, draw, drawOcc, drawTop, bodyOf, explain, R, Y: Yw, G };
