@@ -64,4 +64,14 @@ for (const k of ['単式', '島式', '相対式', '2面3線', '2面4線', '千�
   const K = C.LINK, at = (P, k) => { const A = P.slice().sort((p, q) => p[0] - q[0]); for (let j = 1; j < A.length; j++) if (k <= A[j][0]) return true; return false; };
   assert.ok(K.inW[0][1] === C.YK6 && K.outW[K.outW.length - 1][1] === C.YK5 && at(K.inW, -1) && at(K.outW, -1), '入りは東行き（北）から、出は西行き（南）へ');
 }
+/* 7) 2026-11-18：ホームはいちばん長い編成が入る長さ、出発信号はその先頭の先。線はどこも同じ傾き。車庫などは はしごで全部の線の奥まで */
+{
+  C.setPL({ C: 0.24, K: 0.16, P: 0.16, O: 0.08, F: 0.08 });
+  for (const s of ['C', 'K', 'P', 'O', 'F']) { const g = C.GEO[s], pl = g.plat, w = pl[1] - pl[0];
+    assert.ok(w >= g.L && w <= g.L + 0.03, 'ホームの長さ＝いちばん長い編成：' + s); assert.ok(g.sig > (g.head ? g.L : g.L / 2) + 0.02, '出発信号は止まった列車の先：' + s); }
+  const Y = C.yardGeo(); assert.strictEqual(Y.C.tracks.length, 14); assert.strictEqual(Y.Q.tracks.length, 4);
+  const sl = (a, b) => Math.abs((b[1] - a[1]) / (b[0] - a[0])); const s0 = sl(Y.C.lead[0][0], Y.C.lead[0][1]);
+  assert.ok(Math.abs(sl(Y.C.lead[1][0], Y.C.lead[1][1]) - s0) < 1e-6 && Math.abs(sl(Y.P.lead[0], Y.P.lead[1]) - s0) < 1e-6 && Math.abs(s0 - 2 * C.Y.lane / C.STEP) < 1e-6, '入出庫線・はしごも同じ傾き');
+  C.setPL({});
+}
 console.log('ctc-signal ok');

@@ -16,76 +16,88 @@
     const MAINS = ['C', 'S', 'U', 'M', 'K', 'N', 'P'], BRS = ['F', 'T', 'O'];
     const row = { d: M - 46, u: M + 46, bd: B - 30, bu: B + 30 };
     const add = (o) => { o.id = sig.length; sig.push(o); return o; };
-    /* 本線：駅の場内・出発 */
+    /* 本線：駅の場内・出発（2026-11-18：GEO から。出発は止まった列車の先頭のすぐ先、場内は分かれ道の外） */
+    const G = C.GEO, ST = C.STEP, homeD = s => s === 'K' ? G.K.d0 + ST + 0.06 : (G[s].cross ? G[s].cross[1] : G[s].d0 + (s === 'C' ? 2 : 1) * ST) + 0.06;
     for (const s of MAINS) {
-      const st = HS.stations[s]; if (!st) continue; const k = SX[s].km, lanes = st.lanes.map(lc);
+      const st = HS.stations[s]; if (!st) continue; const k = SX[s].km, lanes = st.lanes.map(lc), g = G[s];
       const dl = lanes.filter(o => o < 0), ul = lanes.filter(o => o > 0);
       if (s === 'C') {
-        lanes.forEach((o, j) => add({ kind: '出発', line: 'd', dir: 1, st: s, lane: o, km: k + 0.31, y: row.d, sub: j }));   /* 出発信号は番線ごとに縦一列（2026-11-18） */
-        add({ kind: '場内', line: 'u', dir: -1, st: s, km: k + 0.66, y: row.u });
+        lanes.forEach((o, j) => add({ kind: '出発', line: 'd', dir: 1, st: s, lane: o, km: k + g.sig, sub: j }));   /* 出発信号は番線ごとに縦一列 */
+        add({ kind: '場内', line: 'u', dir: -1, st: s, km: k + homeD(s) });
       } else if (s === 'P') {
-        add({ kind: '場内', line: 'd', dir: 1, st: s, km: k - 0.66, y: row.d });
-        lanes.forEach((o, j) => add({ kind: '出発', line: 'u', dir: -1, st: s, lane: o, km: k - 0.31, y: row.u, sub: j }));
+        add({ kind: '場内', line: 'd', dir: 1, st: s, km: k - homeD(s) });
+        lanes.forEach((o, j) => add({ kind: '出発', line: 'u', dir: -1, st: s, lane: o, km: k - g.sig, sub: j }));
       } else {
-        add({ kind: '場内', line: 'd', dir: 1, st: s, km: k - 0.45, y: row.d });
-        const so = st.stop === 'stagger' ? 0.04 : 0.2;   /* 千鳥の駅は、止まる位置のすぐ先に */
-        dl.forEach((o, j) => add({ kind: '出発', line: 'd', dir: 1, st: s, lane: o, km: k + so, y: row.d, sub: j }));
-        add({ kind: '場内', line: 'u', dir: -1, st: s, km: k + 0.45, y: row.u });
-        ul.forEach((o, j) => add({ kind: '出発', line: 'u', dir: -1, st: s, lane: o, km: k - so, y: row.u, sub: j }));
+        add({ kind: '場内', line: 'd', dir: 1, st: s, km: k - homeD(s) });
+        dl.forEach((o, j) => add({ kind: '出発', line: 'd', dir: 1, st: s, lane: o, km: k + g.sig, sub: j }));
+        add({ kind: '場内', line: 'u', dir: -1, st: s, km: k + (s === 'K' ? G.K.X7 + 0.08 : homeD(s)) });
+        ul.forEach((o, j) => add({ kind: '出発', line: 'u', dir: -1, st: s, lane: o, km: k - g.sig, sub: j }));
       }
     }
     /* 本線：閉塞信号（駅と駅のあいだ、約 block.km ごと） */
     const step = (HS.block && HS.block.km) || 1.0;
     for (let j = 0; j < MAINS.length - 1; j++) {
       const a = SX[MAINS[j]].km, b = SX[MAINS[j + 1]].km;
-      const a0 = a + (MAINS[j] === 'C' ? 0.75 : 0.45), b0 = b - (MAINS[j + 1] === 'P' ? 0.75 : 0.45), len = b0 - a0, n = Math.max(0, Math.floor(len / step));
-      for (let q = 1; q <= n; q++) { const k = a0 + (len * q) / (n + 1); add({ kind: '閉塞', line: 'd', dir: 1, km: k, y: row.d }); add({ kind: '閉塞', line: 'u', dir: -1, km: a0 + len - (len * q) / (n + 1), y: row.u }); }
+      const a0 = a + homeD(MAINS[j]) + (MAINS[j] === 'K' ? G.K.X7 : 0.1), b0 = b - homeD(MAINS[j + 1]) - 0.1, len = b0 - a0, n = Math.max(0, Math.floor(len / step));
+      for (let q = 1; q <= n; q++) { const k = a0 + (len * q) / (n + 1); add({ kind: '閉塞', line: 'd', dir: 1, km: k }); add({ kind: '閉塞', line: 'u', dir: -1, km: a0 + len - (len * q) / (n + 1) }); }
     }
-    /* 支線（単線）：川辺の出口・森下・峠・温泉。駅と駅のあいだは1つの区間 */
-    add({ kind: '場内', line: 'b', dir: -1, st: 'K', km: 1.55, br: true, y: row.bu });
+    /* 支線（単線）：川辺の支線の場内（⑥の先・もとの指令盤の BH）・森下・峠・温泉。駅と駅のあいだは1つの区間 */
+    add({ kind: '場内', line: 'b', dir: -1, st: 'K', km: G.K.X6 + 0.1, br: true, trk: M + G.K.LV, up: false });
     for (const s of BRS) {
-      const st = HS.stations[s]; if (!st) continue; const k = SX[s].bkm, lanes = st.lanes.map(lc);
-      if (s === 'O') { add({ kind: '場内', line: 'b', dir: 1, st: s, km: k - 0.5, br: true, y: row.bd }); lanes.forEach((o, j) => add({ kind: '出発', line: 'b', dir: -1, st: s, lane: o, km: k - 0.25, br: true, y: row.bu, sub: j })); continue; }
-      add({ kind: '場内', line: 'b', dir: 1, st: s, km: k - 0.45, br: true, y: row.bd });
-      add({ kind: '場内', line: 'b', dir: -1, st: s, km: k + 0.45, br: true, y: row.bu });
-      lanes.forEach((o, j) => { add({ kind: '出発', line: 'b', dir: 1, st: s, lane: o, km: k + 0.19, br: true, y: row.bd, sub: j }); add({ kind: '出発', line: 'b', dir: -1, st: s, lane: o, km: k - 0.19, br: true, y: row.bu, sub: j }); });
+      const st = HS.stations[s]; if (!st) continue; const k = SX[s].bkm, lanes = st.lanes.map(lc), g = G[s], hd = g.d0 + ST / 2 + 0.06;
+      if (s === 'O') { add({ kind: '場内', line: 'b', dir: 1, st: s, km: k - hd, br: true }); lanes.forEach((o, j) => add({ kind: '出発', line: 'b', dir: -1, st: s, lane: o, km: k - g.sig, br: true, sub: j })); continue; }
+      add({ kind: '場内', line: 'b', dir: 1, st: s, km: k - hd, br: true });
+      add({ kind: '場内', line: 'b', dir: -1, st: s, km: k + hd, br: true });
+      lanes.forEach((o, j) => { add({ kind: '出発', line: 'b', dir: 1, st: s, lane: o, km: k + g.sig, br: true, sub: j }); add({ kind: '出発', line: 'b', dir: -1, st: s, lane: o, km: k - g.sig, br: true, sub: j }); });
     }
     /* 交換信号所（計画）：信号は消灯 */
     const sb = SX.F.bkm + C.SIGBOX;
-    add({ kind: '場内', line: 'b', dir: 1, km: sb - 0.4, br: true, y: row.bd, plan: true }); add({ kind: '場内', line: 'b', dir: -1, km: sb + 0.4, br: true, y: row.bu, plan: true });
+    add({ kind: '場内', line: 'b', dir: 1, km: sb - 0.4, br: true, plan: true }); add({ kind: '場内', line: 'b', dir: -1, km: sb + 0.4, br: true, plan: true });
     /* 中央の連絡線（乗り入れだけ・2026-11-18）：入り（北・県央本線の東行きから）の場内、4・5番線から西へ出る出発、県央北からの場内 */
     if (C.LINK) {
       add({ kind: '場内', line: 'w', dir: 1, st: 'C', km: C.LINK.inW[1][0] - 0.12, trk: C.YK6, up: true });
-      ['s', 's5'].forEach((c, j) => add({ kind: '出発', line: 'w', dir: -1, st: 'C', lane: lc(c), km: -0.06, sub: j }));
+      ['s', 's5'].forEach((c, j) => add({ kind: '出発', line: 'w', dir: -1, st: 'C', lane: lc(c), km: -0.03, sub: j }));   /* 西へ出る乗り入れ：止まった列車（先頭は0km）のすぐ先 */
       add({ kind: '場内', line: 'n', dir: -1, st: 'C', km: C.LINK.north[1][0] + 0.1, trk: C.YK5 - 40 * ((C.LINK.north[1][0] + 0.1 - 0.3) / 0.45), up: true });
     }
     /* 置き場所（川辺の指令室と同じ形）：線路から柱をのばした先に信号。下り（左→右）は線路の上、上りは下。出発は番線のすぐ横（柱が短い） */
     sig.forEach(o => { o.x = o.br ? xb(o.km) : xm(o.km);
-      if (o.kind === '出発') { o.atLane = true; o.trk = (o.br ? B : M) + o.lane; o.up = o.dir > 0; }
-      else if (o.trk == null) { o.trk = o.br ? B : M + (o.dir > 0 ? -Y.lane : Y.lane); o.up = o.dir > 0; }
+      if (o.kind === '出発') { o.atLane = true; o.trk = (o.br ? B : M) + o.lane; o.up = o.br && o.st !== 'O' ? o.lane < 0 : o.dir > 0; }   /* 森下・峠は島式・相対式のホームをよけて外側に */
+      else if (o.trk == null) { o.trk = o.br ? B : M + (o.dir > 0 ? -Y.lane : Y.lane); o.up = o.dir > 0; } else if (o.up == null) o.up = o.dir > 0;
       o.y = o.trk + (o.up ? -1 : 1) * (o.atLane ? 15 : 25); });
-    /* 入換信号（車庫・留置線・臨港線の出入り口）：車両が出入りするときだけ進行 */
-    const P = SX.P.km, shunt = [
-      { at: 'C', name: '中央車庫の出入り口', x: xm(-0.74), y: M + Y.dep - 2 },
-      { at: 'P', name: '港留置線の出入り口', x: xm(P - 0.96), y: (M - Y.pyd + 27) - 9 },
-      { at: 'O', name: '温泉留置線の出入り口', x: xb(SX.O.bkm - 0.7), y: B + 32 - 8 },
-      { at: 'Q', name: '港貨物ターミナルの出入り口', x: xm(P + (C.LINK ? C.LINK.frt[3] : -0.75)), y: Y.freight - 18 } ];   /* 出発信号は、その番線のすぐ横に */
+    /* 入換信号（2026-11-18）：入出庫線が本線・番線につながる所に1つずつ（main）、車庫・留置線・ターミナルの線ごとに1つずつ（はしごの手前・small）。
+       その線を使う回送・貨物が動いているときだけ進行 */
+    const P = SX.P.km, YG = C.yardGeo(), shunt = [];
+    YG.C.lead.forEach((Ld, j) => shunt.push({ at: 'C', main: true, lad: j, name: `中央車庫の入出庫線（${j ? '5' : '3'}番線から）`, x: xm(Ld[1][0]) - 12, y: Ld[1][1] + 13 }));
+    YG.C.tracks.forEach((t, k) => shunt.push({ at: 'C', t: k, small: true, name: `中央車庫 ${k + 1}番の線`, x: xm(t.jx) - 7, y: t.y }));
+    shunt.push({ at: 'P', main: true, name: '港留置線の入出庫線（下りの本線から）', x: xm(P + YG.P.lead[0][0]) - 12, y: M - Y.lane - 14 });
+    YG.P.tracks.forEach((t, k) => shunt.push({ at: 'P', t: k, small: true, name: `港留置線 ${k + 1}番の線`, x: xm(P + t.jx) - 7, y: t.y }));
+    shunt.push({ at: 'Q', main: true, name: '港貨物ターミナルの入口', x: xm(P + YG.Q.lead[0][0]) - 14, y: YG.Q.tracks[0].y - 12 });
+    YG.Q.tracks.forEach((t, k) => shunt.push({ at: 'Q', t: k, small: true, name: `港貨物ターミナル ${k + 1}番の線`, x: xm(P + t.jx) + 8, y: t.y }));
+    shunt.push({ at: 'O', main: true, name: '温泉留置線の入出庫線', x: xb(SX.O.bkm + YG.O.lead[0][0]) - 10, y: B + 14 });
     /* ホーム・番線・ポイント */
     for (const s in HS.stations) {
       const st = HS.stations[s], br = BRS.includes(s), x = br ? xb(SX[s].bkm) : xm(SX[s].km), y0 = br ? B : M;
+      const g = G[s];
       (st.plats || []).forEach(p => {
         const o = p.y.map(lc), a = Math.min(...o), b = Math.max(...o);
         const yy = o.length > 1 ? [y0 + a + 4, y0 + b - 4] : p.side < 0 ? [y0 + a - 18, y0 + a - 4] : [y0 + a + 4, y0 + a + 18];
+        /* ホームの長さ＝止まるいちばん長い編成（GEO）。千鳥の駅は向きごと */
+        const px = Array.isArray(g.plat) ? g.plat : p.side < 0 ? g.plat.down : g.plat.up;
         /* ホームの文字（川辺の指令室と同じ）：↑ 上の番線・↓ 下の番線、右に「ホーム（下り・温泉行）」 */
         const nm = c => st.num[st.lanes.indexOf(c)], sorted = p.y.slice().sort((u, v) => lc(u) - lc(v));
         const lines = o.length > 1 ? [`↑ ${nm(sorted[0])}番線`, `↓ ${nm(sorted[1])}番線`] : [`${p.side < 0 ? '↓' : '↑'} ${nm(p.y[0])}番線`];
         const dn = o.every(v => v < 0), upL = o.every(v => v > 0), head = st.stop === 'head';
         const what = head ? (s === 'C' ? 'ホーム（港・温泉方面）' : 'ホーム（中央方面）') : dn ? (br ? 'ホーム（下り・温泉行）' : 'ホーム（下り・港方面）') : upL ? 'ホーム（上り・中央行）' : 'ホーム';
-        plats.push({ st: s, type: p.type, kind: st.kind, x0: x + p.x[0] * pxk, x1: x + p.x[1] * pxk, y0: yy[0], y1: yy[1], lines: lines.filter(t => !/undefined|0番線/.test(t)), what });
+        plats.push({ st: s, type: p.type, kind: st.kind, x0: x + px[0] * pxk, x1: x + px[1] * pxk, y0: yy[0], y1: yy[1], lines: lines.filter(t => !/undefined|0番線/.test(t)), what });
       });
-      const px0 = Math.min(...(st.plats || [{ x: [0, 0] }]).map(p => p.x[0]));
+      const px0 = Array.isArray(g.plat) ? g.plat[0] : Math.min(g.plat.down[0], g.plat.up[0]);
       st.lanes.forEach((c, j) => { if (st.num[j]) nums.push({ st: s, n: st.num[j], x: x + px0 * pxk - 9, y: y0 + lc(c) }); });
-      (st.points || []).forEach(p => pts.push({ st: s, no: p.no, what: p.what, a: p.a != null ? lc(p.a) : null, b: p.b != null ? lc(p.b) : null, trunk: p.trunk != null ? lc(p.trunk) : p.a != null ? lc(p.a) : null, len: (p.len || 0.15) * pxk, ly: p.ly != null ? lc(p.ly) : null, side: p.side || (p.at < 0 ? 'W' : 'E'), cross: !!p.cross, x: x + p.at * pxk, y0, br }));
+      (st.points || []).forEach(p => {
+        const sg = Math.sign(p.at) || 1, tc = p.trunk != null ? lc(p.trunk) : p.a != null ? lc(p.a) : null, al = p.a != null ? lc(p.a) : null, bl = p.b != null ? lc(p.b) : null;
+        const fl = al != null && bl != null && p.len == null ? (tc === 0 ? ST / 2 : Math.abs(bl - al) / (2 * Y.lane) * ST) : (p.len || ST);
+        const at = p.cross ? sg * (g.cross[0] + g.cross[1]) / 2 : p.pos === 'fan' ? sg * (g.d0 + fl) : p.pos === 'fanC' ? sg * (g.d0 + ST) : p.pos === 'd0' ? sg * g.d0 : p.pos === 'X6' ? G.K.X6 : p.pos === 'X7' ? G.K.X7 : p.at;
+        pts.push({ st: s, no: p.no, what: p.what, a: al, b: bl, trunk: tc, len: fl * pxk, ly: p.ly != null ? lc(p.ly) : null, side: p.side || (at < 0 ? 'W' : 'E'), out: p.legs === 'out', rule: p.rule || null, cross: !!p.cross, x: x + at * pxk, y0, br });
+      });
     }
     /* 踏切 */
     const X = HS.crossings || {};
@@ -155,14 +167,17 @@
         const s = p.st, seq = t.tr.seq; let j = -1, when = 0;
         if (t.moving && seq[t.i + 1] === s) { j = t.i + 1; when = t.tr.arr[j]; } else if (!t.moving && seq[t.i] === s) { j = t.i; when = t.tr.dep[j]; } else continue;
         const entry = !t.moving ? false : true, lane = laneAt(t, j); if (lane == null) continue;
-        if (p.a != null && lane !== p.a && lane !== p.b) continue;
+        const toBr = t.tr.seq.includes('O') && t.tr.down, fromBr = t.tr.seq.includes('O') && !t.tr.down;
+        if (p.rule) { if (p.rule === 'toBr' ? lane !== p.trunk : !(fromBr || (toBr && p.no === '⑥'))) continue; }   /* 川辺の③⑥⑦：温泉支線へ行く・来る列車 */
+        else if (p.a != null && lane !== p.a && lane !== p.b) continue;
         const sideOk = p.side === 'W' ? (entry ? t.dir > 0 : t.dir < 0) : (entry ? t.dir < 0 : t.dir > 0);
         if (!sideOk) continue;
         if (!best || when < best.when) best = { t, lane, when, entry };
       }
       if (!best) { pst.set(p, { rev: false, lock: false }); continue; }
       /* 進路ができるまで（川辺の指令室と同じ）：ポイントの転換（点滅）→ 密着の確認 → 鎖錠 */
-      const lead = best.when - T, win = best.entry ? 1.2 : 0.45, lock = lead < win, rev = p.b != null && best.lane === p.b;
+      const bt = best.t.tr, toB = bt.seq.includes('O') && bt.down, fromB = bt.seq.includes('O') && !bt.down;
+      const lead = best.when - T, win = best.entry ? 1.2 : 0.45, lock = lead < win, rev = p.rule === 'toBr' ? toB : p.rule === 'fromBr' ? fromB : p.b != null && best.lane === p.b;
       const phase = lock ? 'lock' : lead < win + 0.05 ? 'check' : lead < win + 0.15 && rev ? 'move' : '';
       pst.set(p, { rev: rev && lead < win + 0.15, lock, phase, lane: best.lane, t: best.t });
     }
@@ -174,11 +189,13 @@
     }
     /* 入換信号：その車庫・留置線へ出入りする回送がいるとき、臨港線は貨物列車がターミナルの近くを走るとき */
     const sst = new Map(), P = SX.P.km;
-    for (const sh of lay.shunt || []) sst.set(sh, sh.at === 'Q' ? trains.some(t => t.moving && (t.tr.seq[t.i] === 'Q' || t.tr.seq[t.i + 1] === 'Q') && t.km > P - 1.6)
-      : Q.some(q => q.dead && q.n && ((q.n.yard || (q.s && q.s.home)) === sh.at)));
+    const frt = trains.filter(t => t.moving && (t.tr.seq[t.i] === 'Q' || t.tr.seq[t.i + 1] === 'Q') && t.km > P - 1.6);
+    const dead = Q.filter(q => q.dead && q.n && q.n.track);
+    for (const sh of lay.shunt || []) sst.set(sh, sh.at === 'Q' ? frt.some(t => sh.t == null || (t.tr.num >> 1) % 4 === sh.t)
+      : dead.some(q => q.n.track.at === sh.at && (sh.t != null ? q.n.track.t === sh.t : sh.lad == null || (C.yardGeo().C.tracks[q.n.track.t] || {}).lad === sh.lad)));
     /* 単線区間（川辺〜森下・森下〜峠・峠〜温泉）：使っている列車と向き */
     const one = [['K', 'F'], ['F', 'T'], ['T', 'O']].map(([a, b]) => { const ka = a === 'K' ? 0 : SX[a].bkm, kb = SX[b].bkm;
-      const t = trains.find(t => t.line === 'b' && t.moving && t.hi > ka + (a === 'K' ? 1.3 : 0.25) && t.lo < kb - 0.25);
+      const t = trains.find(t => t.line === 'b' && t.moving && t.hi > ka + (a === 'K' ? C.GEO.K.X6 : 0.25) && t.lo < kb - 0.25);
       return { a, b, ka, kb, t }; });
     return { trains, asp, routes, pst, xst, sst, one };
   }
@@ -219,7 +236,7 @@
       if (!vis(p.x)) continue; const s = st.pst.get(p) || {};
       const yt = p.y0 + (p.trunk != null ? p.trunk : p.ly != null ? p.ly : 0), pt = [p.x, yt];
       if (p.a != null && p.b != null) {
-        const dx = p.side === 'W' ? 1 : -1, leg = { N: [p.x + dx * p.len, p.y0 + p.a], R: [p.x + dx * p.len, p.y0 + p.b] };
+        const dx = (p.side === 'W' ? 1 : -1) * (p.out ? -1 : 1), leg = { N: [p.x + dx * p.len, p.y0 + p.a], R: [p.x + dx * p.len, p.y0 + p.b] };
         const pos = s.rev ? 'R' : 'N', off = pos === 'N' ? 'R' : 'N', moving = s.phase === 'move';
         ctx.lineCap = 'butt'; ctx.strokeStyle = K.bg; ctx.lineWidth = 7;
         seg(ctx, toward(pt, leg[off], 3), toward(pt, leg[off], 13)); if (moving) seg(ctx, toward(pt, leg[pos], 3), toward(pt, leg[pos], 13));
@@ -274,16 +291,19 @@
         ctx.fillStyle = o.kind === '場内' ? '#ffd77a' : o.kind === '出発' ? '#9cd6ff' : '#c9b6ff'; ctx.fillText(o.kind, tx, hy + fs * 0.35);
         if (isSel) { const w = ctx.measureText(o.kind).width, ux = right ? tx : tx - w; ctx.fillRect(ux, hy + fs * 0.35 + 2, w, 1.2); }
       }
+      /* 川辺1番線の下りの出発には進路表示機（もとの指令盤と同じ）：開いているとき「港」か「温」（温泉支線） */
+      if (o.st === 'K' && o.kind === '出発' && o.dir > 0 && o.lane === -Y.side && a != null && a !== R) { const r = st.routes.find(r => r.kind === 'dep' && r.o === o);
+        if (r) { ctx.font = `700 ${Math.round(11 * sc + 1)}px "Zen Kaku Gothic New",sans-serif`; ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(r.t.tr.seq.includes('O') ? '温' : '港', x + half + 4, hy - 9 * sc); } }
       hits.push({ x0: x - half - 4, x1: x + half + 4, y0: hy - half - 4, y1: hy + half + 4, sig: o, asp: a });
     }
     /* 入換信号：黒い板に白い灯2つ（よこ＝止まれ・ななめ＝進んでよい） */
     for (const sh of lay.shunt || []) {
-      if (!vis(sh.x)) continue; const on = st.sst && st.sst.get(sh), w = 14 * sc + 2;
+      if (!vis(sh.x) || (sh.small && pxk < 200)) continue; const on = st.sst && st.sst.get(sh), w = sh.small ? 5 + 2 * sc : 14 * sc + 2;
       ctx.fillStyle = K.head; ctx.strokeStyle = K.headEdge; ctx.lineWidth = 1; ctx.fillRect(sh.x - w / 2, sh.y - w / 2, w, w); ctx.strokeRect(sh.x - w / 2 + 0.5, sh.y - w / 2 + 0.5, w - 1, w - 1);
-      ctx.fillStyle = on ? '#ffffff' : '#c9d3dc'; const d = 3.2 * sc + 0.5;
-      [[-d, on ? d : 0], [d, on ? -d : 0]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.arc(sh.x + dx, sh.y + dy, 1.8 * sc + 0.4, 0, Math.PI * 2); ctx.fill(); });
-      if (mid) { ctx.font = `${Math.round(10 * sc + 1)}px "Zen Kaku Gothic New",sans-serif`; ctx.textAlign = 'left'; ctx.fillStyle = '#c9b6ff'; ctx.fillText('入換', sh.x + w / 2 + 3, sh.y + 4); }
-      hits.push({ x0: sh.x - 9, x1: sh.x + 9, y0: sh.y - 9, y1: sh.y + 9, shunt: sh, on });
+      ctx.fillStyle = on ? '#ffffff' : '#c9d3dc'; const d = sh.small ? 1.6 : 3.2 * sc + 0.5, r = sh.small ? 0.9 : 1.8 * sc + 0.4;
+      [[-d, on ? d : 0], [d, on ? -d : 0]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.arc(sh.x + dx, sh.y + dy, r, 0, Math.PI * 2); ctx.fill(); });
+      if (mid && !sh.small) { ctx.font = `${Math.round(10 * sc + 1)}px "Zen Kaku Gothic New",sans-serif`; ctx.textAlign = 'left'; ctx.fillStyle = '#c9b6ff'; ctx.fillText('入換', sh.x + w / 2 + 3, sh.y + 4); }
+      hits.push({ x0: sh.x - w / 2 - 2, x1: sh.x + w / 2 + 2, y0: sh.y - w / 2 - 2, y1: sh.y + w / 2 + 2, shunt: sh, on });
     }
     /* 単線区間：色はつけず、白いふちどりの矢印で「使っている列車の向き」と、文字で あき／使用中 */
     for (const u of st.one || []) {
