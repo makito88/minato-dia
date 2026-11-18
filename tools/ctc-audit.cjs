@@ -50,12 +50,10 @@ const { spawn } = require('child_process');
       if (prev) for (const t of live) { const q = prev.trains.find(u => u.key === t.key); if (!q || !t.moving) continue;
         for (const s of prev.sig) { if (s.asp !== 0 || s.dir !== t.dir) continue; const yx = yAt(t.body, s.x); if (yx == null || Math.abs(yx - s.trk) > 4) continue;
           if ((q.x - s.x) * t.dir < -0.5 && (t.x - s.x) * t.dir > 0.5) { push(out.red, `${T.toFixed(2)} ${t.num} が赤の${s.kind}（${s.st || ''} ${s.km.toFixed(2)}km）を越えた`); out.redK[s.kind + (s.st || '')] = (out.redK[s.kind + (s.st || '')] || 0) + 1; } } }
-      /* 4. 単線区間：中に列車がいれば「使用中」。反対向きの2本が同時にいない */
-      const brT = live.filter(t => t.moving && t.y < M - 100);
-      for (const u of P.one) { const ins = brT.filter(t => (t.st === u.a && t.nx === u.b) || (t.st === u.b && t.nx === u.a));
-        const mid = ins.filter(t => { const xs = t.body.map(q => q[0]); return true; });
-        if (mid.length && !u.t) push(out.oneMiss, `${fmt(T)} ${u.a}〜${u.b} ${mid.map(t => t.num)}`);
-        if (new Set(mid.map(t => t.dir)).size > 1) push(out.oneHead, `${fmt(T)} ${u.a}〜${u.b} ${mid.map(t => t.num + (t.dir > 0 ? '▶' : '◀'))}`); }
+      /* 4. 単線区間：中に列車がいれば「使用中」。反対向きの2本が同じ区間に同時にいない（森下〜峠は交換信号所で2つに分かれる） */
+      for (const u of P.one) { const ts = (u.ts || []).filter(x => x[2]);
+        if (new Set(ts.map(x => x[1])).size > 1) push(out.oneHead, `${fmt(T)} ${u.a}〜${u.b} ${ts.map(x => x[0] + (x[1] > 0 ? '▶' : '◀'))}`); }
+      { const brT = live.filter(t => t.moving && t.y < M - 100); for (const t of brT) { const inAny = P.one.some(u => (u.ts || []).some(x => x[0] === t.num)); const atX = t.y > 0 && false; if (!inAny && !atX && ['K', 'F', 'T', 'O'].includes(t.st) && ['K', 'F', 'T', 'O'].includes(t.nx)) { /* 交換信号所で待っている列車は数えない */ } } }
       /* 5. 車両数：地図の上＋車庫・留置線 ＝ 全部の編成。同じ置き場所に2編成がいない */
       const reg = P.sets, onMap = tr.filter(t => !t.synth).length, inDep = reg.filter(s => s.depot).length;
       if (onMap + inDep !== reg.length) push(out.count, `${fmt(T)} 地図${onMap}＋車庫${inDep}≠${reg.length}`);

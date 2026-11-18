@@ -50,9 +50,12 @@
       add({ kind: '場内', line: 'b', dir: -1, st: s, km: k + hd, br: true });
       lanes.forEach((o, j) => { add({ kind: '出発', line: 'b', dir: 1, st: s, lane: o, km: k + g.sig, br: true, sub: j }); add({ kind: '出発', line: 'b', dir: -1, st: s, lane: o, km: k - g.sig, br: true, sub: j }); });
     }
-    /* 交換信号所（計画）：信号は消灯 */
-    const sb = SX.F.bkm + C.SIGBOX;
-    add({ kind: '場内', line: 'b', dir: 1, km: sb - 0.4, br: true, plan: true }); add({ kind: '場内', line: 'b', dir: -1, km: sb + 0.4, br: true, plan: true });
+    /* 交換信号所（森下〜峠・2026-11-18 から使う）：場内と出発。区間の先に列車がいれば赤（閉塞と同じ決め方 blk）。下りは上の線、上りは下の線 */
+    const sb = SX.F.bkm + C.SIGBOX, gx = G.X, hx = gx.d0 + ST / 2 + 0.06;
+    add({ kind: '場内', line: 'b', dir: 1, st: 'X', km: sb - hx, br: true, blk: true }); add({ kind: '場内', line: 'b', dir: -1, st: 'X', km: sb + hx, br: true, blk: true });
+    add({ kind: '出発', line: 'b', dir: 1, st: 'X', lane: -Y.brLoop, km: sb + gx.sig, br: true, blk: true }); add({ kind: '出発', line: 'b', dir: -1, st: 'X', lane: Y.brLoop, km: sb - gx.sig, br: true, blk: true });
+    pts.push({ st: 'X', no: '①', what: '交換信号所の西：下りは上の線・上りは下の線（スプリング）', a: -Y.brLoop, b: Y.brLoop, trunk: 0, len: ST / 2 * pxk, ly: null, side: 'W', out: false, rule: null, cross: false, x: xb(sb - gx.d0 - ST / 2), y0: B, br: true });
+    pts.push({ st: 'X', no: '②', what: '交換信号所の東：上りは下の線・下りは上の線（スプリング）', a: Y.brLoop, b: -Y.brLoop, trunk: 0, len: ST / 2 * pxk, ly: null, side: 'E', out: false, rule: null, cross: false, x: xb(sb + gx.d0 + ST / 2), y0: B, br: true });
     /* 中央の連絡線（乗り入れだけ・2026-11-18）：入り（北・県央本線の東行きから）の場内、4・5番線から西へ出る出発、県央北からの場内 */
     if (C.LINK) {
       add({ kind: '場内', line: 'w', dir: 1, st: 'C', km: C.LINK.inW[1][0] - 0.12, trk: C.YK6, up: true });
@@ -149,14 +152,15 @@
         /* 次の信号：同じ駅のとなりの番線の出発信号（同じキロに並ぶ）は飛ばす（2026-11-18 点検） */
         const o = ch[j], nx = ch.slice(j + 1).find(x => !(o.st && x.st === o.st && x.kind === o.kind && Math.abs(x.km - o.km) < 0.02)), dir = o.dir, kn = nx ? nx.km : o.km + dir * 3;
         let ahead = occ(line, o.km + dir * 0.01, kn);
+        if (o.st === 'X' && o.kind === '場内') ahead = trains.some(x => x.line === line && x.dir === dir && x.hi > Math.min(o.km, kn) && x.lo < Math.max(o.km, kn));   /* 交換信号所の行き違い線：同じ向きの列車だけ（反対向きはもう1本の線） */
         const nxA = nx ? (asp.get(nx) ?? R) : G;
-        if (o.kind === '閉塞') { asp.set(o, ahead ? R : nxA === R ? Yw : G); continue; }
+        if (o.kind === '閉塞' || o.blk) { asp.set(o, ahead ? R : nxA === R ? Yw : G); continue; }   /* 交換信号所の信号も、先の区間で決める */
         if (o.kind === '出発') {
           const t = trains.find(t => t.line === line && t.dir === dir && ((atSt(t) === o.st && laneAt(t, t.i) === o.lane && t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01)) ||   /* 始発は着く時刻がない */
             (t.moving && t.tr.seq[t.i] === o.st && laneAt(t, t.i) === o.lane && (o.km - t.km) * dir > -0.03) ||   /* 出たばかりで、先頭がまだ信号を越えていない */
             (t.moving && t.tr.seq[t.i + 1] === o.st && !t.tr.stop[t.i + 1] && laneAt(t, t.i + 1) === o.lane && t.tr.arr[t.i + 1] - T < 0.9)));
           if (t) ahead = occ(line, o.km + dir * 0.01, kn, t);   /* 出ていく列車じしんは数えない */
-          const single = line === 'b' && nx && occ('b', o.km, kn, t) || (line === 'b' && trains.some(x => x.line === 'b' && x.dir !== dir && x.moving && (x.km - o.km) * dir > 0 && (x.km - kn) * dir < 0.5));
+          const single = line === 'b' && nx && occ('b', o.km, kn, t) || (line === 'b' && trains.some(x => x.line === 'b' && x.dir !== dir && x.moving && !x.q.p.xwait && (x.km - o.km) * dir > 0 && (x.km - kn) * dir < 0.5));   /* 交換信号所の行き違い線で待っている列車は数えない */
           const prep = t && atSt(t) === o.st && t.tr.dep[t.i] - T > 0.3;   /* 進路を作っているところ（点線）：まだ信号は開かない */
           asp.set(o, !t || ahead || single || prep ? R : nxA === R ? Yw : G); if (t && !ahead && !single) routes.push({ t, kind: 'dep', st: o.st, o, nx, prep });
           continue;
@@ -224,9 +228,15 @@
       : dead.some(q => q.n.track.at === sh.at && (sh.t != null ? q.n.track.t === sh.t : sh.lad == null || (C.yardGeo().C.tracks[q.n.track.t] || {}).lad === sh.lad)));
     /* 単線区間（川辺〜森下・森下〜峠・峠〜温泉）：使っている列車と向き */
     /* 単線区間：出発の進路ができた時（発車の少し前）から、となりの駅に着くまで「使用中」（もとの川辺の指令盤と同じ） */
-    const one = [['K', 'F'], ['F', 'T'], ['T', 'O']].map(([a, b]) => { const ka = a === 'K' ? 0 : SX[a].bkm, kb = SX[b].bkm;
-      const t = trains.find(t => { const s0 = t.tr.seq[t.i], s1 = t.tr.seq[t.i + 1]; if (!((s0 === a && s1 === b) || (s0 === b && s1 === a))) return false; return t.moving || (t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01)); });
-      return { a, b, ka, kb, t }; });
+    /* 森下〜峠は交換信号所（X）で2つに分ける。行き違い線で待つ列車は、どちらの区間にも数えない */
+    const xk = SX.X ? SX.X.bkm : null, xh = C.GEO.X ? C.GEO.X.d0 : 0.1;
+    const one = [['K', 'F'], ['F', 'X'], ['X', 'T'], ['T', 'O']].map(([a, b]) => { const ka = a === 'K' ? 0 : SX[a].bkm, kb = SX[b].bkm, ft = a === 'F' || b === 'T' && a === 'X';
+      const inSec = t => { const s0 = t.tr.seq[t.i], s1 = t.tr.seq[t.i + 1], A = ft ? 'F' : a, Bb = ft ? 'T' : b;
+        if (!((s0 === A && s1 === Bb) || (s0 === Bb && s1 === A))) return false;
+        if (!t.moving) return t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01) && (!ft || (s0 === a || s0 === b));
+        if (!ft) return true; if (t.q.p.xwait) return false;
+        const lo = a === 'X' ? xk + xh : ka, hi = b === 'X' ? xk - xh : kb; return t.hi > lo && t.lo < hi; };
+      const ts = trains.filter(inSec); return { a, b, ka, kb, t: ts[0] || null, ts }; });
     return { trains, asp, routes, pst, xst, sst, one };
   }
 
@@ -338,7 +348,7 @@
     /* 単線区間：色はつけず、白いふちどりの矢印で「使っている列車の向き」と、文字で あき／使用中 */
     for (const u of st.one || []) {
       const xa = L.xb(u.ka), xb2 = L.xb(u.kb), xm = (xa + xb2) / 2; if (!vis(xm)) continue;
-      const nm = { K: '川辺', F: '森下', T: '峠', O: '温泉' }, t = u.t, y = Y.br - 34;
+      const nm = { K: '川辺', F: '森下', T: '峠', O: '温泉', X: '交換信号所' }, t = u.t, y = Y.br - 34;
       ctx.font = `${Math.round(11.5 * sc + 1)}px "Zen Kaku Gothic New",sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#9fb6cc';
       ctx.fillText(t ? `単線区間（${nm[u.a]}〜${nm[u.b]}） 使用中 ${t.dir > 0 ? '▶ ' + nm[u.b] + 'へ' : '◀ ' + nm[u.a] + 'へ'}：${g.name ? g.name(t.tr) : t.tr.num}` : `単線区間（${nm[u.a]}〜${nm[u.b]}）：あき`, xm, y);
       if (t) { const step = Math.floor(performance.now() / 300) % 3, k = t.dir > 0 ? 1 : -1; ctx.strokeStyle = K.route; ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';

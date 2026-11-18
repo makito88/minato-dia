@@ -58,7 +58,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261118g').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261118h').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -143,6 +143,7 @@
     PX = new Map(); ALLT.forEach(t => PX.set(t, C.actual(t, D2)));
     /* ホームの長さ＝その駅に止まるいちばん長い編成（臨時・貨物も）。駅の形・信号の位置はここから（2026-11-18） */
     { const PL = {}; ALLT.forEach(t => t.seq.forEach((st, i) => { if (!C.GEO[st]) return; if (i === 0 || i === t.seq.length - 1 || t.stop[i]) PL[st] = Math.max(PL[st] || 0, (t.cars || 6) * 0.02); }));
+      ALLT.forEach(t => { for (let i = 0; i < t.seq.length - 1; i++) { const u = t.seq[i] + t.seq[i + 1]; if (u === 'FT' || u === 'TF') PL.X = Math.max(PL.X || 0, (t.cars || 6) * 0.02); } });   /* 交換信号所の行き違い線は、通るいちばん長い編成が入る長さ */
       const k = JSON.stringify(PL); if (k !== PLKEY) { PLKEY = k; C.setPL(PL); LAY = null; YS = null; } }
     if (BIG) { const px = PX.get(BIG.tr); if (px) px.hold = { i: BIG.i, f: BIG.f, dur: BIG.dur, run: BIG.tr.arr[BIG.i + 1] - BIG.tr.dep[BIG.i] }; }
     SETS2 = D.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => PX.get(t)).filter(t => !t.cancel) }));   /* 運休の列車は走らせない（編成は車庫のある駅で待つ） */
@@ -309,12 +310,12 @@
     /* 温泉支線（単線）：川辺の支線の高さから上の段へ、森下・峠（行き違い）、温泉（頭端2線） */
     const jx1 = xb(KG.J1), sg = s => G[s].d0 + STP / 2;
     line([[jx1, Y.br], [xb(ST.F.bkm - sg('F')), Y.br]], TR, 3.2);
-    line([[xb(ST.F.bkm + sg('F')), Y.br], [xb(ST.T.bkm - sg('T')), Y.br]], TR, 3.2);
+    { const k = ST.F.bkm + C.SIGBOX, e = G.X.d0 + STP / 2; line([[xb(ST.F.bkm + sg('F')), Y.br], [xb(k - e), Y.br]], TR, 3.2); line([[xb(k + e), Y.br], [xb(ST.T.bkm - sg('T')), Y.br]], TR, 3.2); }
     line([[xb(ST.T.bkm + sg('T')), Y.br], [xb(ST.O.bkm - sg('O')), Y.br]], TR, 3.2);
     ['F', 'T'].forEach(s => { const k = ST[s].bkm, g = G[s]; [-Y.brLoop, Y.brLoop].forEach(o => line([[xb(k - sg(s)), Y.br], [xb(k - g.d0), Y.br + o], [xb(k + g.d0), Y.br + o], [xb(k + sg(s)), Y.br]], TR, 2.8)); });
-    { const x = xb(ST.F.bkm + C.SIGBOX), s2 = S * 0.8;   /* 森下〜峠の交換信号所（計画。まだ列車は使わない） */
-      line([[x - s2, Y.br], [x - s2 + 12, Y.br + Y.brLoop + 4], [x + s2 - 12, Y.br + Y.brLoop + 4], [x + s2, Y.br]], '#b59a5a', 2.2, [6, 4]);
-      ctx.font = '11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#c9b27a'; ctx.fillText('交換信号所（計画）', x, Y.br + 34); }
+    { const k = ST.F.bkm + C.SIGBOX, g = G.X, hs = STP / 2;   /* 森下〜峠の交換信号所（2026-11-18 から使う）：行き違い線2本。下りは上、上りは下 */
+      [-Y.brLoop, Y.brLoop].forEach(o => line([[xb(k - g.d0 - hs), Y.br], [xb(k - g.d0), Y.br + o], [xb(k + g.d0), Y.br + o], [xb(k + g.d0 + hs), Y.br]], TR, 2.8));
+      ctx.font = '11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#c9d6e2'; ctx.fillText('交換信号所', xb(k), Y.br + Y.brLoop + 60); }
     const ox = xb(ST.O.bkm);
     [-Y.lane, Y.lane].forEach(o => { line([[xb(ST.O.bkm - sg('O')), Y.br], [xb(ST.O.bkm - G.O.d0), Y.br + o], [ox + 6, Y.br + o]], TR, 3.2); buf(ox + 6, Y.br + o, 1); });
     { const OB = d => xb(ST.O.bkm + d), Og = YG.O; line([[OB(Og.lead[0][0]), Og.lead[0][1]], [OB(Og.lead[1][0]), Og.lead[1][1]], [OB(Og.x0), Og.tracks[0].y]], '#b59a5a', 2.2, [6, 4]); buf(OB(Og.x0), Og.tracks[0].y, -1); }   /* 温泉留置線 */
@@ -399,7 +400,8 @@
     let late = lateNow(tr, T), why = '', whyCol = '#ffb070';
     /* 止まっている理由（2026-11-18・ユーザーの頼み）：信号待ち・通過待ち・接続・行き違い・時間調整・発車待ち・運転見合わせ を名札に。あと何分かも */
     { const n = tr.seq.length, i = p.i, left = tr.dep[i] - T, aft = left > 0.15 ? ' あと' + C.fmtMin(left) : '', hd = tr.hold && tr.hold.i === i;
-      if (p.redAt != null) { why = ' 信号待ち'; whyCol = '#ff8b8b'; }
+      if (p.xwait) { const xw = tr.xw && tr.xw[i]; why = ' 行き違い待ち（交換信号所）' + (xw && xw[1] - T > 0.15 ? ' あと' + C.fmtMin(xw[1] - T) : ''); whyCol = C.REASON.kokan.col; }
+      else if (p.redAt != null) { why = ' 信号待ち'; whyCol = '#ff8b8b'; }
       else if (p.held && p.moving) { why = ' 進路待ち'; whyCol = '#ff8b8b'; }
       else if (hd && p.moving && T > tr.dep[i] + tr.hold.f * tr.hold.run) { why = ' 運転見合わせ'; whyCol = C.REASON.incident.col; }
       else if (!p.moving && i === 0) { why = (['C', 'P', 'O'].includes(tr.seq[0]) ? ' 折り返し 発車' : ' 発車待ち') + aft; whyCol = '#9fb6cc'; }
@@ -679,10 +681,10 @@
     const sets = Y3.reg.map(s => { const n = setNow(s, T); return { id: s.id != null ? s.id : s.trips[0].num, home: s.home, depot: !!n.depot, yard: n.yard || null, slot: n.depot ? slotOf(s, n.yard || s.home, T) : null, first: s.trips[0].seq[0], last: s.trips[s.trips.length - 1].seq.slice(-1)[0] }; });
     const syn = Y3.syn.map(s => { const n = synNow(s, T); return { kind: s.kind, depot: !!n.depot, rest: n.rest || null }; });
     return {
-      trains: QQ.map(q => ({ key: q.tr.num + '@' + (q.tr.yardOf || q.tr).dep[0].toFixed(2) + (q.dead ? 'd' : ''), num: q.tr.num, type: q.tr.type, dead: q.dead, held: !!q.p.held, moving: q.p.moving, dir: q.p.dir, i: q.p.i, seq: q.tr.seq.join(''), st: q.tr.seq[q.p.i], nx: q.tr.seq[q.p.i + 1] || null, x: q.p.x, y: q.p.y, body: CtcSignal.bodyOf(q.p, q.tr, pxk), cars: q.tr.cars, synth: !!(q.tr.synth || (q.tr.base && q.tr.base.synth)), track: q.n && q.n.track || null, lane: q.tr.lanes ? q.tr.lanes[q.p.i] : null })),
+      trains: QQ.map(q => ({ key: q.tr.num + '@' + (q.tr.yardOf || q.tr).dep[0].toFixed(2) + (q.dead ? 'd' : ''), num: q.tr.num, type: q.tr.type, dead: q.dead, held: !!q.p.held, xwait: !!q.p.xwait, moving: q.p.moving, dir: q.p.dir, i: q.p.i, seq: q.tr.seq.join(''), st: q.tr.seq[q.p.i], nx: q.tr.seq[q.p.i + 1] || null, x: q.p.x, y: q.p.y, body: CtcSignal.bodyOf(q.p, q.tr, pxk), cars: q.tr.cars, synth: !!(q.tr.synth || (q.tr.base && q.tr.base.synth)), track: q.n && q.n.track || null, lane: q.tr.lanes ? q.tr.lanes[q.p.i] : null })),
       sig: lay.sig.map(o => ({ trk: o.trk, id: o.id, kind: o.kind, line: o.line, dir: o.dir, st: o.st || null, km: o.km, x: o.x, lane: o.lane, asp: o.plan ? null : st.asp.get(o), br: !!o.br })),
       pts: lay.pts.map(p => { const v = st.pst.get(p) || {}; return { st: p.st, no: p.no, x: p.x, y0: p.y0, a: p.a, b: p.b, trunk: p.trunk, len: p.len, side: p.side, out: p.out, cross: p.cross, rule: p.rule, br: p.br, rev: !!v.rev, lock: !!v.lock, phase: v.phase || '', by: v.t ? v.t.tr.num : null }; }),
-      one: (st.one || []).map(u => ({ a: u.a, b: u.b, t: u.t ? u.t.tr.num : null })), shunt: (lay.shunt || []).map(sh => ({ at: sh.at, t: sh.t, main: !!sh.main, on: !!(st.sst && st.sst.get(sh)) })),
+      one: (st.one || []).map(u => ({ a: u.a, b: u.b, t: u.t ? u.t.tr.num : null, ts: (u.ts || []).map(x => [x.tr.num, x.dir, x.moving ? 1 : 0]) })), shunt: (lay.shunt || []).map(sh => ({ at: sh.at, t: sh.t, main: !!sh.main, on: !!(st.sst && st.sst.get(sh)) })),
       routes: st.routes.map(r => ({ kind: r.kind, st: r.st, num: r.t.tr.num, prep: !!r.prep })), xings: lay.xings.map(x => ({ km: x.km, br: x.br, on: !!st.xst.get(x) })),
       sets, syn, slotOver: SLOTOVER, pxk, big: BIG ? { a: BIG.a, b: BIG.b, t0: BIG.t0, t1: BIG.t1, name: BIG.name } : null };
   }
