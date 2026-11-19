@@ -193,7 +193,7 @@
     ctx.fillStyle = 'rgba(109,98,80,.25)'; ctx.fillRect(xm(-2.25), dTop, xm(-0.8) - xm(-2.25), dBot - dTop);
     for (let k = 0; k < 14; k++) line([[xm(-2.2), dTop + 6 + k * 5.2], [xm(-0.85), dTop + 6 + k * 5.2]], '#6d6250', 1.2);
     line([[xm(-0.85), dTop + 6], [xm(-0.85), dBot - 6]], SD, 2);
-    /* 県央本線（他社線）：西から中央の北側（5・6番線）を通って、北東へ。西のはしで連絡線 */
+    /* 県央本線（他社線）：西から中央の北側（県央本線の仮の1・2番線）を通って、北東へ。西のはしで連絡線 */
     const k5 = M - Y.side - 20, k6 = k5 - 16;
     line([[xm(-ML_()), k6], [xm(0.15), k6], [xm(0.6), k6 - 40], [xm(1.15), 4]], OT, 3, [10, 5]);
     line([[xm(-ML_()), k5], [xm(0.3), k5], [xm(0.75), k5 - 40], [xm(1.3), 4]], OT, 3, [10, 5]);
@@ -238,7 +238,7 @@
     ctx.fillText('中央車庫', xm(-2.25), dTop - 6);
     ctx.fillText('港留置線', xm(ST.P.km - 1.6), M - 86);
     ctx.fillStyle = '#a99be0'; ctx.fillText('県央本線（他社線）← 空港・県の西', xm(-ML_()) + 6, k6 - 8);
-    ctx.fillText('県央本線 6・7番線', xm(-0.25), k6 - 8);
+    ctx.fillText('県央本線 仮の1・2番線', xm(-0.25), k6 - 8);
     ctx.save(); ctx.translate((xm(0.75) + xm(1.3)) / 2 + 22, (k5 - 40 + 4) / 2 + 10); ctx.rotate(Math.atan2(4 - (k5 - 40), xm(1.3) - xm(0.75))); ctx.fillText('→ 北へ（県央北）', 0, 0); ctx.restore();
     ctx.fillStyle = '#c9b27a'; ctx.textAlign = 'right'; ctx.fillText('連絡線（臨時・貨物の直通用）', xm(-0.85), M - Y.side - 6); ctx.textAlign = 'left';
     ctx.fillText('臨港線・港貨物ターミナル', xm(ST.P.km - 0.6), Y.freight + 26);
