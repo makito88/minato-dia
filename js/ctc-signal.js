@@ -165,6 +165,11 @@
         return dd < mine - 1e-6 || (Math.abs(dd - mine) < 1e-6 && x.dir > 0); }); };
     /* 交換信号所の行き違い線にいて、出発が赤の列車（出られないので、単線区間には入ってこない） */
     const xHeld = x => { if (!SX.X || !C.GEO.X || Math.abs(x.km - SX.X.bkm) > C.GEO.X.d0 + 0.02) return false; const ex = lay.sig.find(z => z.st === 'X' && z.kind === '出発' && z.dir === x.dir); return !!ex && (x.km - ex.km) * x.dir < 0.02 && xAsp(ex) === R; };
+    const DEPW = new Map();   /* 駅・向き・線ごとに、いま開いている出発（1つだけ） */
+    /* 信号 o から次の信号 nx までのあいだのポイントが、ほかの列車のために鎖錠されている（ひとつ前の時刻の状態。2026-11-21 点検：緑ヶ丘で通過列車の進路を割って出発していた） */
+    const ptOther = (o, nx, t) => { if (!t) return false; const x0 = o.x, x1 = nx ? nx.x : o.x + o.dir * 0.6 * L.pxk;
+      return lay.pts.some(p => { if (p.a == null || p.b == null || p.cross) return false; const J = p.gen ? p.J : [p.x, p.y0 + p.trunk];
+        if ((J[0] - x0) * o.dir <= 0 || (J[0] - x1) * o.dir >= 0) return false; const v = ptNow(p, T); return !!(v && v.lock && v.id && v.id !== t.tr); }); };
     const xAsp = o => { const XS = SX.X; if (!XS) return R; const xk = XS.bkm, g = C.GEO.X, dir = o.dir;
       const P1 = lay.pts.find(p => p.st === 'X' && p.no === '①'), P2 = lay.pts.find(p => p.st === 'X' && p.no === '②');
       const locked = (p, t, rev) => { const v = p && ptNow(p, T); return !!(v && v.lock && v.id === t.tr && !!v.rev === rev && v.phase !== 'move'); };
@@ -215,7 +220,11 @@
           const sideX = line === 'b' && t && nx && nx.st === 'X' && contend(dir, Math.max(0, (o.km - t.km) * dir), 'X', t);   /* 交換信号所の側から先に入ってくる列車がいる */
           const prep = t && atSt(t) === o.st && t.tr.dep[t.i] - T > 0.3;   /* 進路を作っているところ（点線）：まだ信号は開かない */
           if (sideX) { asp.set(o, R); continue; }
-          asp.set(o, !t || ahead || single || prep ? R : nxA === R ? Yw : G); if (t && !ahead && !single) routes.push({ t, kind: 'dep', st: o.st, o, nx, prep });
+          let a0 = !t || ahead || single || prep || ptOther(o, nx, t) ? R : nxA === R ? Yw : G;
+          /* 同じ駅から同じ向きへ、同じ線に出る出発は、1つだけ開く（発車の早い列車。2026-11-21 点検：中央で2本が同時に出て、同じ線に並んでいた） */
+          if (a0 !== R && o.st) { const k = o.st + '|' + dir + '|' + line, w = DEPW.get(k), my = t.tr.dep[t.i];
+            if (w && w.o !== o && w.t !== t) { if (w.dep <= my) a0 = R; else { asp.set(w.o, R); DEPW.set(k, { o, t, dep: my }); } } else DEPW.set(k, { o, t, dep: my }); }
+          asp.set(o, a0); if (t && !ahead && !single) routes.push({ t, kind: 'dep', st: o.st, o, nx, prep });
           continue;
         }
         if (o.kind === '場内') {
@@ -231,7 +240,7 @@
           const thr = head && trains.some(x => x !== t && x.dir !== dir && ((x.moving && x.hi > Math.min(o.km, SX[o.st].km) && x.lo < Math.max(o.km, SX[o.st].km)) ||
             (!x.moving && atSt(x) === o.st && x.tr.dep[x.i] - T < 0.6 && (crossA || (o.st === 'C' ? laneAt(x, x.i) > 0 : laneAt(x, x.i) < 0)))));   /* もうすぐ出る列車と、のどで交差するなら開かない */
           const dy = Y.main + (line === 'd' ? -Y.lane : Y.lane), deadRt = !o.br && (line === 'u' || line === 'd') && (deadPt(dy, o.x, L.xm(SX[o.st].km)) || deadOn(dy, o.km, SX[o.st].km, true) || deadOn(dy, o.km, SX[o.st].km, 2) || ((o.km - t.km) * dir > 0.45 && deadOn(dy, o.km, SX[o.st].km)));   /* 回送（入換）が場内信号の内側の本線を使っている・進路がある（2026-11-19）。列車がもう信号の近く（進路ができている）なら、まだ動き出していない回送のほうが待つ */
-          const busy = thr || deadIn || deadRt || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
+          const busy = thr || deadIn || deadRt || ptOther(o, null, t) || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
           if (busy) { asp.set(o, R); continue; }
           const dep = lay.sig.find(x => x.kind === '出発' && x.st === o.st && x.lane === lane && x.dir === dir);
           const prep = (o.km - t.km) * dir > 1.6;

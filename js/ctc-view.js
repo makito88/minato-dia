@@ -540,7 +540,9 @@
           n.track = { at, t: dp.t };
           p = deadAt(path, f, sl, i);
           out.push({ s, n, p, tr, dead: true, path, sl, f0, fs: n.out ? (u => u * u) : Math.sqrt });
-        } else { const m0 = LAG.get(baseOf(n.trip)), m = m0 && m0.at != null && m0.at < T - lagDt - 1e-6 ? null : m0, tD = m && m.tr === n.trip ? Math.min(T, m.t + lagDt * 1.6) : T;   /* ひとつ前の画面の記録だけ使う（回送のまま待っていたあいだの古い記録で遅れない） */   /* 閉塞で待った列車は、少し速く進んで追いつく */
+        } else { const m0 = LAG.get(baseOf(n.trip)), m = m0 && m0.at != null && m0.at < T - lagDt - 1e-6 ? null : m0; let tD = m && m.tr === n.trip ? Math.min(T, m.t + lagDt * 1.6) : T;
+          /* 前の画面まで、同じ編成の前の列車を遅れて走らせていた：この列車は始発の駅から出て追いつく（ダイヤの位置へ飛ばない。2026-11-21 点検：川辺⑤） */
+          if (!(m && m.tr === n.trip)) { const k = s.trips.indexOf(n.trip), pv = k > 0 ? s.trips[k - 1] : null, mp = pv && LAG.get(baseOf(pv)); if (mp && mp.tr === pv && mp.at != null && Math.abs(mp.at - (T - lagDt)) < 1e-6 && mp.t < T - 0.05) tD = Math.min(T, Math.max(n.trip.dep[0] - 0.3, mp.t)); }   /* ひとつ前の画面の記録だけ使う（回送のまま待っていたあいだの古い記録で遅れない） */   /* 閉塞で待った列車は、少し速く進んで追いつく */
           p = withBody(n.trip, C.trainPos(n.trip, tD, L, env), env); p.tD = tD;
           out.push({ s, n, p, tr: n.trip, dead: false }); }
       });
