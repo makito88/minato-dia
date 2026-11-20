@@ -169,6 +169,17 @@
        相手が駅の構内で出発を待っているだけで、こちらが先なら、相手は数えない */
     const yieldTo = (t, x) => { if (!t || !x.q.p.held) return false; const sx = x.tr.seq[x.i]; if (!inSt(x, sx)) return false;
       const a = t.tr.dep[t.i], b = x.tr.dep[x.i]; return a < b - 1e-6 || (Math.abs(a - b) < 1e-6 && t.dir > 0); };
+    /* 単線：反対から来る列車（2026-11-21 見直し。両はしで同じ決まり）。
+       ①区間の中を走っている（向こうの駅の構内で出発を待っているだけのものは②へ）②向こうの駅で、もうすぐ出る・出発で待っている：発車の早いほう（同じなら下り）が先 */
+    const oppBusy = (o, t, nx, kn, dir) => trains.some(x => { const far = nx && nx.st, sx = x.tr.seq[x.i];
+      /* 川辺（本線の駅）で森下へ出ようとしている列車：本線の上にいるので、支線の位置ではなく「川辺にいる」で見る */
+      const atK = far === 'K' && sx === 'K' && x.tr.seq[x.i + 1] === 'F';
+      if (!atK && (x.line !== 'b' || x.dir === dir || x.q.p.xwait || xHeld(x))) return false;
+      if (!atK && ((x.km - o.km) * dir <= 0 || (x.km - kn) * dir >= 0.5)) return false;
+      const atFar = atK || (far && sx === far && (inSt(x, far) || !x.moving));
+      if (!atFar) return x.moving;
+      const ready = x.moving || (x.tr.dep[x.i] - T < 0.45 && (x.i === 0 || T >= x.tr.arr[x.i] - 0.01)); if (!ready || !t) return ready;
+      const a = t.tr.dep[t.i], b = x.tr.dep[x.i]; return !(a < b - 1e-6 || (Math.abs(a - b) < 1e-6 && dir > 0)); });
     const DEPW = new Map();   /* 駅・向き・線ごとに、いま開いている出発（1つだけ） */
     /* 信号 o から次の信号 nx までのあいだのポイントが、ほかの列車のために鎖錠されている（ひとつ前の時刻の状態。2026-11-21 点検：緑ヶ丘で通過列車の進路を割って出発していた） */
     const ptOther = (o, nx, t) => { if (!t || o.br || o.kind !== '出発') return false;   /* 本線（複線）の出発だけ。支線（単線）は単線の決まりで守る（ここで止めると、にらみ合いになる） */ const x0 = o.x;
@@ -224,7 +235,10 @@
             (t.moving && t.tr.seq[t.i] === o.st && laneAt(t, t.i) === o.lane && (o.km - t.km) * dir > -0.03) ||   /* 出たばかりで、先頭がまだ信号を越えていない */
             (t.moving && t.tr.seq[t.i + 1] === o.st && !t.tr.stop[t.i + 1] && laneAt(t, t.i + 1) === o.lane && t.tr.arr[t.i + 1] - T < 0.9)));
           if (t) ahead = occ(line, o.km + dir * 0.01, kn, t);   /* 出ていく列車じしんは数えない */
-          const single = line === 'b' && nx && occ('b', o.km, kn, t) || (line === 'b' && trains.some(x => x.line === 'b' && x.dir !== dir && x.moving && !x.q.p.xwait && !xHeld(x) && !yieldTo(t, x) && (x.km - o.km) * dir > 0 && (x.km - kn) * dir < 0.5));   /* 交換信号所の行き違い線で待っている列車は数えない */
+          /* 川辺から森下へ出る列車（本線の出発信号から支線へ）：単線の決まりを、支線の位置で見る（2026-11-21 点検：川辺〜森下で向かい合っていた） */
+          const toF = !o.br && o.st === 'K' && t && t.tr.seq[t.i + 1] === 'F', fH = toF ? lay.sig.find(z => z.br && z.st === 'F' && z.kind === '場内' && z.dir === 1) : null;
+          const singleK = toF && fH && (occ('b', 0, fH.km, t) || oppBusy({ km: 0, x: o.x }, t, fH, fH.km, 1));
+          const single = singleK || line === 'b' && nx && occ('b', o.km, kn, t) || (line === 'b' && oppBusy(o, t, nx, kn, dir));   /* 交換信号所の行き違い線で待っている列車は数えない */
           const sideX = line === 'b' && t && nx && nx.st === 'X' && contend(dir, Math.max(0, (o.km - t.km) * dir), 'X', t);   /* 交換信号所の側から先に入ってくる列車がいる */
           const prep = t && atSt(t) === o.st && t.tr.dep[t.i] - T > 0.3;   /* 進路を作っているところ（点線）：まだ信号は開かない */
           if (sideX) { asp.set(o, R); continue; }
@@ -333,6 +347,7 @@
       const inSec = t => { const s0 = t.tr.seq[t.i], s1 = t.tr.seq[t.i + 1], A = ft ? 'F' : a, Bb = ft ? 'T' : b;
         if (!((s0 === A && s1 === Bb) || (s0 === Bb && s1 === A))) return false;
         if (!t.moving) return t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01) && (!ft || (s0 === a || s0 === b));
+        { const g0 = C.GEO[s0], x0 = !SX[s0] ? null : s0 === 'K' ? L.xm(SX.K.km) : L.xb(SX[s0].bkm); if (t.q.p.held && x0 != null && g0 && Math.abs(t.q.p.x - x0) < (g0.d0 + 0.05) * L.pxk) return false; }   /* 駅の出発信号で待っている列車は、まだ区間に入っていない（2026-11-21） */
         if (!ft) return true; if (t.q.p.xwait) return false;
         const lo = a === 'X' ? xk + xh : ka + C.GEO.F.d0, hi = b === 'X' ? xk - xh : kb - C.GEO.T.d0; return t.hi > lo && t.lo < hi; };   /* 駅の構内（番線）は区間に入れない */
       const ts = trains.filter(inSec); return { a, b, ka, kb, t: ts[0] || null, ts }; });
