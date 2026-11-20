@@ -90,7 +90,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261120d').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261121a').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>
@@ -753,7 +753,7 @@
     const st = HS.stations[GST]; if (!st) return; const names = SX ? (k => SX[k] ? SX[k].name : k) : (k => k);
     { const sel = host.querySelector('#ctcGSt'); if (sel && sel.options[0] && sel.options[0].textContent === sel.options[0].value) [...sel.options].forEach(o => { o.textContent = names(o.value); }); }
     const one = { K: [['K', 'F']], F: [['K', 'F'], ['F', 'T']], T: [['F', 'T'], ['T', 'O']], O: [['T', 'O']] }[GST] || [];
-    const rows = st.lanes.map((c, j) => ({ lab: (st.num[j] || j + 1) + '番線', o: C.LCODE[c] })).concat(one.map(([a, b]) => ({ lab: '単線 ' + names(a) + '〜' + names(b), one: [a, b] })));
+    const rows = st.lanes.map((c, j) => ({ lab: st.num[j] ? st.num[j] + '番線' : st.num[j] === 0 ? (c[0] === '-' ? '下り通過線' : '上り通過線') : (j + 1) + '番線', o: C.LCODE[c] }))   /* 番号0＝ホームのない通過線（緑ヶ丘のまん中の2本）。2026-11-21 */.concat(one.map(([a, b]) => ({ lab: '単線 ' + names(a) + '〜' + names(b), one: [a, b] })));
     const RH = Math.min(38, 200 / rows.length), t0 = T - 6, X = m => 120 + (m - t0) / 30 * 870, el = (n, a, txt) => { const e = document.createElementNS('http://www.w3.org/2000/svg', n); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; g.appendChild(e); return e; };
     g.innerHTML = '';
     rows.forEach((r, i) => { const y = 8 + i * RH; el('rect', { x: 120, y, width: 870, height: RH - 6, fill: i % 2 ? '#112234' : '#0e1d2d' }); el('text', { x: 112, y: y + RH / 2, fill: '#cfe0f2', 'font-size': r.one ? 11 : 13, 'text-anchor': 'end' }, r.lab); });
