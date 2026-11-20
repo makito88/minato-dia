@@ -8,6 +8,8 @@ const { spawn } = require('child_process');
   await new Promise(r => setTimeout(r, 800));
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1300, height: 1100 } });
   p.on('pageerror', e => console.log('ERR', e.message));
+  /* 乱数を決まった種にする（はじめて開いたときの「沿線の種」が毎回ちがい、点検の結果が回ごとに変わっていた。CTC_SEED で変えられる。2026-11-21） */
+  await p.addInitScript(sd => { let a = sd >>> 0; Math.random = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }, +(process.env.CTC_SEED || 1));
   /* CTC_DATE=2026-11-20 のように渡すと、その日の日付のつもりで動かす（日ごとの乱れの出方を、あとからでも同じに見るため。2026-11-21） */
   if (process.env.CTC_DATE) await p.addInitScript(d => { const D0 = Date, off = new D0(d + 'T05:00:00+09:00').getTime() - D0.now(); class FD extends D0 { constructor(...a) { if (a.length) super(...a); else super(D0.now() + off); } static now() { return D0.now() + off; } } window.Date = FD; }, process.env.CTC_DATE);
   await p.goto('http://localhost:' + (+process.env.APORT || 8766) + '/index.html'); await p.waitForTimeout(2500);
@@ -18,6 +20,9 @@ const { spawn } = require('child_process');
     ran.checked = sc !== 'plan'; big.checked = sc === 'big'; if (sc === 'event') { COND.evs = ['hanabi', 'onsen']; }
     ran.dispatchEvent(new Event('change')); big.dispatchEvent(new Event('change')); }, sc);
   await p.waitForTimeout(1500);
+  /* データがそろうまで待つ（同時にいくつも回すと、計算が終わる前に点検が始まって、回ごとに結果が変わっていた。2026-11-21） */
+  await p.evaluate(async () => { const sig = () => { try { CtcView.probe(300); const s = CtcView.syn(); const Y = s.YS; if (!Y) return ''; return Y.reg.length + ':' + Y.syn.length + ':' + Y.reg.reduce((a, x) => a + x.trips.length + x.trips.reduce((b, t) => b + t.dep[0] + t.arr[t.arr.length - 1], 0), 0).toFixed(3); } catch (e) { return ''; } };
+    let last = '', same = 0; for (let k = 0; k < 120 && same < 4; k++) { await new Promise(r => setTimeout(r, 500)); const v = sig(); if (v && v === last) same++; else same = 0; last = v; } });
   const r = await p.evaluate(([step]) => {
     const M = 300, out = { redK: {}, n: 0, overlap: [], overlapDead: [], ptLock: [], ptLeg: [], ptFoul: [], red: [], oneMiss: [], oneHead: [], count: [], slot: [], longDead: [], night: [], snap: {} };
     const push = (a, v) => { a.n = (a.n || 0) + 1; if (a.length < 6) a.push(v); };
