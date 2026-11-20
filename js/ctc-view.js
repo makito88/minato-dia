@@ -8,7 +8,7 @@
   const Y = C.Y;
   let YMAP = null;
   let HS = null, YS = null, YSKEY = null, LAY = null, LAYK = null, SIG = null;
-  const layOf = () => { const k = pxk + '|' + (HS ? 1 : 0); if (!LAY || LAYK !== k) { LAY = CtcSignal.build(HS, SX, L, C); LAYK = k; genPoints(LAY); } return LAY; };
+  const layOf = () => { const k = pxk + '|' + (HS ? 1 : 0) + '|' + PLKEY;   /* ホームや行き違い線の長さが決まったら作り直す（2026-11-20） */ if (!LAY || LAYK !== k) { LAY = CtcSignal.build(HS, SX, L, C); LAYK = k; genPoints(LAY); } return LAY; };
   /* 描いた線路から、線が分かれる所をすべて見つけてポイントにする（2026-11-19）。
      中央・港・車庫や留置線のはしご・貨物ターミナル・連絡線など、駅の形の表（haisen）で向きを決めていない所。
      はじめから向きを決めてあるポイント（川辺・森下・峠・温泉・交換信号所・途中の駅）の近くはそのまま */
@@ -90,7 +90,7 @@
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
     host = document.getElementById('ctcHost'); if (!host) return;
     fetch('data/ctc-extra.json').then(r => r.json()).then(j => { X = j; hlKey = null; lastList = 0; draw(true); }).catch(() => { });
-    fetch('data/ctc-haisen.json?v=20261119p').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
+    fetch('data/ctc-haisen.json?v=20261120b').then(r => r.json()).then(j => { HS = j; YS = null; lastList = 0; draw(true); }).catch(() => { });   /* 駅の形・信号・ポイント（2026-11-17） */
     const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
     host.innerHTML = `<div class="ctc">
   <div class="ctc-bar"><div><h2>指令パネル</h2><div class="sub">線路はキロどおりの縮尺。列車を押すと、その列車の待ちの理由が出ます。駅名を押すと発車標</div></div>

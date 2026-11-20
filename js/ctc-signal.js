@@ -150,6 +150,43 @@
     /* 本線の高さ y・x a〜b にあるポイントが、回送のために鎖錠中・回送が上にいる（ひとつ前の時刻の状態）か */
     const deadPt = (y, a, b) => lay.pts.some(p => { if (p.a == null || p.b == null || p.cross) return false; const J = p.gen ? p.J : [p.x, p.y0 + p.trunk];
       if (Math.abs(J[1] - y) > 2 || J[0] < Math.min(a, b) || J[0] > Math.max(a, b)) return false; const v = ptNow(p, T); return v && v.dead && (v.lock || v.on); });
+    /* 交換信号所（2026-11-20 見直し）：ふだんは赤。近づいてくる列車1本のために、ポイントがその向きで鎖錠されたときだけ開く。
+       場内：入るポイント（下り①定位＝上の線／上り②定位＝下の線）が、その列車のために鎖錠。行き違い線の同じ側があいている。出発が赤なら注意（黄）。
+       出発：行き違い線のその列車が、行き違い待ちでない。先の単線（次の駅の場内まで）に、ほかの列車がいない。出るポイント（下り②反位／上り①反位）が、その列車のために鎖錠 */
+    /* 単線区間の方向（2026-11-20）：区間の反対の端から、同じ区間へ入ろうとしている列車が、こちらより入口に近ければ、こちらは赤。
+       far＝区間の反対の端の駅（'X' か 'F' 'T'）。交換信号所で行き違いを待つ（待つ予定の）列車は数えない。同じ近さなら下りが先 */
+    const inSt = (x, st) => SX[st] && C.GEO[st] && x.tr.seq[x.i] === st && Math.abs(x.km - SX[st].bkm) < C.GEO[st].d0 + 0.02;   /* 列車がその駅の構内にいる（出かけて信号で待っている列車も） */
+    const contend = (dir, mine, far, t) => { const sg = lay.sig.filter(z => z.br && z.st === far && z.kind === '出発' && z.dir === -dir); if (!sg.length) return false;
+      return trains.some(x => { if (x === t || x.line !== 'b' || x.dir !== -dir) return false;
+        if (x.q.p.xwait) return false; const xw = x.tr.xw && x.tr.xw[x.i]; if (far === 'X' && xw && T < xw[1] - 0.02) return false;
+        if (t && inSt(t, t.tr.seq[t.i])) { const st0 = t.tr.seq[t.i], j = x.tr.seq.indexOf(st0, x.i); if (j >= 0 && x.tr.lanes && x.tr.lanes[j] === laneAt(t, t.i)) return false; }   /* 相手の着く番線にこちらがいる：こちらが先に出る */
+        const dd = Math.min(...sg.map(z => (z.km - x.km) * x.dir)); if (dd < -0.03 || dd > 1.2) return false;
+        if (!x.moving && !(x.tr.dep[x.i] - T < 0.5 && (x.i === 0 || T >= x.tr.arr[x.i] - 0.01))) return false;
+        return dd < mine - 1e-6 || (Math.abs(dd - mine) < 1e-6 && x.dir > 0); }); };
+    /* 交換信号所の行き違い線にいて、出発が赤の列車（出られないので、単線区間には入ってこない） */
+    const xHeld = x => { if (!SX.X || !C.GEO.X || Math.abs(x.km - SX.X.bkm) > C.GEO.X.d0 + 0.02) return false; const ex = lay.sig.find(z => z.st === 'X' && z.kind === '出発' && z.dir === x.dir); return !!ex && (x.km - ex.km) * x.dir < 0.02 && xAsp(ex) === R; };
+    const xAsp = o => { const XS = SX.X; if (!XS) return R; const xk = XS.bkm, g = C.GEO.X, dir = o.dir;
+      const P1 = lay.pts.find(p => p.st === 'X' && p.no === '①'), P2 = lay.pts.find(p => p.st === 'X' && p.no === '②');
+      const locked = (p, t, rev) => { const v = p && ptNow(p, T); return !!(v && v.lock && v.id === t.tr && !!v.rev === rev && v.phase !== 'move'); };
+      const brT = trains.filter(x => x.line === 'b');
+      if (o.kind === '出発') {
+        const prev = dir > 0 ? SX.F.bkm : SX.T.bkm;   /* 行き違い線にいる列車、いなければ近づいてくる列車（通過する特急など） */
+        const t = brT.filter(x => x.dir === dir && (o.km - x.km) * dir > -0.02 && (x.km - prev) * dir > -0.15).sort((u, v) => Math.abs(o.km - u.km) - Math.abs(o.km - v.km))[0]; if (!t || t.q.p.xwait) return R;
+        const xw = t.tr.xw && t.tr.xw[t.i]; if (xw && T < xw[1] - 0.02) return R;   /* これから行き違いを待つ列車 */
+        const fsg = lay.sig.filter(z => z.br && z.st === (dir > 0 ? 'T' : 'F') && z.kind === '出発' && z.dir === -dir).map(z => z.km);   /* 向こうの駅の、こちらへ向かう出発信号まで（構内ののども含める） */
+        const far = fsg.length ? (dir > 0 ? Math.max(...fsg) : Math.min(...fsg)) : (dir > 0 ? SX.T.bkm : SX.F.bkm), a = Math.min(o.km, far), b = Math.max(o.km, far);
+        if (brT.some(x => x !== t && x.hi > a && x.lo < b)) return R;
+        if (contend(dir, Math.max(0, (o.km - t.km) * dir), dir > 0 ? 'T' : 'F', t)) return R;   /* 向こうの駅から先に入ってくる列車がいる */
+        { const fs = dir > 0 ? 'T' : 'F', j = t.tr.seq.indexOf(fs, t.i), ln = j >= 0 && t.tr.lanes ? t.tr.lanes[j] : null;   /* 向こうの駅の着く番線に、こちらへ向かって出る列車がいる（行き違えないので入れない） */
+          if (ln != null && trains.some(x => x !== t && x.line === 'b' && x.dir === -dir && inSt(x, fs) && laneAt(x, x.i) === ln)) return R; }
+        if (!locked(dir > 0 ? P2 : P1, t, true)) return R;
+        return G; }
+      const prev = dir > 0 ? SX.F.bkm : SX.T.bkm;
+      const t = brT.filter(x => x.dir === dir && (o.km - x.km) * dir > -0.01 && (x.km - prev) * dir > -0.15).sort((u, v) => Math.abs(o.km - u.km) - Math.abs(o.km - v.km))[0]; if (!t) return R;
+      if (brT.some(x => x !== t && x.dir === dir && x.hi > xk - g.d0 && x.lo < xk + g.d0)) return R;
+      if (!locked(dir > 0 ? P1 : P2, t, false)) return R;
+      const ex = lay.sig.find(x => x.st === 'X' && x.kind === '出発' && x.dir === dir);
+      return ex && xAsp(ex) === R ? Yw : G; };
     const x0 = L.xm(0), deadOn = (y, a, b, bodyOnly) => { const lo = x0 + Math.min(a, b) * L.pxk, hi = x0 + Math.max(a, b) * L.pxk;
       return (bodyOnly === 2 ? DQs : bodyOnly ? DB : DQ).some(R => R.some((v, k) => { if (Math.abs(v[1] - y) < 2 && v[0] > lo && v[0] < hi) return true; const w = R[k + 1]; return w && Math.abs(v[1] - y) < 2 && Math.abs(w[1] - y) < 2 && Math.min(v[0], w[0]) < hi && Math.max(v[0], w[0]) > lo; })); };
     const occ = (line, a, b, not) => trains.some(t => t !== not && t.line === line && t.hi > Math.min(a, b) && t.lo < Math.max(a, b));
@@ -167,14 +204,17 @@
         let ahead = occ(line, o.km + dir * 0.01, kn);
         if (o.st === 'X' && o.kind === '場内') ahead = trains.some(x => x.line === line && x.dir === dir && x.hi > Math.min(o.km, kn) && x.lo < Math.max(o.km, kn));   /* 交換信号所の行き違い線：同じ向きの列車だけ（反対向きはもう1本の線） */
         const nxA = nx ? (asp.get(nx) ?? R) : G;
+        if (o.st === 'X') { asp.set(o, xAsp(o)); continue; }   /* 交換信号所は連動（下の xAsp） */
         if (o.kind === '閉塞' || o.blk) { asp.set(o, ahead ? R : nxA === R ? Yw : G); continue; }   /* 交換信号所の信号も、先の区間で決める */
         if (o.kind === '出発') {
           const t = trains.find(t => t.line === line && t.dir === dir && ((atSt(t) === o.st && laneAt(t, t.i) === o.lane && t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01)) ||   /* 始発は着く時刻がない */
             (t.moving && t.tr.seq[t.i] === o.st && laneAt(t, t.i) === o.lane && (o.km - t.km) * dir > -0.03) ||   /* 出たばかりで、先頭がまだ信号を越えていない */
             (t.moving && t.tr.seq[t.i + 1] === o.st && !t.tr.stop[t.i + 1] && laneAt(t, t.i + 1) === o.lane && t.tr.arr[t.i + 1] - T < 0.9)));
           if (t) ahead = occ(line, o.km + dir * 0.01, kn, t);   /* 出ていく列車じしんは数えない */
-          const single = line === 'b' && nx && occ('b', o.km, kn, t) || (line === 'b' && trains.some(x => x.line === 'b' && x.dir !== dir && x.moving && !x.q.p.xwait && (x.km - o.km) * dir > 0 && (x.km - kn) * dir < 0.5));   /* 交換信号所の行き違い線で待っている列車は数えない */
+          const single = line === 'b' && nx && occ('b', o.km, kn, t) || (line === 'b' && trains.some(x => x.line === 'b' && x.dir !== dir && x.moving && !x.q.p.xwait && !xHeld(x) && (x.km - o.km) * dir > 0 && (x.km - kn) * dir < 0.5));   /* 交換信号所の行き違い線で待っている列車は数えない */
+          const sideX = line === 'b' && t && nx && nx.st === 'X' && contend(dir, Math.max(0, (o.km - t.km) * dir), 'X', t);   /* 交換信号所の側から先に入ってくる列車がいる */
           const prep = t && atSt(t) === o.st && t.tr.dep[t.i] - T > 0.3;   /* 進路を作っているところ（点線）：まだ信号は開かない */
+          if (sideX) { asp.set(o, R); continue; }
           asp.set(o, !t || ahead || single || prep ? R : nxA === R ? Yw : G); if (t && !ahead && !single) routes.push({ t, kind: 'dep', st: o.st, o, nx, prep });
           continue;
         }
@@ -233,8 +273,8 @@
                                                                                           折り返す入換（中央車庫）は同じポイントを2度通るので、次に通るときの向き */
             if (k > 0) { let dd = 0; for (let j = 1; j < k; j++) dd += Math.hypot(F[j][0] - F[j - 1][0], F[j][1] - F[j - 1][1]);
               when = T + 0.2 + dd / 2000; P.length = 0; P.push(...F.slice(Math.max(0, k - 2), k + 2)); } }   /* 近い回送の進路が先 */
-          else { let hitK = -1; for (let k = 0; k < F.length; k++) if (Math.hypot(F[k][0] - pt[0], F[k][1] - pt[1]) < 6) { hitK = k + 1; break; }
-            if (hitK > 0 || nearB([[q.p.x, q.p.y]].concat(F), pt, tol)) { when = T + Math.max(1, hitK) * 0.05; if (q.p.held) when = Math.max(when, T + 0.7);   /* 赤信号で待つ列車：ポイントは先に向けておくが、鎖錠はしない（動いている列車が先） */ P.push(...F.slice(0, hitK > 0 ? Math.min(F.length, hitK + 8) : F.length)); } }
+          else { let hitK = -1; for (let k = 0; k < F.length; k++) if (segd(pt, k ? F[k - 1] : [q.p.x, q.p.y], F[k]) < 4.5) { hitK = k + 1; break; }   /* 速い列車は1歩で11pxほど進むので、点ではなく線で見る（2026-11-20） */
+            if (hitK > 0 || nearB([[q.p.x, q.p.y]].concat(F), pt, tol)) { when = T + Math.max(1, hitK) * 0.05; if (q.p.held) when = Math.max(when, T + (q.p.y < C.Y.br + 40 ? 0.5 : 0.7));   /* 支線（単線）は、待っている列車のためにも鎖錠する（そうしないと交換信号所の信号が開かない） */   /* 赤信号で待つ列車：ポイントは先に向けておくが、鎖錠はしない（動いている列車が先） */ P.push(...F.slice(0, hitK > 0 ? Math.min(F.length, hitK + 8) : F.length)); } }
         }
         if (when == null) continue;
         const onR = !same && nearB(P, mR, tol), onN = nearB(P, mN, tol), leg = onR && !onN ? 'R' : 'N', sure = onR !== onN;
@@ -422,7 +462,7 @@
     return '';
   }
   /* ポイントの、いちばん新しい状態（回送が、ほかの列車が上にいる・転換中のポイントに入らないように使う） */
-  const ptNow = (p, T) => { let m = MEMO.get(p); if (m && T != null && Math.abs(m.T - T) < 1e-6) m = m.prev; return m ? m.v : null; };   /* ひとつ前の時刻の状態（同じ時刻の計算で、自分がもう乗ったことにならないように） */
+  const ptNow = (p, T) => { let m = MEMO.get(p); if (m && T != null && Math.abs(m.T - T) < 1e-6 && m.prev) m = m.prev; return m ? m.v : null; };   /* 時刻を飛ばした直後（前の時刻がない）は、いまの状態 */   /* ひとつ前の時刻の状態（同じ時刻の計算で、自分がもう乗ったことにならないように） */
   const api = { ptNow, info, nextBlocked, build, state, draw, drawOcc, drawTop, bodyOf, explain, R, Y: Yw, G };
   if (typeof module === 'object' && module.exports) module.exports = api; else root.CtcSignal = api;
 })(typeof window !== 'undefined' ? window : globalThis);
