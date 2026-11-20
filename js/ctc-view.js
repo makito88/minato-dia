@@ -585,6 +585,14 @@
         const segd2 = (q, A, B) => { const dx = B[0] - A[0], dy = B[1] - A[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((q[0] - A[0]) * dx + (q[1] - A[1]) * dy) / LL)); return Math.hypot(A[0] + u * dx - q[0], A[1] + u * dy - q[1]); };
         const ptBusy = B => PJ.some(([q, J]) => { if (!B.some((v, k) => k && segd2(J, B[k - 1], v) < 3)) return false; const v = CtcSignal.ptNow(q, T); return v && v.id && v.id !== d.tr && (v.on || v.lock || v.phase === 'move'); });   /* ほかの列車・回送のために転換・鎖錠しようとしているポイントにも入らない */   /* ほかの列車・回送の進路で鎖錠中も入らない */
         const blocked = B => others().some(o => bodyHit(B, o.p.body || [[o.p.x, o.p.y]], HT)) || ptBusy(B);
+        /* 出庫の回送：行き先のホームにまだ列車がいるあいだは、車庫の線から出ない（その列車は同じ入出庫線を通って入庫してくる。2026-11-21 点検：中央で2本がすれちがっていた） */
+        if (d.n.out && d.path.length > 2) { const E = d.path[d.path.length - 1], PP = d.path.slice(1).map(v => [v.x, v.y]);
+          const onPath = B => B.some(v => PP.some((w, k) => k && segd2(v, PP[k - 1], w) < 5));   /* これから通る入出庫線の上 */
+          const occT = out.some(o => o !== d && ((o.p.body || [[o.p.x, o.p.y]]).some(v => Math.hypot(v[0] - E.x, v[1] - E.y) < 8) || (o.dead && o.n && !o.n.out && onPath(o.p.body || [[o.p.x, o.p.y]]))));
+          if (occT) { let tot = 0, to1 = 0; for (let k = 1; k < d.path.length; k++) { const l = Math.hypot(d.path[k].x - d.path[k - 1].x, d.path[k].y - d.path[k - 1].y); tot += l; if (k <= 1) to1 += l; }
+            const cap = Math.sqrt(Math.max(0, (to1 - 4) / Math.max(1, tot)));   /* 車庫の線の上（はしごの手前）まで。出庫は道のり＝f0² */
+            if (d.f0 > cap) { const fm = Math.max(cap, 0), p2 = deadAt(d.path, d.fs(fm), d.sl, d.p.i); const dm0 = DLAG.get(dkey(d.s, d.tr, true)); const keep = dm0 && Math.abs(dm0.at - (T - lagDt)) < 1e-6 && dm0.f > cap ? dm0.f : fm;
+              const p3 = keep === fm ? p2 : deadAt(d.path, d.fs(keep), d.sl, d.p.i); d.p = Object.assign(p3, { held: true }); d.f0 = keep; continue; } } }
         if (!blocked(d.p.body)) continue;
         /* さがるのは、ひとつ前の画面でいた所まで（止まっている回送は、うしろへは動かない） */
         const dm = DLAG.get(dkey(d.s, d.tr, d.n.out)), fmin = dm && dm.at === T - lagDt ? Math.min(dm.f, d.f0) : 0;

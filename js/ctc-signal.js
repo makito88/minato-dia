@@ -171,7 +171,7 @@
       const a = t.tr.dep[t.i], b = x.tr.dep[x.i]; return a < b - 1e-6 || (Math.abs(a - b) < 1e-6 && t.dir > 0); };
     const DEPW = new Map();   /* 駅・向き・線ごとに、いま開いている出発（1つだけ） */
     /* 信号 o から次の信号 nx までのあいだのポイントが、ほかの列車のために鎖錠されている（ひとつ前の時刻の状態。2026-11-21 点検：緑ヶ丘で通過列車の進路を割って出発していた） */
-    const ptOther = (o, nx, t) => { if (!t) return false; const x0 = o.x;
+    const ptOther = (o, nx, t) => { if (!t || o.br || o.kind !== '出発') return false;   /* 本線（複線）の出発だけ。支線（単線）は単線の決まりで守る（ここで止めると、にらみ合いになる） */ const x0 = o.x;
       /* 場内の進路は、その駅の出発信号（止まる所）まで。向こうのはしのポイントは見ない（2026-11-21 点検：峠で上下の2本がにらみ合っていた） */
       let x1 = nx ? nx.x : null; if (o.kind === '場内') { const ds = lay.sig.filter(z => z.st === o.st && z.kind === '出発' && z.dir === o.dir && (z.x - x0) * o.dir > 0).map(z => z.x);
         x1 = ds.length ? (o.dir > 0 ? Math.max(...ds) : Math.min(...ds)) : (SX[o.st] ? (o.br ? L.xb(SX[o.st].bkm) : L.xm(SX[o.st].km)) : x0 + o.dir * 0.6 * L.pxk); }
