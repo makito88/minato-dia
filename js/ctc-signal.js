@@ -317,7 +317,7 @@
         if (!((s0 === A && s1 === Bb) || (s0 === Bb && s1 === A))) return false;
         if (!t.moving) return t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01) && (!ft || (s0 === a || s0 === b));
         if (!ft) return true; if (t.q.p.xwait) return false;
-        const lo = a === 'X' ? xk + xh : ka, hi = b === 'X' ? xk - xh : kb; return t.hi > lo && t.lo < hi; };
+        const lo = a === 'X' ? xk + xh : ka + C.GEO.F.d0, hi = b === 'X' ? xk - xh : kb - C.GEO.T.d0; return t.hi > lo && t.lo < hi; };   /* 駅の構内（番線）は区間に入れない */
       const ts = trains.filter(inSec); return { a, b, ka, kb, t: ts[0] || null, ts }; });
     return { trains, asp, routes, pst, xst, sst, one };
   }
