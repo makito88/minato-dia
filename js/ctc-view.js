@@ -41,7 +41,7 @@
         a: 0, b: 1, trunk: 0, y0: J[1], x: J[0], len: Math.min(N.len, Rr.len), side: 'E', out: false, rule: null, cross: false, br, small: yard });
     }));
   }
-  let GST = 'K', GKEY = null, BLOCKHOLD = false, LAG = new Map(), DLAG = new Map(), LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
+  let GST = 'K', GKEY = null, BLOCKHOLD = false, LAG = new Map(), DLAG = new Map(), REDLOG = [], LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
 .ctc{min-width:0;max-width:100%;background:#0c1826;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
@@ -278,8 +278,18 @@
       (s.rests || []).forEach(r => iv[r.at] && iv[r.at].push({ s, t0: r.t0, t1: r.t1 })); });
     Y3.syn.forEach(s => { if (!s.rest || !iv[s.rest] || s.trips.length < 2) return; const a = s.trips[0], z = s.trips[s.trips.length - 1]; iv[s.rest].push({ s, t0: endOf(a), t1: z.dep[0] }); });
     const cap = { C: 28, P: 8, O: 2 }; SLOTOVER = {};
-    for (const k in iv) { const L2 = iv[k].sort((x, y) => x.t0 - y.t0), busy = [];
-      for (const v of L2) { let j = busy.findIndex(e => e < v.t0 - 0.01); if (j < 0) { j = busy.length; busy.push(0); } busy[j] = v.t1; v.slot = j; if (j >= cap[k]) SLOTOVER[k] = Math.max(SLOTOVER[k] || 0, j + 1); } }
+    /* 置き場所の線は行き止まり（入口は一方だけ）。同じ線の奥と手前（2026-11-21）：奥の編成は、手前の編成より先に入って、あとに出る。
+       それを守れる置き場所を選ぶ。守れる所がなければ、前と同じに空いている所 */
+    const trk = (h, j) => h === 'C' ? j % 14 : h === 'P' ? j % 4 : 0, deep = (h, j) => h === 'C' ? j < 14 : h === 'P' ? j < 4 : j % 2 === 0;
+    /* 入る・出るの動きは、置いてある時間（t0〜t1）のまわりに数分かかる（入庫：着いてから・出庫：発車の十数分前から） */
+    const A = w => [w.t0 - 10, w.t0 + 2], Dp = w => [w.t1 - 12, w.t1 + 2], Pr = w => [w.t0 - 10, w.t1 + 2], ov = (a, b) => a[0] < b[1] && b[0] < a[1];
+    for (const k in iv) { const L2 = iv[k].sort((x, y) => x.t0 - y.t0), busy = [], got = [];
+      for (const v of L2) {
+        const ok = j => (busy[j] == null || busy[j] < v.t0 - 0.01) && got.every(w => { if (w.slot === j || trk(k, w.slot) !== trk(k, j) || deep(k, w.slot) === deep(k, j)) return true;
+          return deep(k, j) ? !ov(A(v), Pr(w)) && !ov(Dp(v), Pr(w)) : !ov(Pr(v), A(w)) && !ov(Pr(v), Dp(w)); });   /* 奥なら：入る時・出る時に手前があいている。手前なら：いるあいだに奥が出入りしない */
+        let j = -1; for (let c = 0; c < cap[k]; c++) if (ok(c)) { j = c; break; }
+        if (j < 0) { j = busy.findIndex(e => e == null || e < v.t0 - 0.01); if (j < 0) j = busy.length; }
+        busy[j] = v.t1; v.slot = j; got.push(v); if (j >= cap[k]) SLOTOVER[k] = Math.max(SLOTOVER[k] || 0, j + 1); } }
     return iv;
   }
   function slotOf(s, at, T) {
@@ -512,7 +522,7 @@
           if (n.trip === s.trips[0] && T >= s.first - C.lead0(s)) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true };
           else if (r) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: r.at }; }
         /* 待った出庫の回送が、まだホームに着いていなければ、回送のまま続ける（ホームへ飛ばない。2026-11-19） */
-        if (!n.dead && n.trip && (n.wait || T < n.trip.dep[0] + 0.5)) { const dm = DLAG.get(dkey(s, n.trip, true)); if (dm && dm.f < 0.999 && dm.at === T - lagDt) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: dm.yard }; }
+        if (!n.dead && n.trip) { const dm = DLAG.get(dkey(s, n.trip, true)); if (dm && dm.f < 0.999 && Math.abs(dm.at - (T - lagDt)) < 1e-6) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: dm.yard }; }   /* 発車の時刻をすぎても、ホームに着くまでは回送のまま（2026-11-21） */
         if (n.dead) {
           const tr = n.trip, i = n.out ? 0 : tr.seq.length - 1, dk = dkey(s, tr, n.out), dm = DLAG.get(dk);
           let f0 = Math.max(0, Math.min(1, n.f)); if (dm && f0 > dm.f) { const fs0 = n.out ? (u => u * u) : Math.sqrt, inv = n.out ? Math.sqrt : (u => u * u); f0 = Math.min(f0, inv(Math.min(1, fs0(dm.f) + lagDt * 0.6))); }   /* 道のりで1分に6割まで */   /* 待った回送は、止まった所から少し速く進んで追いつく（飛ばない。2026-11-19） */
@@ -550,6 +560,12 @@
             let lo = m.t, hi = f.p.tD; for (let k = 0; k < 14; k++) { const mid = (lo + hi) / 2, r = C.trainPos(f.tr, mid, L, env); if ((r.x - (hit.x - dir * 3)) * dir > 0) hi = mid; else lo = mid; }
             f.p = withBody(f.tr, Object.assign(C.trainPos(f.tr, lo, L, env), { held: true, moving: true, tD: lo, redAt: hit.id }), env);
           }
+          /* 確かめ用（2026-11-21）：止めたあとでも、この画面で「赤」だった信号を越えた列車を記録する（ほんとうの赤信号越え） */
+          if (pass === 1) for (const f of out) { if (f.dead) continue; const m = LAG.get(baseOf(f.tr)); if (!m || m.tr !== f.tr || m.at == null || m.at < T - lagDt - 1e-6) continue;
+            const dir = f.p.dir, x0 = m.x, x1 = f.p.x; if ((x1 - x0) * dir <= 0.2) continue;
+            for (const o of lay.sig) { if (o.dir !== dir || o.plan || st0.asp.get(o) !== CtcSignal.R || (o.x - x0) * dir <= 2 || (x1 - o.x) * dir <= 0) continue;   /* 先頭がもう信号の所（2px）にいたら通過中 */
+              const yy = yAt(f.p.body || [[x1, f.p.y]], o.x); if (Math.abs((yy == null ? m.y : yy) - o.trk) >= 4) continue;
+              REDLOG.push({ T, num: f.tr.num, st: o.st, kind: o.kind, km: o.km }); if (REDLOG.length > 500) REDLOG.shift(); } }
         } }
       /* 回送の待ち・始発へのもどし（列車が赤信号で止まったあとの位置で決める。2026-11-19） */
       /* 回送は、ほかの列車の「いま」だけでなく、30秒先までに進む所も避ける（向かってくる列車の前に出ない。2026-11-19） */
@@ -571,7 +587,7 @@
           if (!blocked(p2.body) || f0 === fmin) { d.p = Object.assign(p2, { held: true }); d.f0 = f0; break; } } }
       /* 回送のまま待たなくてよかった始発の列車は、ふつうの列車にもどす */
       for (let k = 0; k < out.length; k++) { const d = out[k]; if (!d.n || !d.n.origin || d.p.held || d.f0 < 0.999) continue;
-        const p = withBody(d.tr, C.trainPos(d.tr, T, L, env), env); p.tD = T; out[k] = { s: d.s, n: { trip: d.tr, wait: true }, p, tr: d.tr, dead: false }; }
+        const tD = Math.min(T, d.tr.dep[0]), p = withBody(d.tr, C.trainPos(d.tr, tD, L, env), env); p.tD = tD; out[k] = { s: d.s, n: { trip: d.tr, wait: true }, p, tr: d.tr, dead: false }; }   /* 遅れて着いた始発は、ホームから出て追いつく（ダイヤの位置へ飛ばない） */
       out.forEach(q => { if (!q.dead && q.p.tD != null) LAG.set(baseOf(q.tr), { t: q.p.tD, x: q.p.x, y: q.p.y, tr: q.tr, at: T }); });
       out.forEach(q => { if (q.dead && q.n && q.f0 != null) DLAG.set(dkey(q.s, q.tr, q.n.out), { f: q.f0, yard: q.n.yard, at: T }); });
       /* 閉塞：同じ線路を同じ向きに走る列車は、前の列車の最後尾より先へ出ない（時刻の計算のずれで重なって見えないように） */
@@ -770,6 +786,6 @@
   }
   /* 確かめ用：描いた線路（折れ線）を全部 */
   function tracks() { if (!L) return null; REC = []; ctx.save(); try { drawTrack(); } finally { ctx.restore(); } const r = REC; REC = null; draw(true); return r; }
-  window.CtcView = { posq: T => { const D = data(); return D ? posAll(D, T) : null; }, tracks, probe, init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2, YS }),
+  window.CtcView = { redLog: () => REDLOG, posq: T => { const D = data(); return D ? posAll(D, T) : null; }, tracks, probe, init, frame: () => draw(false), redraw: () => draw(true), lateShare, feeToday, syn: () => ({ SYN, EXT, D2, YS }),
     pos: T => { const D = data(); if (!D || !L) return []; ensureHl(D); return posAll(D, T).map(q => ({ num: q.tr.num, type: q.tr.type, down: q.tr.down, dead: q.dead, x: q.p.x, y: q.p.y, moving: q.p.moving, st: q.tr.seq[q.p.i], len: Math.max(10, q.tr.cars * 0.02 * L.pxk), dir: q.p.dir })); } };   /* syn：確かめ用（headless） */
 })();

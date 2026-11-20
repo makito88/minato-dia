@@ -4,11 +4,13 @@ const { chromium } = (() => { try { return require('playwright'); } catch (e) { 
 const { spawn } = require('child_process');
 (async () => {
   const sc = process.argv[2] || 'plan', step = +(process.argv[3] || 0.1);
-  const srv = spawn('python3', ['-m', 'http.server', '8766'], { cwd: require('path').join(__dirname, '..'), stdio: 'ignore' });
+  const srv = spawn('python3', ['-m', 'http.server', String(+process.env.APORT || 8766)], { cwd: require('path').join(__dirname, '..'), stdio: 'ignore' });
   await new Promise(r => setTimeout(r, 800));
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1300, height: 1100 } });
   p.on('pageerror', e => console.log('ERR', e.message));
-  await p.goto('http://localhost:8766/index.html'); await p.waitForTimeout(2500);
+  /* CTC_DATE=2026-11-20 のように渡すと、その日の日付のつもりで動かす（日ごとの乱れの出方を、あとからでも同じに見るため。2026-11-21） */
+  if (process.env.CTC_DATE) await p.addInitScript(d => { const D0 = Date, off = new D0(d + 'T05:00:00+09:00').getTime() - D0.now(); class FD extends D0 { constructor(...a) { if (a.length) super(...a); else super(D0.now() + off); } static now() { return D0.now() + off; } } window.Date = FD; }, process.env.CTC_DATE);
+  await p.goto('http://localhost:' + (+process.env.APORT || 8766) + '/index.html'); await p.waitForTimeout(2500);
   await p.evaluate(() => document.querySelectorAll('.rsv,.ksv,.topv').forEach(e => e.hidden = true));
   await p.evaluate(`setPlay(false); setPane('ctc');`); await p.waitForTimeout(800);
   await p.evaluate(() => document.querySelector('#ctcZoom button[data-v="200"]').click()); await p.waitForTimeout(1200);
@@ -64,6 +66,8 @@ const { spawn } = require('child_process');
       if ([270, 330, 420, 720, 1080, 1380, 1500, 1560].some(h => Math.abs(T - h) < step / 2)) out.snap[fmt(T)] = { 地図: tr.filter(t => !t.synth && !t.dead).length, 回送: tr.filter(t => t.dead).length, 車庫など: inDep, 全部: reg.length, 臨時貨物: tr.filter(t => t.synth).length, 赤以外の信号: P.sig.filter(s => s.asp != null && s.asp !== 0).length, 進路: P.routes.length, 鎖錠: P.pts.filter(p => p.lock).length, 反位: P.pts.filter(p => p.rev).length, 鳴る踏切: P.xings.filter(x => x.on).length };
       prev = P;
     }
+    /* ほんとうの赤信号越え（パネルが列車を動かしたとき、その画面で赤だった信号を越えた。2026-11-21） */
+    out.redTrue = (CtcView.redLog ? CtcView.redLog() : []).map(e => `${e.T.toFixed(2)} ${e.num} が赤の${e.kind}（${e.st || ''} ${e.km.toFixed(2)}km）を越えた`); out.redTrue.n = out.redTrue.length; out.redTrue.splice(8);
     for (const k in out) if (Array.isArray(out[k])) out[k] = { n: out[k].n || 0, ex: out[k].slice() };
     return out;
   }, [step]);

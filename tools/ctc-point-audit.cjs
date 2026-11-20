@@ -5,10 +5,12 @@ const { chromium } = require('/opt/npm-tools/node_modules/playwright');
 const http = require('http'), path = require('path'), fs = require('fs');
 (async () => {
   const [,, sc = 'plan', a = '300', z = '1500'] = process.argv, root = path.join(__dirname, '..');
-  const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'Content-Type': f.endsWith('.js') ? 'text/javascript' : f.endsWith('.html') ? 'text/html' : f.endsWith('.json') ? 'application/json' : 'text/plain' }); r.end(d); }); }).listen(8767);
+  const srv = http.createServer((q, r) => { const f = path.join(root, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'Content-Type': f.endsWith('.js') ? 'text/javascript' : f.endsWith('.html') ? 'text/html' : f.endsWith('.json') ? 'application/json' : 'text/plain' }); r.end(d); }); }).listen(+process.env.PORT || 8767);
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1300, height: 1100 } });
   p.on('pageerror', e => console.log('ERR', e.message));
-  await p.goto('http://localhost:8767/index.html'); await p.waitForTimeout(2500);
+  /* CTC_DATE=2026-11-20 のように渡すと、その日の日付のつもりで動かす（日ごとの乱れの出方を、あとからでも同じに見るため。2026-11-21） */
+  if (process.env.CTC_DATE) await p.addInitScript(d => { const D0 = Date, off = new D0(d + 'T05:00:00+09:00').getTime() - D0.now(); class FD extends D0 { constructor(...a) { if (a.length) super(...a); else super(D0.now() + off); } static now() { return D0.now() + off; } } window.Date = FD; }, process.env.CTC_DATE);
+  await p.goto('http://localhost:' + (+process.env.PORT || 8767) + '/index.html'); await p.waitForTimeout(2500);
   await p.evaluate(`setPlay(false); setPane('ctc');`); await p.waitForTimeout(1000);
   await p.evaluate(() => document.querySelector('#ctcZoom button[data-v="200"]').click()); await p.waitForTimeout(800);
   await p.evaluate(sc => { const ran = document.querySelector('#ctcRan'); ran.checked = sc !== 'plan'; COND.evs = sc === 'event' ? ['hanabi', 'onsen'] : []; ran.dispatchEvent(new Event('change')); }, sc);
@@ -39,7 +41,8 @@ const http = require('http'), path = require('path'), fs = require('fs');
         prev.set(i, { rev: q.rev, lock: q.lock, on, free: pv ? pv.free : 0, told: pv ? pv.told : false });
       });
     }
-    for (const k of ['flip', 'unlock', 'stuck', 'snap', 'leg']) out[k] = { n: out[k].n || 0, ex: out[k].slice() };
+    out.redTrue = (CtcView.redLog ? CtcView.redLog() : []).map(e => `${e.T.toFixed(2)} ${e.num} が赤の${e.kind}（${e.st || ''} ${e.km.toFixed(2)}km）を越えた`); out.redTrue.n = out.redTrue.length; out.redTrue.splice(8);
+    for (const k of ['flip', 'unlock', 'stuck', 'snap', 'leg', 'redTrue']) out[k] = { n: out[k].n || 0, ex: out[k].slice() };
     return out; }, [+a, +z]);
   console.log(JSON.stringify(r, null, 1)); await b.close(); srv.close();
 })();
