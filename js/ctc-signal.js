@@ -188,7 +188,8 @@
         x1 = ds.length ? (o.dir > 0 ? Math.max(...ds) : Math.min(...ds)) : (SX[o.st] ? (o.br ? L.xb(SX[o.st].bkm) : L.xm(SX[o.st].km)) : x0 + o.dir * 0.6 * L.pxk); }
       if (x1 == null) x1 = x0 + o.dir * 0.6 * L.pxk;
       return lay.pts.some(p => { if (p.a == null || p.b == null || p.cross) return false; const J = p.gen ? p.J : [p.x, p.y0 + p.trunk];
-        if ((J[0] - x0) * o.dir <= 0 || (J[0] - x1) * o.dir >= 0) return false; const v = ptNow(p, T); return !!(v && v.lock && v.id && v.id !== t.tr); }); };
+        { const v = ptNow(p, T); if (v && v.phase === 'move' && (J[0] - x0) * o.dir > 0 && (J[0] - x1) * o.dir < 0) return true; }   /* 転換中のポイントがある間は開かない */
+        if ((J[0] - x0) * o.dir <= 0 || (J[0] - x1) * o.dir >= 0) return false; const v = ptNow(p, T); return !!(v && v.lock && v.id && v.id !== t.tr && (v.on || !v.dead)); }); };   /* 回送の入換進路は、回送がポイントの上にいるときだけ（待っている回送の進路で、港の出発がみな赤のまま動かなくなっていた） */
     const xAsp = o => { const XS = SX.X; if (!XS) return R; const xk = XS.bkm, g = C.GEO.X, dir = o.dir;
       const P1 = lay.pts.find(p => p.st === 'X' && p.no === '①'), P2 = lay.pts.find(p => p.st === 'X' && p.no === '②');
       const locked = (p, t, rev) => { const v = p && ptNow(p, T); return !!(v && v.lock && v.id === t.tr && !!v.rev === rev && v.phase !== 'move'); };
@@ -305,7 +306,7 @@
             if (k > 0) { let dd = 0; for (let j = 1; j < k; j++) dd += Math.hypot(F[j][0] - F[j - 1][0], F[j][1] - F[j - 1][1]);
               when = T + 0.2 + dd / 2000; P.length = 0; P.push(...F.slice(Math.max(0, k - 2), k + 2)); } }   /* 近い回送の進路が先 */
           else { let hitK = -1; for (let k = 0; k < F.length; k++) if (segd(pt, k ? F[k - 1] : [q.p.x, q.p.y], F[k]) < 4.5) { hitK = k + 1; break; }   /* 速い列車は1歩で11pxほど進むので、点ではなく線で見る（2026-11-20） */
-            if (hitK > 0 || nearB([[q.p.x, q.p.y]].concat(F), pt, tol)) { when = T + Math.max(1, hitK) * 0.05; if (q.p.held) when = Math.max(when, T + (q.p.y < C.Y.br + 40 ? 0.5 : 0.7));   /* 支線（単線）は、待っている列車のためにも鎖錠する（そうしないと交換信号所の信号が開かない） */   /* 赤信号で待つ列車：ポイントは先に向けておくが、鎖錠はしない（動いている列車が先） */ P.push(...F.slice(0, hitK > 0 ? Math.min(F.length, hitK + 8) : F.length)); } }
+            if (hitK > 0 || nearB([[q.p.x, q.p.y]].concat(F), pt, tol)) { when = T + Math.max(1, hitK) * 0.05; if (q.p.held) when = Math.max(when, T + (q.p.y < C.Y.br + 40 ? 0.5 : 0.7)) + Math.max(0, q.tr.dep[q.p.i || 0] - T + 60) * 1e-4;   /* 待っている列車どうしは、発車の早い列車の向きに（2026-11-21 点検：緑ヶ丘で、あとの列車の向きに転換している間に先の列車が出ていた） */   /* 支線（単線）は、待っている列車のためにも鎖錠する（そうしないと交換信号所の信号が開かない） */   /* 赤信号で待つ列車：ポイントは先に向けておくが、鎖錠はしない（動いている列車が先） */ P.push(...F.slice(0, hitK > 0 ? Math.min(F.length, hitK + 8) : F.length)); } }
         }
         if (when == null) continue;
         const onR = !same && nearB(P, mR, tol), onN = nearB(P, mN, tol), leg = onR && !onN ? 'R' : 'N', sure = onR !== onN;
