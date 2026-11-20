@@ -928,7 +928,7 @@
     function begin(ss, c) {
       const tr = ss.st.trips[ss.k]; if (!tr) return; const n = tr.seq.length, s = tr.seq[0];
       ss.tr = tr; ss.A = tr.arr.slice(); ss.D = tr.dep.slice(); ss.L = new Array(n).fill(null); ss.R = new Array(n).fill(null); ss.i = 0; ss.XW = {}; ss.lead0 = null;
-      if (c && c.lane != null && c.s === s) { ss.L[0] = c.lane; ss.R[0] = c.rec; ss.D[0] = Math.max(tr.dep[0], c.floor); if (c.rec && c.rec.own) c.rec.own.push({ L: ss.L, j: 0, tr }); }   /* 折り返し：着いた番線のまま */
+      if (c && c.lane != null && c.s === s) { ss.L[0] = c.lane; ss.R[0] = c.rec; ss.D[0] = Math.max(tr.dep[0], c.floor); if (c.rec && c.rec.own) c.rec.own.push({ L: ss.L, j: 0, tr, ss }); }   /* 折り返し：着いた番線のまま */
       else if (inHs(s)) {
         /* 始発（車庫・留置線から出てくる列車）は、発車の5分前にはホームに入って待つ（2026-11-19）。番線があかないときは4・3・2・1分前 */
         let from = c && c.s === s ? c.from : tr.dep[0] - 2.5, p = null; const floor = c && c.s === s ? c.floor : -1e9;
@@ -992,6 +992,14 @@
             if (BRSEG.has(sk)) { if (sk === 'F|T' || sk === 'T|F') { if (e < d) { e = d; moved = true; } } else { const u = [s, nx].sort().join('|'), r = (single.get(u) || []).find(x => x[2] !== tr.down && x[0] < a && e < x[1]); if (r) { e = r[1] + 0.2; moved = true; } } }   /* 単線：反対の列車がいるうちは出ない（早く出すときも） */
             if (!moved) break; }
           if (e < d) d = Math.max(ss.D[i], e);
+          /* それでも出られない（事故の運転見合わせなど）：うしろの列車を、この番線があくまで駅の手前で待たせる（2026-11-21 点検：事故の日に川辺4番線で2本が重なっていた） */
+          if (d > lim + 1e-6) { const R0 = ss.R[i], nxt = (occ.get(k0) || []).filter(x => x !== R0 && x[0] >= R0[0]).sort((x, y) => x[0] - y[0])[0];
+            if (nxt && nxt.own && nxt.own.length === 1 && nxt.own[0].ss) { const o = nxt.own[0], s2 = o.ss, j2 = o.j, dl = d + EPS + 0.02 - nxt[0];
+              if (dl > 0 && j2 > 0 && s2.A[j2] != null && !(s2.D[j2] != null && j2 < s2.tr.seq.length - 1 && Q.every(x => x.ss !== s2))) {
+                nxt[0] += dl; s2.A[j2] += dl; const dn2 = Math.max(s2.D[j2], s2.A[j2] + (s2.tr.stop[j2] ? 0.3 : 0));
+                if (dn2 > s2.D[j2]) { s2.D[j2] = dn2; nxt[1] = Math.max(nxt[1], dn2 + EPS); const q = Q.find(x => x.ss === s2); if (q) q.t = Math.max(q.t, dn2); }
+                const sg = segs.get(s2.tr.seq[j2 - 1] + '|' + s2.tr.seq[j2] + '|' + (s2.tr.down ? 'd' : 'u')); if (sg) { const r2 = sg.find(r => Math.abs(r[1] - (s2.A[j2] - dl)) < 1e-6); if (r2) r2[1] = s2.A[j2]; }
+                extend(k0, R0, d + EPS); } } }
         } }
       ss.D[i] = d; ss.A[i + 1] = a;
       if (env.log) env.log({ num: tr.num, at: nx, d, a, lane: p && p.o, win, busyNow: p ? (occ.get(key(nx, p.o)) || []).map(r => r.slice()) : null });   /* 確かめ用 */
@@ -1003,7 +1011,7 @@
       ss.i = i + 1;
       if (!inHs(nx)) { ss.D[i + 1] = Math.max(tr.dep[i + 1], a + (stopN && !last ? 0.3 : 0)); if (last) { finish(ss, null); continue; } Q.push({ t: ss.D[i + 1], ss }); continue; }
       const o = p.o; ss.L[i + 1] = o;
-      if (!last) { const dn = Math.max(tr.dep[i + 1], a + (stopN ? 0.3 : 0)); ss.D[i + 1] = dn; ss.R[i + 1] = put(key(nx, o), a - EIN, dn + EPS); ss.R[i + 1].own = [{ L: ss.L, j: i + 1, tr }]; Q.push({ t: dn, ss }); continue; }
+      if (!last) { const dn = Math.max(tr.dep[i + 1], a + (stopN ? 0.3 : 0)); ss.D[i + 1] = dn; ss.R[i + 1] = put(key(nx, o), a - EIN, dn + EPS); ss.R[i + 1].own = [{ L: ss.L, j: i + 1, tr, ss }]; Q.push({ t: dn, ss }); continue; }
       /* 終点 */
       noteThroat(nx, a, o, 'arr');
       const nd = same ? Math.max(nt.dep[0], a + TURN) : a + 3;
