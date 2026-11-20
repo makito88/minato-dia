@@ -999,6 +999,7 @@
                 nxt[0] += dl; s2.A[j2] += dl; const dn2 = Math.max(s2.D[j2], s2.A[j2] + (s2.tr.stop[j2] ? 0.3 : 0));
                 if (dn2 > s2.D[j2]) { s2.D[j2] = dn2; nxt[1] = Math.max(nxt[1], dn2 + EPS); const q = Q.find(x => x.ss === s2); if (q) q.t = Math.max(q.t, dn2); }
                 const sg = segs.get(s2.tr.seq[j2 - 1] + '|' + s2.tr.seq[j2] + '|' + (s2.tr.down ? 'd' : 'u')); if (sg) { const r2 = sg.find(r => Math.abs(r[1] - (s2.A[j2] - dl)) < 1e-6); if (r2) r2[1] = s2.A[j2]; }
+                { const u2 = [s2.tr.seq[j2 - 1], s2.tr.seq[j2]].sort().join('|'), sl = single.get(u2); if (sl) { const r3 = sl.find(r => r[2] === s2.tr.down && Math.abs(r[1] - (s2.A[j2] - dl)) < 1e-6); if (r3) { r3[1] = s2.A[j2]; if (r3.to != null) r3.to += dl; } } }   /* 単線：その列車がまだ区間にいるあいだ、反対の列車を入れない */
                 extend(k0, R0, d + EPS); } } }
         } }
       ss.D[i] = d; ss.A[i + 1] = a;

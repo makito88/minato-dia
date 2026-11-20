@@ -521,6 +521,9 @@
           const r = (s.rests || []).find(x => s.trips[s.trips.indexOf(x.after) + 1] === n.trip && T >= x.t1);
           if (n.trip === s.trips[0] && T >= s.first - C.lead0(s)) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true };
           else if (r) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: r.at }; }
+        /* 遅れて（信号で待って）まだ前の列車として終点に着いていなければ、次の列車・入庫の回送にせず、前の列車のまま走らせる（2026-11-21 点検：港の場内で待っていた 5047 が、ホームの 5048 へ飛んでいた） */
+        { const cur = n.trip, k = cur ? s.trips.indexOf(cur) : -1, pv = n.dead && !n.out ? cur : k > 0 ? s.trips[k - 1] : null;
+          if (pv && pv !== (n.dead ? null : cur)) { const m = LAG.get(baseOf(pv)); if (m && m.tr === pv && m.at != null && Math.abs(m.at - (T - lagDt)) < 1e-6 && m.t < pv.arr[pv.arr.length - 1] - 0.01) n = { trip: pv, late: true }; } }
         /* 待った出庫の回送が、まだホームに着いていなければ、回送のまま続ける（ホームへ飛ばない。2026-11-19） */
         if (!n.dead && n.trip) { const dm = DLAG.get(dkey(s, n.trip, true)); if (dm && dm.f < 0.999 && Math.abs(dm.at - (T - lagDt)) < 1e-6) n = { dead: true, out: true, f: 1, trip: n.trip, origin: true, yard: dm.yard }; }   /* 発車の時刻をすぎても、ホームに着くまでは回送のまま（2026-11-21） */
         if (n.dead) {
