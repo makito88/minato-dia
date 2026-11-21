@@ -931,10 +931,11 @@
       if (c && c.lane != null && c.s === s) { ss.L[0] = c.lane; ss.R[0] = c.rec; ss.D[0] = Math.max(tr.dep[0], c.floor); if (c.rec && c.rec.own) c.rec.own.push({ L: ss.L, j: 0, tr, ss }); }   /* 折り返し：着いた番線のまま */
       else if (inHs(s)) {
         /* 始発（車庫・留置線から出てくる列車）は、発車の5分前にはホームに入って待つ（2026-11-19）。番線があかないときは4・3・2・1分前 */
-        let from = c && c.s === s ? c.from : tr.dep[0] - 2.5, p = null; const floor = c && c.s === s ? c.floor : -1e9;
-        if (!(c && c.s === s)) { for (const ld of [6.5, 5.5, 4.5, 3.5, 2.5]) { from = tr.dep[0] - ld; p = pick(tr, 0, from, Math.max(tr.dep[0], from) + EPS); if (!p.wait) break; } ss.lead0 = tr.dep[0] - from - 1.5; }
-        else p = pick(tr, 0, from, Math.max(tr.dep[0], from) + EPS); ss.L[0] = p.o; ss.D[0] = Math.max(tr.dep[0] + p.wait, floor);
-        ss.R[0] = put(key(s, p.o), from + p.wait, ss.D[0] + EPS); if (p.wait > 0 && c && c.rest) c.rest.t1 += p.wait;   /* ホームがあくまで、車庫・留置線で長く休む */
+        let from = c && c.s === s ? c.from : tr.dep[0] - 2.5, p = null; const floor = c && c.s === s ? c.floor : -1e9, LW = c && c.rest && (s === 'C' || s === 'P' || s === 'O') ? 3 : 0;   /* 休みから出てくる回送も、入出庫線を通る3分ぶん早めから */
+        /* 車庫から出てくる回送は、入出庫線を数分かけて通る。前にその番線にいた列車（入庫の回送になることが多い）が入出庫線を抜けるまで、番線を3分早めから押さえる（2026-11-21：中央で出庫と入庫が入出庫線ですれちがっていた） */
+        if (!(c && c.s === s)) { const LEADW = s === 'C' || s === 'P' || s === 'O' ? 3 : 0; for (const ld of [6.5, 5.5, 4.5, 3.5, 2.5]) { from = tr.dep[0] - ld; p = pick(tr, 0, from - LEADW, Math.max(tr.dep[0], from) + EPS); if (!p.wait) break; } ss.lead0 = tr.dep[0] - from - 1.5; }
+        else p = pick(tr, 0, from - LW, Math.max(tr.dep[0], from) + EPS); ss.L[0] = p.o; ss.D[0] = Math.max(tr.dep[0] + p.wait, floor);
+        ss.R[0] = put(key(s, p.o), from - LW + p.wait, ss.D[0] + EPS); if (p.wait > 0 && c && c.rest) c.rest.t1 += p.wait;   /* ホームがあくまで、車庫・留置線で長く休む */
       } else ss.D[0] = Math.max(tr.dep[0], c && c.floor != null ? c.floor : -1e9);
       Q.push({ t: ss.D[0], ss });
     }
@@ -1016,9 +1017,9 @@
       /* 終点 */
       noteThroat(nx, a, o, 'arr');
       const nd = same ? Math.max(nt.dep[0], a + TURN) : a + 3;
-      if (!same) { put(key(nx, o), a - EIN, a + 3).own = [{ L: ss.L, j: i + 1, tr }]; finish(ss, nt ? { s: nt.seq[0], lane: null, from: nt.dep[0] - 2.5, floor: a + TURN } : null); continue; }
+      if (!same) { put(key(nx, o), a - EIN, a + 3 + (at ? 2.5 : 0)).own = [{ L: ss.L, j: i + 1, tr }];   /* 車庫のある駅：入庫の回送が入出庫線をぬけるまで（a+3 から出て2〜3分）番線を押さえる */ finish(ss, nt ? { s: nt.seq[0], lane: null, from: nt.dep[0] - 2.5, floor: a + TURN } : null); continue; }
       if (plan.rest) {
-        put(key(nx, o), a - EIN, a + 3).own = [{ L: ss.L, j: i + 1, tr }]; (yuse[at] = yuse[at] || []).push([a + 3, nd - 5]);
+        put(key(nx, o), a - EIN, a + 3 + 2.5).own = [{ L: ss.L, j: i + 1, tr }]; (yuse[at] = yuse[at] || []).push([a + 3, nd - 5]);   /* 休みに入る回送が入出庫線をぬけるまで押さえる */
         const rr = { at, t0: a + 3, t1: nd - 5, after: tr }; if (!rests.has(ss.st)) rests.set(ss.st, []); rests.get(ss.st).push(rr);
         finish(ss, { s: nx, lane: null, from: nd - 5, floor: nd, rest: rr }); continue;
       }
