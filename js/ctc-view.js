@@ -594,18 +594,22 @@
         const fmin = !backOff && dm && dm.at === T - lagDt ? Math.min(dm.f, d.f0) : 0;
         for (let k = 1; k <= 51; k++) { const f0 = Math.max(fmin, d.f0 - k * 0.02); const p2 = deadAt(d.path, d.fs(f0), d.sl, d.p.i);   /* 出はじめなら、もとの番線・置き場所で待つ */
           if (!blocked(p2.body) || f0 === fmin) { d.p = Object.assign(p2, { held: true }); d.f0 = f0; break; } } }
+      /* 回送 d の車体 B が、ほかの列車のために鎖錠・転換中・使用中のポイントにかかるか（下がるとき・もどすときにも見る） */
+      const PJ2 = HS && window.CtcSignal ? layOf().pts.filter(q => q.a != null && q.b != null && !q.cross).map(q => [q, q.gen ? q.J : [q.x, q.y0 + q.trunk]]) : [];
+      const sd2 = (q, A, B) => { const dx = B[0] - A[0], dy = B[1] - A[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((q[0] - A[0]) * dx + (q[1] - A[1]) * dy) / LL)); return Math.hypot(A[0] + u * dx - q[0], A[1] + u * dy - q[1]); };
+      const ptBusyFor = (d, B, B0) => PJ2.some(([q, J]) => { const on = X => X && X.some((v, k) => k && sd2(J, X[k - 1], v) < 3); if (!on(B) || on(B0)) return false; const v = CtcSignal.ptNow(q, T); return v && v.id && v.id !== d.tr && (v.on || v.lock || v.phase === 'move'); });   /* 前の位置ですでにかかっていたものは数えない */
       /* 入庫の回送が、出庫の回送にふさがれて待っている：出庫の回送のほうが、入庫の回送の通り道から外れるまでうしろへ下がる（1画面に少しずつ。2026-11-21） */
       for (const b of out) { if (!b.dead || !b.path || !b.n || b.n.out || !b.p.held) continue;
         const ahead = []; for (let u = 0.01; u <= 0.25; u += 0.01) { const q2 = deadAt(b.path, b.fs(Math.min(1, b.f0 + u)), b.sl, b.p.i); if (q2) ahead.push([q2.x, q2.y]); }
         if (ahead.length < 2) continue;
         for (const a of out) { if (a === b || !a.dead || !a.path || !a.n || !a.n.out || !a.p.body || !bodyHit(a.p.body, ahead, 8)) continue;
-          let f = a.f0; const f1 = Math.max(0, a.f0 - 0.06); while (f > f1) { f = Math.max(f1, f - 0.01); const q3 = deadAt(a.path, a.fs(f), a.sl, a.p.i); if (q3 && !bodyHit(q3.body, ahead, 8)) break; }
+          let f = a.f0; const f1 = Math.max(0, a.f0 - 0.06), B0 = a.p.body; while (f > f1) { const fn = Math.max(f1, f - 0.01), q5 = deadAt(a.path, a.fs(fn), a.sl, a.p.i); if (q5 && ptBusyFor(a, q5.body, B0)) break; f = fn; if (q5 && !bodyHit(q5.body, ahead, 8)) break; }   /* ほかの列車のポイントには下がらない */
           const q4 = deadAt(a.path, a.fs(f), a.sl, a.p.i); if (q4) { a.p = Object.assign(q4, { held: true, back: true }); a.f0 = f; } } }
       /* 最後に：回送どうしがまだ重なっていれば、この画面で動いたほうを前の画面の位置へもどす（順番に決めるので、あとから動いた回送が、待たせた回送の所へ入ることがあった。2026-11-21） */
       for (let pass = 0; pass < 2; pass++) for (const a of out) { if (!a.dead || !a.path) continue;
         for (const b of out) { if (b === a || !b.dead || !a.p.body || !b.p.body || !bodyHit(a.p.body, b.p.body, 8)) continue;
           for (const d of [a, b]) { const dm = DLAG.get(dkey(d.s, d.tr, d.n.out)); if (!dm || Math.abs(dm.at - (T - lagDt)) > 1e-6 || dm.f >= d.f0 - 1e-6) continue;
-            const p2 = deadAt(d.path, d.fs(dm.f), d.sl, d.p.i); if (p2) { d.p = Object.assign(p2, { held: true }); d.f0 = dm.f; } } } }
+            const p2 = deadAt(d.path, d.fs(dm.f), d.sl, d.p.i); if (p2 && !ptBusyFor(d, p2.body, d.p.body)) { d.p = Object.assign(p2, { held: true }); d.f0 = dm.f; } } } }
       /* 回送のまま待たなくてよかった始発の列車は、ふつうの列車にもどす */
       for (let k = 0; k < out.length; k++) { const d = out[k]; if (!d.n || !d.n.origin || d.p.held || d.f0 < 0.999) continue;
         const tD = Math.min(T, d.tr.dep[0]), p = withBody(d.tr, C.trainPos(d.tr, tD, L, env), env); p.tD = tD; out[k] = { s: d.s, n: { trip: d.tr, wait: true }, p, tr: d.tr, dead: false }; }   /* 遅れて着いた始発は、ホームから出て追いつく（ダイヤの位置へ飛ばない） */
