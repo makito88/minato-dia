@@ -20,7 +20,8 @@ const http = require('http'), path = require('path'), fs = require('fs');
   /* データがそろうまで待つ（同時にいくつも回すと、計算が終わる前に点検が始まって、回ごとに結果が変わっていた。2026-11-21） */
   await p.evaluate(async () => { const sig = () => { try { CtcView.probe(300); const s = CtcView.syn(); const Y = s.YS; if (!Y) return ''; return Y.reg.length + ':' + Y.syn.length + ':' + Y.reg.reduce((a, x) => a + x.trips.length + x.trips.reduce((b, t) => b + t.dep[0] + t.arr[t.arr.length - 1], 0), 0).toFixed(3); } catch (e) { return ''; } };
     let last = '', same = 0; for (let k = 0; k < 120 && same < 4; k++) { await new Promise(r => setTimeout(r, 500)); const v = sig(); if (v && v === last) same++; else same = 0; last = v; } });
-  const r = await p.evaluate(([a, z]) => {
+  const TRS = process.env.CTC_TRACE ? (() => { const [ab, pt] = process.env.CTC_TRACE.split(':'); const [a, b] = ab.split('-').map(Number); return { a, b, pt }; })() : null;   /* CTC_TRACE=開始分-終了分:ポイント名（例 M①） */
+  const r = await p.evaluate(([a, z, TR]) => {
     const out = { n: 0, pts: 0, flip: [], unlock: [], stuck: [], snap: [], leg: [] }, push = (k, v) => { out[k].n = (out[k].n || 0) + 1; if (out[k].length < 8) out[k].push(v); };
     const fmt = t => `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}:${String(Math.round((t % 1) * 60)).padStart(2, '0')}`;
     const segd = (q, A, B) => { const dx = B[0] - A[0], dy = B[1] - A[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((q[0] - A[0]) * dx + (q[1] - A[1]) * dy) / LL)); return Math.hypot(A[0] + u * dx - q[0], A[1] + u * dy - q[1]); };
@@ -28,6 +29,8 @@ const http = require('http'), path = require('path'), fs = require('fs');
     const prev = new Map();
     for (let T = a; T <= z; T += 0.05) {
       const P = CtcView.probe(T); if (!P) continue; out.n++; const Q = P.trains.map(x => ({ p: { body: x.body, x: x.x, y: x.y }, tr: { num: x.num }, dead: x.dead }));   /* ポイントの状態を決めたのと同じ位置 */
+      if (TR && T >= TR.a && T <= TR.b) { const q = P.pts.find(q => (q.st + (q.no || '分' + Math.round(q.J ? q.J[0] : q.x) + ',' + Math.round(q.J ? q.J[1] : q.y0))) === TR.pt);
+        if (q) { const J0 = q.gen ? q.J : [q.x, q.y0 + q.trunk]; (out.trace = out.trace || []).push(`${fmt(T)} ${q.rev ? 'R' : 'N'}${q.lock ? 'L' : '-'}${q.phase || ''} by=${q.by} | ` + P.trains.filter(x => Math.hypot(x.x - J0[0], x.y - J0[1]) < 80).map(x => `${x.num}${x.dead ? '回' : ''}${x.held ? '待' : ''}${x.moving ? '走' : '止'}@${Math.round(x.x)},${Math.round(x.y)}`).join(' ') + ' | ' + P.sig.filter(z => z.st === q.st && z.kind !== '閉塞').map(z => z.kind[0] + (z.dir > 0 ? '下' : '上') + Math.round(z.x) + '=' + z.asp).join(' ')); } }
       P.pts.forEach((q, i) => { if (q.a == null || q.b == null || q.cross) return; out.pts = Math.max(out.pts, i + 1);
         const nm = q.st + (q.no || '分' + Math.round(q.J ? q.J[0] : q.x) + ',' + Math.round(q.J ? q.J[1] : q.y0));
         const J = q.gen ? q.J : [q.x, q.y0 + q.trunk], tl = q.gen ? Math.min(2, Math.max(3, Math.min(9, q.lenN * 0.6, q.lenR * 0.6)) * 0.35) : 2;
@@ -47,7 +50,8 @@ const http = require('http'), path = require('path'), fs = require('fs');
       });
     }
     out.redTrue = (CtcView.redLog ? CtcView.redLog() : []).map(e => `${e.T.toFixed(2)} ${e.num} が赤の${e.kind}（${e.st || ''} ${e.km.toFixed(2)}km）を越えた`); out.redTrue.n = out.redTrue.length; out.redTrue.splice(8);
+    if (out.trace) out.trace = { n: out.trace.length, ex: out.trace };
     for (const k of ['flip', 'unlock', 'stuck', 'snap', 'leg', 'redTrue']) out[k] = { n: out[k].n || 0, ex: out[k].slice() };
-    return out; }, [+a, +z]);
+    return out; }, [+a, +z, TRS]);
   console.log(JSON.stringify(r, null, 1)); await b.close(); srv.close();
 })();

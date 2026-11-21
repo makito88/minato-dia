@@ -180,6 +180,11 @@
       if (!atFar) return x.moving;
       const ready = x.moving || (x.tr.dep[x.i] - T < 0.45 && (x.i === 0 || T >= x.tr.arr[x.i] - 0.01)); if (!ready || !t) return ready;
       const a = t.tr.dep[t.i], b = x.tr.dep[x.i]; return !(a < b - 1e-6 || (Math.abs(a - b) < 1e-6 && dir > 0)); });
+    /* 本線の場内：その駅の出発信号までのポイントが、ほかの列車のために鎖錠・転換中・反位になっていれば開かない（2026-11-21 点検：緑ヶ丘で、通過列車のために定位へもどしている①へ、場内で待っていた列車が入っていた） */
+    const ptClaimed = (o, t) => { if (!t || o.br || o.kind !== '場内') return false; const x0 = o.x, ds = lay.sig.filter(z => z.st === o.st && z.kind === '出発' && z.dir === o.dir && (z.x - x0) * o.dir > 0).map(z => z.x);
+      const x1 = ds.length ? (o.dir > 0 ? Math.max(...ds) : Math.min(...ds)) : x0 + o.dir * 0.6 * L.pxk;
+      return lay.pts.some(p => { if (p.a == null || p.b == null || p.cross) return false; const J = p.gen ? p.J : [p.x, p.y0 + p.trunk];
+        if ((J[0] - x0) * o.dir <= 0 || (J[0] - x1) * o.dir >= 0) return false; const v = ptNow(p, T); return !!(v && v.id && v.id !== t.tr && !v.dead); }); };   /* ほかの列車がそのポイントを使う予定（向きを決めている）ならまだ */
     const DEPW = new Map();   /* 駅・向き・線ごとに、いま開いている出発（1つだけ） */
     /* 信号 o から次の信号 nx までのあいだのポイントが、ほかの列車のために鎖錠されている（ひとつ前の時刻の状態。2026-11-21 点検：緑ヶ丘で通過列車の進路を割って出発していた） */
     const ptOther = (o, nx, t) => { if (!t || o.br || o.kind !== '出発') return false;   /* 本線（複線）の出発だけ。支線（単線）は単線の決まりで守る（ここで止めると、にらみ合いになる） */ const x0 = o.x;
@@ -262,7 +267,7 @@
           const thr = head && trains.some(x => x !== t && x.dir !== dir && ((x.moving && x.hi > Math.min(o.km, SX[o.st].km) && x.lo < Math.max(o.km, SX[o.st].km)) ||
             (!x.moving && atSt(x) === o.st && x.tr.dep[x.i] - T < 0.6 && (crossA || (o.st === 'C' ? laneAt(x, x.i) > 0 : laneAt(x, x.i) < 0)))));   /* もうすぐ出る列車と、のどで交差するなら開かない */
           const dy = Y.main + (line === 'd' ? -Y.lane : Y.lane), deadRt = !o.br && (line === 'u' || line === 'd') && (deadPt(dy, o.x, L.xm(SX[o.st].km)) || deadOn(dy, o.km, SX[o.st].km, true) || deadOn(dy, o.km, SX[o.st].km, 2) || ((o.km - t.km) * dir > 0.45 && deadOn(dy, o.km, SX[o.st].km)));   /* 回送（入換）が場内信号の内側の本線を使っている・進路がある（2026-11-19）。列車がもう信号の近く（進路ができている）なら、まだ動き出していない回送のほうが待つ */
-          const busy = thr || deadIn || deadRt || ptOther(o, null, t) || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
+          const busy = thr || deadIn || deadRt || ptOther(o, null, t) || ptClaimed(o, t) || trains.some(x => x !== t && ((atSt(x) === o.st && laneAt(x, x.i) === lane) || near(x)));
           if (busy) { asp.set(o, R); continue; }
           const dep = lay.sig.find(x => x.kind === '出発' && x.st === o.st && x.lane === lane && x.dir === dir);
           const prep = (o.km - t.km) * dir > 1.6;
@@ -346,7 +351,9 @@
     const one = [['K', 'F'], ['F', 'X'], ['X', 'T'], ['T', 'O']].map(([a, b]) => { const ka = a === 'K' ? 0 : SX[a].bkm, kb = SX[b].bkm, ft = a === 'F' || b === 'T' && a === 'X';
       const inSec = t => { const s0 = t.tr.seq[t.i], s1 = t.tr.seq[t.i + 1], A = ft ? 'F' : a, Bb = ft ? 'T' : b;
         if (!((s0 === A && s1 === Bb) || (s0 === Bb && s1 === A))) return false;
-        if (!t.moving) return t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01) && (!ft || (s0 === a || s0 === b));
+        if (!t.moving) { const s1x = t.tr.seq[t.i + 1], g1 = C.GEO[s1x], x1s = !SX[s1x] ? null : s1x === 'K' ? L.xm(SX.K.km) : L.xb(SX[s1x].bkm);
+          if (x1s != null && g1 && Math.abs(t.q.p.x - x1s) < (g1.d0 + 0.05) * L.pxk) return false;   /* もう向こうの駅に着いて止まっている（2026-11-21） */
+          return t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01) && (!ft || (s0 === a || s0 === b)); }
         { const g0 = C.GEO[s0], x0 = !SX[s0] ? null : s0 === 'K' ? L.xm(SX.K.km) : L.xb(SX[s0].bkm); if (x0 != null && g0 && Math.abs(t.q.p.x - x0) < (g0.d0 + 0.05) * L.pxk && (t.q.p.x - x0) * t.dir < (g0.d0 + 0.05) * L.pxk) return false; }   /* まだ駅の構内（出発信号の手前）にいる列車は、区間に入っていない */   /* 駅の出発信号で待っている列車は、まだ区間に入っていない（2026-11-21） */
         if (!ft) return true; if (t.q.p.xwait) return false;
         const lo = a === 'X' ? xk + xh : ka + C.GEO.F.d0, hi = b === 'X' ? xk - xh : kb - C.GEO.T.d0; return t.hi > lo && t.lo < hi; };   /* 駅の構内（番線）は区間に入れない */
