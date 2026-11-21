@@ -347,7 +347,7 @@
       const inSec = t => { const s0 = t.tr.seq[t.i], s1 = t.tr.seq[t.i + 1], A = ft ? 'F' : a, Bb = ft ? 'T' : b;
         if (!((s0 === A && s1 === Bb) || (s0 === Bb && s1 === A))) return false;
         if (!t.moving) return t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01) && (!ft || (s0 === a || s0 === b));
-        { const g0 = C.GEO[s0], x0 = !SX[s0] ? null : s0 === 'K' ? L.xm(SX.K.km) : L.xb(SX[s0].bkm); if (t.q.p.held && x0 != null && g0 && Math.abs(t.q.p.x - x0) < (g0.d0 + 0.05) * L.pxk) return false; }   /* 駅の出発信号で待っている列車は、まだ区間に入っていない（2026-11-21） */
+        { const g0 = C.GEO[s0], x0 = !SX[s0] ? null : s0 === 'K' ? L.xm(SX.K.km) : L.xb(SX[s0].bkm); if (x0 != null && g0 && Math.abs(t.q.p.x - x0) < (g0.d0 + 0.05) * L.pxk && (t.q.p.x - x0) * t.dir < (g0.d0 + 0.05) * L.pxk) return false; }   /* まだ駅の構内（出発信号の手前）にいる列車は、区間に入っていない */   /* 駅の出発信号で待っている列車は、まだ区間に入っていない（2026-11-21） */
         if (!ft) return true; if (t.q.p.xwait) return false;
         const lo = a === 'X' ? xk + xh : ka + C.GEO.F.d0, hi = b === 'X' ? xk - xh : kb - C.GEO.T.d0; return t.hi > lo && t.lo < hi; };   /* 駅の構内（番線）は区間に入れない */
       const ts = trains.filter(inSec); return { a, b, ka, kb, t: ts[0] || null, ts }; });

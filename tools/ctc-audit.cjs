@@ -23,7 +23,9 @@ const { spawn } = require('child_process');
   /* データがそろうまで待つ（同時にいくつも回すと、計算が終わる前に点検が始まって、回ごとに結果が変わっていた。2026-11-21） */
   await p.evaluate(async () => { const sig = () => { try { CtcView.probe(300); const s = CtcView.syn(); const Y = s.YS; if (!Y) return ''; return Y.reg.length + ':' + Y.syn.length + ':' + Y.reg.reduce((a, x) => a + x.trips.length + x.trips.reduce((b, t) => b + t.dep[0] + t.arr[t.arr.length - 1], 0), 0).toFixed(3); } catch (e) { return ''; } };
     let last = '', same = 0; for (let k = 0; k < 120 && same < 4; k++) { await new Promise(r => setTimeout(r, 500)); const v = sig(); if (v && v === last) same++; else same = 0; last = v; } });
-  const r = await p.evaluate(([step]) => {
+  /* CTC_TRACE=開始分-終了分:列車番号,列車番号[:駅] で、その時間の列車の位置と駅の信号を out.trace に書き出す（2026-11-21） */
+  const TRS = process.env.CTC_TRACE ? (() => { const [ab, nums, st] = process.env.CTC_TRACE.split(':'); const [a, b] = ab.split('-').map(Number); return { a, b, nums: nums.split(','), st: st || null }; })() : null;
+  const r = await p.evaluate(([step, TR]) => {
     const M = 300, out = { redK: {}, n: 0, overlap: [], overlapDead: [], ptLock: [], ptLeg: [], ptFoul: [], red: [], oneMiss: [], oneHead: [], count: [], slot: [], longDead: [], night: [], snap: {} };
     const push = (a, v) => { a.n = (a.n || 0) + 1; if (a.length < 6) a.push(v); };
     const segd = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)); return Math.hypot(a[0] + u * dx - p[0], a[1] + u * dy - p[1]); };
@@ -34,6 +36,7 @@ const { spawn } = require('child_process');
     let prev = null; const total = null;
     for (let T = 270; T <= 1560; T += step) {
       const P = CtcView.probe(T); if (!P) continue; out.n++;
+      if (TR && T >= TR.a && T <= TR.b) (out.trace = out.trace || []).push(T.toFixed(2) + ' ' + P.trains.filter(x => TR.nums.includes(String(x.num))).map(x => `${x.num}${x.dead ? '回' : ''}${x.held ? '待' : ''}${x.moving ? '走' : '止'}@${Math.round(x.x)},${Math.round(x.y)}~${x.body.length ? Math.round(x.body[x.body.length - 1][0]) : ''}`).join(' ') + (TR.st ? ' | ' + P.sig.filter(z => z.st === TR.st && z.kind !== '閉塞').map(z => z.kind[0] + (z.dir > 0 ? '下' : '上') + Math.round(z.x) + '=' + z.asp).join(' ') : ''));
       const tr = P.trains, live = tr.filter(t => !t.dead);
       /* 1. 重なり（車体どうしが 4px より近い） */
       const box = tr.map(t => bb(t.body));
@@ -75,7 +78,7 @@ const { spawn } = require('child_process');
     out.redTrue = (CtcView.redLog ? CtcView.redLog() : []).map(e => `${e.T.toFixed(2)} ${e.num} が赤の${e.kind}（${e.st || ''} ${e.km.toFixed(2)}km）を越えた`); out.redTrue.n = out.redTrue.length; out.redTrue.splice(8);
     for (const k in out) if (Array.isArray(out[k])) out[k] = { n: out[k].n || 0, ex: out[k].slice() };
     return out;
-  }, [step]);
+  }, [step, TRS]);
   console.log(sc, JSON.stringify(r, null, 1));
   await b.close(); srv.kill();
 })();

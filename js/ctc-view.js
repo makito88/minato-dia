@@ -510,7 +510,8 @@
   const dkey = (s, tr, out) => baseOf(tr) + (out ? 'o' : 'i') + '|' + (s && s.id != null ? s.id : s && s.trips && s.trips[0] ? s.trips[0].num : '');   /* 回送の待ちの記録：編成ごと */
   function posAll(D, T) {
       const Y3 = yardSets(D);
-      if (LAGT == null || T < LAGT - 0.001 || T - LAGT > 1.5) { LAG.clear(); DLAG.clear(); } const lagDt = LAGT == null ? 0 : Math.max(0, T - LAGT); LAGT = T;   /* 時刻を飛ばしたら、待ちの記録を消す */
+      if (LAGT == null || T < LAGT - 0.001 || T - LAGT > 1.5) { LAG.clear(); DLAG.clear(); }
+      const PREVLAG = new Map(LAG);   /* ひとつ前の画面の位置（このあと LAG は今の位置に書きかわる） */ const lagDt = LAGT == null ? 0 : Math.max(0, T - LAGT); LAGT = T;   /* 時刻を飛ばしたら、待ちの記録を消す */
       const states = Y3.reg.map(s => [s, setNow(s, T)]).concat(Y3.syn.map(s => [s, synNow(s, T)])), env = envCore(D);
       const out = [];
       states.forEach(([s, n0]) => { let n = n0;
@@ -611,17 +612,24 @@
       out.forEach(q => { if (!q.dead && q.p.tD != null) LAG.set(baseOf(q.tr), { t: q.p.tD, x: q.p.x, y: q.p.y, tr: q.tr, at: T }); });
       out.forEach(q => { if (q.dead && q.n && q.f0 != null) DLAG.set(dkey(q.s, q.tr, q.n.out), { f: q.f0, yard: q.n.yard, at: T }); });
       /* 閉塞：同じ線路を同じ向きに走る列車は、前の列車の最後尾より先へ出ない（時刻の計算のずれで重なって見えないように） */
-      const run = out.filter(q => !q.dead && q.p.moving);
+      const run = out.filter(q => !q.dead && (q.p.moving || (q.p.i != null && q.tr.arr[q.p.i] != null && T - q.tr.arr[q.p.i] < 0.6 && T >= q.tr.arr[q.p.i])));   /* 着いたばかりの列車も（時刻表では止まっていても、画面では前の列車がまだ番線にいることがある。2026-11-21 事故の日の川辺） */
       for (const f of run) {
         const fl = Math.max(10, f.tr.cars * 0.02 * pxk);
         for (const l of out) {
           if (l === f || l.dead || l.p.dir !== f.p.dir || Math.abs(l.p.y - f.p.y) > 3) continue;
           const ll = Math.max(10, l.tr.cars * 0.02 * pxk), tail = l.p.x - ll * l.p.dir;   /* 前の列車の最後尾 */
-          const ahead = (l.p.x - f.p.x) * f.p.dir; if (ahead <= 0 || ahead > fl + ll + 60) continue;
+          const pm = PREVLAG.get(baseOf(f.tr)), fx0 = pm && pm.tr === f.tr && pm.at != null && Math.abs(pm.at - (T - lagDt)) < 1e-6 ? pm.x : f.p.x;   /* 前の画面の位置で「前の列車」かどうかを見る（1歩で飛びこえることがある） */
+          const ahead = Math.max((l.p.x - f.p.x) * f.p.dir, (l.p.x - fx0) * f.p.dir); if (ahead <= 0 || ahead > fl + ll + 60) continue;
           const lim = tail - 6 * f.p.dir; if ((f.p.x - lim) * f.p.dir > 0) {   /* 少し前の時刻の位置にもどす（線路の上のまま） */
-            for (let k = 1; k <= 80; k++) { const p2 = C.trainPos(f.tr, T - k * 0.02, L, envCore(D)); if ((p2.x - lim) * f.p.dir <= 0) { f.p = withBody(f.tr, Object.assign(p2, { held: true, moving: true }), envCore(D)); break; } } }
+            let ok = false; for (let k = 1; k <= 80; k++) { const p2 = C.trainPos(f.tr, T - k * 0.02, L, envCore(D)); if ((p2.x - lim) * f.p.dir <= 0) { f.p = withBody(f.tr, Object.assign(p2, { held: true, moving: true }), envCore(D)); ok = true; break; } }
+            if (!ok && pm && pm.tr === f.tr && fx0 !== f.p.x) { const p3 = C.trainPos(f.tr, pm.t, L, envCore(D)); f.p = withBody(f.tr, Object.assign(p3, { held: true, moving: true, tD: pm.t }), envCore(D)); } }   /* 時刻表のどの位置でも重なるときは、前の画面の位置で待つ */
         }
       }
+      /* 着いたばかりの列車が、同じ番線にまだいる（遅れている）列車と重なったら、重ならない所まで手前にもどす（1歩で前の列車を飛びこえることがあるので、前後は見ない。2026-11-21） */
+      for (const f of run) { if (f.p.moving) continue; const spn = q => { const ln = Math.max(10, q.tr.cars * 0.02 * pxk); return q.p.dir > 0 ? [q.p.x - ln, q.p.x] : [q.p.x, q.p.x + ln]; };
+        const hitL = q => out.some(l => l !== f && !l.dead && Math.abs(l.p.y - q.p.y) <= 3 && (() => { const [a0, a1] = spn(q), [b0, b1] = spn(l); return a0 < b1 + 3 && b0 < a1 + 3; })());
+        if (!hitL(f)) continue;
+        for (let k = 1; k <= 120; k++) { const tk = f.tr.arr[f.p.i] - k * 0.02, p2 = C.trainPos(f.tr, tk, L, envCore(D)), g = { p: p2, tr: f.tr }; if (Math.abs(p2.y - f.p.y) > 3 || !hitL(g)) { f.p = withBody(f.tr, Object.assign(p2, { held: true, moving: true }), envCore(D)); break; } } }
       /* 頭端の駅ののど：出ていく列車の最後尾が抜けるまで、同じ番線へ着く列車は手前で待つ（時刻の計算では同時に見えることがあるので、画面で少し前の位置に止める） */
       const span = q => { const ln = Math.max(10, q.tr.cars * 0.02 * pxk); return q.p.dir > 0 ? [q.p.x - ln, q.p.x] : [q.p.x, q.p.x + ln]; };
       const hit = (a, b) => { if (Math.abs(a.p.y - b.p.y) > 3) return false; const [a0, a1] = span(a), [b0, b1] = span(b); return a0 < b1 - 1 && b0 < a1 - 1; };
