@@ -1,8 +1,8 @@
 {
- "runs": 1,
+ "runs": 2,
  "empty": 0,
  "paused": false,
  "resume": false,
- "inProgress": true,
+ "inProgress": false,
  "note": "週1回の行事集めの状態。runs=前の確認から足した回数、empty=続けて見つからなかった回数。paused のあいだは何もしない。ユーザーが続けると言ったら、どこかのチャットで resume を true にする"
 }
