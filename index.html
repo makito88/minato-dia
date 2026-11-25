@@ -691,6 +691,7 @@ canvas{display:block;touch-action:manipulation}
 </div>
 
 <script src="js/season-core.js?v=20261110a"></script>
+<script src="js/busnet-core.js?v=20261125a"></script>
 <script src="js/port-core.js?v=20261110a"></script>
 <script src="js/links/port-to-all.js?v=20261110a"></script>
 <script src="js/rail-shape.js?v=20261113a"></script>
@@ -968,18 +969,21 @@ function ensDayFactors(day){const C=ENS.cfg.econ,ec=econAt(day),N=NSt;
   return {day,e:ec.e,phase:ec.phase,cost:ec.cost,shocks,T,late};}
 function ecoApply(o,s,d,t){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=ECO.T[b+p];}
 let KFX=null;   /* 経営の投資の倍率（KeieiView.fx）。運行日の始めに読む */
-function ensRefresh(){ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;KFX=window.KeieiView?KeieiView.fx(ENS.day||1):null;seasRefresh();}
+function ensRefresh(){BUSN.F=(BUSN.cfg&&typeof BusNet!=='undefined')?BusNet.table(BUSN.cfg,ALL,COND.day!=='wd'):null;ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;KFX=window.KeieiView?KeieiView.fx(ENS.day||1):null;seasRefresh();}
 /* ---- 季節のできごと（計算は js/season-core.js、設定は data/seasonal.json と data/seasonal-extra.json） ----
    いつ・どこで起きるかは「保存の種＋暦の日付」だけで決まる。景気が固定でも起きる（暦の行事なので）。
    その日のイベント（プレイヤーが選ぶもの）と同じ駅なら止める（二重に数えない）。効き目は保存しない */
 const SEAS={cfg:null,dateI:null,list:[],T:null,hold:true,port:null,L:null,portPlan:null};   // port・L・portPlan：港（客船の日）の島の設定・橋の一覧・きょうの橋の結果（港駅の売店の8回目）   // dateI：留守の日をまとめて進めるとき、js/away.js がその日の番号を入れる。hold：留守の分を進め終わるまで、きょうの便りを待つ（順番が逆にならないように）
+const BUSN={cfg:null,F:null};   // 沿線のバス網（計算は js/busnet-core.js、設定は data/busnet.json）。F＝駅の組・目的ごとの倍率（バスが駅に人を運ぶ・並んで走る）
 function seasDayI(){return SEAS.dateI!=null?SEAS.dateI:SeasonCore.opIndex(Date.now());}
 function seasRefresh(){SEAS.list=[];SEAS.T=null;if(!SEAS.cfg||typeof SeasonCore==='undefined')return;
   const evPlaces=new Set((ACTIVE_EV||[]).map(e=>e.place));
-  SEAS.list=SeasonCore.today(SEAS.cfg,ENS.seed,seasDayI()).filter(o=>!(o.st&&evPlaces.has(o.st)));
+  SEAS.list=SeasonCore.today(SEAS.cfg,ENS.seed,seasDayI());
+  if(BUSN.cfg&&typeof BusNet!=='undefined')SEAS.list=BusNet.place(BUSN.cfg,SEAS.list);   // 会場が駅から遠いできごと：いちばん来やすい駅にし、ほかの駅への割合もつける
+  SEAS.list=SEAS.list.filter(o=>!(o.st&&evPlaces.has(o.st)));
   // 客船の日（橋 port-to-all）：保存の種と暦の日付だけで決まる。季節のできごとと同じ形の1件として足す（鉄道の倍率・売店のジャンル・沿線だよりは同じ道）
   SEAS.portPlan=null;if(SEAS.port&&typeof PortToAll!=='undefined'){try{SEAS.portPlan=PortToAll.plan(SEAS.L,SEAS.port,ENS.seed,seasDayI());}catch(e){SEAS.portPlan=null;}if(SEAS.portPlan)SEAS.list.push(SEAS.portPlan.item);}
-  if(SEAS.list.length){const R=SeasonCore.railRules(SEAS.cfg,SEAS.list),N=NSt,T=new Float32Array(N*N*30*4).fill(1);
+  if(SEAS.list.length){const R=SeasonCore.railRules(SEAS.cfg,(BUSN.cfg&&typeof BusNet!=='undefined')?BusNet.expand(SEAS.list):SEAS.list),N=NSt,T=new Float32Array(N*N*30*4).fill(1);
     for(let si=0;si<N;si++)for(let di=0;di<N;di++){if(si===di)continue;for(let h=4;h<30;h++)for(let p=0;p<4;p++)T[((si*N+di)*30+h)*4+p]=Math.max(0.4,Math.min(2.5,SeasonCore.railFactor(R,ALL[si],ALL[di],h,p)));}
     SEAS.T=T;}
   try{ENSEN_UI.seasLetters();}catch(e){}}   // 沿線だよりがまだ用意できていないときは、あとで init のときに届く
@@ -1134,6 +1138,7 @@ function rateParts(s,d,t,noSvc){
   if(ENS.cfg)newFlowsBase(o,s,d,t,ps,pd);
   for(let p=0;p<4;p++)o[p]*=CX.m[p];
   if(SEAS.T)seasApply(o,s,d,t);             // 季節のできごと（暦の行事。その日だけ）
+  if(BUSN.F){const b=(SI[s]*NSt+SI[d])*4;for(let p=0;p<4;p++)o[p]*=BUSN.F[b+p];}   // バス網：駅に人を運ぶ系統・電車と並ぶ系統
   if(ECO)ecoApply(o,s,d,t);                 // 沿線暦：景気の波と地域の小さな波（イベントの上乗せより前に掛けるので、イベント分は二重に変わらない）
   if(ENS.cfg)newFlowsAfter(o,s,d,t,ps,pd);
   if(KFX)KeieiCore.apply(KFX,o,s,d);        /* 経営の投資（駅の改良・モール・住宅など。橋 keiei-to-rail・js/keiei-core.js） */
@@ -3443,6 +3448,8 @@ const ENSEN_UI=(()=>{
   async function init(){const first=load();
     try{const r=await fetch('data/ensen.json');if(!r.ok)throw new Error('HTTP '+r.status);ENS.cfg=await r.json();}catch(e){ENS.cfg=null;ENS.ready=true;renderAll();return;}
     try{const [a,b]=await Promise.all(['data/seasonal.json?v=20261110a','data/seasonal-extra.json'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.cfg=a&&typeof SeasonCore!=='undefined'?SeasonCore.merge(a,b):null;}catch(e){SEAS.cfg=null;}
+    try{const [bn,bs]=await Promise.all(['data/busnet.json?v=20261125a','data/seasonal-busnet.json?v=20261125a'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));   // 沿線のバス網（読めなくても、ほかはいつもどおり）
+      if(bn&&typeof BusNet!=='undefined'){BUSN.cfg=bn;BusNet.eventFlows(bn,EVENT_DATA);if(bs&&SEAS.cfg)SEAS.cfg=SeasonCore.merge(SEAS.cfg,bs);}}catch(e){BUSN.cfg=null;}
     try{const [pj,lj]=await Promise.all(['data/port.json?v=20261110a','data/links.json?v=20261112k'].map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));SEAS.port=pj;SEAS.L=lj;}catch(e){SEAS.port=null;}   // 港（客船の日）（読めなくても、ほかはいつもどおり）   // 季節のできごと（読めなくても、ほかはいつもどおり）
     ensReset(st.seed);ENS.day=st.day;ENS.ready=true;NEWD={...st.newd};
     if(first&&COND.econ!=='auto'&&COND.econ==='mid')COND.econ='auto';   // はじめて使うときは景気を「自動」に
@@ -3457,7 +3464,7 @@ const ENSEN_UI=(()=>{
   // 季節のできごと：起きた朝に、初めて便りで知らせる（前もっては出さない）。同じ日・同じできごとは1通だけ
   function seasLetters(){if(!ready||!SEAS.list.length||(SEAS.hold&&SEAS.dateI==null))return;let add=0;
     for(const o of SEAS.list){const key='seas:'+o.ymd+':'+o.id,L=o.ev.letter;if(!L||(st.letters||[]).some(l=>l.key===key))continue;
-      const r=SeasonCore.rng(SeasonCore.hash(st.seed,key)),pick=a=>Array.isArray(a)?a[Math.floor(r()*a.length)]:a,d={st:o.st&&ST[o.st]?ST[o.st].name:'沿線'};
+      const r=SeasonCore.rng(SeasonCore.hash(st.seed,key)),pick=a=>Array.isArray(a)?a[Math.floor(r()*a.length)]:a,d={st:o.venue||(o.st&&ST[o.st]?ST[o.st].name:'沿線')};
       st.letters=[...(st.letters||[]),{id:st.day+'-'+key,day:st.day,st:o.st||null,kind:'season',key,tplId:o.id,who:ensFill(pick(L.who),d),src:L.src,title:ensFill(pick(L.title),d),body:ensFill(pick(L.body),d),read:false,dev:{ymd:o.ymd,mag:o.mag}}].slice(-ENS.cfg.letters.keep);add++;}
     if(add){persist();renderBadge();if(open){renderFilter();renderList();}}}
   function unread(){return (st&&st.letters||[]).filter(l=>!l.read).length;}

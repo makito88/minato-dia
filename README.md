@@ -24,6 +24,7 @@
 - 地図の季節（第10回）：夏の地図の絵を、本当の暦の日付で日ごとに少しずつ季節の色に（梅・桜並木と散りぎわの花びら・新緑・田植え・稲穂・紅葉の前線が山の上からふもとへ・葉の落ちた冬・山の上の雪）。雪は雪の日だけ積もり、晴れが続くと解ける。雪の夜は明るく、桜の夜はライトアップ。お絵かき帖の道具「季節」（`route-editor.html#season`）で桜並木・梅林・紅葉の山・田んぼを塗れる。季節の見本は [docs/season-preview.html](docs/season-preview.html)。同じ構図の季節の絵（ChatGPT などで描く）を置けばそれを使う：頼み方は [docs/map-season-prompts.md](docs/map-season-prompts.md)。計算は `js/mapseason-core.js`、設定は `data/map-season.json`。
 - 地図の列車（第7回）：1両ずつ線路の上でカーブを曲がる見下ろしの絵（`js/train-art.js`・色は `data/train-style.json`）。列車を押すと地図の下に編成のパネル（横から見た編成・車両の種類・種別・両数・行き先）。
 - [沿線暦と沿線だより](docs/features/ensen.md)（季節のできごとの仕組みもここ）
+- [沿線のバス網](docs/features/busnet.md)（駅から遠い会場の行事・バスが駅に人を運ぶ・電車と並ぶバスが、電車の乗客の数に効く）
 - [駅ナカ リサーチ](docs/features/research.md)
 - [売店の運営](docs/features/kiosk.md)
 - [配送会社とセンターの倉庫](docs/features/haiso.md)
