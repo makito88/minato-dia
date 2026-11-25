@@ -6,6 +6,7 @@
      {v:1, st:{駅:[x,y]}, seg:{'C-S':{p:[[x,y]…],s:1}}, depot:{C:{yard:[x,y,w,h],exit:[[x,y]…]}}, extra:[{p:[[x,y]…],s:0|1}]}
      seg のかぎは路線の順（本線 C→P・支線 K→O）。p は駅と駅のあいだの「曲がる点」、s:1 はなめらかな曲線。
    ・駅の数・順番・つながり・キロ程はここでは変えられない（base の駅と線だけを読む）。
+   ・2026-11-25：標準の形（base.seg＝地図の絵の線路に合わせた曲がる点）。保存にその区間がなければ標準を使う。「元の線路に戻す」＝標準の形。
    ===================================================================== */
 (function(root){
 'use strict';
@@ -50,13 +51,14 @@ function atLen(m,s){const P=m.pts,n=P.length;if(n<2)return {x:P[0].x,y:P[0].y,tx
   const a=P[lo],b=P[hi],d=b.s-a.s,u=(s-a.s)/d,tx=(b.x-a.x)/d,ty=(b.y-a.y)/d;return {x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u,tx,ty};}
 
 function stationsOf(sh,base){const o={};for(const s in base.stations){const p=sh&&sh.st[s];o[s]=p?{x:p[0],y:p[1]}:{x:base.stations[s].x,y:base.stations[s].y};}return o;}
-function segCtrl(sh,base,key,stp){const [a,b]=key.split('-');const S=stp||stationsOf(sh,base);const g=sh&&sh.seg[key];return [[S[a].x,S[a].y],...(g?g.p:[]),[S[b].x,S[b].y]];}
+function segCtrl(sh,base,key,stp){const [a,b]=key.split('-');const S=stp||stationsOf(sh,base);const g=segOf(sh,base,key);return [[S[a].x,S[a].y],...(g?g.p:[]),[S[b].x,S[b].y]];}
+function segOf(sh,base,key){return (sh&&sh.seg[key])||(base&&base.seg&&base.seg[key])||null;}
 function depotOf(sh,base,d){const b=base.depot[d],g=sh&&sh.depot[d]||{};
   return {yard:g.yard?{x:g.yard[0],y:g.yard[1],w:g.yard[2],h:g.yard[3]}:Object.assign({},b.yard),exit:g.exit?g.exit.map(p=>({x:p[0],y:p[1]})):b.exit.map(p=>({x:p.x,y:p.y}))};}
 
 /* 形を組み立てる：駅の位置・区間ごとの曲線（曲がる点のある区間だけ）・車庫・側線 */
 function build(sh,base){const st=stationsOf(sh,base),seg={};
-  segKeys(base).forEach(k=>{const g=sh&&sh.seg[k];if(!g)return;seg[k]=measure(flatten(segCtrl(sh,base,k,st),!!g.s));});
+  segKeys(base).forEach(k=>{const g=segOf(sh,base,k);if(!g)return;seg[k]=measure(flatten(segCtrl(sh,base,k,st),!!g.s));});
   const depot={};for(const d in base.depot||{})depot[d]=depotOf(sh,base,d);
   const extra=(sh?sh.extra:[]).map(x=>flatten(x.p,!!x.s));
   return {st,seg,depot,extra,
@@ -76,6 +78,6 @@ function nearestOnPoly(pts,p){let best=null;for(let i=1;i<pts.length;i++){const 
 // 制御点の列 ctrl の中で、点 p を入れる場所（曲線の上の近いところの前後の制御点の間）
 function insertIndex(ctrl,p){let best=1,bd=1e9;for(let i=1;i<ctrl.length;i++){const a={x:ctrl[i-1][0],y:ctrl[i-1][1]},b={x:ctrl[i][0],y:ctrl[i][1]};const q=nearestOnPoly([a,b],p);if(q.d<bd){bd=q.d;best=i;}}return best;}
 
-const api={KEY,segKeys,keyOf,normalize,isEmpty,load,save,flatten,measure,atLen,stationsOf,segCtrl,depotOf,build,nearestOnPoly,insertIndex};
+const api={KEY,segOf,segKeys,keyOf,normalize,isEmpty,load,save,flatten,measure,atLen,stationsOf,segCtrl,depotOf,build,nearestOnPoly,insertIndex};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RailShape=api;
 })(typeof window!=='undefined'?window:globalThis);

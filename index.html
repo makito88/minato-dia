@@ -722,25 +722,31 @@ canvas{display:block;touch-action:manipulation}
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
 const ST={
-  C:{name:'中央',km:0,x:112,y:322,wait:true,term:true,plats:4},
-  S:{name:'桜町',km:3.2,x:232,y:330},
-  U:{name:'大学前',km:6.4,x:356,y:322,wait:true,taihi:true},
-  M:{name:'緑ヶ丘',km:9.6,x:480,y:305,wait:true,taihi:true},
-  K:{name:'川辺',km:13.2,bkm:0,x:606,y:296,wait:true,taihi:true,junction:true},
-  N:{name:'新田',km:17.3,x:760,y:312},
-  P:{name:'港',km:21.5,x:904,y:330,wait:true,term:true,plats:2},
-  F:{name:'森下',bkm:3.6,x:652,y:216,wait:true,exch:true},
-  T:{name:'峠',bkm:7.8,x:706,y:148,wait:true,exch:true},
-  O:{name:'温泉',bkm:12.9,x:822,y:80,wait:true,term:true,plats:2},
+  C:{name:'中央',km:0,x:60,y:312,wait:true,term:true,plats:4},
+  S:{name:'桜町',km:3.2,x:187,y:331},
+  U:{name:'大学前',km:6.4,x:314,y:316,wait:true,taihi:true},
+  M:{name:'緑ヶ丘',km:9.6,x:443,y:302,wait:true,taihi:true},
+  K:{name:'川辺',km:13.2,bkm:0,x:588,y:295,wait:true,taihi:true,junction:true},
+  N:{name:'新田',km:17.3,x:718,y:307},
+  P:{name:'港',km:21.5,x:860,y:318,wait:true,term:true,plats:2},
+  F:{name:'森下',bkm:3.6,x:685,y:239,wait:true,exch:true},
+  T:{name:'峠',bkm:7.8,x:739,y:164,wait:true,exch:true},
+  O:{name:'温泉',bkm:12.9,x:823,y:80,wait:true,term:true,plats:2},
 };
 const MAIN=['C','S','U','M','K','N','P'], BR=['K','F','T','O'];
+/* 2026-11-25：地図に描く他の線（data/routes.json の rail.xlines と同じ）。連絡線＝中央から西の県央本線へ（W は中央の西2.2km・地図の外）、臨港線＝新田の先で南へ分かれて港貨物ターミナル（Q）へ、県央本線＝他社線（絵だけ）。
+   臨時・貨物はこの線の上を走る（drawSynMap）。乗客・運賃・ダイヤの計算には使わない */
+const XPTS={};   // XLINE の折れ線を {x,y} の列に（下で作る）
+const XLINE={"renraku":{"name":"連絡線（県央本線へ）","pts":[[-29,300],[0,303.5],[30,308],[52,311]]},"rinko":{"name":"臨港線（港貨物ターミナルへ）","pts":[[717.5,307],[760,310.5],[790,313],[808,322],[822,334],[838,343],[852,346]]},"keio":{"name":"県央本線","pts":[[-10,284],[30,286],[70,285],[98,272],[116,240],[126,190],[130,120],[128,50],[126,-10]]},"qyard":{"name":"港貨物ターミナル","box":[828,337,24,11]}};
+for(const k of ['renraku','rinko','keio'])XPTS[k]=XLINE[k].pts.map(p=>({x:p[0],y:p[1]}));
 /* 第7回（2026-11-13）：お絵かき帖の「線路」の層で直した形（保存 dia-track）。保存がなければ今までの直線のまま。
    駅の x,y はここで1回だけ置きかえる（駅の丸・名前・乗客の数の表示・押したときの選び方は ST の x,y を読むので、そのまま動く）。
    キロ程（km・bkm）は変えない＝ダイヤ・乗客・運賃の計算は同じ */
 const RAILBASE={stations:Object.fromEntries(Object.entries(ST).map(([k,v])=>[k,{x:v.x,y:v.y}])),lines:[MAIN,BR],
-  depot:{C:{yard:{x:18,y:372,w:66,h:34},exit:[{x:50,y:389},{x:86,y:389},{x:100,y:350}]},P:{yard:{x:800,y:266,w:58,h:30},exit:[{x:829,y:281},{x:860,y:281},{x:884,y:316}]}}};
+  depot:{C:{yard:{x:4,y:362,w:50,h:18},exit:[{x:54,y:369},{x:60,y:345},{x:62,y:320}]},P:{yard:{x:776,y:279,w:30,h:12},exit:[{x:806,y:285},{x:818,y:296},{x:832,y:309}]}},
+  seg:{"C-S":{p:[[100,322.5],[150,330]],s:1},"S-U":{p:[[220,332],[250,331],[290,319]],s:1},"U-M":{p:[[350,317.5],[400,313]],s:1},"M-K":{p:[[500,294],[550,294]],s:1},"K-N":{p:[[625,297.5],[675,302.5]],s:1},"N-P":{p:[[775,312.5],[825,315]],s:1},"K-F":{p:[[615,277.5],[650,260]],s:1},"F-T":{p:[[725,220],[745,190]],s:1},"T-O":{p:[[720,150],[708,146],[715,125],[765,107.5],[810,90]],s:1}}};   // seg・depot：標準の形（2026-11-25・地図の絵の線路と駅に合わせた。data/routes.json の rail と同じ）
 const RAILSHAPE=(()=>{try{return window.RailShape?RailShape.load(localStorage,RAILBASE):null;}catch(e){return null;}})();
-const RG=RAILSHAPE?RailShape.build(RAILSHAPE,RAILBASE):null;   // 曲がる点のある区間だけ曲線（RG.segAt・RG.segMid）
+const RG=window.RailShape?RailShape.build(RAILSHAPE,RAILBASE):null;   // 曲がる点のある区間だけ曲線（RG.segAt・RG.segMid）
 if(RG)for(const s in RG.st){ST[s].x=RG.st[s].x;ST[s].y=RG.st[s].y;}
 const ALL=['C','S','U','M','K','N','P','F','T','O'];
 const isMain=s=>MAIN.includes(s), isBr=s=>BR.includes(s);
@@ -1588,9 +1594,19 @@ function mapRec(){
   MR={rec,sets,syn};return MR;}
 /* 2駅の間のどこか（0〜1）。記録の where（指令パネルと同じ式・事故で止まる・交換信号所で待つもこめて）。合わないときは今までの式 */
 function recFrac(tr,T,i,raw,sa,sb){const w=MR&&MR.rec&&RunRecordCore.where(MR.rec,tr.rrow,T);if(w&&w.st==='run'&&w.i-(tr.off||0)===i)return w.frac;return ease(Math.min(1,Math.max(0,raw)),sa,sb);}
+/* 臨時・貨物が連絡線（中央↔県央本線 W）・臨港線（新田↔港貨物ターミナル Q）を走っているところ（2026-11-25）。
+   記録の発着の時刻で、XPTS の折れ線の上の割合を出す。港貨物ターミナルでは着いたあと・出る前の15分は止まって見える。走っていなければ null */
+function synLeg(p,T){const tr=p.base,row=p.rrow;if(!tr||!row)return null;const n=tr.seq.length,a=p.off||0,b=a+p.seq.length,ez=f=>f*f*(3-2*f);
+  const path=(k,rev)=>{const P=k==='W'?XPTS.renraku:XPTS.rinko;return rev?P.slice().reverse():P;};
+  const run=(P,t0,t1)=>T>=t0&&T<t1?{pts:P,f:0.03+0.94*ez((T-t0)/Math.max(0.5,t1-t0)),stop:false}:null;
+  if(a>0){const o=tr.seq[a-1],P=path(o,o==='Q'),r=run(P,row.dep[a-1],row.arr[a]);if(r)return r;if(o==='Q'&&T>=row.dep[a-1]-15&&T<row.dep[a-1])return {pts:P,f:0.03,stop:true};}
+  if(b<n){const o=tr.seq[b],P=path(o,o==='W'),r=run(P,row.dep[b-1],row.arr[b]);if(r)return r;if(o==='Q'&&T>=row.arr[b]&&T<row.arr[b]+15)return {pts:P,f:0.97,stop:true};}
+  return null;}
 /* 臨時・貨物と、地図の外の札 */
 function drawSynMap(c,mr,TK,dk){const tags={C:[],P:[]};
   for(const p of mr.syn){const n=p.seq.length;
+    {const lg=synLeg(p,T);if(lg){const cars=carPoses({s:{cars:p.cars||6},st:{dpath:lg.pts,df:lg.f,trip:p}},TK);TrainArt.drawTrain(c,cars,{type:p.type,dk,stopped:lg.stop,k:TK,zoom:MS*CDPR});
+      const x0=cars[0].x;if(x0>4)continue;}}   // 地図のふちより西（県央本線の側）にいるあいだは札も出す
     if(T>=Math.min(p.arr[0],p.dep[0]-1)&&T<=p.arr[n-1]+0.5){const st=tripState(p,T),cars=carPoses({s:{cars:p.cars||6},st:Object.assign({},st,{trip:p})},TK);
       TrainArt.drawTrain(c,cars,{type:p.type,dk,stopped:!st.moving,k:TK,zoom:MS*CDPR});continue;}
     const nm=`${p.type==='G'?'貨物':'臨時'} ${p.num}`;
@@ -1675,8 +1691,12 @@ function drawTracks(c){
     [6,-6].forEach(off=>{const a=segPt('F','T',0.75,0),b=anchorPt('T',off,-10),d=anchorPt('T',off,10),e=segPt('T','O',0.22,0);c.beginPath();c.moveTo(a.x,a.y);c.quadraticCurveTo(b.x-6*NBS.T.tx,b.y-6*NBS.T.ty,b.x,b.y);c.lineTo(d.x,d.y);c.lineTo(e.x,e.y);c.stroke();});
     const o1=segPt('T','O',0.22,0),o2=segPt('T','O',0.8,0);strokePts(c,[o1,...segMid('T','O',0.22,0.8,0),o2]);
     if(RG)RG.extra.forEach(pl=>strokePts(c,pl));   // お絵かき帖で描いた側線・車庫の出入りの線
+    strokePts(c,XPTS.renraku);strokePts(c,XPTS.rinko);   // 連絡線（中央→西の県央本線）・臨港線（新田の先→港貨物ターミナル）
     [6,-6].forEach(off=>{const b=anchorPt('O',off,0),e=anchorPt('O',off,14);c.beginPath();c.moveTo(o2.x,o2.y);c.lineTo(b.x,b.y);c.lineTo(e.x,e.y);c.stroke();});
   };
+  // 県央本線（他社線・絵だけ）：灰色の線に白い縞。西のふちから中央へ入り、北へぬける
+  [['#f4f4f0',3.6,null],['#5d6772',2.4,null],['#f4f4f0',1.1,[4,4]]].forEach(([col,w,d])=>{c.strokeStyle=col;c.lineWidth=w;c.setLineDash(d||[]);strokePts(c,XPTS.keio);});c.setLineDash([]);
+  c.font='600 10px "Zen Kaku Gothic New",sans-serif';c.fillStyle='#4a545e';c.textAlign='left';c.fillText('← 県央本線',3,XPTS.keio[1].y-5);c.fillText('県央本線 ↑',XPTS.keio[6].x+5,XPTS.keio[6].y);
   // 同じ線路の形を3回なぞる：明るいふち → 茶色 → 明るい縞（線路が重なる分岐でもすき間が出ない）
   [[RAIL.edge,4.6,null,'round'],[RAIL.body,3.4,null,'round'],[RAIL.edge,1.9,[3.2,3.2],'butt']].forEach(([col,w,d,cap])=>{c.strokeStyle=col;c.lineWidth=w;c.lineCap=cap;c.setLineDash(d||[]);paths();});
   c.setLineDash([]);c.lineCap='round';
@@ -1685,6 +1705,9 @@ function drawTracks(c){
   Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;c.fillStyle=TH.paper;c.beginPath();c.roundRect(y.x-4,y.y-4,y.w+8,y.h+8,4);c.fill();c.strokeStyle=TH.line2;c.lineWidth=1;c.stroke();c.strokeStyle=RAIL.body;c.lineWidth=1.6;
     for(let i=0;i<4;i++){const yy=y.y+4+i*(y.h-8)/3;c.beginPath();c.moveTo(y.x,yy);c.lineTo(y.x+y.w,yy);c.stroke();}
     strokePts(c,d.exit);});
+  {const [x,y,w,h]=XLINE.qyard.box;c.fillStyle=TH.paper;c.beginPath();c.roundRect(x-3,y-3,w+6,h+6,3);c.fill();c.strokeStyle=TH.line2;c.lineWidth=1;c.stroke();c.strokeStyle=RAIL.body;c.lineWidth=1.4;   // 港貨物ターミナル
+    for(let i=0;i<3;i++){const yy=y+2+i*(h-4)/2;c.beginPath();c.moveTo(x,yy);c.lineTo(x+w,yy);c.stroke();}
+    c.font='600 9.5px "Zen Kaku Gothic New",sans-serif';c.fillStyle=TH.ink;c.textAlign='left';c.fillText('港貨物ターミナル',x-30,y+h+13);}
 }
 // 列車の大きさの倍率：地図が小さく出る画面（スマホ）では少し大きく
 const trainK=()=>Math.max(1,Math.min(1.3,1/(MS||1)));
@@ -1736,7 +1759,7 @@ function drawMap(){
   // station names
   c.textAlign='center';c.fillStyle=TH.ink;
   ALL.forEach(s=>{const st=ST[s];let lx=st.x,ly=st.y+(st.taihi?40:s==='C'?44:30);
-    if(s==='F'){lx=st.x-34;ly=st.y+4;}if(s==='T'){lx=st.x-36;ly=st.y+4;}if(s==='O'){lx=st.x-16;ly=st.y-20;}if(s==='K'){lx=st.x-6;}
+    if(s==='F'){lx=st.x-34;ly=st.y+4;}if(s==='T'){lx=st.x-36;ly=st.y+4;}if(s==='O'){lx=st.x-16;ly=st.y-20;}if(s==='K'){lx=st.x-6;}if(s==='P'){lx=st.x+34;ly=st.y+6;}
     const isSel=sel.kind==='station'&&sel.st===s;
     c.font=`${st.term?700:500} ${st.term?14:12.5}px "Zen Kaku Gothic New",sans-serif`;
     {const w=c.measureText(st.name).width+12,h=st.term?19:17,y0=ly-h+5;   // 駅名札：角丸の札に白い文字・白い縁・小さな影
@@ -1755,9 +1778,9 @@ function drawMap(){
   D.sets.forEach(s=>{total[s.home]++;const ms=mr?mr.sets.get(s):s,st=ms?setState(ms,T):null;if(!st){inDepot[s.home]++;parked[s.home].push(s);return;}if(st.trip&&st.trip.base){st.run=st.trip;st.trip=st.trip.base;}VIS.push({s,st});});
   c.font='600 11px "Zen Kaku Gothic New",sans-serif';c.textAlign='left';
   Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;const n=inDepot[k];
-    {const cols=Math.max(1,Math.floor((y.w-4)/16)),lanes=4;for(let i=0;i<Math.min(n,cols*lanes);i++){const lane=i%lanes,col=Math.floor(i/lanes);const yy=y.y+4+lane*(y.h-8)/3-0.6,xx=y.x+9+col*16;const ps=parked[k][i];   // 車庫で休んでいる編成（小さな2両の絵）
+    {const sp=TrainArt.isMono&&TrainArt.isMono()?8.5:16,cols=Math.max(1,Math.floor((y.w-4)/sp)),lanes=4;for(let i=0;i<Math.min(n,cols*lanes);i++){const lane=i%lanes,col=Math.floor(i/lanes);const yy=y.y+4+lane*(y.h-8)/3-0.6,xx=y.x+sp*0.56+col*sp;const ps=parked[k][i];   // 車庫で休んでいる編成（小さな2両の絵）
       {const q=TrainArt.size(2,0.62),h=(q.L+q.gap)/2;TrainArt.drawTrain(c,[{x:xx+h,y:yy,ang:0},{x:xx-h,y:yy,ang:0}],{type:ps&&ps.trips[0]?ps.trips[0].type:'L',dk,k:0.62,faded:true,zoom:MS*CDPR});}}}
-    c.fillStyle=TH.ink;if(k==='C'){c.fillText(DEPOTNAME[k],y.x-4,y.y-22);c.fillText(`${n}/${total[k]}編成`,y.x-4,y.y-9);}else c.fillText(`${DEPOTNAME[k]} ${n}/${total[k]}編成`,y.x-24,y.y-10);});
+    c.fillStyle=TH.ink;if(k==='C'){c.fillText(`${DEPOTNAME[k]} ${n}/${total[k]}編成`,y.x-2,y.y+y.h+16);}else c.fillText(`${DEPOTNAME[k]} ${n}/${total[k]}編成`,y.x-24,y.y-10);});
   // trains
   // 列車（第7回：1両ずつ線路の上に。js/train-art.js）。選んだ編成は車両の下にうすい光
   const TK=trainK();

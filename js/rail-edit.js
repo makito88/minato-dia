@@ -23,7 +23,7 @@ function fixSel(){const s=E.sel;if(!s)return;if((s.k==='bend'&&!(sh.seg[s.key]&&
 /* ---------- はじめ ---------- */
 function init(h,def){H=h;const st={};for(const [k,v] of Object.entries(def.rail.stations))st[k]={x:v.x,y:v.y,name:v.name,big:v.big};
   const dep={};for(const [k,v] of Object.entries(def.rail.depot||{}))if(k[0]!=='_')dep[k]=v;
-  base={stations:st,lines:def.rail.lines,depot:dep};
+  base={stations:st,lines:def.rail.lines,depot:dep,seg:def.rail.seg||{}};   // seg：標準の形（地図の絵の線路に合わせた曲がる点）
   let raw=null;try{raw=JSON.parse(localStorage.getItem(R.KEY)||'null');}catch(e){}
   sh=R.normalize(raw,base);cur=JSON.stringify(sh);changed();}
 
@@ -98,7 +98,7 @@ function down(w,tol){if(E.mode==='draw')return {k:'drawtap',tol};const h=hit(w,t
 function move(o,w){const x=r1(w[0]),y=r1(w[1]);E.snap=null;
   if(o.k==='st'){sh.st[o.id]=[x,y];}
   else if(o.k==='bend'){sh.seg[o.key].p[o.i]=[x,y];}
-  else if(o.k==='seg'){if(o.bi==null){const cp=R.segCtrl(sh,base,o.key,geom().st);const i=R.insertIndex(cp,{x:o.x,y:o.y});const g=sh.seg[o.key]||(sh.seg[o.key]={p:[],s:1});g.p.splice(i-1,0,[x,y]);o.bi=i-1;E.sel={k:'bend',key:o.key,i:o.bi};}
+  else if(o.k==='seg'){if(o.bi==null){const cp=R.segCtrl(sh,base,o.key,geom().st);const i=R.insertIndex(cp,{x:o.x,y:o.y});const g=sh.seg[o.key]||(sh.seg[o.key]={p:(base.seg&&base.seg[o.key]?base.seg[o.key].p.map(q=>q.slice()):[]),s:1});g.p.splice(i-1,0,[x,y]);o.bi=i-1;E.sel={k:'bend',key:o.key,i:o.bi};}
     sh.seg[o.key].p[o.bi]=[x,y];}
   else if(o.k==='depot'){const d=depotSh(o.id);if(!o.y0){o.y0=d.yard.slice();o.e0=d.exit.map(p=>p.slice());}const dx=w[0]-o.w0[0],dy=w[1]-o.w0[1];
     d.yard[0]=r1(o.y0[0]+dx);d.yard[1]=r1(o.y0[1]+dy);d.exit=o.e0.map((p,i)=>i===o.e0.length-1?p:[r1(p[0]+dx),r1(p[1]+dy)]);}   // 出入りの道の最後（本線につながる点）は動かさない
@@ -115,7 +115,7 @@ function up(o,w,moved,dbl){E.snap=null;
     commit();return;}
   // 押しただけ
   if(dbl){if(o.k==='bend'){sh.seg[o.key].p.splice(o.i,1);if(!sh.seg[o.key].p.length)delete sh.seg[o.key];E.sel=sh.seg[o.key]?{k:'seg',key:o.key}:null;commit();H.toast('曲がる点を消しました');return;}
-    if(o.k==='seg'){const cp=R.segCtrl(sh,base,o.key,geom().st);const i=R.insertIndex(cp,{x:o.x,y:o.y});const g=sh.seg[o.key]||(sh.seg[o.key]={p:[],s:1});g.p.splice(i-1,0,[r1(o.x),r1(o.y)]);E.sel={k:'bend',key:o.key,i:i-1};commit();H.toast('曲がる点を足しました。引っぱると線路が曲がります');return;}
+    if(o.k==='seg'){const cp=R.segCtrl(sh,base,o.key,geom().st);const i=R.insertIndex(cp,{x:o.x,y:o.y});const g=sh.seg[o.key]||(sh.seg[o.key]={p:(base.seg&&base.seg[o.key]?base.seg[o.key].p.map(q=>q.slice()):[]),s:1});g.p.splice(i-1,0,[r1(o.x),r1(o.y)]);E.sel={k:'bend',key:o.key,i:i-1};commit();H.toast('曲がる点を足しました。引っぱると線路が曲がります');return;}
     if(o.k==='exit'){const d=depotSh(o.id);if(d.exit.length>2&&o.i<d.exit.length-1){d.exit.splice(o.i,1);E.sel={k:'depot',id:o.id};commit();}return;}
     if(o.k==='exitline'){const d=depotSh(o.id);d.exit.splice(o.i,0,[r1(o.x),r1(o.y)]);E.sel={k:'exit',id:o.id,i:o.i};commit();return;}
     if(o.k==='xpt'){const p=sh.extra[o.i].p;if(p.length>2){p.splice(o.j,1);E.sel={k:'extra',i:o.i};commit();}return;}}
@@ -148,9 +148,9 @@ function dock(d,el,chip){const s=E.sel;
   const sg=el('div','seg');[['動かす・曲げる','edit'],['側線を描く','draw']].forEach(([n,m])=>{const b=el('button',E.mode===m?'on':'',n);b.onclick=()=>{if(m==='edit')endDraw();else{E.mode='draw';E.draw=null;E.sel=null;H.ui();H.redraw();}};sg.appendChild(b);});r.appendChild(sg);
   if(E.mode==='draw'){r.appendChild(el('span','hint',E.draw==null?'地図を押して側線の点を置く（線路の近くはくっつく）':'つづけて押す・2回押すか「ここで終わる」'));if(E.draw!=null)r.appendChild(chip('✓ ここで終わる',false,endDraw));d.appendChild(r);return;}
   let hint='線路を引っぱると曲がる・駅や車庫の印も引っぱれる';
-  if(s&&(s.k==='seg'||s.k==='bend')){const g=sh.seg[s.key];const [a,b]=s.key.split('-');hint=`${base.stations[a].name}〜${base.stations[b].name}`+(g?`・曲がる点 ${g.p.length}`:'・まっすぐ');
+  if(s&&(s.k==='seg'||s.k==='bend')){const g=R.segOf(sh,base,s.key);const [a,b]=s.key.split('-');hint=`${base.stations[a].name}〜${base.stations[b].name}`+(g?`・曲がる点 ${g.p.length}`:'・まっすぐ');
     if(g){const sg2=el('div','seg');[['なめらか',1],['かくかく',0]].forEach(([n,v])=>{const b2=el('button',g.s===v?'on':'',n);b2.onclick=()=>{g.s=v;commit();};sg2.appendChild(b2);});r.appendChild(sg2);
-      const x=chip('まっすぐにもどす',false,()=>{delete sh.seg[s.key];E.sel={k:'seg',key:s.key};commit();});x.classList.add('mini');r.appendChild(x);
+      const x=chip('標準の形にもどす',false,()=>{delete sh.seg[s.key];E.sel={k:'seg',key:s.key};commit();});x.classList.add('mini');r.appendChild(x);
       if(s.k==='bend'){const y=chip('この点を消す',false,del);y.classList.add('mini','danger');r.appendChild(y);}}}
   else if(s&&s.k==='st'){hint=`${base.stations[s.id].name}駅の位置（地図の上だけ。キロ程は同じ）`;if(sh.st[s.id]){const x=chip('元の位置',false,()=>{delete sh.st[s.id];commit();});x.classList.add('mini');r.appendChild(x);}}
   else if(s&&(s.k==='depot'||s.k==='size'||s.k==='exit')){hint=`${DEPN[s.id]}：中を引っぱると動く・右下の角で大きさ・出入りの道は点を引っぱる（2回押すと点を足す・消す）`;if(sh.depot[s.id]){const x=chip('元にもどす',false,()=>{delete sh.depot[s.id];commit();});x.classList.add('mini');r.appendChild(x);}}

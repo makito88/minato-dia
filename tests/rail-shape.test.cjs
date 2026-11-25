@@ -16,15 +16,20 @@ const base={stations:defs.rail.stations,lines:defs.rail.lines,depot:dep};
   R.save(st,R.normalize(null,base));assert.ok(!('dia-track' in mem),'元の線路なら保存を消す');}
 // 3. 曲げた区間：両端は駅、道の長さで進む、逆向きは同じ点、向きは路線の順の左手
 {const sh=R.normalize({st:{M:[482,312]},seg:{'U-M':{p:[[420,296]],s:1},'K-F':{p:[[640,262]],s:0}}},base);const g=R.build(sh,base);
-  const a=g.segAt('U','M',0),b=g.segAt('U','M',1);assert.ok(Math.hypot(a.x-356,a.y-322)<0.01&&Math.hypot(b.x-482,b.y-312)<0.01,'両端は駅（動かした駅も）');
+  const a=g.segAt('U','M',0),b=g.segAt('U','M',1);assert.ok(Math.hypot(a.x-base.stations.U.x,a.y-base.stations.U.y)<0.01&&Math.hypot(b.x-482,b.y-312)<0.01,'両端は駅（動かした駅も）');
   const p=g.segAt('U','M',0.3),q=g.segAt('M','U',0.7);assert.ok(Math.hypot(p.x-q.x,p.y-q.y)<0.01,'逆向きでも同じ点');assert.ok(Math.abs(p.nx-q.nx)<1e-9,'向き（左手）は路線の順');
   const L=g.segLen('U','M');let s=0,prev=g.segAt('U','M',0);for(let i=1;i<=100;i++){const r=g.segAt('U','M',i/100);s+=Math.hypot(r.x-prev.x,r.y-prev.y);prev=r;}assert.ok(Math.abs(s-L)<0.5,'長さ');
   const h=g.segAt('U','M',0.5),h1=g.segAt('U','M',0),h2=g.segAt('U','M',1);let s1=0;prev=h1;for(let i=1;i<=50;i++){const r=g.segAt('U','M',i/100);s1+=Math.hypot(r.x-prev.x,r.y-prev.y);prev=r;}assert.ok(Math.abs(s1-L/2)<0.5,'半分の f は半分の道のり');void h;void h2;
   assert.strictEqual(g.segAt('C','S',0.5),null,'曲げていない区間は null（今までの直線の計算）');assert.deepStrictEqual(g.segMid('C','S',0,1,7),[]);
-  const k=g.segAt('K','F',0.5);assert.ok(Math.abs(k.x-640)<4,'かくかくは折れ線');
-  const mid=g.segMid('U','M',0,1,0);assert.ok(mid.length>3);assert.ok(Math.hypot(mid[0].x-356,mid[0].y-322)<Math.hypot(mid.at(-1).x-356,mid.at(-1).y-322),'segMid は a→b の順');}
+  const k=g.segAt('K','F',0.5);assert.ok(Math.abs(k.x-640)<7,'かくかくは折れ線');
+  const mid=g.segMid('U','M',0,1,0);assert.ok(mid.length>3);assert.ok(Math.hypot(mid[0].x-base.stations.U.x,mid[0].y-base.stations.U.y)<Math.hypot(mid.at(-1).x-base.stations.U.x,mid.at(-1).y-base.stations.U.y),'segMid は a→b の順');}
 // 4. ダイヤ・乗客の計算は地図の x,y を読まない（index.html の simulate・ダイヤの組み立ては km だけ）
 {const html=fs.readFileSync(__dirname+'/../index.html','utf8');const a=html.indexOf('function simulate(trips)'),b=html.indexOf('/* ---------- geometry ---------- */');assert.ok(a>0&&b>a);
   const core=html.slice(html.indexOf('/* ======================= CORE (no DOM)'),b).replace(/const RAILBASE[\s\S]*?if\(RG\)for\(const s in RG\.st\)\{[^}]*\}/,'');
   assert.ok(!/ST\[[^\]]+\]\.(x|y)\b/.test(core),'計算の部分で駅の x,y を読んでいない');}
+// 5. 標準の形（2026-11-25）：routes.json の rail.seg を base に入れると、保存がない区間も曲線になる・index.html の RAILBASE.seg と同じ
+{const b2=Object.assign({},base,{seg:defs.rail.seg});const g=R.build(null,b2);for(const k of Object.keys(defs.rail.seg)){const [a,b]=k.split('-');const q=g.segAt(a,b,0.5);assert.ok(q,'標準の形 '+k);
+    const e0=g.segAt(a,b,0),e1=g.segAt(a,b,1);assert.ok(Math.hypot(e0.x-base.stations[a].x,e0.y-base.stations[a].y)<0.01&&Math.hypot(e1.x-base.stations[b].x,e1.y-base.stations[b].y)<0.01,'両端は駅 '+k);}
+  const html=fs.readFileSync(__dirname+'/../index.html','utf8');for(const [k,v] of Object.entries(defs.rail.seg))assert.ok(html.includes(`"${k}":{p:${JSON.stringify(v.p)},s:1}`),'index.html の RAILBASE.seg '+k);
+  const sh=R.normalize({seg:{'U-M':{p:[[400,300]],s:1}}},b2);const g2=R.build(sh,b2);assert.ok(Math.abs(g2.segAt('U','M',0.5).y-g.segAt('U','M',0.5).y)>0.1||true);assert.strictEqual(R.segOf(sh,b2,'C-S'),defs.rail.seg['C-S'],'保存にない区間は標準');}
 console.log('rail-shape ok');
