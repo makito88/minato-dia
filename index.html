@@ -1320,6 +1320,7 @@ function simulate(trips){
       const fut=new Set();for(let j=i+1;j<tr.seq.length;j++)if(tr.stop[j])fut.add(tr.seq[j]);
       const capLeft=Math.max(0,tr.capMax-tr.load);const dem=[];let D=0;
       for(const d of ALL){if(d===s)continue;let tgt=null;if(fut.has(d))tgt=d;else if(s!=='K'&&fut.has('K')&&d!=='K'&&arm(d)!==arm(s))tgt='K';
+        if(!tgt&&tr.bus){const z=tr.seq[tr.seq.length-1];if(Math.abs(treeKm(s,z)+treeKm(z,d)-treeKm(s,d))<0.01)tgt=z;}   // 代行バス（運行の記録の段4）：終点の先へ行く人も乗せ、終点で列車に乗りかえる
         if(!tgt)continue;const w=W[s][d],x=Wx[s][d];if(w+x<=0)continue;dem.push({d,tgt,w,x});D+=w+x;}
       let boarded=0;
       if(D>0){const f=Math.min(1,capLeft/D);
@@ -2238,7 +2239,41 @@ if(window.RunRecord)RunRecord.init({ST,TYPES,DEPOTNAME,D:()=>D,day:()=>ENS.day||
   events:()=>COND.evs.slice(),cond:()=>({day:COND.day,wx:COND.wx}),sp:()=>CX?CX.sp:1,dw:()=>CX?CX.dw:0,
   nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0});
 /* グループの収支（js/money-core.js の groupLedger）が読む、鉄道（親会社）の1日。本体の計算は変えない（読むだけ） */
+/* ---------- 運行の記録 段4〜6（docs/run-record-plan.md の手順5・2026-11-25）----------
+   予定のダイヤの乗客（D.sim・D.summary）はそのまま。運行の記録の実際の時刻で、同じ乗客の計算（simulate）をもう一度回す（運休の列車は乗せない）。
+   段4 対応：大きな事故で再開まで長いときは、止まった区間に代行バス。段5 実際の乗客：乗れた・代行バス・あきらめた・遅れた。
+   段6 お金：特急料金の払い戻し・代行バスの費用。決まりは data/run-record.json。呼ばれたときだけ計算し、記録とダイヤが同じあいだは使い回す */
+const RRCFG={c:null};let RRA=null;
+fetch('data/run-record.json').then(r=>r.json()).then(j=>{RRCFG.c=j;RRA=null;}).catch(()=>{});
+function railActual(){
+  if(!window.RunRecord||!D||!D.sim||!RRCFG.c)return null;const rec=RunRecord.get();if(!rec)return null;
+  if(RRA&&RRA.rec===rec&&RRA.D===D)return RRA;
+  const cfg=RRCFG.c,t0=performance.now(),trips=[],late=new Map();
+  D.trips.forEach(tr=>{const row=rec.byTrip.get(tr);if(!row||row.cancel)return;const p=Object.create(tr);p.arr=row.arr.slice();p.dep=row.dep.slice();p.base=tr;p.late=row.late||0;trips.push(p);});
+  /* 段4：代行バス */
+  const B=rec.big,dk=cfg.daiko,bus=[];let busInfo=null;
+  if(B&&B.dur>=dk.minDur&&B.a&&B.b&&ST[B.a]&&ST[B.b]){const run=treeKm(B.a,B.b)/dk.kmh*60+dk.addMin;let n=0;
+    for(let t=B.t0+dk.prep;t<B.t1;t+=dk.headway){for(const [a,b] of [[B.a,B.b],[B.b,B.a]])bus.push({type:'L',bus:true,num:'代行'+(++n),seq:[a,b],stop:[true,true],op:[false,false],arr:[t,t+run],dep:[t,t+run],cap:dk.cap,capMax:dk.cap,cars:0,down:SI[a]<SI[b]});}
+    const buses=Math.max(1,Math.ceil((2*run+2*dk.turn)/dk.headway)),hours=Math.max(0,B.t1-(B.t0+dk.prep)+run)/60;
+    const rt=(BUSN.cfg&&BUSN.cfg.routes||[]).find(r=>r.stations.includes(B.a)&&r.stations.includes(B.b));
+    busInfo={a:B.a,b:B.b,runs:bus.length,run,buses,hours,cost:Math.round(buses*hours*dk.yenPerBusHour),route:rt?rt.no+' '+rt.name:null};}
+  /* 段5：実際の乗客 */
+  const sim=simulate(trips.concat(bus)),tot=sim.totals,sumB=t=>t.bAt.reduce((a,x)=>a+x,0);
+  const busRiders=bus.reduce((a,t)=>a+sumB(t),0);if(busInfo)busInfo.riders=busRiders;
+  let lateRiders=0,refund=0,refundPax=0,refundTr=0;
+  for(const t of trips){const b=sumB(t);if(t.late>=cfg.late.min)lateRiders+=b;
+    const sur=TYPES[t.type].sur;if(sur>0&&t.late>=cfg.refund.lateMin){refund+=b*sur*cfg.refund.rate;refundPax+=b;refundTr++;}}
+  /* 段6：お金（運賃と特急料金は払い戻しを引く・代行バスの費用は運転の経費に足す） */
+  const S0=D.summary,busCost=busInfo?busInfo.cost:0,rev=tot.rev-refund,run=tot.run+busCost;
+  let peak=null;trips.forEach(t=>{if(!peak||t.maxRatio>peak.maxRatio)peak=t;});
+  const summary=Object.assign({},S0,{riders:tot.riders,rev,sur:(tot.sur||0)-refund,run,eki:tot.ekiYen*0.12,ekiSales:tot.ekiYen,left:tot.left,aband:tot.aband,abH:sim.abH,leftH:sim.leftH,loadH:sim.loadH,peak,
+    profit:rev+tot.ekiYen*0.12-run-S0.fixed,actual:true,refund,busCost,railRun:tot.run});
+  const DA=Object.assign(Object.create(D),{trips,sim,summary,actual:true,base:D});
+  RRA={rec,D,DA,trips,bus,busInfo,sim,summary,refund:{yen:refund,pax:refundPax,trains:refundTr},lateRiders,cancelled:rec.cancelled,
+    delta:{riders:tot.riders-S0.riders,rev:rev-S0.rev,aband:tot.aband-S0.aband,left:tot.left-S0.left},ms:performance.now()-t0};
+  return RRA;}
 window.minatoRail={today:()=>D&&D.summary?{rev:D.summary.rev,eki:D.summary.eki,run:D.summary.run,fixed:D.summary.fixed}:null,
+  actual:()=>railActual(),actualD:()=>{const a=railActual();return a?a.DA:null;},   /* 運行の記録の実際の1日（D と同じ形・trips・sim・summary だけ実際） */
   day:d=>{const r=window.KeieiView&&KeieiView.state?KeieiView.state.log.find(x=>x.day===d):null;return r?{rev:r.rev,eki:r.profit-r.rev+r.cost,cost:r.cost}:null;}};
 /* 経営（js/keiei-view.js）：利益・乗客・満足度のグラフと投資。投資の効き目は運行日の始めに KFX へ */
 if(window.KeieiView)KeieiView.init({ST,ALL,D:()=>D,day:()=>ENS.day||1,fmt,ready:()=>{KFX=KeieiView.fx(ENS.day||1);if(KFX&&KFX.any)rebuild();}});

@@ -1,0 +1,25 @@
+{
+  "v": 1,
+  "src": "assume",
+  "note": "運行の記録の段4〜6（docs/run-record-plan.md の手順5・2026-11-25）。数字はすべて仮。計算は index.html の railActual（実際の乗客は本体の simulate を、記録の実際の時刻で回し直す）。",
+  "daiko": {
+    "_note": "代行バス：大きな事故で運転を見合わせ、再開まで minDur 分以上かかる見こみのとき、止まった区間の2駅のあいだを走らせる。事故から prep 分で1便目、headway 分ごと、再開まで。1便の定員 cap 人。走る時間＝区間の道のり÷kmh＋addMin 分。費用は1台1時間 yenPerBusHour 円（台数は、往復と折り返し turn 分を headway でわった数）。バス会社は沿線のバス網（data/busnet.json）の系統から、その2駅を通るものの名前を出す",
+    "minDur": 30,
+    "prep": 20,
+    "headway": 8,
+    "cap": 60,
+    "kmh": 22,
+    "addMin": 4,
+    "turn": 4,
+    "yenPerBusHour": 9000
+  },
+  "refund": {
+    "_note": "特急料金の払い戻し：料金のいる列車（特急・観光特急）が終点に lateMin 分以上おくれて着いたら、乗った人の特急料金に rate を掛けて払い戻す（ほんものの鉄道では2時間以上が多い。ここでは仮に60分）",
+    "lateMin": 60,
+    "rate": 1.0
+  },
+  "late": {
+    "_note": "遅れた人として数える、終点での遅れ（分）",
+    "min": 5
+  }
+}
