@@ -695,7 +695,7 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/port-core.js?v=20261110a"></script>
 <script src="js/links/port-to-all.js?v=20261110a"></script>
 <script src="js/rail-shape.js?v=20261113a"></script>
-<script src="js/train-art.js?v=20261113a"></script>
+<script src="js/train-art.js?v=20261125a"></script>
 <script src="js/event-map-core.js?v=20261114a"></script>
 <script src="js/event-bubble.js?v=20261114a"></script>
 <script src="js/event-map-view.js?v=20261116a"></script>
@@ -1698,15 +1698,15 @@ function drawMap(){
   c.font='600 11px "Zen Kaku Gothic New",sans-serif';c.textAlign='left';
   Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;const n=inDepot[k];
     {const cols=Math.max(1,Math.floor((y.w-4)/16)),lanes=4;for(let i=0;i<Math.min(n,cols*lanes);i++){const lane=i%lanes,col=Math.floor(i/lanes);const yy=y.y+4+lane*(y.h-8)/3-0.6,xx=y.x+9+col*16;const ps=parked[k][i];   // 車庫で休んでいる編成（小さな2両の絵）
-      TrainArt.drawTrain(c,[{x:xx+3.3,y:yy,ang:0},{x:xx-3.3,y:yy,ang:0}],{type:ps&&ps.trips[0]?ps.trips[0].type:'L',dk,k:0.62,faded:true,zoom:MS*CDPR});}}
+      {const q=TrainArt.size(2,0.62),h=(q.L+q.gap)/2;TrainArt.drawTrain(c,[{x:xx+h,y:yy,ang:0},{x:xx-h,y:yy,ang:0}],{type:ps&&ps.trips[0]?ps.trips[0].type:'L',dk,k:0.62,faded:true,zoom:MS*CDPR});}}}
     c.fillStyle=TH.ink;if(k==='C'){c.fillText(DEPOTNAME[k],y.x-4,y.y-22);c.fillText(`${n}/${total[k]}編成`,y.x-4,y.y-9);}else c.fillText(`${DEPOTNAME[k]} ${n}/${total[k]}編成`,y.x-24,y.y-10);});
   // trains
   // 列車（第7回：1両ずつ線路の上に。js/train-art.js）。選んだ編成は車両の下にうすい光
   const TK=trainK();
   if(LAYERS.trains){VIS.forEach(v=>{v.cars=carPoses(v,TK);});
-    const ss0=selSet(),sv=ss0&&VIS.find(v=>v.s===ss0);if(sv){c.save();c.strokeStyle=TH.accent;c.globalAlpha=0.45;c.lineWidth=11*TK;c.lineCap='round';c.lineJoin='round';c.beginPath();sv.cars.forEach((p,i)=>i?c.lineTo(p.x,p.y+0.7):c.moveTo(p.x,p.y+0.7));if(sv.cars.length===1)c.lineTo(sv.cars[0].x+0.1,sv.cars[0].y+0.7);c.stroke();c.restore();}
+    const ss0=selSet(),sv=ss0&&VIS.find(v=>v.s===ss0);if(sv){c.save();c.strokeStyle=TH.accent;c.globalAlpha=0.45;c.lineWidth=(TrainArt.isMono&&TrainArt.isMono()?6:11)*TK;c.lineCap='round';c.lineJoin='round';c.beginPath();sv.cars.forEach((p,i)=>i?c.lineTo(p.x,p.y+0.7):c.moveTo(p.x,p.y+0.7));if(sv.cars.length===1)c.lineTo(sv.cars[0].x+0.1,sv.cars[0].y+0.7);c.stroke();c.restore();}
     VIS.slice().sort((a,b)=>a.st.y-b.st.y).forEach(({s,st,cars})=>{const tr=st.trip;TrainArt.drawTrain(c,cars,{type:tr.type,dk,stopped:!st.moving&&!st.dead&&!st.waiting,faded:!!st.dead,k:TK,zoom:MS*CDPR});
-    const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);c.arc(st.x+n.x*9*side,st.y+n.y*9*side,2.8,0,Math.PI*2);c.fill();}});}
+    const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);const mo=TrainArt.isMono&&TrainArt.isMono(),off=mo?5:9;c.arc(st.x+n.x*off*side,st.y+n.y*off*side,mo?2:2.8,0,Math.PI*2);c.fill();}});}
   // selection
   if(LAYERS.events)drawEventIcons(c,snap,dk);
   drawScenePins(c);   // 場面（コレクション）のピン
@@ -2133,7 +2133,7 @@ function drawEventIcons(c,snap,dk){EVHIT=[];if(window.EventMapView&&EventMapView
     c.font='700 10.5px "Zen Kaku Gothic New",sans-serif';const lab=`${ev.name} ${fmt(ev.start)}〜`;const w=c.measureText(lab).width+10;let lx=Math.max(w/2+2,Math.min(998-w/2,p.x)),ly=p.y+26;if(ly>414)ly=p.y-24;
     c.fillStyle=TH.panel;c.globalAlpha=0.9;c.beginPath();c.roundRect(lx-w/2,ly-10,w,15,4);c.fill();c.globalAlpha=1;c.fillStyle=state==='after'?TH.muted:TH.ink;c.fillText(lab,lx,ly+1.5);});}
 function renderLegend(){const L=[];
-  if(LAYERS.trains)L.push(['L','R','E','X'].map(k=>{const v=TrainArt.livery(k);return `<span><i style="background:${v.body};box-shadow:inset 0 -3px 0 ${v.stripe},0 0 0 1px ${v.edge}"></i>${TYPES[k].name}</span>`;}).join('')+'<span><i style="background:var(--t-dead);opacity:.7"></i>回送（うすく）</span>');   // 第7回：地図の列車の塗り分け（data/train-style.json）
+  if(LAYERS.trains)L.push(['L','R','E','X'].map(k=>{const v=TrainArt.livery(k);return TrainArt.isMono&&TrainArt.isMono()?`<span><i style="background:${TrainArt.mono(k)}"></i>`:`<span><i style="background:${v.body};box-shadow:inset 0 -3px 0 ${v.stripe},0 0 0 1px ${v.edge}"></i>${TYPES[k].name}</span>`;}).join('')+'<span><i style="background:var(--t-dead);opacity:.7"></i>回送（うすく）</span>');   // 第7回：地図の列車の塗り分け（data/train-style.json）
   if(LAYERS.trains||LAYERS.heat)L.push(`<span style="margin-left:6px">${LAYERS.heat?'区間の乗車率':'列車の混雑'}</span><span><i class="dot" style="background:var(--ok)"></i>〜80%</span><span><i class="dot" style="background:var(--warn)"></i>〜150%</span><span><i class="dot" style="background:var(--bad)"></i>150%〜</span>`);
   if(LAYERS.heat)L.push('<span>下＝港・温泉方面 / 上＝中央方面</span><span><span class="nodata"></span>この時間は運転なし</span><span>線の太さ＝通過人数</span>');
   if(LAYERS.stations)L.push('<span><span class="ring"></span>円の大きさ＝この1時間の乗降人数</span>');

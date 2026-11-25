@@ -5,20 +5,24 @@
      先頭は丸く黒い前面の窓（光の反射つき）・最後尾に赤い尾灯・うすい影。
    ・編成のパネル：その編成を横から見た大きな絵（drawSide）。
    ・色と大きさは data/train-style.json（なければ下の DEF）。計算には何も使わない（見た目だけ）。
+   ・2026-11-25：地図の上は「単色」（map.style＝'mono'）。種別ごとに1色の細い棒（types の mono の色）。大きさは半分に。編成のパネル（drawSide）は今までの絵のまま。
    ・夜の明るさは外から変えられる：TrainArt.light.win / TrainArt.light.head に (dk)=>0..1 の関数を入れると、それを使う（第9回の光と合わせるため）。
    ===================================================================== */
 (function(root){
 'use strict';
 const DEF={types:{
-  L:{name:'普通',body:'#f3f1ea',stripe:'#e8792b',roof:'#c9cdd0',roofHi:'#eef0f1',edge:'#2b3a4c',win:5},
-  R:{name:'快速',body:'#efe5c8',stripe:'#2f7fc0',roof:'#d9d2bd',roofHi:'#f6f1e2',edge:'#2b3a4c',win:5},
-  E:{name:'特急',body:'#8e1f2e',stripe:'#e1c46a',roof:'#cfd3d6',roofHi:'#f1f2f3',edge:'#2a1d24',win:6},
-  X:{name:'観光特急',body:'#2f5a48',stripe:'#e9cf8c',roof:'#d6d2c4',roofHi:'#f4f0e2',edge:'#1d2a24',win:4}},
-  dead:{alpha:0.72},size:{carL:{2:8.4,3:8.4,4:8,6:6.8,8:5.9,10:5.3},W:3.3,side:1.5,gap:0.75},night:{win:'#ffe3a3',head:'#fff4cf'}};
+  L:{name:'普通',body:'#f3f1ea',stripe:'#e8792b',roof:'#c9cdd0',roofHi:'#eef0f1',edge:'#2b3a4c',win:5,mono:'#e8792b'},
+  R:{name:'快速',body:'#efe5c8',stripe:'#2f7fc0',roof:'#d9d2bd',roofHi:'#f6f1e2',edge:'#2b3a4c',win:5,mono:'#2f7fc0'},
+  E:{name:'特急',body:'#8e1f2e',stripe:'#e1c46a',roof:'#cfd3d6',roofHi:'#f1f2f3',edge:'#2a1d24',win:6,mono:'#a3263a'},
+  X:{name:'観光特急',body:'#2f5a48',stripe:'#e9cf8c',roof:'#d6d2c4',roofHi:'#f4f0e2',edge:'#1d2a24',win:4,mono:'#2f6a52'}},
+  dead:{alpha:0.72},size:{carL:{2:4.2,3:4.2,4:4,6:3.4,8:2.95,10:2.65},W:1.65,side:0.75,gap:0.38},night:{win:'#ffe3a3',head:'#fff4cf'},map:{style:'mono'}};
 let CFG=DEF;
 const A={cfg:()=>CFG,light:{win:null,head:null},onload:null};
-if(typeof fetch==='function')fetch('data/train-style.json',{cache:'no-cache'}).then(r=>r.json()).then(j=>{CFG=Object.assign({},DEF,j,{types:Object.assign({},DEF.types,j.types||{}),size:Object.assign({},DEF.size,j.size||{}),night:Object.assign({},DEF.night,j.night||{})});if(A.onload)A.onload();}).catch(()=>{});
+if(typeof fetch==='function')fetch('data/train-style.json',{cache:'no-cache'}).then(r=>r.json()).then(j=>{CFG=Object.assign({},DEF,j,{types:Object.assign({},DEF.types,j.types||{}),size:Object.assign({},DEF.size,j.size||{}),night:Object.assign({},DEF.night,j.night||{}),map:Object.assign({},DEF.map,j.map||{})});if(A.onload)A.onload();}).catch(()=>{});
 A.livery=t=>CFG.types[t]||CFG.types.L;
+// 地図の単色の色（種別ごとに1色）
+A.mono=t=>{const v=A.livery(t);return v.mono||v.stripe;};
+A.isMono=()=>!!(CFG.map&&CFG.map.style==='mono');
 // 1両の長さ（両数が多いほど少し短く。地図の縮尺よりずっと大きい）。k は画面の大きさによる倍率
 A.size=(cars,k)=>{k=k||1;const T=CFG.size.carL;let L=8;const ks=Object.keys(T).map(Number).sort((a,b)=>a-b);for(const n of ks)if(cars>=n)L=T[n];return {L:L*k,W:CFG.size.W*k,side:CFG.size.side*k,gap:CFG.size.gap*k};};
 A.length=(cars,k)=>{const s=A.size(cars,k);return cars*s.L+(cars-1)*s.gap;};
@@ -39,7 +43,20 @@ const nightWin=dk=>A.light.win?A.light.win(dk):Math.max(0,Math.min(1,(dk-0.25)/0
 const nightHead=dk=>A.light.head?A.light.head(dk):Math.max(0,Math.min(1,(dk-0.2)/0.5));
 
 /* 地図の列車：cars＝[{x,y,ang}]（先頭から）。o：{type, dk, stopped, faded, k（大きさの倍率）, zoom（画面の1単位の画素の数）} */
-A.drawTrain=function(c,cars,o){const st=A.livery(o.type),n=cars.length;if(!n)return;const sz=A.size(n,o.k),L=sz.L,W=sz.W,side=sz.side,dk=o.dk||0,z=o.zoom||1;
+/* 単色の列車（地図の上）：1両ずつ角の丸い細い棒。先頭は丸く、縁取りは同じ色を濃くしたもの。夜は窓の明かりの線と前照灯だけ */
+function shade(hex,f){const m=/^#?([0-9a-f]{6})$/i.exec(hex||'');if(!m)return hex;const n=parseInt(m[1],16);return `rgb(${Math.round((n>>16)*f)},${Math.round(((n>>8)&255)*f)},${Math.round((n&255)*f)})`;}
+function drawMono(c,cars,o){const n=cars.length,col=A.mono(o.type),sz=A.size(n,o.k),L=sz.L,W=sz.W,dk=o.dk||0;
+  c.save();if(o.faded)c.globalAlpha=CFG.dead.alpha;
+  const body=(p,i,dx,dy)=>{const head=i===0,tail=i===n-1,rh=head?W*0.5:W*0.2,rt=tail?W*0.32:W*0.2;c.save();c.translate(p.x+dx,p.y+dy);c.rotate(p.ang);c.beginPath();c.roundRect(-L/2,-W/2,L,W,[rt,rh,rh,rt]);c.restore();};
+  c.fillStyle='rgba(20,28,36,.22)';cars.forEach((p,i)=>{body(p,i,W*0.22,W*0.32);c.fill();});   // うすい影
+  const hl=nightHead(dk);if(hl>0.02&&!o.faded){const p=cars[0],ca=Math.cos(p.ang),sa=Math.sin(p.ang),fx=p.x+ca*L*0.5,fy=p.y+sa*L*0.5;
+    c.save();c.globalCompositeOperation='lighter';c.translate(fx,fy);c.rotate(p.ang);const g=c.createRadialGradient(0,0,0,0,0,L*2);g.addColorStop(0,`rgba(255,240,200,${0.5*hl})`);g.addColorStop(1,'rgba(255,240,200,0)');
+    c.fillStyle=g;c.beginPath();c.moveTo(0,-W*0.3);c.lineTo(L*2,-W*1.1);c.quadraticCurveTo(L*2.3,0,L*2,W*1.1);c.lineTo(0,W*0.3);c.closePath();c.fill();c.restore();}
+  const ed=shade(col,0.62),wl=nightWin(dk);
+  cars.forEach((p,i)=>{body(p,i,0,0);c.fillStyle=col;c.fill();c.lineWidth=Math.max(0.22,W*0.16);c.strokeStyle=ed;c.lineJoin='round';c.stroke();
+    if(wl>0.02&&!o.faded){c.save();c.translate(p.x,p.y);c.rotate(p.ang);c.globalAlpha*=0.85*wl;c.fillStyle=CFG.night.win;c.fillRect(-L*0.36,-W*0.13,L*0.72,W*0.26);c.restore();}});
+  c.restore();}
+A.drawTrain=function(c,cars,o){if(A.isMono())return drawMono(c,cars,o);const st=A.livery(o.type),n=cars.length;if(!n)return;const sz=A.size(n,o.k),L=sz.L,W=sz.W,side=sz.side,dk=o.dk||0,z=o.zoom||1;
   const fine=z>=2.2;   // 拡大しているとき：冷房の箱の格子・窓まで描く
   c.save();if(o.faded)c.globalAlpha=CFG.dead.alpha;
   const shapes=cars.map((p,i)=>{const P=outline(p.x,p.y,p.ang,L,W,i===0,i===n-1);const H=hull(P.concat(P.map(q=>({x:q.x,y:q.y+side}))));return {p,P,H};});
