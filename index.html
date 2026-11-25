@@ -708,8 +708,8 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/ctc-core.js?v=20261121c"></script>
 <script src="js/ctc-signal.js?v=20261121c"></script>
 <script src="js/ctc-view.js?v=20261125a"></script>
-<script src="js/run-record-core.js?v=20261125b"></script>
-<script src="js/run-record.js?v=20261125b"></script>
+<script src="js/run-record-core.js?v=20261125c"></script>
+<script src="js/run-record.js?v=20261125c"></script>
 <script src="js/keiei-core.js?v=20261117c"></script>
 <script src="js/keiei-view.js?v=20261117c"></script>
 <script>
@@ -1493,7 +1493,7 @@ const segPt=(a,b,f,off)=>{const q=RG&&RG.segAt(a,b,f);if(q)return {x:q.x+q.nx*of
 const LANE_C=[-19,-7,7,19];
 function stOff(tr,i){const s=tr.seq[i],p=tr.set?tr.set.plat:0;
   if(s==='C')return LANE_C[p%4];if(s==='P')return [-7,7][p%2];if(s==='O')return [-6,6][tr.num%2];if(s==='T'||s==='F')return tr.down?6:-6;
-  const b=tr.down?7:-7;return (ST[s].taihi&&onSiding(tr,i))?b*2.5:b;}
+  const b=tr.down?7:-7;return (ST[s].taihi&&(tr.sid?tr.sid[i]:onSiding(tr,i)))?b*2.5:b;}   // tr.sid：運行の記録の番線で待避線にいるか（手順3）
 function bl(f){if(f>=0.2)return 0;const u=f/0.2;return 1-u*u*(3-2*u);}
 function segPos(tr,i,f){
   const a=tr.seq[i],b=tr.seq[i+1],br=segIsBranch(a,b),n=br?NB[a+b]:NM[a+b],lo=br?0:(tr.down?7:-7);
@@ -1507,7 +1507,7 @@ function ease(f,sa,sb){if(sa&&sb)return f*0.35+0.65*(f*f*(3-2*f));if(sa)return f
 function tripState(tr,T){
   const n=tr.seq.length;let i=0;while(i<n-1&&tr.arr[i+1]<=T)i++;
   if(T<tr.dep[i]||i===n-1){const p=anchorPt(tr.seq[i],stOff(tr,i));const nn=stN(tr.seq[i]);return {x:p.x,y:p.y,ang:Math.atan2(nn.ty,nn.tx),at:i,u:i,moving:false,load:i===0?0:tr.loadAfter[i-1]};}
-  const raw=(T-tr.dep[i])/(tr.arr[i+1]-tr.dep[i]);const sa=tr.dep[i]>tr.arr[i]||i===0,sb=tr.stop[i+1]||tr.op[i+1];const f=ease(Math.min(1,Math.max(0,raw)),sa,sb);
+  const raw=(T-tr.dep[i])/(tr.arr[i+1]-tr.dep[i]);const sa=tr.dep[i]>tr.arr[i]||i===0,sb=tr.stop[i+1]||tr.op[i+1];const f=tr.rrow?recFrac(tr,T,i,raw,sa,sb):ease(Math.min(1,Math.max(0,raw)),sa,sb);
   const p=segPos(tr,i,f),q=segPos(tr,i,Math.min(1,f+0.02)),r0=segPos(tr,i,Math.max(0,f-0.02));
   return {x:p.x,y:p.y,ang:Math.atan2(q.y-r0.y,q.x-r0.x),at:i,u:i+f,moving:true,f:raw,load:tr.loadAfter[i]};
 }
@@ -1541,9 +1541,45 @@ function tripPath(tr){if(TPATH.has(tr))return TPATH.get(tr);const pts=[],idx=[0]
   const P=pathOf(pts);P.idx=idx;TPATH.set(tr,P);return P;}
 function carPoses(v,k){const st=v.st,n=v.s.cars,sz=TrainArt.size(n,k),Lt=TrainArt.length(n,k);let P,d;
   if(st.dpath){P=pathOf(st.dpath);d=st.df*P.L;}
-  else{P=tripPath(st.trip);const u=Math.max(0,Math.min(st.trip.seq.length-1,st.u||0)),i=Math.min(Math.floor(u),st.trip.seq.length-2),f=u-i,a=P.idx[i],b=P.idx[i+1],x=a+(b-a)*f,j=Math.min(b-1,Math.floor(x));d=P.s[j]+(P.s[j+1]-P.s[j])*(x-j);}
+  else{const tr=st.run||st.trip;P=tripPath(tr);const u=Math.max(0,Math.min(tr.seq.length-1,st.u||0)),i=Math.min(Math.floor(u),tr.seq.length-2),f=u-i,a=P.idx[i],b=P.idx[i+1],x=a+(b-a)*f,j=Math.min(b-1,Math.floor(x));d=P.s[j]+(P.s[j+1]-P.s[j])*(x-j);}
   const out=[];for(let j=0;j<n;j++){const c=d+Lt/2-sz.L/2-j*(sz.L+sz.gap),f=pathAt(P,c+sz.L/2-0.3),b=pathAt(P,c-sz.L/2+0.3);out.push({x:(f.x+b.x)/2,y:(f.y+b.y)/2,ang:Math.atan2(f.y-b.y,f.x-b.x)});}
   return out;}
+/* ---- 運行の記録で地図の列車を動かす（docs/run-record-plan.md の手順3・2026-11-25）----
+   記録（js/run-record.js の RunRecord.get()）の実際の発着で動かし、2駅の間は記録の「キロの割合」を地図の線路の同じ割合の場所に置く。
+   運休の列車は走らない。途中の駅で待避線にいるかは記録の番線（中央・港の番線は地図の線の数が少ないので今までの決め方）。
+   臨時・貨物も出す。地図の外（県央本線・港貨物ターミナル）にいるあいだは、中央・港のそばに札。?rr=0 で前の描き方 */
+const MAPREC=!/[?&]rr=0(&|$)/.test(location.search);
+let MR=null;
+function mapRec(){
+  if(!MAPREC||!window.RunRecord||!window.RunRecordCore||!D)return null;
+  const rec=RunRecord.get();if(!rec)return null;if(MR&&MR.rec===rec)return MR;
+  const SIDE=(window.CtcCore?CtcCore.Y.side:42)-0.1,OFF=RunRecordCore.OFF;
+  const mk=(tr,a,b)=>{const row=rec.byTrip.get(tr);if(!row||row.cancel)return null;
+    const p=Object.create(tr),sl=x=>x.slice(a,b),n=tr.seq.length,L=row.run.lanes;
+    p.base=tr;p.rrow=row;p.off=a;p.seq=sl(tr.seq);p.arr=sl(row.arr);p.dep=sl(row.dep);p.stop=sl(tr.stop);p.op=sl(tr.op||tr.seq.map(()=>false));
+    if(tr.synth)p.loadAfter=p.seq.map(()=>0);else if(a||b<n)p.loadAfter=sl(tr.loadAfter);
+    p.sid=p.seq.map((s,k)=>{const i=k+a;if(i<=0||i>=n-1||!ST[s]||!ST[s].taihi)return false;const ln=L&&L[i]!=null?Math.abs(L[i])>=SIDE:null;
+      if(tr.synth)return !!ln;if(ln==null||(s==='K'&&tr.seq.includes('O')))return onSiding(tr,i);return ln;});
+    return p;};
+  const sets=new Map();
+  D.sets.forEach(s=>{const trips=s.trips.map(t=>mk(t,0,t.seq.length)).filter(Boolean);if(!trips.length)return;sets.set(s,Object.assign(Object.create(s),{trips,first:trips[0].dep[0],last:trips[trips.length-1].arr.at(-1)}));});
+  const syn=[];
+  rec.rows.forEach(row=>{if(!row.synth||row.cancel)return;const tr=row.tr,n=tr.seq.length;let a=0,b=n;while(a<n&&OFF(tr.seq[a]))a++;while(b>a&&OFF(tr.seq[b-1]))b--;if(b-a<2)return;
+    const p=mk(tr,a,b);if(!p)return;p.inFrom=a>0?tr.seq[a-1]:null;p.outTo=b<n?tr.seq[b]:null;p.t0=row.dep[0];p.t1=row.arr[n-1];syn.push(p);});
+  MR={rec,sets,syn};return MR;}
+/* 2駅の間のどこか（0〜1）。記録の where（指令パネルと同じ式・事故で止まる・交換信号所で待つもこめて）。合わないときは今までの式 */
+function recFrac(tr,T,i,raw,sa,sb){const w=MR&&MR.rec&&RunRecordCore.where(MR.rec,tr.rrow,T);if(w&&w.st==='run'&&w.i-(tr.off||0)===i)return w.frac;return ease(Math.min(1,Math.max(0,raw)),sa,sb);}
+/* 臨時・貨物と、地図の外の札 */
+function drawSynMap(c,mr,TK,dk){const tags={C:[],P:[]};
+  for(const p of mr.syn){const n=p.seq.length;
+    if(T>=Math.min(p.arr[0],p.dep[0]-1)&&T<=p.arr[n-1]+0.5){const st=tripState(p,T),cars=carPoses({s:{cars:p.cars||6},st:Object.assign({},st,{trip:p})},TK);
+      TrainArt.drawTrain(c,cars,{type:p.type,dk,stopped:!st.moving,k:TK,zoom:MS*CDPR});continue;}
+    const nm=`${p.type==='G'?'貨物':'臨時'} ${p.num}`;
+    if(p.inFrom&&T>=p.t0-5&&T<p.arr[0])tags[p.seq[0]==='C'?'C':'P'].push(`${p.inFrom==='W'?'県央本線から':'港貨物ターミナルから'} ${nm}（${fmt(p.arr[0])}着）`);
+    else if(p.outTo&&T>p.dep[n-1]&&T<=p.t1+3)tags[p.seq[n-1]==='C'?'C':'P'].push(`${nm} → ${p.outTo==='W'?'県央本線へ':'港貨物ターミナルへ'}`);}
+  c.font='600 10.5px "Zen Kaku Gothic New",sans-serif';c.textAlign='left';
+  for(const k of ['C','P'])tags[k].forEach((t,j)=>{const w=c.measureText(t).width+10,x=k==='C'?Math.max(4,ST.C.x-w/2-10):Math.min(996-w,ST.P.x-w/2+10),y=ST[k].y-62-j*17;
+    c.fillStyle='rgba(30,40,52,.78)';c.beginPath();c.roundRect(x,y,w,15,4);c.fill();c.fillStyle='#fff';c.fillText(t,x+5,y+11);});}
 const crowdCol=r=>r<0.8?TH.ok:(r<1.5?TH.warn:TH.bad);
 function darkness(t){if(window.NightView&&NightView.ready){const d=NightView.dark(t);if(d!=null)return d;}   // 第9回：本当の暦の日の入り・日の出で（js/night-view.js）。読めないときは今までの時刻
   const m=((t%1440)+1440)%1440;if(m<350)return 1;if(m<395)return 1-(m-350)/45;if(m<1040)return 0;if(m<1085)return (m-1040)/45;return 1;}
@@ -1696,7 +1732,8 @@ function drawMap(){
   // depots count
   const inDepot={C:0,P:0},total={C:0,P:0},parked={C:[],P:[]};
   VIS=[];
-  D.sets.forEach(s=>{total[s.home]++;const st=setState(s,T);if(!st){inDepot[s.home]++;parked[s.home].push(s);return;}VIS.push({s,st});});
+  const mr=mapRec();   // 運行の記録（手順3）。st.run＝記録の時刻の写しの列車・st.trip＝もとの列車（選ぶ・札はこちら）
+  D.sets.forEach(s=>{total[s.home]++;const ms=mr?mr.sets.get(s):s,st=ms?setState(ms,T):null;if(!st){inDepot[s.home]++;parked[s.home].push(s);return;}if(st.trip&&st.trip.base){st.run=st.trip;st.trip=st.trip.base;}VIS.push({s,st});});
   c.font='600 11px "Zen Kaku Gothic New",sans-serif';c.textAlign='left';
   Object.entries(DEPOT).forEach(([k,d])=>{const y=d.yard;const n=inDepot[k];
     {const cols=Math.max(1,Math.floor((y.w-4)/16)),lanes=4;for(let i=0;i<Math.min(n,cols*lanes);i++){const lane=i%lanes,col=Math.floor(i/lanes);const yy=y.y+4+lane*(y.h-8)/3-0.6,xx=y.x+9+col*16;const ps=parked[k][i];   // 車庫で休んでいる編成（小さな2両の絵）
@@ -1708,7 +1745,8 @@ function drawMap(){
   if(LAYERS.trains){VIS.forEach(v=>{v.cars=carPoses(v,TK);});
     const ss0=selSet(),sv=ss0&&VIS.find(v=>v.s===ss0);if(sv){c.save();c.strokeStyle=TH.accent;c.globalAlpha=0.45;c.lineWidth=(TrainArt.isMono&&TrainArt.isMono()?6:11)*TK;c.lineCap='round';c.lineJoin='round';c.beginPath();sv.cars.forEach((p,i)=>i?c.lineTo(p.x,p.y+0.7):c.moveTo(p.x,p.y+0.7));if(sv.cars.length===1)c.lineTo(sv.cars[0].x+0.1,sv.cars[0].y+0.7);c.stroke();c.restore();}
     VIS.slice().sort((a,b)=>a.st.y-b.st.y).forEach(({s,st,cars})=>{const tr=st.trip;TrainArt.drawTrain(c,cars,{type:tr.type,dk,stopped:!st.moving&&!st.dead&&!st.waiting,faded:!!st.dead,k:TK,zoom:MS*CDPR});
-    const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);const mo=TrainArt.isMono&&TrainArt.isMono(),off=mo?5:9;c.arc(st.x+n.x*off*side,st.y+n.y*off*side,mo?2:2.8,0,Math.PI*2);c.fill();}});}
+    const r=(st.load||0)/tr.cap;if(!st.dead&&st.load>1){c.fillStyle=crowdCol(r);c.beginPath();const n={x:-Math.sin(st.ang),y:Math.cos(st.ang)};const side=(tr.down?1:-1);const mo=TrainArt.isMono&&TrainArt.isMono(),off=mo?5:9;c.arc(st.x+n.x*off*side,st.y+n.y*off*side,mo?2:2.8,0,Math.PI*2);c.fill();}});
+    if(mr)drawSynMap(c,mr,TK,dk);}
   // selection
   if(LAYERS.events)drawEventIcons(c,snap,dk);
   drawScenePins(c);   // 場面（コレクション）のピン

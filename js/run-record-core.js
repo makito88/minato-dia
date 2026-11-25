@@ -116,7 +116,7 @@
     if (OFF(a) || (!stopped && OFF(b))) return { st: 'off', i, a, b, km: null, frac: stopped ? 0 : Math.max(0, Math.min(1, (Tq - tr.dep[i]) / (tr.arr[i + 1] - tr.dep[i]))), branch: false, track: null };
     const p = C.trainPos(tr, Tq, LAY, env);
     const br = BRS(a) || BRS(b), kmOf = s => br ? (s === 'K' ? 0 : SX[s].bkm) : SX[s].km;
-    const ka = kmOf(a), kb = kmOf(b);
+    const ka = kmOf(a) + C.frontOff(tr, i, env), kb = kmOf(b) + C.frontOff(tr, Math.min(n - 1, i + 1), env);   /* 止まる位置のずれ（列車の先頭）もこめて、0＝a を出たところ・1＝b に着いたところ */
     const frac = stopped ? 0 : kb === ka ? 0 : Math.max(0, Math.min(1, (p.km - ka) / (kb - ka)));
     return { st: stopped ? 'stop' : 'run', i, a, b: stopped ? a : b, km: p.km, frac, branch: br, track: stopped ? row.track[i] : null, xwait: !!p.xwait };
   }

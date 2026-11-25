@@ -4,7 +4,9 @@
     "L": {"name": "普通",     "body": "#f3f1ea", "stripe": "#e8792b", "roof": "#c9cdd0", "roofHi": "#eef0f1", "edge": "#2b3a4c", "win": 5, "mono": "#e8792b"},
     "R": {"name": "快速",     "body": "#efe5c8", "stripe": "#2f7fc0", "roof": "#d9d2bd", "roofHi": "#f6f1e2", "edge": "#2b3a4c", "win": 5, "mono": "#2f7fc0"},
     "E": {"name": "特急",     "body": "#8e1f2e", "stripe": "#e1c46a", "roof": "#cfd3d6", "roofHi": "#f1f2f3", "edge": "#2a1d24", "win": 6, "mono": "#a3263a"},
-    "X": {"name": "観光特急", "body": "#2f5a48", "stripe": "#e9cf8c", "roof": "#d6d2c4", "roofHi": "#f4f0e2", "edge": "#1d2a24", "win": 4, "mono": "#2f6a52"}
+    "X": {"name": "観光特急", "body": "#2f5a48", "stripe": "#e9cf8c", "roof": "#d6d2c4", "roofHi": "#f4f0e2", "edge": "#1d2a24", "win": 4, "mono": "#2f6a52"},
+    "Z": {"name": "臨時（県央本線から・運行の記録 2026-11-25）", "body": "#e8f1f0", "stripe": "#2f9a8c", "roof": "#c9cdd0", "roofHi": "#eef0f1", "edge": "#2b3a4c", "win": 5, "mono": "#2f9a8c"},
+    "G": {"name": "貨物（運行の記録 2026-11-25）", "body": "#7a5a3c", "stripe": "#d9c7a2", "roof": "#8d8577", "roofHi": "#b3ab9c", "edge": "#2b241c", "win": 0, "mono": "#7a5a3c"}
   },
   "dead": {"alpha": 0.72},
   "size": {"carL": {"2": 4.2, "3": 4.2, "4": 4.0, "6": 3.4, "8": 2.95, "10": 2.65}, "W": 1.65, "side": 0.75, "gap": 0.38},

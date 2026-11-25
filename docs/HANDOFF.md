@@ -924,3 +924,8 @@ docs/run-record-plan.md の手順1。`js/run-record-core.js`（計算）と `js/
 js/ctc-view.js の ensureHl が、RunRecord.get({policy, forceBig, X, hs}) の rec.raw を読むようにした（記録がなければ前のまま）。前の版と1日の出力（位置・信号・ポイント・カード・遅れ・線路使用料）が4つの場面で同じ（tools/ctc-same.cjs）。指令パネルを作っている会話へ：ensureHl を変えるときは、run-record-core.js の build も同じ順になっているか見ること。
 次：手順3（地図を km の割合と番線で描く）。
 
+## 2026-11-25 運行の記録 手順3（地図が記録で動く）
+
+地図の列車は RunRecord.get() の実際の時刻・km の割合・待避線で動く（index.html の mapRec・recFrac・drawSynMap）。運休は走らない。臨時・貨物も地図に出て、地図の外は中央・港の上に札。?rr=0 で前の描き方。確かめは tools/map-record-check.cjs。列車の情報の札・乗車体験はまだ予定の時刻。
+次：手順4（いまの沿線／試運転の2つのモード）。
+
