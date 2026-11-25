@@ -983,12 +983,18 @@ function ensDayFactors(day){const C=ENS.cfg.econ,ec=econAt(day),N=NSt;
   return {day,e:ec.e,phase:ec.phase,cost:ec.cost,shocks,T,late};}
 function ecoApply(o,s,d,t){const b=((SI[s]*NSt+SI[d])*30+Math.min(29,t/60|0))*4;for(let p=0;p<4;p++)o[p]*=ECO.T[b+p];}
 let KFX=null;   /* 経営の投資の倍率（KeieiView.fx）。運行日の始めに読む */
-function ensRefresh(){BUSN.F=(BUSN.cfg&&typeof BusNet!=='undefined')?BusNet.table(BUSN.cfg,ALL,COND.day!=='wd'):null;ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;KFX=window.KeieiView?KeieiView.fx(ENS.day||1):null;seasRefresh();}
+/* お絵かき帖で自分で描いたバスの路線（dia-routes）。駅の近くに停留所があれば、その駅の乗り降りに効く（js/busnet-core.js の fromDoc） */
+function userBusRoutes(){if(typeof BusNet==='undefined')return [];try{const d=JSON.parse(localStorage.getItem('dia-routes')||'null');return d?BusNet.fromDoc(d,ST,{upk:38}):[];}catch(e){return [];}}
+let BUSN_SIG='';
+function ensRefresh(){const ur=userBusRoutes();BUSN.user=ur;BUSN_SIG=JSON.stringify(ur);BUSN.F=(BUSN.cfg&&typeof BusNet!=='undefined')?BusNet.table(BusNet.withUser(BUSN.cfg,ur),ALL,COND.day!=='wd'):null;ECO=(ENS.cfg&&COND.econ==='auto')?ensDayFactors(ENS.day):null;KFX=window.KeieiView?KeieiView.fx(ENS.day||1):null;seasRefresh();}
 /* ---- 季節のできごと（計算は js/season-core.js、設定は data/seasonal.json と data/seasonal-extra.json） ----
    いつ・どこで起きるかは「保存の種＋暦の日付」だけで決まる。景気が固定でも起きる（暦の行事なので）。
    その日のイベント（プレイヤーが選ぶもの）と同じ駅なら止める（二重に数えない）。効き目は保存しない */
 const SEAS={cfg:null,dateI:null,list:[],T:null,hold:true,port:null,L:null,portPlan:null};   // port・L・portPlan：港（客船の日）の島の設定・橋の一覧・きょうの橋の結果（港駅の売店の8回目）   // dateI：留守の日をまとめて進めるとき、js/away.js がその日の番号を入れる。hold：留守の分を進め終わるまで、きょうの便りを待つ（順番が逆にならないように）
-const BUSN={cfg:null,F:null};   // 沿線のバス網（計算は js/busnet-core.js、設定は data/busnet.json）。F＝駅の組・目的ごとの倍率（バスが駅に人を運ぶ・並んで走る）
+const BUSN={cfg:null,F:null,user:[]};
+// お絵かき帖でバスの路線を描きかえたら、乗客の数を計算し直す（ほかのタブで描いて戻ってきたときも）
+function busUserCheck(){try{if(!BUSN.cfg||typeof ensRefresh!=='function')return;const sig=JSON.stringify(userBusRoutes());if(sig===BUSN_SIG)return;ensRefresh();if(typeof rebuild==='function'&&D)rebuild();}catch(e){}}
+addEventListener('storage',e=>{if(e.key==='dia-routes')busUserCheck();});addEventListener('focus',()=>busUserCheck());   // 沿線のバス網（計算は js/busnet-core.js、設定は data/busnet.json）。F＝駅の組・目的ごとの倍率（バスが駅に人を運ぶ・並んで走る）
 function seasDayI(){return SEAS.dateI!=null?SEAS.dateI:SeasonCore.opIndex(Date.now());}
 function seasRefresh(){SEAS.list=[];SEAS.T=null;if(!SEAS.cfg||typeof SeasonCore==='undefined')return;
   const evPlaces=new Set((ACTIVE_EV||[]).map(e=>e.place));
@@ -3830,7 +3836,8 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <!-- トップページ（5つのレイヤー）：js/top.js -->
 <script src="js/route-core.js?v=20261112r"></script>
 <script src="js/route-run-core.js?v=20261112r"></script>
-<script src="js/route-run.js?v=20261115a"></script>
+<script src="js/busnet-doc.js?v=20261125a"></script>
+<script src="js/route-run.js?v=20261125a"></script>
 <script src="js/top.js?v=20261117a"></script>
 
 </body>

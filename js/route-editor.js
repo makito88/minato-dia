@@ -430,7 +430,7 @@ $('mapAlpha').oninput=e=>{doc.view.mapAlpha=+e.target.value;redraw();};$('mapAlp
 document.querySelectorAll('#menu .mi').forEach(b=>b.onclick=()=>{const m=b.dataset.m;
   if(m==='png')savePNG();else if(m==='export')exportJSON();else if(m==='import')$('file').click();
   else if(m==='rail'){doc.view.rail=!doc.view.rail;commit();}else if(m==='fit')fit();
-  else if(m==='example'){example();}else if(m==='group'){groupRoutes();}else if(m==='clear'){if(confirm('描いたものをぜんぶ消しますか？（「元に戻す」で戻せます）')){const t=doc.types,v=doc.view,ev=doc.evs,nt=doc.night,se=doc.season;doc=C.emptyDoc(DEF);doc.types=t;doc.view=v;if(ev)doc.evs=ev;if(nt)doc.night=nt;if(se)doc.season=se;S.sel=null;S.line=null;S.poly=null;commit();}}
+  else if(m==='example'){example();}else if(m==='group'){groupRoutes();}else if(m==='busnet'){busnetDraw();}else if(m==='busnetOff'){if(!window.BusnetDoc)return;const n=BusnetDoc.erase(C,doc);S.sel=null;S.line=null;commit();toast(n?`沿線のバス網（${n}系統）と施設を消しました（「元に戻す」で戻せます）`:'沿線のバス網は描かれていません');}else if(m==='clear'){if(confirm('描いたものをぜんぶ消しますか？（「元に戻す」で戻せます）')){const t=doc.types,v=doc.view,ev=doc.evs,nt=doc.night,se=doc.season;doc=C.emptyDoc(DEF);doc.types=t;doc.view=v;if(ev)doc.evs=ev;if(nt)doc.night=nt;if(se)doc.season=se;S.sel=null;S.line=null;S.poly=null;commit();}}
   if(m!=='rail')$('menu').hidden=true;});
 $('undo').onclick=undo;$('redo').onclick=redo;
 document.querySelectorAll('#zoom .ib').forEach(b=>b.onclick=()=>zoomAt(+b.dataset.z,V.w/2,V.h/2));
@@ -481,6 +481,11 @@ function example(){const R=(pts,type,smooth=true)=>C.addPath(doc,pts,{type,smoot
   L('みなと空港 遊覧便','sky',[m,n2],{freq:{unit:'d',n:3},first:'09:00',last:'16:00'});
   commit();fit();toast('例を描きました。いらなければ「元に戻す」で消せます');showLines(innerWidth>=700);}
 
+/* ---------------- 沿線のバス網と施設（js/busnet-doc.js・data/busnet.json・data/facilities.json・2026-11-25） */
+function busnetDraw(){if(!window.BusnetDoc)return;if(BusnetDoc.has(doc)){toast('沿線のバス網はもう描いてあります');return;}
+  Promise.all(['data/busnet.json','data/facilities.json'].map(u=>fetch(u,{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null))).then(([bn,fac])=>{
+    if(!bn){toast('バス網の設定（data/busnet.json）を読み込めませんでした');return;}
+    if(doc.std)delete doc.std.busnet;const n=BusnetDoc.draw(C,doc,bn,fac,DEF);commit();fit();toast(`沿線のバス網（${n}系統）と施設を描きました。いらなければ「元に戻す」で消せます`);showLines(innerWidth>=700);});}
 /* ---------------- グループの拠点と配送（メニュー「グループの配送を描く」・2026-11-13 ユーザーの頼み）
    工場（港浜フーズ）・川辺の配送センター・みなと卸の倉庫・自社の2店・取引先（みなと川大学 生協の売店・港の製缶工場 社員食堂）の
    だいたいの位置にピンを置き、いまの配送（data/center.json・data/haiso.json の便）を「自社の配送」の路線で描く。位置も道も、あとで自由に直せる。

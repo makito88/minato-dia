@@ -14,7 +14,15 @@ const OWNER={self:'自社',other:'よその会社',public:''};
 
 /* ---------- 読み込み・計算（保存が変わったときだけ） ---------- */
 fetch('data/routes.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=>{DEF=d||{};check();}).catch(()=>{DEF={};check();});
-function check(){if(!DEF)return;let s=null;try{s=localStorage.getItem(KEY);}catch(e){}if(s===RAW)return;RAW=s;SIM=null;DOC=null;LAYER.key='';SEL=null;hideCard();
+/* 沿線のバス網と施設（js/busnet-doc.js・2026-11-25）：保存にまだ描き込んでいなければ、1回だけ自動で描き込む（消したあとは描き込まない） */
+let STDTRY=false;
+function autoBusnet(){if(STDTRY||!window.BusnetDoc||!DEF||DEF.autoBusnet===false)return;STDTRY=true;
+  let cur=null;try{cur=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}if(cur&&cur.std&&('busnet' in cur.std))return;
+  Promise.all(['data/busnet.json','data/facilities.json'].map(u=>fetch(u,{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null))).then(([bn,fac])=>{if(!bn)return;
+    let now=null;try{now=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}const doc=C.normalize(now,DEF);if(doc.std&&('busnet' in doc.std))return;
+    const n=window.BusnetDoc.draw(C,doc,bn,fac,DEF);if(!n)return;try{localStorage.setItem(KEY,JSON.stringify(doc));}catch(e){return;}
+    if(typeof window.toast==='function')window.toast(`沿線のバス網（${n}系統）と施設をお絵かき帖に描き込みました。お絵かき帖のメニューで消せます`);check();});}
+function check(){if(!DEF)return;autoBusnet();let s=null;try{s=localStorage.getItem(KEY);}catch(e){}if(s===RAW)return;RAW=s;SIM=null;DOC=null;LAYER.key='';SEL=null;hideCard();
   if(!s)return;let j=null;try{j=JSON.parse(s);}catch(e){return;}if(!j||!j.lines||!Object.keys(j.lines).length)return;
   if(busy)return;busy=true;setTimeout(()=>{try{DOC=C.normalize(j,DEF);SIM=R.simulate(DOC,DEF.run);if(typeof window.renderLegend==='function')window.renderLegend();}catch(e){console.warn('route-run',e);SIM=null;}busy=false;},30);}
 addEventListener('storage',e=>{if(e.key===KEY)check();});addEventListener('focus',check);document.addEventListener('visibilitychange',()=>{if(!document.hidden)check();});

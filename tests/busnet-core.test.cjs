@@ -32,3 +32,20 @@ for(const hol of [false,true]){const T=BN.table(cfg,ALL,hol),N=ALL.length;let lo
 const f=BN.feeder(cfg,false);assert.ok(Object.keys(f).every(s=>f[s]<=f.C),'中央がいちばん');
 const c=BN.compete(cfg,false);assert.ok(c.KM>0&&c.CM>0,'並ぶ系統');
 console.log('busnet-core OK');
+// 7) お絵かき帖への描き込み（js/busnet-doc.js）：26系統・施設82か所・2回目は描かない・消すと自分の路線だけ残る・自分の路線は乗客に効く
+{const RC=require('../js/route-core.js'),BD=require('../js/busnet-doc.js'),defs=require('../data/routes.json'),fac=require('../data/facilities.json');
+  let doc=RC.normalize(null,defs);const n0=Object.keys(doc.lines).length;
+  // 自分で描いた路線：大学前駅のそば→駅から遠い団地（1時間に4本）
+  const a=RC.addNode(doc,316,322),b=RC.addNode(doc,316,250);RC.addEdge(doc,a,b,[],'street',false);
+  doc.stops.u1={name:'大学前駅',type:'bus',node:a,lp:'auto'};doc.stops.u2={name:'北の団地',type:'bus',node:b,lp:'auto'};
+  doc.lines.mine={name:'自分のバス',type:'city',style:{},seq:[{s:'u1'},{s:'u2'}],freq:{unit:'h',n:4},first:'06:00',last:'22:00',round:true,show:true};doc.order.push('mine');
+  const n=BD.draw(RC,doc,cfg,fac,defs);assert.equal(n,cfg.routes.length,'系統の数');assert.equal(BD.draw(RC,doc,cfg,fac,defs),0,'2回目は描かない');
+  assert.equal(Object.values(doc.stops).filter(s=>s.type==='spot').length,fac.list.length,'施設のピン');
+  doc=RC.normalize(JSON.parse(JSON.stringify(doc)),defs);assert.ok(BD.has(doc),'保存して読み直しても印が残る');
+  for(const l of Object.values(doc.lines)){if(!l.std)continue;const p=RC.linePath(doc,l);assert.ok(p,'道すじ '+l.name);}
+  const ST={};for(const [k,v] of Object.entries(defs.rail.stations))ST[k]={x:v.x,y:v.y};
+  const ur=BN.fromDoc(doc,ST,{upk:38});assert.equal(ur.length,1,'描き込んだ網は数えない・自分の路線だけ');assert.deepEqual(ur[0].stations,['U']);assert.equal(ur[0].wd,65);assert.ok(ur[0].feeder>0);
+  const f0=BN.feeder(cfg,false),f1=BN.feeder(BN.withUser(cfg,ur),false);assert.ok(f1.U>f0.U,'自分の路線で大学前が強くなる');
+  const m=BD.erase(RC,doc);assert.equal(m,cfg.routes.length);assert.ok(!Object.values(doc.stops).some(s=>s.std)&&!Object.values(doc.edges).some(e=>e.std));
+  assert.ok(doc.lines.mine&&doc.stops.u1,'自分の路線は残る');assert.equal(Object.keys(doc.lines).length,n0+1);assert.equal(BD.draw(RC,Object.assign(doc,{std:{busnet:0}}),cfg,fac,defs)>0,true,'消したあとでもメニューからは描ける');}
+console.log('busnet-doc OK');

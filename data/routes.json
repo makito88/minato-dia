@@ -605,6 +605,17 @@
    "size": 7,
    "font": "mincho",
    "label": "halo"
+  },
+  {
+   "id": "spot",
+   "cap": 1,
+   "name": "施設",
+   "shape": "square",
+   "fill": "#fff8ec",
+   "stroke": "#7a5a3c",
+   "size": 3.4,
+   "font": "maru",
+   "label": "halo"
   }
  ],
  "lineTypes": [
@@ -620,6 +631,22 @@
     "casingColor": "#ffffff",
     "dash": "solid",
     "alpha": 0.95,
+    "glow": 0,
+    "shadow": true
+   }
+  },
+  {
+   "id": "dentetsu",
+   "name": "みなと川電鉄バス",
+   "mode": "bus",
+   "owner": "self",
+   "style": {
+    "color": "#1f7a8c",
+    "width": 3,
+    "casing": 1.3,
+    "casingColor": "#ffffff",
+    "dash": "solid",
+    "alpha": 0.92,
     "glow": 0,
     "shadow": true
    }

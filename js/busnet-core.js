@@ -5,6 +5,8 @@
       （季節のできごと＝place と expand、プレイヤーが選ぶイベント＝eventFlows）。
    2) バスが駅に人を運んでくる（フィーダー）：駅を通る系統の本数と、駅から離れた停留所の割合で、
       その駅に乗り降りする人を少し増やす。電車と並んで走る系統は、その2駅の間を少し減らす（table）。
+   3) お絵かき帖で自分で描いたバスの路線（dia-routes）も 2) に入れる（fromDoc）。駅から0.5km以内の停留所がある路線は、その駅を通る系統として数える。
+      描き込んだ沿線のバス網（印 std）は data/busnet.json と同じなので数えない。
    効き目は保存しない。毎回この計算で作り直す。
    ===================================================================== */
 (function(root){
@@ -41,7 +43,21 @@ function table(cfg,ALL,holiday){if(!cfg)return null;const N=ALL.length,T=new Flo
   for(let si=0;si<N;si++)for(let di=0;di<N;di++){if(si===di)continue;const a=ALL[si],b=ALL[di],k=a<b?a+b:b+a,cc=c[k]||0;
     for(let p=0;p<4;p++)T[(si*N+di)*4+p]=(1+(f[a]||0)*fp[p])*(1+(f[b]||0)*fp[p])*(1-cc);}
   return T;}
-const api={place,expand,eventFlows,feeder,compete,table};
+/* お絵かき帖の保存（dia-routes）から、自分で描いたバスの路線を系統の形に。st＝{駅:{x,y}}（地図の座標）、o.upk＝地図の1km、o.walk＝駅から歩ける km */
+function tripsOf(l){const f=l.freq||{unit:'h',n:2};if(f.unit==='d')return Math.max(0,f.n|0);const hm=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(s||'');return m?(+m[1])*60+(+m[2]):null;};
+  const a=hm(l.first),b=hm(l.last);if(a==null||b==null||b<=a)return 0;return Math.floor((b-a)/60*(f.n||0))+1;}
+function fromDoc(doc,st,o){o=o||{};const upk=o.upk||38,walk=o.walk||0.5,out=[];if(!doc||!doc.lines||!doc.stops||!doc.nodes)return out;
+  const types=(doc.types&&doc.types.line)||[];
+  for(const id of Object.keys(doc.lines)){const l=doc.lines[id];if(!l||l.std)continue;const t=types.find(x=>x.id===l.type)||{};if((t.mode||'bus')!=='bus')continue;
+    const pts=(l.seq||[]).map(it=>{const sp=it&&it.s&&doc.stops[it.s];return sp?doc.nodes[sp.node]:null;}).filter(Boolean);if(pts.length<2)continue;
+    const sts=new Set();let far=0;
+    for(const p of pts){let best=null;for(const s in st){const d=Math.hypot(p.x-st[s].x,p.y-st[s].y)/upk;if(!best||d<best.d)best={s,d};}
+      if(best&&best.d<=walk)sts.add(best.s);else if(best&&best.d>0.8)far++;}
+    const n=tripsOf(l);if(!n||!sts.size)continue;
+    out.push({no:'描いた路線:'+(l.name||id),name:l.name||'',stations:[...sts],wd:n,we:n,feeder:+(far/pts.length).toFixed(2),user:true});}
+  return out;}
+const withUser=(cfg,routes)=>routes&&routes.length?Object.assign({},cfg,{routes:(cfg.routes||[]).concat(routes)}):cfg;
+const api={place,expand,eventFlows,feeder,compete,table,fromDoc,withUser,tripsOf};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.BusNet=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
