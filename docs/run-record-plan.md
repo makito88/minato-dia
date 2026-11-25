@@ -1,6 +1,6 @@
 # 運行の記録（共通の計算）と2つのモードの計画
 
-（2026-11-25 の会話で決めた案。まだ作っていない。別のチャットで段3から進める）
+（2026-11-25 の会話で決めた案。手順1はできた〈2026-11-25〉。次は手順2〈指令パネル・別の会話と重ならない時間に〉か手順3〈地図〉）
 
 ## ねらい
 地図・指令パネル・乗車体験・収支・売店が、同じ「本当」を読む。遅れ・事故・代行バス・運賃・売上が、どの画面でも同じ数字に落ち着く。
@@ -39,7 +39,18 @@
 4. 2つのモードを分ける（画面のつまみ・記録を残す／残さない）。
 5. 段4〜6（代行バス・実際の乗客・運賃と払い戻し・費用）を1本ずつ。
 
+## 手順1でできたこと（2026-11-25）
+- `js/run-record-core.js`（計算・DOM なし）：`build(inp)` が指令パネルの ensureHl と同じ順（synth → highlights → bigIncident → disrupt → setPL → yard）で計算し、列車ごとの表 `rows` を返す。
+  1行＝ `{key, num, type, synth, offMap, down, seq, stop, plan:{arr,dep}, arr, dep（番線の割りふりのあとの実際）, cancel, late（終点の遅れ・分）, track:[番線], why, tr, run}`。`key` は「R/S＋種別＋番号＠始発の時刻」。
+  `where(rec,row,T)` → `{st: before|stop|run|after|cancel|off, a, b, km, frac（a→b のキロの割合）, branch, track}`。`liveAt(rec,T)`・`boardAt(rec,st)` も。
+  `rec.raw` に指令パネルが使う中間の結果（SYN・EXT・hl・D2・PX・SETS2・yard など）をそのまま入れた。手順2で ctc-view はこれを読めば、自分で計算しなくてよい。
+- `js/run-record.js`（つなぎ）：`RunRecord.get()` を呼んだときだけ計算し、キー（運行日・ダイヤ・条件・方針・訓練）が同じなら使い回す。方針は指令パネルで選んだもの（`dia-ctc-policy`）。大きな事故の訓練は「試運転」のものなので、ふだんは起こさない（`RunRecord.set({forceBig})` で変えられる）。index.html の CtcView.init のすぐ下で init。
+- まだ、どの画面もこれを読んでいない（ふだんの負荷は増えていない）。計算は1回 0.3〜0.5 秒（ヘッドレス）。手順2で指令パネルがこれを読むようにすれば、同じ計算が2回にならない。それまでは、get() を毎フレーム呼ぶものを作らないこと。
+- 確かめ：`tests/run-record.test.cjs`（小さな1日）と `node tools/run-record-check.cjs plan|big|event`（本物の1日で指令パネルと比べる）。3つとも、実際の発着・番線の割りふりのあとの時刻・番線（約3,100か所）・運休・判断のカードの数が、指令パネルと完全に一致。スマホ実機は未確認。
+- 残し：指令パネルの列車の位置には、信号で待つ分（LAG）が画面の中で足される。記録の `where` はそれを含まない（時刻表どおりの位置）。手順2・3で、待ちを記録の側に入れるか決める。橋（links.json）はまだ足していない（読む島ができる手順5で、rail-to-kiosk・rail-to-money の向き先を変えるときに）。
+
 ## 関係するもの
+- 運行の記録：js/run-record-core.js・js/run-record.js・tests/run-record.test.cjs・tools/run-record-check.cjs
 - 指令パネル：js/ctc-core.js（disrupt・trainPos・bigIncident）・js/ctc-view.js
 - 地図の列車：index.html の setState・carPoses・drawMap、js/train-art.js
 - バス網：js/busnet-core.js・data/busnet.json（docs/features/busnet.md）

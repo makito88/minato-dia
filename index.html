@@ -708,6 +708,8 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/ctc-core.js?v=20261121c"></script>
 <script src="js/ctc-signal.js?v=20261121c"></script>
 <script src="js/ctc-view.js?v=20261121c"></script>
+<script src="js/run-record-core.js?v=20261125a"></script>
+<script src="js/run-record.js?v=20261125a"></script>
 <script src="js/keiei-core.js?v=20261117c"></script>
 <script src="js/keiei-view.js?v=20261117c"></script>
 <script>
@@ -2175,6 +2177,10 @@ if(window.CtcView)CtcView.init({ST,TYPES,DEPOTNAME,D:()=>D,T:()=>T,day:()=>ENS.d
   events:()=>COND.evs.slice(),cond:()=>({day:COND.day,wx:COND.wx}),sp:()=>CX?CX.sp:1,dw:()=>CX?CX.dw:0,   /* 段3：臨時列車はイベントの日だけ・貨物の昼の便は平日だけ */
   nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0,
   evName:(st,t)=>{const e=ACTIVE_EV.find(ev=>(ev.ops||[]).some(o=>o.st===st&&t>=o.from&&t<=o.to));return e?e.name:'';}});
+/* 運行の記録（docs/run-record-plan.md の手順1・js/run-record.js）。指令パネルと同じ材料。RunRecord.get() を呼んだときだけ計算し、運行日・ダイヤ・条件が同じなら使い回す。まだどの画面も読んでいない */
+if(window.RunRecord)RunRecord.init({ST,TYPES,DEPOTNAME,D:()=>D,day:()=>ENS.day||1,incidentK:()=>window.KeieiView?KeieiView.incidentK():1,fmt,onSiding,evDwell,
+  events:()=>COND.evs.slice(),cond:()=>({day:COND.day,wx:COND.wx}),sp:()=>CX?CX.sp:1,dw:()=>CX?CX.dw:0,
+  nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0});
 /* グループの収支（js/money-core.js の groupLedger）が読む、鉄道（親会社）の1日。本体の計算は変えない（読むだけ） */
 window.minatoRail={today:()=>D&&D.summary?{rev:D.summary.rev,eki:D.summary.eki,run:D.summary.run,fixed:D.summary.fixed}:null,
   day:d=>{const r=window.KeieiView&&KeieiView.state?KeieiView.state.log.find(x=>x.day===d):null;return r?{rev:r.rev,eki:r.profit-r.rev+r.cost,cost:r.cost}:null;}};
