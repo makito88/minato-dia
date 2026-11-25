@@ -32,7 +32,8 @@
   "port": "港（客船）",
   "deals": "取引の相談窓口",
   "money": "お金（会社どうしの請求書）",
-  "keiei": "経営（投資）"
+  "keiei": "経営（投資）",
+  "busnet": "バス網と行事の会場"
  },
  "links": [
   {
@@ -840,6 +841,38 @@
    },
    "desc": "グループの収支（js/money-core.js の groupLedger）に鉄道を親会社として1行足す。店の家賃は『外へ』ではなく『鉄道へ（グループ内）』に。鉄道の利益・乗客・運賃の計算は変えない（読むだけ）。",
    "since": "2026-11-17"
+  },
+  {
+   "id": "busnet-to-rail",
+   "name": "バス網と行事の会場 → 鉄道の乗客",
+   "from": "busnet",
+   "to": "rail",
+   "state": "temp",
+   "strength": 1,
+   "values": [
+    {
+     "name": "access",
+     "unit": "割合（会場に来る人が、どの駅で乗り降りするか。合計1）",
+     "src": "assume"
+    },
+    {
+     "name": "feeder",
+     "unit": "倍率（駅を通るバスの本数から。約1.01〜1.02）",
+     "src": "assume"
+    },
+    {
+     "name": "compete",
+     "unit": "倍率（電車と並ぶバスの2駅の間。最大−2%）",
+     "src": "assume"
+    }
+   ],
+   "read": {
+    "when": "dayStart",
+    "at": 270,
+    "note": "運行日の始め（ensRefresh・seasRefresh）に、季節のできごとの割り振りと、駅の組×目的の倍率表（BUSN.F）を作り直す。選べるイベントの流れの分け方は読みこみのときに1回"
+   },
+   "desc": "駅から遠い会場の行事を、歩ける駅とバスで行ける駅に分ける。バスが駅に人を運ぶ分と、電車と並ぶバスの分を乗客に掛ける。計算は js/busnet-core.js、設定は data/busnet.json。強さ0にする入口はまだない（data/busnet.json が読めないと今までどおり）。",
+   "since": "2026-11-25"
   }
  ]
 }
