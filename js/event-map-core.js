@@ -26,7 +26,7 @@ function normItem(o){if(!o||typeof o!=='object')return null;const x=+o.x,y=+o.y;
   const fx=o.fx&&typeof o.fx==='object'?{ride:['s','m','l'].includes(o.fx.ride)?o.fx.ride:'',goods:Array.isArray(o.fx.goods)?o.fx.goods.filter(g=>typeof g==='string').slice(0,6):[]}:{ride:'',goods:[]};
   return {name:String(o.name||'イベント').slice(0,40),kind:String(o.kind||'other'),icon,rim:/^#[0-9a-f]{6}$/i.test(o.rim||'')?o.rim:'',x:+x.toFixed(1),y:+y.toFixed(1),st:typeof o.st==='string'?o.st:'',
     date:isYmd(o.date)?o.date:'',rep:['once','year','week'].includes(o.rep)?o.rep:'once',start:/^\d{1,2}:\d{2}$/.test(o.start||'')?o.start:'10:00',end:/^\d{1,2}:\d{2}$/.test(o.end||'')?o.end:'16:00',
-    big:!!o.big,img:typeof o.img==='string'&&o.img.startsWith('data:image/')?o.img:'',memo:String(o.memo||'').slice(0,400),fx};}
+    big:!!o.big,img:typeof o.img==='string'&&o.img.startsWith('data:image/')?o.img:'',memo:String(o.memo||'').slice(0,400),fx,...(typeof o.std==='string'&&o.std?{std:o.std}:{})};}   // std：沿線の行事の暦から置いたもの（js/busnet-doc.js）
 // 保存の evs をそろえる：{v:1, items:{id:…}, recent:[絵文字…]}
 function normalize(evs){const out={v:1,items:{},recent:[]};if(!evs||typeof evs!=='object')return out;
   for(const [id,o] of Object.entries(evs.items||{})){const n=normItem(o);if(n)out.items[id]=n;}

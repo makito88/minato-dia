@@ -17,14 +17,23 @@ fetch('data/routes.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(d=
 /* 沿線のバス網と施設（js/busnet-doc.js・2026-11-25）：保存にまだ描き込んでいなければ、1回だけ自動で描き込む（消したあとは描き込まない） */
 let STDTRY=false;
 function autoBusnet(){if(STDTRY||!window.BusnetDoc||!DEF||DEF.autoBusnet===false)return;STDTRY=true;
-  let cur=null;try{cur=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}if(cur&&cur.std&&('busnet' in cur.std))return;
+  let cur=null;try{cur=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}if(cur&&cur.std&&('busnet' in cur.std)&&('busnetEv' in cur.std))return;
   Promise.all(['data/busnet.json','data/facilities.json'].map(u=>fetch(u,{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null))).then(([bn,fac])=>{if(!bn)return;
-    let now=null;try{now=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}const doc=C.normalize(now,DEF);if(doc.std&&('busnet' in doc.std))return;
-    const n=window.BusnetDoc.draw(C,doc,bn,fac,DEF);if(!n)return;try{localStorage.setItem(KEY,JSON.stringify(doc));}catch(e){return;}
+    let now=null;try{now=JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){}const doc=C.normalize(now,DEF),sd=doc.std||{};
+    const n=('busnet' in sd)?0:window.BusnetDoc.draw(C,doc,bn,fac,DEF),m=('busnetEv' in sd)?0:window.BusnetDoc.drawEvents(doc,bn);if(!n&&!m)return;try{localStorage.setItem(KEY,JSON.stringify(doc));}catch(e){return;}
     if(typeof window.toast==='function')window.toast(`沿線のバス網（${n}系統）と施設をお絵かき帖に描き込みました。お絵かき帖のメニューで消せます`);check();});}
-function check(){if(!DEF)return;autoBusnet();let s=null;try{s=localStorage.getItem(KEY);}catch(e){}if(s===RAW)return;RAW=s;SIM=null;DOC=null;LAYER.key='';SEL=null;hideCard();
+/* 行事の日の増便（data/busnet.json の extra）：きょう起きる行事（ゲームのイベント ACTIVE_EV・季節のできごと SEAS.list）に増便のある系統は、
+   沿線のバス網の路線（std）の便を1.5倍にして走らせる。見た目だけ（乗客への効き目は js/busnet-core.js の boost） */
+let BNX=null,BSIG='';
+fetch('data/busnet.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{BNX=(j&&j.extra)||{};}).catch(()=>{BNX={};});
+function boostSig(){if(!BNX)return '';const ids=[];try{if(typeof ACTIVE_EV!=='undefined')ACTIVE_EV.forEach(e=>ids.push(e.id));}catch(e){}try{if(typeof SEAS!=='undefined'&&SEAS.list)SEAS.list.forEach(o=>ids.push(o.id));}catch(e){}
+  const nos=new Set();for(const id of ids)(BNX[id]||[]).forEach(x=>nos.add(x[0]));return [...nos].sort().join(',');}
+function boosted(doc,sig){if(!sig)return doc;const nos=new Set(sig.split(',')),d=C.clone(doc);
+  for(const l of Object.values(d.lines))if(l.std&&nos.has(l.no)){const f=l.freq||{unit:'d',n:1};l.freq={unit:f.unit,n:f.unit==='d'?Math.ceil(f.n*1.5):Math.min(12,Math.ceil(f.n*1.5))};l.name+='（増便）';}
+  return d;}
+function check(){if(!DEF)return;autoBusnet();let s=null;try{s=localStorage.getItem(KEY);}catch(e){}const sig=boostSig();if(s===RAW&&sig===BSIG)return;RAW=s;BSIG=sig;SIM=null;DOC=null;LAYER.key='';SEL=null;hideCard();
   if(!s)return;let j=null;try{j=JSON.parse(s);}catch(e){return;}if(!j||!j.lines||!Object.keys(j.lines).length)return;
-  if(busy)return;busy=true;setTimeout(()=>{try{DOC=C.normalize(j,DEF);SIM=R.simulate(DOC,DEF.run);if(typeof window.renderLegend==='function')window.renderLegend();}catch(e){console.warn('route-run',e);SIM=null;}busy=false;},30);}
+  if(busy)return;busy=true;setTimeout(()=>{try{DOC=C.normalize(j,DEF);SIM=R.simulate(boosted(DOC,BSIG),DEF.run);if(typeof window.renderLegend==='function')window.renderLegend();}catch(e){console.warn('route-run',e);SIM=null;}busy=false;},30);}
 addEventListener('storage',e=>{if(e.key===KEY)check();});addEventListener('focus',check);document.addEventListener('visibilitychange',()=>{if(!document.hidden)check();});
 
 /* ---------- 道と路線（動かないので1枚に作り置く） ---------- */
@@ -136,7 +145,7 @@ function lights(c,mode,a,o,t,moving,alt){c.save();c.globalCompositeOperation='li
   c.restore();}
 
 /* ---------- 毎回の描画（index.html の drawMap から） ---------- */
-function draw(c,T,dk){HITS=[];if(!SIM||!DOC){if(DEF&&!busy)check();return;}
+function draw(c,T,dk){HITS=[];if(DEF&&!busy&&boostSig()!==BSIG)check();if(!SIM||!DOC){if(DEF&&!busy)check();return;}
   const k=c.getTransform(),lay=buildLayer(c);c.save();c.setTransform(1,0,0,1,0,0);c.globalAlpha=window.NightView&&NightView.ready?NightView.roadAlpha(dk):1-0.42*dk;c.drawImage(lay,0,0);c.restore();
   const now=performance.now()/1000,night=dk>0.35,la=Math.min(1,Math.max(0,(dk-0.08)*1.5));
   const list=R.stateAt(SIM,T);

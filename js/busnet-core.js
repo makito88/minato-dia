@@ -14,14 +14,14 @@
 // 季節のできごと：会場の決まっているものは、駅を会場のいちばん近い駅（main）にし、駅ごとの割合（access）をつける
 function place(cfg,list){if(!cfg||!cfg.venues||!list)return list||[];
   return list.map(o=>{const v=cfg.venues[o.id];if(!v||!o.ev||o.ev.scope==='line'||!v.access)return o;
-    return Object.assign({},o,{st:v.main,access:v.access,venue:v.name,boost:v.boost||1});});}
+    return Object.assign({},o,{st:v.main,access:v.access,venue:v.name,boost:v.boost||1,vpx:v.px?[v.px[0]/2,v.px[1]/2]:null,vicon:v.e||''});});}   // vpx：会場の地図の座標（吹き出しの場所）
 // 鉄道の効き目を作る前に、会場のある1件を駅ごとの数件に分ける（強さ mag × 割合 × 増便の上乗せ）
 function expand(list){const out=[];for(const o of (list||[])){if(!o.access){out.push(o);continue;}const b=o.boost||1;
     for(const s in o.access)out.push(Object.assign({},o,{st:s,mag:o.mag*o.access[s]*b}));}return out;}
 /* プレイヤーが選ぶイベント（index.html の EVENT_DATA）：その駅（place）へ来る・帰る流れの一部を、会場に行ける別の駅に分ける。
    もとの駅は半分より下げない（ゲームの作りを大きく変えないため）。1回だけ（_bus の印） */
 function eventFlows(cfg,evs){if(!cfg||!cfg.venues)return 0;let n=0;
-  for(const ev of evs){const v=cfg.venues[ev.id];if(!v||!v.access||ev._bus)continue;
+  for(const ev of evs){const v=cfg.venues[ev.id];if(!v||!v.access||ev._bus)continue;if(v.px)ev.pos=[v.px[0]/2,v.px[1]/2];   // 吹き出しを会場の場所に
     let own=v.access[ev.place]||0;const others=Object.keys(v.access).filter(s=>s!==ev.place);if(!others.length){ev._bus=1;continue;}
     const rest=1-own,keep=Math.max(0.5,own),scale=rest>0?(1-keep)/rest:0,add=[];
     for(const f of ev.flows){const t=f.to===ev.place,fr=f.from===ev.place;if(!t&&!fr)continue;

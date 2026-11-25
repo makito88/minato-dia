@@ -2,7 +2,10 @@
    沿線のバス網と施設を、お絵かき帖の保存（dia-routes）に描き込む（計算だけ。DOM なし・node でも動く）。2026-11-25
    ・もとは data/busnet.json（停留所・26系統・本数。座標は地図の絵 2000×840）と data/facilities.json（施設82か所。地図の座標 1000×420）。
    ・描き込んだもの（停留所・道・路線・施設のピン）には std:'busnet' の印。消すときは印のあるものだけ消す（自分で描いたものは残る）。
-   ・doc.std.busnet：1＝描き込んだ、0＝消した（自動ではもう描き込まない）。
+   ・doc.std.busnet：1＝描き込んだ、0＝消した（自動ではもう描き込まない）。行事（イベントの層 doc.evs）は doc.std.busnetEv で同じように。
+   ・行事：data/busnet.json の calendar（行事マップと同じ84件。決まった日のないものは入れない）を、お絵かき帖の「イベント」の層に「毎年」で置く。
+     日付は今日からかぞえた次の開催日（第何土曜などの決まりは、その年の日付で置く。決まりはメモに書く）。ゲームの地図には出さない（std の印。
+     地図には同じ行事が、季節のできごと・ゲームのイベントとして会場の場所に出る）。
    ・道は停留所と停留所の間に1本ずつ（同じ2つの停留所の間は1本だけ）。ほかの道と交わっても切らない。
    ・使うのは js/route-run.js（ゲームの地図：まだ描き込んでいなければ1回だけ自動で）と js/route-editor.js（メニュー「沿線のバス網を描く／消す」）。
    ===================================================================== */
@@ -16,8 +19,24 @@ const hmOk=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(s||'');return m?String(m[1]).p
 function ensureTypes(doc,defs){const add=(k,id)=>{if(doc.types[k].some(t=>t.id===id))return;const t=(defs[k+'Types']||[]).find(t=>t.id===id);if(t)doc.types[k].push(JSON.parse(JSON.stringify(t)));};
   add('line','dentetsu');add('line','city');add('stop','spot');add('stop','plaza');add('stop','bus');add('stop','airport');add('road','street');}
 function has(doc){return !!(doc.std&&doc.std[TAG]===1);}
+function hasEv(doc){return !!(doc.std&&doc.std[TAG+'Ev']===1);}
+/* 行事の決まり → 次の開催日 'YYYY-MM-DD' と、決まりの言葉。決まった日のないもの（free）は null */
+const WD='日月火水木金土',pad=n=>String(n).padStart(2,'0'),ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+function nthDay(y,m,n,dow){if(n>0){const d=new Date(y,m-1,1);return new Date(y,m-1,1+(dow-d.getDay()+7)%7+7*(n-1));}const d=new Date(y,m,0);return new Date(y,m-1,d.getDate()-(d.getDay()-dow+7)%7);}
+function nextOf(w,now){const t=new Date(now);t.setHours(0,0,0,0);const ys=[t.getFullYear(),t.getFullYear()+1];const pick=f=>{for(const y of ys){const d=f(y);if(d>=t)return d;}return f(ys[1]);};
+  if(w[0]==='nth'){const [,m,n,dow,l]=w;return {date:ymd(pick(y=>nthDay(y,m,n,dow))),rule:`毎年${m}月の${n===-1?'最終':'第'+n}${WD[dow]}曜${l>1?'から'+l+'日間':''}`};}
+  if(w[0]==='md'){const [,m,d,l]=w;return {date:ymd(pick(y=>new Date(y,m-1,d))),rule:`毎年${m}月${d}日${l>1?'から'+l+'日間':''}`};}
+  if(w[0]==='range'){const a=w[1].split('-').map(Number),b=w[2].split('-').map(Number);return {date:ymd(pick(y=>new Date(y,a[0]-1,a[1]))),rule:`毎年${a[0]}月${a[1]}日〜${b[0]}月${b[1]}日`};}
+  if(w[0]==='once'){return {date:w[1],rule:'一度だけ',once:true};}
+  return null;}
+/* 行事を doc.evs に置く。置いた数を返す */
+function drawEvents(doc,bn,now){if(!bn||!bn.calendar||hasEv(doc))return 0;const evs=doc.evs&&doc.evs.items?doc.evs:(doc.evs={v:1,items:{},recent:[]});let n=0;
+  for(const c of bn.calendar){const w=nextOf(c.when,now==null?Date.now():now);if(!w)continue;
+    evs.items['bn_'+c.id]={name:c.name.slice(0,40),kind:c.kind||'other',icon:{e:c.e||'🎉'},rim:'',x:c.x,y:c.y,st:'',date:w.date,rep:w.once?'once':'year',start:c.start,end:c.end,big:/花火|まつり|マラソン/.test(c.name),img:'',
+      memo:`${w.rule}。${c.place}。${c.note}${c.src==='game'?'（ゲームの「この日の条件」で選ぶと起きる）':c.src==='season'?'（季節のできごと：その日に起きるかは沿線暦が決める）':'（季節のできごと・新しい行事）'}`.slice(0,400),fx:{ride:'',goods:[]},std:TAG};n++;}
+  doc.std=Object.assign({},doc.std,{[TAG+'Ev']:1});return n;}
 /* 描き込む。C＝RouteCore、bn＝data/busnet.json、fac＝data/facilities.json、defs＝data/routes.json。描き込んだ路線の数を返す */
-function draw(C,doc,bn,fac,defs){if(!bn||!bn.routes||has(doc))return 0;ensureTypes(doc,defs||{});
+function draw(C,doc,bn,fac,defs){if(!bn||!bn.routes||has(doc))return 0;ensureTypes(doc,defs||{});   // 路線と施設（行事は drawEvents）
   const P=p=>[p[0]/2,p[1]/2],xy=id=>P([bn.stops[id][1],bn.stops[id][2]]);
   const stopId={},legs={};let n=0;
   const stopOf=id=>{if(stopId[id])return stopId[id];const p=xy(id),nd=C.anchor(doc,p,1.2),sid=C.uid(doc,'s'),name=bn.stops[id][0];
@@ -46,8 +65,9 @@ function erase(C,doc){let n=0;
   for(const id of Object.keys(doc.stops))if(doc.stops[id].std===TAG){nodes.add(doc.stops[id].node);delete doc.stops[id];}
   for(const id of Object.keys(doc.edges))if(doc.edges[id].std===TAG){nodes.add(doc.edges[id].a);nodes.add(doc.edges[id].b);delete doc.edges[id];}
   nodes.forEach(nd=>C.dropOrphan(doc,nd));
-  doc.std=Object.assign({},doc.std,{[TAG]:0});return n;}
-const api={TAG,draw,erase,has,ensureTypes};
+  if(doc.evs&&doc.evs.items)for(const id of Object.keys(doc.evs.items))if(doc.evs.items[id].std===TAG)delete doc.evs.items[id];
+  doc.std=Object.assign({},doc.std,{[TAG]:0,[TAG+'Ev']:0});return n;}
+const api={TAG,draw,drawEvents,erase,has,hasEv,nextOf,ensureTypes};
 if(typeof module!=='undefined'&&module.exports)module.exports=api;
 root.BusnetDoc=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -49,3 +49,15 @@ console.log('busnet-core OK');
   const m=BD.erase(RC,doc);assert.equal(m,cfg.routes.length);assert.ok(!Object.values(doc.stops).some(s=>s.std)&&!Object.values(doc.edges).some(e=>e.std));
   assert.ok(doc.lines.mine&&doc.stops.u1,'自分の路線は残る');assert.equal(Object.keys(doc.lines).length,n0+1);assert.equal(BD.draw(RC,Object.assign(doc,{std:{busnet:0}}),cfg,fac,defs)>0,true,'消したあとでもメニューからは描ける');}
 console.log('busnet-doc OK');
+// 8) 行事（2026-11-25）：イベントの層に「毎年」で置く・次の開催日・消すと消える・季節のできごとの吹き出しは会場の場所・選べるイベントも会場の場所
+{const RC=require('../js/route-core.js'),BD=require('../js/busnet-doc.js'),defs=require('../data/routes.json'),EM=require('../js/event-map-core.js');
+  const now=new Date(2026,10,25).getTime();
+  assert.equal(BD.nextOf(['nth',8,1,6,1],now).date,'2027-08-07','8月の第1土曜');assert.equal(BD.nextOf(['md',1,1,1],now).date,'2027-01-01');
+  assert.equal(BD.nextOf(['range','11-21','12-25'],now).date,'2027-11-21','始まった行事は次の年');assert.equal(BD.nextOf(['free','x',[1]],now),null);
+  let doc=RC.normalize(null,defs);const n=BD.drawEvents(doc,cfg,now);assert.equal(n,cfg.calendar.length);assert.equal(BD.drawEvents(doc,cfg,now),0,'2回目は置かない');
+  const ev=EM.normalize(JSON.parse(JSON.stringify(doc.evs)));assert.equal(Object.keys(ev.items).length,n,'形がそろう');assert.ok(Object.values(ev.items).every(i=>i.std==='busnet'),'印が残る');
+  const day=EM.forDay(ev,'2027-08-07');assert.ok(day.some(i=>i.name==='みなと湾花火大会'),'その日に出る');
+  BD.erase(RC,doc);assert.equal(Object.keys(doc.evs.items).length,0,'消すと消える');assert.equal(doc.std.busnetEv,0);
+  const L=BN.place(cfg,[{id:'n_hanabi2',st:'S',mag:1,ev:{}}]);assert.deepEqual(L[0].vpx,[cfg.venues.n_hanabi2.px[0]/2,cfg.venues.n_hanabi2.px[1]/2]);assert.equal(L[0].vicon,cfg.venues.n_hanabi2.e);
+  const evs=[{id:'marathon',place:'M',pos:[1,1],flows:[{to:'M',amt:1}]}];BN.eventFlows(cfg,evs);assert.deepEqual(evs[0].pos,[cfg.venues.marathon.px[0]/2,cfg.venues.marathon.px[1]/2],'選べるイベントの吹き出しも会場に');}
+console.log('busnet-events OK');

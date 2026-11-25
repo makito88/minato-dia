@@ -482,10 +482,10 @@ function example(){const R=(pts,type,smooth=true)=>C.addPath(doc,pts,{type,smoot
   commit();fit();toast('例を描きました。いらなければ「元に戻す」で消せます');showLines(innerWidth>=700);}
 
 /* ---------------- 沿線のバス網と施設（js/busnet-doc.js・data/busnet.json・data/facilities.json・2026-11-25） */
-function busnetDraw(){if(!window.BusnetDoc)return;if(BusnetDoc.has(doc)){toast('沿線のバス網はもう描いてあります');return;}
+function busnetDraw(){if(!window.BusnetDoc)return;if(BusnetDoc.has(doc)&&BusnetDoc.hasEv(doc)){toast('沿線のバス網と行事はもう描いてあります');return;}
   Promise.all(['data/busnet.json','data/facilities.json'].map(u=>fetch(u,{cache:'no-cache'}).then(r=>r.ok?r.json():null).catch(()=>null))).then(([bn,fac])=>{
     if(!bn){toast('バス網の設定（data/busnet.json）を読み込めませんでした');return;}
-    if(doc.std)delete doc.std.busnet;const n=BusnetDoc.draw(C,doc,bn,fac,DEF);commit();fit();toast(`沿線のバス網（${n}系統）と施設を描きました。いらなければ「元に戻す」で消せます`);showLines(innerWidth>=700);});}
+    const n=BusnetDoc.has(doc)?0:BusnetDoc.draw(C,doc,bn,fac,DEF),m=BusnetDoc.hasEv(doc)?0:BusnetDoc.drawEvents(doc,bn);commit();fit();toast(`沿線のバス網（${n}系統）・施設・行事（${m}件。イベントの層）を描きました。いらなければ「元に戻す」で消せます`);showLines(innerWidth>=700);});}
 /* ---------------- グループの拠点と配送（メニュー「グループの配送を描く」・2026-11-13 ユーザーの頼み）
    工場（港浜フーズ）・川辺の配送センター・みなと卸の倉庫・自社の2店・取引先（みなと川大学 生協の売店・港の製缶工場 社員食堂）の
    だいたいの位置にピンを置き、いまの配送（data/center.json・data/haiso.json の便）を「自社の配送」の路線で描く。位置も道も、あとで自由に直せる。

@@ -30,11 +30,11 @@ function collect(snapEvents){const T=H.T(),ST=H.ST(),out=[];
     out.push({key:'g:'+ev.id,src:'game',ref:ev,x:p.x,y:p.y,icon:g.e?{e:g.e}:{t:String(ev.icon||'催').slice(0,2)},kind:g.kind||'fes',big:amt>=(CFG.bigFlow||30),state,a:ev.start,b:ev.end,name:ev.name,st:ev.place,desc:ev.desc||'',line:true});}
   // 2) 季節のできごと（その日のものだけ。SEAS.list はきょうの分しか持っていない）
   const SC=CFG.season||{};for(const o of G(()=>H.seas(),[])||[]){const rr=(o.ev.rail&&o.ev.rail[0]&&o.ev.rail[0].h)||[9,17],a=rr[0]*60,b=rr[1]*60;
-    const p=o.st&&ST[o.st]?{x:ST[o.st].x+(SC.dx||20),y:ST[o.st].y+(SC.dy||-40)}:{x:(SC.line||[540,120])[0],y:(SC.line||[540,120])[1]};
+    const p=o.vpx?{x:o.vpx[0],y:o.vpx[1]}:o.st&&ST[o.st]?{x:ST[o.st].x+(SC.dx||20),y:ST[o.st].y+(SC.dy||-40)}:{x:(SC.line||[540,120])[0],y:(SC.line||[540,120])[1]};   // vpx：会場の場所（data/busnet.json・2026-11-25）
     const goods=Object.keys(o.ev.kiosk||{}).filter(k=>o.ev.kiosk[k]>1);
-    out.push({key:'s:'+o.id,src:'seas',ref:o,x:p.x,y:p.y,icon:{e:(SC.byId&&SC.byId[o.id])||SC[seasonKey()]||'🍂'},kind:'season',big:(o.mag||1)>=1.25,state:M.state(a,b,T),a,b,name:o.ev.name||SC.name,st:o.st||'',desc:(o.ev.letter&&o.ev.letter.title)||'',fx:{ride:'s',goods},line:!!o.st});}
+    out.push({key:'s:'+o.id,src:'seas',ref:o,x:p.x,y:p.y,icon:{e:(SC.byId&&SC.byId[o.id])||o.vicon||SC[seasonKey()]||'🍂'},kind:'season',big:(o.mag||1)>=1.25,state:M.state(a,b,T),a,b,name:o.ev.name||SC.name,st:o.st||'',desc:(o.ev.letter&&o.ev.letter.title)||'',fx:{ride:'s',goods},line:!!o.st});}
   // 3) お絵かき帖で置いたもの（その運行日の暦に合うもの）
-  const ymd=G(()=>H.ymd(),'');if(ymd)for(const it of M.forDay(EVS,ymd)){const a=M.toMin(it.start),b=M.toMin(it.end);
+  const ymd=G(()=>H.ymd(),'');if(ymd)for(const it of M.forDay(EVS,ymd)){if(it.std)continue;   // std＝沿線の行事の暦（お絵かき帖で見るためのもの。地図には季節のできごと・ゲームのイベントとして出る）const a=M.toMin(it.start),b=M.toMin(it.end);
     out.push({key:'u:'+it.id,src:'user',ref:it,x:it.x,y:it.y,icon:it.icon,kind:it.kind,rim:it.rim,big:it.big,state:M.state(a,b<a?b+1440:b,T),a,b,name:it.name,st:it.st,desc:it.memo,img:it.img,fx:it.fx,line:!!it.st});}
   // 4) 天気
   const w=CFG.weather&&CFG.weather[G(()=>H.wx(),'')];if(w)out.push({key:'w',src:'wx',x:w.pos[0],y:w.pos[1],icon:{e:w.e},kind:'weather',big:!!w.big,state:'during',a:270,b:1560,name:w.name,st:'',desc:w.note||'',fx:{ride:'',goods:w.goods||[]}});
