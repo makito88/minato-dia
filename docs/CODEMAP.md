@@ -50,9 +50,9 @@ layout() …35・laneOff() …46・laneOld() …53・■ 駅の形（data/ctc-ha
 
 ■ 置き場所 …11・build() …12・■ いまの様子 …118・info() …121・nextBlocked() …130・state() …139・■ 絵（川辺の指令室 proto/kawabe と同じ部品・2026-11-18） …364・draw() …372・drawOcc() …433・bodyOf() …443・drawTop() …449・explain() …491
 
-## js/ctc-view.js（824行）
+## js/ctc-view.js（840行）
 
-genPoints() …15・init() …89・setZoom() …139・data() …148・ensureHl() …153・yardSets() …187・lateNow() …201・■ 編成の、いまの状態（車庫・回送・列車） …203・setNow() …204・restNow() …219・synNow() …225・depotPt() …238・yardPath() …245・buildSlots() …274・slotOf() …295・■ 線路 …302・line() …304・loop() …305・drawTrack() …306・drawBig() …397・ML_() …407・drawStations() …409・■ 列車 …425・loadOf() …430・drawTrain() …432・withBody() …482・pathBody() …488・deadAt() …495・bodyHit() …504・posAll() …511・draw() …647・■ 予告・無線・選んだもの …692・lists() …694・bars() …708・cmpBox() …718・synBox() …725・info() …736・onClick() …762・stX() …770・focusHl() …771・nextHighlight() …776・lateShare() …779・feeToday() …782・probe() …784・drawGantt() …798・tracks() …820・公開 CtcView …821
+genPoints() …15・init() …89・setZoom() …139・data() …148・ensureHl() …153・yardSets() …202・lateNow() …217・■ 編成の、いまの状態（車庫・回送・列車） …219・setNow() …220・restNow() …235・synNow() …241・depotPt() …254・yardPath() …261・buildSlots() …290・slotOf() …311・■ 線路 …318・line() …320・loop() …321・drawTrack() …322・drawBig() …413・ML_() …423・drawStations() …425・■ 列車 …441・loadOf() …446・drawTrain() …448・withBody() …498・pathBody() …504・deadAt() …511・bodyHit() …520・posAll() …527・draw() …663・■ 予告・無線・選んだもの …708・lists() …710・bars() …724・cmpBox() …734・synBox() …741・info() …752・onClick() …778・stX() …786・focusHl() …787・nextHighlight() …792・lateShare() …795・feeToday() …798・probe() …800・drawGantt() …814・tracks() …836・公開 CtcView …837
 
 ## js/deals-core.js（233行）
 
@@ -254,9 +254,9 @@ KEY …10・DEF …11・MODE …12・OWNER …13・■ 読み込み・計算（�
 
 keyOf() …28・build() …33・where() …100・at() …108・liveAt() …124・boardAt() …130
 
-## js/run-record.js（43行）
+## js/run-record.js（47行）
 
-init() …12・input() …18・get() …26・公開 RunRecord …35
+init() …13・input() …19・get() …28・公開 RunRecord …39
 
 ## js/sand-core.js（287行）
 

@@ -41,7 +41,7 @@
         a: 0, b: 1, trunk: 0, y0: J[1], x: J[0], len: Math.min(N.len, Rr.len), side: 'E', out: false, rule: null, cross: false, br, small: yard });
     }));
   }
-  let GST = 'K', GKEY = null, BLOCKHOLD = false, LAG = new Map(), DLAG = new Map(), REDLOG = [], LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
+  let RREC = null, GST = 'K', GKEY = null, BLOCKHOLD = false, LAG = new Map(), DLAG = new Map(), REDLOG = [], LAGT = null, PLKEY = null, selSig = null, SX = null, TY2 = null, X = null, SYN = { trips: [], sets: [] }, ALLT = [], EXT = [], FEE = null, pol = 'balance', CMP = null, CMPKEY = null, BIG = null, RUNF = null, NAT = null, LISTSRC = [], D2 = null, PX = new Map(), SETS2 = [], ALLHL = [], E = null, host, sc, spacer, cv, ctx, L = null, pxk = 200, sel = null, hits = [], hl = [], hlKey = null, lastDraw = 0, lastList = 0, slowedAt = -1;
   const PXK = [100, 200, 400];
   const css = `
 .ctc{min-width:0;max-width:100%;background:#0c1826;border-radius:14px;color:#dbe6f0;padding:10px 0 12px;font-family:"Zen Kaku Gothic New",system-ui,sans-serif}
@@ -152,33 +152,48 @@
   const nomD = (t, i) => { const b = baseOf(t); return b.synth ? C.synDwell(b, i, senv()) : E.nomDwell(b, i); };
   function ensureHl(D) {
     const day = E.day ? E.day() : 1, ik = E.incidentK ? E.incidentK() : 1, evs = E.events ? E.events() : [], cond = E.cond ? E.cond() : {};
-    const key = D.trips.length + '|' + day + '|' + ik + '|' + (X ? 1 : 0) + '|' + evs.join(',') + '|' + cond.day + cond.wx + '|' + (host.querySelector('#ctcBig').checked ? 'B' : 'b') + '|' + pol;
+    const key = D.trips.length + '|' + day + '|' + ik + '|' + (X ? 1 : 0) + (HS ? 1 : 0) + '|' + evs.join(',') + '|' + cond.day + cond.wx + '|' + (host.querySelector('#ctcBig').checked ? 'B' : 'b') + '|' + pol;
     if (hlKey === D && D2 && D2.key === key) return;
     hlKey = D;
-    SYN = X ? C.synth(Object.assign(senv(), { trips: D.trips, X, events: evs, holiday: cond.day && cond.day !== 'wd', sp: E.sp ? E.sp() : 1, day })) : { trips: [], sets: [] };
-    ALLT = D.trips.concat(SYN.trips);
-    const henv = { ST: SX, TYPES: TY2, onSiding: onSid, DEPOTNAME: E.DEPOTNAME };
-    EXT = X ? C.extConns(D.trips, SYN.trips, { ST: SX, TYPES: TY2, X, day, wx: cond.wx }) : [];
-    hl = C.synHighlights(C.highlights(ALLT, D.sets, henv), SYN.trips, henv).concat(EXT).sort((a, b) => a.t - b.t);
-    const BOATS = X ? C.boats(D.trips, { X }) : [];
-    BOATS.forEach(f => hl.push({ t: f.t - 6, k: 'connFerry', st: f.st, a: f.tr, txt: `港で ${TY2[f.tr.type].name} ${f.tr.num} → ${f.label}（${E.fmt(f.t)}発）に乗りつぎ`, radio: `港駅、${f.tr.num}列車から${f.label}への乗りつぎがあります。` }));
-    hl.sort((a, b) => a.t - b.t);
+    const force = host.querySelector('#ctcBig').checked;
+    /* 運行の記録（js/run-record.js・docs/run-record-plan.md の手順2・2026-11-25）：臨時・貨物・見どころ・乱れ・番線の割りふりは記録を読む。
+       記録がないときは前のまま、ここで計算する */
+    RREC = window.RunRecord ? RunRecord.get({ policy: pol, forceBig: force, X, hs: HS }) : null;
+    let BOATS, evs2 = evs;
+    if (RREC) {
+      const w = RREC.raw; SYN = w.SYN; EXT = w.EXT; hl = w.hl; BOATS = w.BOATS; NAT = w.NAT; BIG = w.BIG; D2 = w.D2; PX = w.PX; SETS2 = w.SETS2;
+      ALLT = D.trips.concat(SYN.trips);
+    } else {
+      SYN = X ? C.synth(Object.assign(senv(), { trips: D.trips, X, events: evs, holiday: cond.day && cond.day !== 'wd', sp: E.sp ? E.sp() : 1, day })) : { trips: [], sets: [] };
+      ALLT = D.trips.concat(SYN.trips);
+      const henv = { ST: SX, TYPES: TY2, onSiding: onSid, DEPOTNAME: E.DEPOTNAME };
+      EXT = X ? C.extConns(D.trips, SYN.trips, { ST: SX, TYPES: TY2, X, day, wx: cond.wx }) : [];
+      hl = C.synHighlights(C.highlights(ALLT, D.sets, henv), SYN.trips, henv).concat(EXT).sort((a, b) => a.t - b.t);
+      BOATS = X ? C.boats(D.trips, { X }) : [];
+      BOATS.forEach(f => hl.push({ t: f.t - 6, k: 'connFerry', st: f.st, a: f.tr, txt: `港で ${TY2[f.tr.type].name} ${f.tr.num} → ${f.label}（${E.fmt(f.t)}発）に乗りつぎ`, radio: `港駅、${f.tr.num}列車から${f.label}への乗りつぎがあります。` }));
+      hl.sort((a, b) => a.t - b.t);
+      NAT = C.bigIncident(D.trips, { day, incidentK: ik });
+      BIG = force ? C.bigIncident(D.trips, { day, incidentK: ik, force: true }) : NAT;
+    }
     /* 方針ごとに同じ乱れで動かす（段4）。いまの方針の結果を画面に、ほかの方針は「くらべる」の表に */
-    const force = host.querySelector('#ctcBig').checked; NAT = C.bigIncident(D.trips, { day, incidentK: ik });
-    BIG = force ? C.bigIncident(D.trips, { day, incidentK: ik, force: true }) : NAT;
     const run = (k, big) => C.disrupt(ALLT, hl, { big: big === undefined ? BIG : big, ST: SX, TYPES: TY2, onSiding: onSid, nomDwell: nomD, day, incidentK: ik, ext: EXT, pre: X ? C.synLate(SYN.trips, { X, day }) : null, rule: C.POLICY[k],
-      requests: X ? C.requests(D.trips, { ST: SX, TYPES: TY2, X, events: evs, holiday: cond.day && cond.day !== 'wd', policy: k }) : [], boats: BOATS });
-    D2 = run(pol); D2.key = key; RUNF = force ? () => run(pol, NAT) : null;
+      requests: X ? C.requests(D.trips, { ST: SX, TYPES: TY2, X, events: evs2, holiday: cond.day && cond.day !== 'wd', policy: k }) : [], boats: BOATS });
+    if (!RREC) D2 = run(pol);
+    D2.key = key;
+    /* 訓練の事故のときの「ふだんの日」（満足度に使う）：記録の、訓練なしの版 */
+    RUNF = force ? (RREC ? () => { const r = RunRecord.get({ policy: pol, forceBig: false, X, hs: HS }); return r ? r.raw.D2 : run(pol, NAT); } : () => run(pol, NAT)) : null;
     const ck = key.replace(/\|[a-z]+$/, '');
     if (CMPKEY !== ck) { CMPKEY = ck; CMP = null; setTimeout(() => { if (CMPKEY !== ck) return; CMP = {}; for (const k in C.POLICY) CMP[k] = C.policyStats(D.trips, k === pol ? D2 : run(k)); lastList = 0; }, 30); }
-    FEE = X ? C.fee(SYN.trips, X, SX) : null;
-    PX = new Map(); ALLT.forEach(t => PX.set(t, C.actual(t, D2)));
+    FEE = RREC ? RREC.fee : X ? C.fee(SYN.trips, X, SX) : null;
+    if (!RREC) { PX = new Map(); ALLT.forEach(t => PX.set(t, C.actual(t, D2))); }
     /* ホームの長さ＝その駅に止まるいちばん長い編成（臨時・貨物も）。駅の形・信号の位置はここから（2026-11-18） */
     { const PL = {}; ALLT.forEach(t => t.seq.forEach((st, i) => { if (!C.GEO[st]) return; if (i === 0 || i === t.seq.length - 1 || t.stop[i]) PL[st] = Math.max(PL[st] || 0, (t.cars || 6) * 0.02); }));
       ALLT.forEach(t => { for (let i = 0; i < t.seq.length - 1; i++) { const u = t.seq[i] + t.seq[i + 1]; if (u === 'FT' || u === 'TF') PL.X = Math.max(PL.X || 0, (t.cars || 6) * 0.02); } });   /* 交換信号所の行き違い線は、通るいちばん長い編成が入る長さ */
       const k = JSON.stringify(PL); if (k !== PLKEY) { PLKEY = k; C.setPL(PL); LAY = null; YS = null; } }
-    if (BIG) { const px = PX.get(BIG.tr); if (px) px.hold = { i: BIG.i, f: BIG.f, dur: BIG.dur, run: BIG.tr.arr[BIG.i + 1] - BIG.tr.dep[BIG.i] }; }
-    SETS2 = D.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => PX.get(t)).filter(t => !t.cancel) }));   /* 運休の列車は走らせない（編成は車庫のある駅で待つ） */
+    if (!RREC) {
+      if (BIG) { const px = PX.get(BIG.tr); if (px) px.hold = { i: BIG.i, f: BIG.f, dur: BIG.dur, run: BIG.tr.arr[BIG.i + 1] - BIG.tr.dep[BIG.i] }; }
+      SETS2 = D.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => PX.get(t)).filter(t => !t.cancel) }));   /* 運休の列車は走らせない（編成は車庫のある駅で待つ） */
+    }
     D2.decisions.forEach(c => { c.txt = c.what + ' → ' + c.dec; });
     ALLHL = hl.filter(h => !D2.swaps.has(h)).concat(D2.decisions).sort((a, b) => a.t - b.t);   /* 入れかえた待避は、予定の見どころから外す */
   }
@@ -187,9 +202,10 @@
   function yardSets(D) {
     const r = ran(), k = (r ? 'r' : 'p') + (D2 && D2.key) + (HS ? 1 : 0);
     if (YS && YSKEY === k) return YS;
-    const reg = r ? SETS2 : D.sets, syn = SYN.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => (r && PX.get(t)) || t) }));
+    const useRec = r && RREC && RREC.raw.yard && HS;   /* 乱れを見るときの番線の割りふりは、運行の記録のもの（手順2） */
+    const reg = r ? SETS2 : D.sets, syn = useRec ? RREC.raw.synSets : SYN.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => (r && PX.get(t)) || t) }));
     if (!HS) { YS = { reg, syn }; YSKEY = k; return YS; }
-    const Y2 = C.yard(reg.concat(syn), { ST: SX, hs: HS, onSiding: onSid });
+    const Y2 = useRec ? RREC.raw.yard : C.yard(reg.concat(syn), { ST: SX, hs: HS, onSiding: onSid });
     const wrap = s => Object.assign(Object.create(s), { trips: s.trips.map(t => Y2.map.get(t) || t), rests: (Y2.rests.get(s) || []).map(r => Object.assign({}, r, { after: Y2.map.get(r.after) || r.after })) });
     YS = { reg: reg.map(wrap), syn: syn.map(wrap) }; YSKEY = k; YMAP = new Map(); Y2.map.forEach(v => YMAP.set(baseOf(v.yardOf), v)); return YS;
   }

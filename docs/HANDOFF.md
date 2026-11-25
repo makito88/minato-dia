@@ -919,3 +919,8 @@
 docs/run-record-plan.md の手順1。`js/run-record-core.js`（計算）と `js/run-record.js`（つなぎ・`RunRecord.get()`）を足した。指令パネルと同じ順で disrupt と番線の割りふりを呼び、列車ごとの実際の発着・番線・運休・地図の外かどうかと、キロ程の位置（where）を返す。本物の1日（平日・事故の訓練・イベントの日）で指令パネルと完全に一致（tools/run-record-check.cjs）。まだどの画面も読んでいない。
 次：手順2（指令パネルが rec.raw を読む・別の会話と重ならない時間に）か手順3（地図）。
 
+## 2026-11-25 運行の記録 手順2（指令パネルが記録を読む）
+
+js/ctc-view.js の ensureHl が、RunRecord.get({policy, forceBig, X, hs}) の rec.raw を読むようにした（記録がなければ前のまま）。前の版と1日の出力（位置・信号・ポイント・カード・遅れ・線路使用料）が4つの場面で同じ（tools/ctc-same.cjs）。指令パネルを作っている会話へ：ensureHl を変えるときは、run-record-core.js の build も同じ順になっているか見ること。
+次：手順3（地図を km の割合と番線で描く）。
+

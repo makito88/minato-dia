@@ -90,7 +90,7 @@
 
     return { v: V, key: keyOf(inp), day, policy: pol, forced: !!inp.forceBig, rows, byKey, byTrip, big: BIG, decisions: D2.decisions, cancelled: nCancel,
       fee: X ? C.fee(SYN.trips, X, SX) : null,
-      raw: { hs, SX, TY2, SYN, EXT, hl, BOATS, NAT, BIG, D2, PX, SETS2, synSets, yard, onSid, nomD } };
+      raw: { X, hs, SX, TY2, SYN, EXT, hl, BOATS, NAT, BIG, D2, PX, SETS2, synSets, yard, onSid, nomD } };
   }
 
   /* その時刻に、列車がどこにいるか（線路のキロ程）。地図・乗車体験が読む。

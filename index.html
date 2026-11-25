@@ -707,9 +707,9 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/mapseason-view.js?v=20261116a"></script>
 <script src="js/ctc-core.js?v=20261121c"></script>
 <script src="js/ctc-signal.js?v=20261121c"></script>
-<script src="js/ctc-view.js?v=20261121c"></script>
-<script src="js/run-record-core.js?v=20261125a"></script>
-<script src="js/run-record.js?v=20261125a"></script>
+<script src="js/ctc-view.js?v=20261125a"></script>
+<script src="js/run-record-core.js?v=20261125b"></script>
+<script src="js/run-record.js?v=20261125b"></script>
 <script src="js/keiei-core.js?v=20261117c"></script>
 <script src="js/keiei-view.js?v=20261117c"></script>
 <script>
@@ -2177,7 +2177,7 @@ if(window.CtcView)CtcView.init({ST,TYPES,DEPOTNAME,D:()=>D,T:()=>T,day:()=>ENS.d
   events:()=>COND.evs.slice(),cond:()=>({day:COND.day,wx:COND.wx}),sp:()=>CX?CX.sp:1,dw:()=>CX?CX.dw:0,   /* 段3：臨時列車はイベントの日だけ・貨物の昼の便は平日だけ */
   nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0,
   evName:(st,t)=>{const e=ACTIVE_EV.find(ev=>(ev.ops||[]).some(o=>o.st===st&&t>=o.from&&t<=o.to));return e?e.name:'';}});
-/* 運行の記録（docs/run-record-plan.md の手順1・js/run-record.js）。指令パネルと同じ材料。RunRecord.get() を呼んだときだけ計算し、運行日・ダイヤ・条件が同じなら使い回す。まだどの画面も読んでいない */
+/* 運行の記録（docs/run-record-plan.md の手順1・js/run-record.js）。指令パネルと同じ材料。RunRecord.get() を呼んだときだけ計算し、運行日・ダイヤ・条件が同じなら使い回す。指令パネルが読む（手順2） */
 if(window.RunRecord)RunRecord.init({ST,TYPES,DEPOTNAME,D:()=>D,day:()=>ENS.day||1,incidentK:()=>window.KeieiView?KeieiView.incidentK():1,fmt,onSiding,evDwell,
   events:()=>COND.evs.slice(),cond:()=>({day:COND.day,wx:COND.wx}),sp:()=>CX?CX.sp:1,dw:()=>CX?CX.dw:0,
   nomDwell:(tr,i)=>tr.stop[i]?TYPES[tr.type].dwell+CX.dw+evDwell(tr.seq[i],tr.arr[i]):0});
