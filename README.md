@@ -25,6 +25,7 @@
 - 地図の列車（第7回）：1両ずつ線路の上でカーブを曲がる見下ろしの絵（`js/train-art.js`・色は `data/train-style.json`）。列車を押すと地図の下に編成のパネル（横から見た編成・車両の種類・種別・両数・行き先）。
 - [沿線暦と沿線だより](docs/features/ensen.md)（季節のできごとの仕組みもここ）
 - [沿線のバス網](docs/features/busnet.md)（駅から遠い会場の行事・バスが駅に人を運ぶ・電車と並ぶバスが、電車の乗客の数に効く）
+- [運行の記録と2つのモードの計画](docs/run-record-plan.md)（まだ作っていない。遅れ・代行バス・運賃・売上を1本の流れにそろえる案）
 - [駅ナカ リサーチ](docs/features/research.md)
 - [売店の運営](docs/features/kiosk.md)
 - [配送会社とセンターの倉庫](docs/features/haiso.md)
