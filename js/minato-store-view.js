@@ -14,7 +14,7 @@
 if(typeof KioskCore==='undefined'||typeof MinatoStore==='undefined'||typeof MinatoAnim==='undefined')return;
 const KC=KioskCore,MS=MinatoStore,A=MinatoAnim,KS=window.KioskStaff,MAP=A.MAP;
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
-const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),dayOk=()=>g(()=>ENS.ready!==false,true),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
+const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>(window.minatoRail&&minatoRail.actualD&&minatoRail.actualD())||D,null),gDay=()=>g(()=>ENS.day,1),dayOk=()=>g(()=>ENS.ready!==false,true),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
 const fmtT=t=>g(()=>fmt(t),'');
 const yen=n=>(n<0?'−':'')+'¥'+Math.round(Math.abs(n)).toLocaleString('ja-JP');
 const num=n=>Math.round(n).toLocaleString('ja-JP');

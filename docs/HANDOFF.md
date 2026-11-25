@@ -934,3 +934,8 @@ js/ctc-view.js の ensureHl が、RunRecord.get({policy, forceBig, X, hs}) の r
 上の段に「いまの沿線」「試運転」。いまの沿線で時刻・速さ・条件・イベント・事故の訓練を変えようとすると試運転に切りかわる（知らせ＋戻るボタン）。試運転のあいだは運行日を締めず、締めの条件はいつもいまの沿線のもの（recCond・dia-mode）。試運転のまま朝4:30をまたいだら、先にいまの沿線へ戻して締める。確かめは tools/mode-check.cjs。
 次：手順5（代行バス・実際の乗客・運賃と払い戻し）。
 
+## 2026-11-25 運行の記録 手順5（代行バス・実際の乗客・払い戻し・まわり）
+
+index.html の railActual が、記録の実際の時刻で乗客の計算を回し直し、代行バス・特急料金の払い戻し・代行バスの費用を入れた「実際の1日」（minatoRail.actualD()）を作る。売店・港の店・リサーチ・経営・沿線だよりの記録・グループの収支の見込みは、これを読む（橋 rail-to-kiosk・rail-to-money を更新、rail-to-keiei・busnet-to-daiko を追加）。ダイヤを組む画面の成績は予定のまま。決まりは data/run-record.json（仮）。確かめは tools/rail-actual-check.cjs。
+残し：振替輸送の人数と精算・乗客の変化を次の日の遅れに返す・列車の情報の札と乗車体験を記録へ。
+

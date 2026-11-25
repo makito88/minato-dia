@@ -13,7 +13,7 @@ const STORDER=['C','S','U','M','K','N','P','F','T','O'],PLACES=['home','naka','g
 const $=id=>document.getElementById(id);
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
 // 売店の時計はいつも本当の時刻（日本時間・×1）。ダイヤの時計（T）とは切り離す。0:00〜4:30は24:00〜として、26:00で止める
-const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),dayOk=()=>g(()=>ENS.ready!==false,true),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
+const gT=()=>{let m=((Date.now()/60000+540)%1440+1440)%1440;if(m<270)m+=1440;return Math.min(m,1560);},gD=()=>g(()=>(window.minatoRail&&minatoRail.actualD&&minatoRail.actualD())||D,null),gDay=()=>g(()=>ENS.day,1),dayOk=()=>g(()=>ENS.ready!==false,true),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
 const stName=s=>g(()=>ST[s].name,s),fmtT=t=>g(()=>fmt(t),'');
 const yen=n=>(n<0?'−':'')+'¥'+Math.round(Math.abs(n)).toLocaleString('ja-JP');
 const man=n=>(n<0?'−':'')+(Math.abs(n)>=1e4?(Math.abs(n)/1e4).toFixed(1)+'万円':Math.round(Math.abs(n)).toLocaleString('ja-JP')+'円');

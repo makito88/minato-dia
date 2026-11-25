@@ -717,7 +717,7 @@ canvas{display:block;touch-action:manipulation}
 <script src="js/run-record-core.js?v=20261125c"></script>
 <script src="js/run-record.js?v=20261125c"></script>
 <script src="js/keiei-core.js?v=20261117c"></script>
-<script src="js/keiei-view.js?v=20261117c"></script>
+<script src="js/keiei-view.js?v=20261125a"></script>
 <script>
 /* ======================= CORE (no DOM) ======================= */
 const START=270, END=1560, HW=2.0, HWS=0.5, TAU=45;
@@ -2246,7 +2246,8 @@ if(window.RunRecord)RunRecord.init({ST,TYPES,DEPOTNAME,D:()=>D,day:()=>ENS.day||
 const RRCFG={c:null};let RRA=null;
 fetch('data/run-record.json').then(r=>r.json()).then(j=>{RRCFG.c=j;RRA=null;}).catch(()=>{});
 function railActual(){
-  if(!window.RunRecord||!D||!D.sim||!RRCFG.c)return null;const rec=RunRecord.get();if(!rec)return null;
+  if(!window.RunRecord||!D||!D.sim||!RRCFG.c)return null;
+  const away=!!(window.minatoAway&&minatoAway.busy&&minatoAway.busy()),rec=away?RunRecord.get({hs:null}):RunRecord.get();if(!rec)return null;   // 留守の日をまとめて進めるときは軽い版（番線の割りふりをしない。遅れ・運休は同じ）
   if(RRA&&RRA.rec===rec&&RRA.D===D)return RRA;
   const cfg=RRCFG.c,t0=performance.now(),trips=[],late=new Map();
   D.trips.forEach(tr=>{const row=rec.byTrip.get(tr);if(!row||row.cancel)return;const p=Object.create(tr);p.arr=row.arr.slice();p.dep=row.dep.slice();p.base=tr;p.late=row.late||0;trips.push(p);});
@@ -2272,11 +2273,12 @@ function railActual(){
   RRA={rec,D,DA,trips,bus,busInfo,sim,summary,refund:{yen:refund,pax:refundPax,trains:refundTr},lateRiders,cancelled:rec.cancelled,
     delta:{riders:tot.riders-S0.riders,rev:rev-S0.rev,aband:tot.aband-S0.aband,left:tot.left-S0.left},ms:performance.now()-t0};
   return RRA;}
-window.minatoRail={today:()=>D&&D.summary?{rev:D.summary.rev,eki:D.summary.eki,run:D.summary.run,fixed:D.summary.fixed}:null,
+window.minatoRail={today:()=>{const X=railActual(),S=X?X.summary:D&&D.summary;return S?{rev:S.rev,eki:S.eki,run:S.run,fixed:S.fixed}:null;},   /* 運行の記録の実際（払い戻しを引き、代行バスの費用を足す）。まだなら予定 */
   actual:()=>railActual(),actualD:()=>{const a=railActual();return a?a.DA:null;},   /* 運行の記録の実際の1日（D と同じ形・trips・sim・summary だけ実際） */
   day:d=>{const r=window.KeieiView&&KeieiView.state?KeieiView.state.log.find(x=>x.day===d):null;return r?{rev:r.rev,eki:r.profit-r.rev+r.cost,cost:r.cost}:null;}};
 /* 経営（js/keiei-view.js）：利益・乗客・満足度のグラフと投資。投資の効き目は運行日の始めに KFX へ */
-if(window.KeieiView)KeieiView.init({ST,ALL,D:()=>D,day:()=>ENS.day||1,fmt,ready:()=>{KFX=KeieiView.fx(ENS.day||1);if(KFX&&KFX.any)rebuild();}});
+if(window.KeieiView)KeieiView.init({ST,ALL,D:()=>(window.minatoRail&&minatoRail.actualD&&minatoRail.actualD())||D,   /* 経営は運行の記録の実際の1日（手順5） */
+  day:()=>ENS.day||1,fmt,ready:()=>{KFX=KeieiView.fx(ENS.day||1);if(KFX&&KFX.any)rebuild();}});
 const flowWho=f=>`${f.from?ST[f.from].name:'各駅'} → ${f.to?ST[f.to].name:'各駅'}`;
 function renderEvent(ev){const im=D.summary.evImpact[ev.id];if(!im)return '<p class="sub">集計しています…</p>';const st=evState(ev),snap=trafficSnapshot(T);
   const scale=ev._k<0.99?`<dt>規模</dt><dd>${Math.round(ev._k*100)}%（${[ev.outdoor&&COND.wx!=='sun'&&COND.wx!=='cld'?CONDS.wx.opts[COND.wx].n+'のため縮小':'',COND.day==='wd'?'平日のため控えめ':''].filter(Boolean).join('・')}）</dd>`:'';
@@ -3578,8 +3580,9 @@ const ENSEN_UI=(()=>{
   function dayEnd(force){if(!ready||!D)return;const minPlay=120;
     if(MODE==='test'){played=0;return;}   // 試運転のあいだは締めない（記録を残さない。手順4）。js/away.js は先にいまの沿線へ戻してから締める
     if(!force&&played<minPlay){played=0;return;}   // 少ししか進めていない日は数えない（時刻を終わり近くへ動かしてから日をまたぐだけでは、運行日を進めない）
-    if(window.KeieiView)KeieiView.dayEnd(D,st.day);   /* 経営：その日の利益・乗客・満足度を記録 */
-    st=ensEndDay(st,D);ENS.day=st.day;played=0;persist();setCond({...COND});rebuild();renderAll();}
+    const DA=(window.minatoRail&&minatoRail.actualD&&minatoRail.actualD())||D;   /* 運行の記録の実際の1日（遅れ・運休・代行バス・払い戻しのあと。手順5） */
+    if(window.KeieiView)KeieiView.dayEnd(DA,st.day);   /* 経営：その日の利益・乗客・満足度を記録 */
+    st=ensEndDay(st,DA);ENS.day=st.day;played=0;persist();setCond({...COND});rebuild();renderAll();}
   const tick=(dt)=>{if(playing)played+=speed*dt;};
   // 季節のできごと：起きた朝に、初めて便りで知らせる（前もっては出さない）。同じ日・同じできごとは1通だけ
   function seasLetters(){if(!ready||!SEAS.list.length||(SEAS.hold&&SEAS.dateI==null))return;let add=0;
@@ -3751,7 +3754,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 </script>
 <!-- 駅ナカ リサーチ（第1段）：計算は js/research-core.js、表示は js/research-view.js、設定は data/research.json -->
 <script src="js/research-core.js"></script>
-<script src="js/research-view.js"></script>
+<script src="js/research-view.js?v=20261125a"></script>
 <!-- 売店運営（第2段）：計算は js/kiosk-core.js、表示は js/kiosk-view.js、設定は data/kiosk.json -->
 <script src="js/kiosk-staff.js?v=20261112h"></script>
 <script src="js/kiosk-walk.js?v=20261111a7"></script>
@@ -3786,8 +3789,8 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <script src="js/minato-sales-core.js?v=20261111a"></script>
 <script src="js/minato-sales-view.js?v=20261111u"></script>
 <script src="js/kiosk-scene.js?v=20261114b"></script>
-<script src="js/minato-store-view.js?v=20261116a"></script>
-<script src="js/kiosk-view.js?v=20261117a"></script>
+<script src="js/minato-store-view.js?v=20261125a"></script>
+<script src="js/kiosk-view.js?v=20261125a"></script>
 <script src="js/center-flow.js?v=20261117a"></script>
 <script src="js/deals-core.js?v=20261112m"></script>
 <script src="js/deals-view.js?v=20261112x"></script>
@@ -3799,7 +3802,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <!-- 保存と引き継ぎ（一時保存・別の端末への引き継ぎコード） -->
 <script src="js/save.js?v=20261109l"></script>
 <!-- 留守のあいだ：開いたとき・戻ったときに、閉じていたあいだの運行日をまとめて進める -->
-<script src="js/away.js?v=20261125a"></script>
+<script src="js/away.js?v=20261125b"></script>
 <script src="js/perf-meter.js?v=20261106b"></script>
 <!-- トップページ（5つのレイヤー）：js/top.js -->
 <script src="js/route-core.js?v=20261112r"></script>

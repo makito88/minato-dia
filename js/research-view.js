@@ -12,7 +12,7 @@ const RC=ResearchCore,KEY='dia-research',H=RC.H;
 const STORDER=['C','S','U','M','K','N','P','F','T','O'];
 const $=id=>document.getElementById(id);
 const g=(f,d)=>{try{return f();}catch(e){return d;}};
-const gT=()=>g(()=>T,600),gD=()=>g(()=>D,null),gDay=()=>g(()=>ENS.day,1),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
+const gT=()=>g(()=>T,600),gD=()=>g(()=>(window.minatoRail&&minatoRail.actualD&&minatoRail.actualD())||D,null),gDay=()=>g(()=>ENS.day,1),gCond=()=>g(()=>COND,{day:'wd',wx:'sun',season:'aut',evs:[]});
 const stName=s=>g(()=>ST[s].name,s);
 const fmtT=t=>g(()=>fmt(t),'');
 const man=n=>(n<0?'−':'')+(Math.abs(n)>=1e8?(Math.abs(n)/1e8).toFixed(1)+'億円':Math.abs(n)>=1e4?(Math.abs(n)/1e4).toFixed(Math.abs(n)>=1e6?0:1)+'万円':Math.round(Math.abs(n)).toLocaleString('ja-JP')+'円');

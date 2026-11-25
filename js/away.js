@@ -97,7 +97,7 @@ let hiddenAt=0;
 document.addEventListener('visibilitychange',()=>{if(document.hidden){hiddenAt=Date.now();save();return;}
   if(hiddenAt&&Date.now()-hiddenAt>3*60000){const a=load();if(a&&opIndex(Date.now())>opIndex(a.at))catchUp('resume');else{try{T=liveT();}catch(e){}save();}}hiddenAt=0;});
 addEventListener('pagehide',save);
-window.minatoAway={catchUp,load,condFor,opIndex,
+window.minatoAway={catchUp,load,condFor,opIndex,busy:()=>V.busy,
   // 開発用：前に見ていた時刻を n 日前にずらして、留守の分を進める動きを試す
   test(n){const a=load()||{};a.at=Date.now()-n*DAY;a.day=g(()=>ENS.day,1);a.cond=g(()=>recCond(),g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null));localStorage.setItem(KEY,JSON.stringify(a));return catchUp('test');}};
 })();

@@ -1,6 +1,6 @@
 /* 鉄道の経営の画面（index.html の「経営」のタブ）。計算は js/keiei-core.js、設定は data/keiei.json、保存は dia-keiei。
    KeieiView.init(env)：env は ST・ALL・D()・day()・fmt・rebuild()
-   KeieiView.dayEnd(D, day)：運行日を締めるとき（ENSEN_UI.dayEnd）に1回
+   KeieiView.dayEnd(D, day)：運行日を締めるとき（ENSEN_UI.dayEnd）に1回。D は運行の記録の実際の1日（D.base が予定。指令パネルには予定を渡す。2026-11-25）
    KeieiView.fx(day)：乗客の計算に掛ける倍率（index.html の ensRefresh で読む）
    KeieiView.incidentK()：指令パネルの「できごと」の起こりやすさ */
 (function () {
@@ -67,15 +67,15 @@
   /* その日の数字（いま計算されている D から） */
   function today() {
     const D = E.D(); if (!D || !D.summary) return null;
-    let late = null; try { late = window.CtcView && CtcView.lateShare ? CtcView.lateShare(D) : null; } catch (e) { }
+    let late = null; try { late = window.CtcView && CtcView.lateShare ? CtcView.lateShare(D.base || D) : null; } catch (e) { }
     const m = K.metrics(D, E.ALL, late);
     return { m, sat: K.satisfaction(cfg, st, m, E.day()) };
   }
 
   function dayEnd(D, day) {
     if (!cfg || !st || !D || !D.summary) return;
-    let late = null; try { late = window.CtcView && CtcView.lateShare ? CtcView.lateShare(D) : null; } catch (e) { }
-    const m = K.metrics(D, E.ALL, late); try { m.fee = window.CtcView && CtcView.feeToday ? CtcView.feeToday(D) * feeK : 0; } catch (e) { m.fee = 0; }   /* 線路使用料（橋 ctc-fee-to-keiei） */
+    let late = null; try { late = window.CtcView && CtcView.lateShare ? CtcView.lateShare(D.base || D) : null; } catch (e) { }
+    const m = K.metrics(D, E.ALL, late); try { m.fee = window.CtcView && CtcView.feeToday ? CtcView.feeToday(D.base || D) * feeK : 0; } catch (e) { m.fee = 0; }   /* 線路使用料（橋 ctc-fee-to-keiei） */
     /* 子会社からの配当（橋 group-to-keiei）：グループの記録は次の運行日の始めにできるので、ふつうは前の日の分がここで入る */
     try { const dv = K.dividend(cfg, groupDays(), st.divDay != null ? st.divDay : day - 2, day); m.div = dv.yen * divK; st.divDay = dv.last; } catch (e) { m.div = 0; }
     K.closeDay(cfg, st, m, day); save(); render();
