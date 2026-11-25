@@ -181,6 +181,11 @@ canvas{display:block;touch-action:manipulation}
 .hplab{font-size:11.5px;color:var(--muted)}.hpop .jumps{display:flex;flex-wrap:wrap;gap:6px}.hpop .sndvol input{width:120px}
 .livebtn{border:1px solid var(--line2);background:var(--panel);border-radius:7px;padding:6px 10px;font-size:13px;min-height:34px;white-space:nowrap}
 .livebtn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink,#fff)}
+.modeseg{display:inline-flex}.modeseg .livebtn:first-child{border-radius:7px 0 0 7px}.modeseg .livebtn:last-child{border-radius:0 7px 7px 0;border-left:0}
+#testBtn[aria-pressed="true"]{background:#c9573f;border-color:#c9573f;color:#fff}
+.modetoast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:95;max-width:min(560px,calc(100% - 24px));background:var(--ink);color:var(--paper);font-size:13px;line-height:1.6;padding:10px 14px;border-radius:12px;box-shadow:0 4px 16px rgb(0 0 0 / .3)}
+.modetoast button{font:inherit;font-size:12.5px;margin-left:8px;padding:4px 10px;border-radius:7px;border:1px solid var(--paper);background:transparent;color:var(--paper);cursor:pointer;min-height:30px}
+.modenote{font-size:12px;color:#c9573f;font-weight:700}
 @media (max-width:560px){.hpop{position:fixed;left:12px;right:12px;top:auto;max-width:none}}
 .sndbtn{border:1px solid var(--line2);background:var(--panel);border-radius:999px;padding:5px 14px;font-size:12.5px;color:var(--muted)}
 .sndbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
@@ -444,14 +449,14 @@ canvas{display:block;touch-action:manipulation}
     <div class="clockbox" aria-live="off"><div class="led" id="clock">07:00</div><div class="band" id="band">朝ラッシュ</div></div>
     <div class="ctrl">
       <button class="play" id="play">❚❚ 一時停止</button>
-      <button class="livebtn" id="liveBtn" type="button" title="本当の時計と同じ速さで、いまの時刻を走らせる">×1 いま</button>
+      <span class="modeseg" role="group" aria-label="モード"><button class="livebtn" id="liveBtn" type="button" title="いまの沿線：本当の今の時刻・天気・暦で走る。記録（売店・沿線だより・経営）が残る">いまの沿線</button><button class="livebtn" id="testBtn" type="button" title="試運転：時刻・速さ・条件・イベント・事故の訓練を自由に変えられる。記録は残らない">試運転</button></span>
       <details class="hmore" id="spdMore"><summary>速さ・時刻 <b id="spdNow"></b></summary>
         <div class="hpop">
           <div class="hplab">速さ</div>
       <div class="seg" id="speed" role="group" aria-label="速さ">
         <button data-v="live" title="本当の時計と同じ速さで、いまの時刻を走らせる">×1 いま</button><button data-v="0.5">×30</button><button data-v="1">×60</button><button data-v="3">×180</button><button data-v="10">×600</button>
       </div>
-          <div class="hplab">時刻へ（「×1 いま」からはなれます）</div>
+          <div class="hplab">時刻へ（試運転になります）</div>
           <div class="jumps">
       <button class="jump" data-t="330">始発</button>
       <button class="jump" data-t="460">朝ラッシュ</button>
@@ -496,6 +501,7 @@ canvas{display:block;touch-action:manipulation}
       <h2>この日の条件</h2>
       <div class="condsel" id="condsel"></div>
       <small id="liveNote" style="color:var(--sub,#8a96a3)"></small>
+      <small class="modenote" id="modeNote" hidden>試運転中：この条件とイベントは記録に残りません（いまの沿線に戻すと、本当の条件にもどります）</small>
     </div>
     <div class="condrow">
       <div class="presets" id="scen">
@@ -1457,6 +1463,18 @@ let D=null,T=440,playing=true,speed=1,LIVE=false,diaSpan=60,sel={kind:'station',
 // はじめて開いたとき（この版から）は「×1 いま」にする。ほかの速さを選んだら、それを覚える
 try{const raw=localStorage.getItem('dia-speed');if(raw==='live'||Math.abs(Number(raw)*60-1)<1e-9||!localStorage.getItem('dia-live1')){LIVE=true;speed=1/60;localStorage.setItem('dia-live1','1');localStorage.setItem('dia-speed','live');}else{const v=Number(raw);if(v)speed=v;}}catch(e){}
 try{const c=JSON.parse(localStorage.getItem('dia-cond')||'null');if(c&&typeof c==='object')setCond(c);}catch(e){}
+/* 2つのモード（docs/run-record-plan.md の手順4・2026-11-25）。dia-mode＝{v:1, mode:'live'|'test', live:いまの沿線の条件}
+   いまの沿線：本当の今・本当の天気と暦・選んで起こすイベントと事故の訓練はなし。記録（売店・沿線だより・経営）が残る。
+   試運転：速さ・時刻・条件・イベント・訓練を自由に。記録は残さない（運行日の締めは、いつも「いまの沿線」の条件 MLIVE で）。
+   はじめて（この版から）は、選んだイベントがあるか「×1 いま」以外で遊んでいたら試運転から（遊んでいた条件をそのまま残す） */
+let MODE='live',MLIVE=null;
+try{const m=JSON.parse(localStorage.getItem('dia-mode')||'null');
+  if(m&&m.v===1){MODE=m.mode==='test'?'test':'live';MLIVE=m.live||null;}
+  else if((COND.evs&&COND.evs.length)||!LIVE){MODE='test';MLIVE={...COND,evs:[]};}}catch(e){}
+if(MODE==='live'){LIVE=true;speed=1/60;if(COND.evs.length)setCond({...COND,evs:[]});}
+function saveMode(){try{localStorage.setItem('dia-mode',JSON.stringify({v:1,mode:MODE,live:MODE==='test'?MLIVE:null}));}catch(e){}}
+/* 運行日を締めるときの条件（js/away.js が覚える）。試運転のあいだは、いまの沿線の条件 */
+const recCond=()=>{const c=MODE==='test'&&MLIVE?MLIVE:COND;return {day:c.day,wx:c.wx,season:c.season};};
 function save(){try{localStorage.setItem('dia-patterns',JSON.stringify(PAT.map(({id,...r})=>r)));}catch(e){}}
 function rebuild(){
   try{if(RIDE.on)RIDE.exit('rebuild');}catch(e){}  // 乗車中にダイヤが組み直されたら通常画面に戻る
@@ -2565,13 +2583,35 @@ $('#mplay').addEventListener('click',()=>setPlay(!playing));
 playBtn.addEventListener('click',()=>setPlay(!playing));
 function markSeg(el,v){el.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.v)===v)));}
 function setSpeed(v){LIVE=v==='live';speed=LIVE?1/60:v;if(LIVE&&!RIDE.on)T=liveTf();markSpeed();try{localStorage.setItem('dia-speed',LIVE?'live':speed);}catch(er){}}
-function markSpeed(){const key=LIVE?'live':String(speed);$('#speed').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===key)));{const lb=$('#liveBtn');if(lb)lb.setAttribute('aria-pressed',String(LIVE));const sn=$('#spdNow');if(sn)sn.textContent=LIVE?'いま':'×'+Math.round(speed*60);}
+function markSpeed(){const key=LIVE?'live':String(speed);$('#speed').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===key)));{const lb=$('#liveBtn');if(lb)lb.setAttribute('aria-pressed',String(MODE==='live'));const tb=$('#testBtn');if(tb)tb.setAttribute('aria-pressed',String(MODE==='test'));const sn=$('#spdNow');if(sn)sn.textContent=LIVE?'いま':'×'+Math.round(speed*60);}
   const b=document.querySelector(`#speed button[data-v="${key}"]`);$('#mspeed').textContent=b?b.textContent:'×'+Math.round(speed*60);}
 // いまの時刻（分・秒まで）。運行していない 2:00〜4:30 は始発の時刻で止める
 function liveTf(){const p=jstParts(Date.now());let m=Number(p.hour)*60+Number(p.minute)+(Date.now()%60000)/60000;if(m<START)m+=1440;return m>END?START:m;}
 // 「×1 いま」で時刻を動かしたら、ふつうの ×1 にする（本当の時刻からはなれる）
 function leaveLive(){if(!LIVE)return;LIVE=false;speed=1/60;markSpeed();try{localStorage.setItem('dia-speed',speed);}catch(er){}}
-$('#liveBtn').addEventListener('click',()=>setSpeed('live'));
+$('#liveBtn').addEventListener('click',()=>{if(MODE==='live')setSpeed('live');else setMode('live','btn');});
+$('#testBtn').addEventListener('click',()=>setMode('test','btn'));
+/* ---------- 2つのモード（手順4）：いまの沿線 ⇄ 試運転 ---------- */
+function setMode(m,why){if(m===MODE)return;
+  if(m==='test'){MLIVE={...COND,evs:[]};MODE='test';}   // いまの沿線の条件を覚えておく（締めはこれで）。試運転は、いまの状態から始める
+  else{MODE='live';setCond({...(MLIVE||COND),evs:[]});MLIVE=null;saveCond();renderCondUI();rebuild();setSpeed('live');
+    const cb=document.querySelector('#ctcBig');if(cb&&cb.checked){cb.checked=false;cb.dispatchEvent(new Event('change',{bubbles:true}));}
+    liveCond().catch(()=>{});}
+  saveMode();markSpeed();markMode();modeToast(m,why);}
+function markMode(){document.documentElement.dataset.mode=MODE;
+  if(window.RunRecord){const cb=document.querySelector('#ctcBig');RunRecord.set({forceBig:MODE==='test'&&!!(cb&&cb.checked)});}   // 地図も、試運転のときは事故の訓練を描く
+  const n=$('#modeNote');if(n)n.hidden=MODE!=='test';}
+function modeToast(m,why){if(why==='init')return;let t=$('#modeToast');if(!t){t=document.createElement('div');t.id='modeToast';t.className='modetoast';t.setAttribute('role','status');document.body.appendChild(t);}
+  t.innerHTML=m==='test'?`<b>試運転</b>にしました。時刻・速さ・条件・イベント・事故の訓練を自由に変えられます。<b>記録（売店・沿線だより・経営）は残りません</b>。<button type="button" id="modeBack">いまの沿線に戻る</button>`
+    :why==='day'?'運行日が進んだので、<b>いまの沿線</b>に戻しました（試運転の条件は記録に入れていません）。':'<b>いまの沿線</b>に戻しました。本当の今の時刻・天気・暦で走り、記録が残ります。';
+  t.hidden=false;const b=$('#modeBack');if(b)b.onclick=()=>setMode('live','btn');clearTimeout(t._h);t._h=setTimeout(()=>{t.hidden=true;},m==='test'?9000:5000);}
+/* いまの沿線で、時刻・速さ・条件・イベント・訓練を変えようとしたら、試運転にする（止めずに切りかえる） */
+const TESTSEL='#speed button:not([data-v="live"]),#mspeed,.jump,#evchips button,#scen button,#ctcBig';
+document.addEventListener('click',e=>{if(MODE==='live'&&e.target.closest&&e.target.closest(TESTSEL))setMode('test','auto');},true);
+document.addEventListener('input',e=>{if(MODE==='live'&&e.target.matches&&e.target.matches('#scrub'))setMode('test','auto');},true);
+document.addEventListener('change',e=>{if(MODE==='live'&&e.target.matches&&e.target.matches('#condsel select'))setMode('test','auto');},true);
+document.addEventListener('change',e=>{if(e.target.matches&&e.target.matches('#ctcBig'))markMode();});
+markMode();
 // ▾ の外を押したら閉じる
 document.addEventListener('click',e=>{document.querySelectorAll('.hmore[open]').forEach(d=>{if(!d.contains(e.target))d.open=false;});});
 document.querySelectorAll('.hpop .jump').forEach(b=>b.addEventListener('click',()=>{const d=b.closest('details');if(d)d.open=false;}));
@@ -3501,6 +3541,7 @@ const ENSEN_UI=(()=>{
     ready=true;setCond({...COND});saveCond();renderCondUI();rebuild();renderAll();}
   // 26:00 を過ぎて自然に次の日へ進んだとき（巻き戻しや時刻バーでは呼ばれない）
   function dayEnd(force){if(!ready||!D)return;const minPlay=120;
+    if(MODE==='test'){played=0;return;}   // 試運転のあいだは締めない（記録を残さない。手順4）。js/away.js は先にいまの沿線へ戻してから締める
     if(!force&&played<minPlay){played=0;return;}   // 少ししか進めていない日は数えない（時刻を終わり近くへ動かしてから日をまたぐだけでは、運行日を進めない）
     if(window.KeieiView)KeieiView.dayEnd(D,st.day);   /* 経営：その日の利益・乗客・満足度を記録 */
     st=ensEndDay(st,D);ENS.day=st.day;played=0;persist();setCond({...COND});rebuild();renderAll();}
@@ -3666,8 +3707,9 @@ async function liveCond(){const note=document.getElementById('liveNote');
   let wtxt='天気は取得できませんでした';const w=cal.wx[ymd];
   if(w){c.wx=w.wx;wtxt=`${CONDS.wx.opts[c.wx].n}${c.wx==='snow'?'（雪）':''}${w.hi!=null?` 最高${Math.round(w.hi)}℃・最低${Math.round(w.lo)}℃`:''}`;}
   else{const r=window.minatoAway&&minatoAway.condFor(minatoAway.opIndex(Date.now()));if(r)c.wx=r.wx;}   // 取れないときは、日ごとに決まった天気
-  setCond({...COND,...c});saveCond();renderCondUI();rebuildSoon();
-  if(note)note.textContent=`きょうの立川市：${wtxt}・${CONDS.day.opts[c.day].n}${hol?'（'+hol+'）':''}（その日の天気を一度だけ取り、ほかの端末とそろえます。下のボタンで変えられますが、変えると売店の売れ方も変わります）`;}
+  if(MODE==='test'){MLIVE={...(MLIVE||COND),...c,evs:[]};saveMode();}   // 試運転のあいだは、いまの沿線の条件（締めに使う）だけを本当の値にする
+  else{setCond({...COND,...c});saveCond();renderCondUI();rebuildSoon();}
+  if(note)note.textContent=`きょうの立川市：${wtxt}・${CONDS.day.opts[c.day].n}${hol?'（'+hol+'）':''}（その日の天気を一度だけ取り、ほかの端末とそろえます。下で変えると試運転になり、記録は残りません）`;}
 function start(data){if(data&&typeof data.T==='number')T=data.T;else T=liveT();liveCond().catch(()=>{});renderCondUI();renderLegend();renderEditor();rebuild();renderMode();setPane('run');resize();setPlay(true);requestAnimationFrame(frame);ENSEN_UI.init();}
 try{window.claude?.hot?.snapshot?.(()=>({T}));}catch(e){}
 window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
@@ -3722,7 +3764,7 @@ window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.ho
 <!-- 保存と引き継ぎ（一時保存・別の端末への引き継ぎコード） -->
 <script src="js/save.js?v=20261109l"></script>
 <!-- 留守のあいだ：開いたとき・戻ったときに、閉じていたあいだの運行日をまとめて進める -->
-<script src="js/away.js?v=20261110a"></script>
+<script src="js/away.js?v=20261125a"></script>
 <script src="js/perf-meter.js?v=20261106b"></script>
 <!-- トップページ（5つのレイヤー）：js/top.js -->
 <script src="js/route-core.js?v=20261112r"></script>

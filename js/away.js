@@ -19,7 +19,7 @@ const opIndex=ms=>Math.floor((ms+JST-START_MS)/DAY);          // 日本時間の
 const opDate=i=>new Date(i*DAY+START_MS-JST+12*3600000);       // その運行日の昼ごろ（曜日・月を見るため）
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){return null;}}
 function save(){if(V.busy||window.__diaRestoring)return;   // 引き継ぎを書きこんで読み直す途中は上書きしない（pagehide で「いま見ていた」にされると、留守の日が進まない）
-  try{localStorage.setItem(KEY,JSON.stringify({at:Date.now(),day:g(()=>ENS.day,1),cond:g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null)}));}catch(e){}}
+  try{localStorage.setItem(KEY,JSON.stringify({at:Date.now(),day:g(()=>ENS.day,1),cond:g(()=>recCond(),g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null))}));}catch(e){}}   // 試運転のあいだは、いまの沿線の条件（recCond・手順4）
 const V={busy:false};
 
 function hash(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h;}
@@ -39,7 +39,9 @@ const label=c=>({wd:'平日',sat:'土曜',hol:'日曜'}[c.day]||'')+'・'+({sun:
 const seasGo=()=>g(()=>{if(SEAS.hold){SEAS.hold=false;ENSEN_UI.seasLetters();}});
 async function catchUp(reason){const a=load();if(!a){save();seasGo();return;}
   const from=opIndex(a.at),now=opIndex(Date.now()),missed=now-from;if(missed<=0){save();seasGo();return;}
-  if(V.busy)return;V.busy=true;
+  if(V.busy)return;
+  g(()=>{if(MODE==='test')setMode('live','day');});   // 試運転のまま運行日をまたいだら、先にいまの沿線へ戻す（試運転の条件で締めない）
+  V.busy=true;
   try{await Promise.race([fetchCal(),new Promise(r=>setTimeout(r,4000))]);}catch(e){}   // 留守の日の天気・祝日を先に取っておく
   const n=Math.min(missed,MAXD),skip=missed-n,ksBefore=g(()=>minatoKiosk.state&&minatoKiosk.state.hist.length,0),rsBefore=g(()=>minatoResearch.state.studies.reduce((s,x)=>s+x.recs.length,0),0),day0=g(()=>ENS.day,1);
   const ov=overlay();const keepCond=g(()=>({...COND}),null),days=[];
@@ -97,5 +99,5 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){hiddenAt=D
 addEventListener('pagehide',save);
 window.minatoAway={catchUp,load,condFor,opIndex,
   // 開発用：前に見ていた時刻を n 日前にずらして、留守の分を進める動きを試す
-  test(n){const a=load()||{};a.at=Date.now()-n*DAY;a.day=g(()=>ENS.day,1);a.cond=g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null);localStorage.setItem(KEY,JSON.stringify(a));return catchUp('test');}};
+  test(n){const a=load()||{};a.at=Date.now()-n*DAY;a.day=g(()=>ENS.day,1);a.cond=g(()=>recCond(),g(()=>({day:COND.day,wx:COND.wx,season:COND.season}),null));localStorage.setItem(KEY,JSON.stringify(a));return catchUp('test');}};
 })();
