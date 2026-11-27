@@ -298,8 +298,9 @@
        それを守れる置き場所を選ぶ。守れる所がなければ、前と同じに空いている所 */
     const trk = (h, j) => h === 'C' ? j % 14 : h === 'P' ? j % 4 : 0, deep = (h, j) => h === 'C' ? j < 14 : h === 'P' ? j < 4 : j % 2 === 0;
     /* 入る・出るの動きは、置いてある時間（t0〜t1）のまわりに数分かかる（入庫：着いてから・出庫：発車の十数分前から） */
-    const A = w => [w.t0 - 10, w.t0 + 2], Dp = w => [w.t1 - 12, w.t1 + 2], Pr = w => [w.t0 - 10, w.t1 + 2], ov = (a, b) => a[0] < b[1] && b[0] < a[1];
-    for (const k in iv) { const L2 = iv[k].sort((x, y) => x.t0 - y.t0), busy = [], got = [];
+    /* 夜から置いてある編成（入った時刻なし）・夜まで置く編成（出る時刻なし）には、その出入りの動きはない。夜から置いてある編成は、あとに出るものから奥へ（2026-11-27：朝、奥の編成が手前より先に出ていた） */
+    const NO = [-2e9, -2e9], A = w => w.t0 < -1e8 ? NO : [w.t0 - 10, w.t0 + 2], Dp = w => w.t1 > 1e8 ? NO : [w.t1 - 12, w.t1 + 2], Pr = w => [w.t0 - 10, w.t1 + 2], ov = (a, b) => a[0] < b[1] && b[0] < a[1];
+    for (const k in iv) { const L2 = iv[k].sort((x, y) => x.t0 - y.t0 || (x.t0 < -1e8 ? y.t1 - x.t1 : 0)), busy = [], got = [];
       for (const v of L2) {
         const ok = j => (busy[j] == null || busy[j] < v.t0 - 0.01) && got.every(w => { if (w.slot === j || trk(k, w.slot) !== trk(k, j) || deep(k, w.slot) === deep(k, j)) return true;
           return deep(k, j) ? !ov(A(v), Pr(w)) && !ov(Dp(v), Pr(w)) : !ov(Pr(v), A(w)) && !ov(Pr(v), Dp(w)); });   /* 奥なら：入る時・出る時に手前があいている。手前なら：いるあいだに奥が出入りしない */
@@ -568,6 +569,8 @@
       /* 赤の信号の手前で止まる（2026-11-18 点検）：閉塞・場内・出発が赤なら、列車は信号の手前で待つ。
          ダイヤどおりの位置より遅れて見えるので、あいたら少し速く進んで追いつく（LAG）。時刻を飛ばしたときは待ちを消す */
       if (HS && window.CtcSignal) { const lay = layOf();
+        /* 川辺の支線の場内は、ななめの線の上にある（線の高さ trk と、そこを通る車体の高さが12pxほどちがう。2026-11-27：赤で止まらず本線を横切った） */
+        const sigTol = o => o.br && o.st === 'K' && o.kind === '場内' ? 16 : 4;
         const yAt = (B, x) => { for (let k = 1; k < B.length; k++) { const a = B[k - 1], b = B[k]; if ((a[0] - x) * (b[0] - x) <= 0 && a[0] !== b[0]) return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); } return null; };
         for (let pass = 0; pass < 2; pass++) {
           /* 信号の色は、ひとつ前の画面の位置で決める（動こうとしている列車じしんが、先の区間をふさいで赤に見えないように） */
@@ -577,7 +580,7 @@
             if (f.dead) continue; const m = LAG.get(baseOf(f.tr)); if (!m || m.tr !== f.tr) continue;
             const dir = f.p.dir, x0 = m.x, x1 = f.p.x;  if ((x1 - x0) * dir <= 0.2) continue;
             const hit = lay.sig.filter(o => o.dir === dir && !o.plan && st0.asp.get(o) === CtcSignal.R && (o.x - x0) * dir > 2 && (x1 - (o.x - dir * 3)) * dir > 0)
-              .filter(o => { let yy = yAt(f.p.body || [[x1, f.p.y]], o.x); if (yy == null) return Math.abs(m.y - o.trk) < 4; return Math.abs(yy - o.trk) < 4; })   /* 車体が信号の所までないときは、前の画面で信号の線にいたか */.sort((a, b) => (a.x - b.x) * dir)[0];
+              .filter(o => { const tl = sigTol(o); let yy = yAt(f.p.body || [[x1, f.p.y]], o.x); if (yy == null) return Math.abs(m.y - o.trk) < tl; return Math.abs(yy - o.trk) < tl; })   /* 車体が信号の所までないときは、前の画面で信号の線にいたか */.sort((a, b) => (a.x - b.x) * dir)[0];
             if (!hit) continue;
             let lo = m.t, hi = f.p.tD; for (let k = 0; k < 14; k++) { const mid = (lo + hi) / 2, r = C.trainPos(f.tr, mid, L, env); if ((r.x - (hit.x - dir * 3)) * dir > 0) hi = mid; else lo = mid; }
             f.p = withBody(f.tr, Object.assign(C.trainPos(f.tr, lo, L, env), { held: true, moving: true, tD: lo, redAt: hit.id }), env);
@@ -586,7 +589,7 @@
           if (pass === 1) for (const f of out) { if (f.dead) continue; const m = LAG.get(baseOf(f.tr)); if (!m || m.tr !== f.tr || m.at == null || m.at < T - lagDt - 1e-6) continue;
             const dir = f.p.dir, x0 = m.x, x1 = f.p.x; if ((x1 - x0) * dir <= 0.2) continue;
             for (const o of lay.sig) { if (o.dir !== dir || o.plan || st0.asp.get(o) !== CtcSignal.R || (o.x - x0) * dir <= 2 || (x1 - o.x) * dir <= 0) continue;   /* 先頭がもう信号の所（2px）にいたら通過中 */
-              const yy = yAt(f.p.body || [[x1, f.p.y]], o.x); if (Math.abs((yy == null ? m.y : yy) - o.trk) >= 4) continue;
+              const yy = yAt(f.p.body || [[x1, f.p.y]], o.x); if (Math.abs((yy == null ? m.y : yy) - o.trk) >= sigTol(o)) continue;
               REDLOG.push({ T, num: f.tr.num, st: o.st, kind: o.kind, km: o.km }); if (REDLOG.length > 500) REDLOG.shift(); } }
         } }
       /* 回送の待ち・始発へのもどし（列車が赤信号で止まったあとの位置で決める。2026-11-19） */
@@ -608,8 +611,11 @@
         /* 出庫の回送の前に入庫の回送がいるときは、うしろへ下がってでも道をあける（入出庫線で向かい合って動けなくなっていた。2026-11-21） */
         const backOff = d.n.out && out.some(o => o !== d && o.dead && o.n && !o.n.out && o.p.body && d.p.body && bodyHit(d.p.body, o.p.body, 30));
         const fmin = !backOff && dm && dm.at === T - lagDt ? Math.min(dm.f, d.f0) : 0;
+        /* 下がるときは、ほかの回送の前の画面の位置にも入らない（その回送がこのあと待つと、そこに残るので。2026-11-27） */
+        const prevB = backOff ? out.filter(o => o !== d && o.dead && o.path).map(o => { const m = DLAG.get(dkey(o.s, o.tr, o.n.out)); if (!m || Math.abs(m.at - (T - lagDt)) > 1e-6) return null; const q = deadAt(o.path, o.fs(m.f), o.sl, o.p.i); return q && q.body; }).filter(Boolean) : [];
+        const blocked2 = B => blocked(B) || prevB.some(P0 => bodyHit(B, P0, HT));
         for (let k = 1; k <= 51; k++) { const f0 = Math.max(fmin, d.f0 - k * 0.02); const p2 = deadAt(d.path, d.fs(f0), d.sl, d.p.i);   /* 出はじめなら、もとの番線・置き場所で待つ */
-          if (!blocked(p2.body) || f0 === fmin) { d.p = Object.assign(p2, { held: true }); d.f0 = f0; break; } } }
+          if (!blocked2(p2.body) || f0 === fmin) { d.p = Object.assign(p2, { held: true }); d.f0 = f0; break; } } }
       /* 回送 d の車体 B が、ほかの列車のために鎖錠・転換中・使用中のポイントにかかるか（下がるとき・もどすときにも見る） */
       const PJ2 = HS && window.CtcSignal ? layOf().pts.filter(q => q.a != null && q.b != null && !q.cross).map(q => [q, q.gen ? q.J : [q.x, q.y0 + q.trunk]]) : [];
       const sd2 = (q, A, B) => { const dx = B[0] - A[0], dy = B[1] - A[1], LL = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((q[0] - A[0]) * dx + (q[1] - A[1]) * dy) / LL)); return Math.hypot(A[0] + u * dx - q[0], A[1] + u * dy - q[1]); };
@@ -619,7 +625,7 @@
         const ahead = []; for (let u = 0.01; u <= 0.25; u += 0.01) { const q2 = deadAt(b.path, b.fs(Math.min(1, b.f0 + u)), b.sl, b.p.i); if (q2) ahead.push([q2.x, q2.y]); }
         if (ahead.length < 2) continue;
         for (const a of out) { if (a === b || !a.dead || !a.path || !a.n || !a.n.out || !a.p.body || !bodyHit(a.p.body, ahead, 8)) continue;
-          let f = a.f0; const f1 = Math.max(0, a.f0 - 0.06), B0 = a.p.body; while (f > f1) { const fn = Math.max(f1, f - 0.01), q5 = deadAt(a.path, a.fs(fn), a.sl, a.p.i); if (q5 && ptBusyFor(a, q5.body, B0)) break; f = fn; if (q5 && !bodyHit(q5.body, ahead, 8)) break; }   /* ほかの列車のポイントには下がらない */
+          let f = a.f0; const f1 = Math.max(0, a.f0 - 0.06), B0 = a.p.body; while (f > f1) { const fn = Math.max(f1, f - 0.01), q5 = deadAt(a.path, a.fs(fn), a.sl, a.p.i); if (q5 && (ptBusyFor(a, q5.body, B0) || out.some(o => o !== a && o !== b && o.dead && o.p && o.p.body && bodyHit(q5.body, o.p.body, 8) && !bodyHit(B0, o.p.body, 8)))) break; f = fn; if (q5 && !bodyHit(q5.body, ahead, 8)) break; }   /* ほかの列車のポイントには下がらない */
           const q4 = deadAt(a.path, a.fs(f), a.sl, a.p.i); if (q4) { a.p = Object.assign(q4, { held: true, back: true }); a.f0 = f; } } }
       /* 最後に：回送どうしがまだ重なっていれば、この画面で動いたほうを前の画面の位置へもどす（順番に決めるので、あとから動いた回送が、待たせた回送の所へ入ることがあった。2026-11-21） */
       for (let pass = 0; pass < 2; pass++) for (const a of out) { if (!a.dead || !a.path) continue;

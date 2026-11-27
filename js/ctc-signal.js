@@ -275,6 +275,17 @@
         }
       }
     }
+    /* 川辺：支線から入る上りの列車は、下りの本線を横切って下の番線へ入る。支線の場内と、下りの出発（東へ）は同時に開かない（2026-11-27 点検：事故の日に 7010 と 1127 が交差した）。
+       横切る所に列車がいれば、相手は赤。両方開けるときは、前の時刻に開いていたほう（なければ本線の出発）を先に */
+    { const bH = lay.sig.find(z => z.br && z.st === 'K' && z.kind === '場内' && z.dir === -1), dS = lay.sig.filter(z => !z.br && z.st === 'K' && z.kind === '出発' && z.dir === 1);
+      if (bH && dS.length) { const x0 = Math.min(...dS.map(z => z.x)), x1 = bH.x, yd = Y.main - Y.lane;
+        const inX = B => (B || []).some(v => v[0] > x0 - 4 && v[0] < x1);   /* 出発信号の所まで来た列車から数える */
+        const downOn = trains.some(t => t.dir > 0 && t.line === 'd' && inX((t.q.p.body || [[t.q.p.x, t.q.p.y]]).filter(v => Math.abs(v[1] - yd) < 8)));
+        const brOn = trains.some(t => t.dir < 0 && t.tr.seq[t.i] === 'F' && t.tr.seq[t.i + 1] === 'K' && (t.q.p.x - x1) < 0 && inX(t.q.p.body || [[t.q.p.x, t.q.p.y]]));
+        const bOpen = asp.get(bH) !== R, dOpen = dS.some(z => asp.get(z) !== R), m = KXMEM.T != null && Math.abs(KXMEM.T - T) < 0.3 ? KXMEM.who : null;
+        let who = brOn ? 'b' : downOn ? 'd' : bOpen && dOpen ? (m || 'd') : bOpen ? 'b' : dOpen ? 'd' : null;
+        if (who === 'b') dS.forEach(z => asp.set(z, R)); else if (who === 'd') asp.set(bH, R);
+        KXMEM.T = T; KXMEM.who = who; } }
     /* ポイント（2026-11-18 点検で作りなおし）：線路の形から決める。
        - 列車の車体がポイントの上にいるあいだは鎖錠（最後尾が通りすぎるまで＝区分進路解錠）
        - これから通る列車（先頭の行き先を少し先まで見る）がいれば、その列車が通る側（定位 N／反位 R）へ転換 → 密着確認 → 鎖錠
@@ -351,6 +362,8 @@
     const one = [['K', 'F'], ['F', 'X'], ['X', 'T'], ['T', 'O']].map(([a, b]) => { const ka = a === 'K' ? 0 : SX[a].bkm, kb = SX[b].bkm, ft = a === 'F' || b === 'T' && a === 'X';
       const inSec = t => { const s0 = t.tr.seq[t.i], s1 = t.tr.seq[t.i + 1], A = ft ? 'F' : a, Bb = ft ? 'T' : b;
         if (!((s0 === A && s1 === Bb) || (s0 === Bb && s1 === A))) return false;
+        { const s1x = t.tr.seq[t.i + 1], g1 = C.GEO[s1x], x1s = !SX[s1x] ? null : s1x === 'K' ? L.xm(SX.K.km) : L.xb(SX[s1x].bkm);
+          if (x1s != null && g1 && Math.abs(t.q.p.x - x1s) < (g1.d0 + 0.05) * L.pxk) return false; }   /* 向こうの駅の構内（場内信号の内側）に入った列車は、もう区間にいない（2026-11-27：川辺に着く列車を数えていた） */
         if (!t.moving) { const s1x = t.tr.seq[t.i + 1], g1 = C.GEO[s1x], x1s = !SX[s1x] ? null : s1x === 'K' ? L.xm(SX.K.km) : L.xb(SX[s1x].bkm);
           if (x1s != null && g1 && Math.abs(t.q.p.x - x1s) < (g1.d0 + 0.05) * L.pxk) return false;   /* もう向こうの駅に着いて止まっている（2026-11-21） */
           return t.tr.dep[t.i] - T < 0.45 && (t.i === 0 || T >= t.tr.arr[t.i] - 0.01) && (!ft || (s0 === a || s0 === b)); }
@@ -365,6 +378,7 @@
   const K = { R: '#ff3b3b', Y: '#ffcc33', G: '#3ddc84', route: '#f4f7fb', sw: '#4fd8ff', bg: '#0c1826', head: '#05090e', headEdge: '#3a5470', post: '#8ea3b8' };
   const KCOL = [K.R, K.Y, K.G];
   const sizeOf = pxk => pxk >= 400 ? 1 : pxk >= 200 ? 0.8 : 0.6;
+  const KXMEM = { T: null, who: null };   /* 川辺の交差：前の時刻に開いていたほう */
   const MEMO = new Map();   /* ポイントごとの、前の時刻の状態 */
   const toward = (a, b, d) => { const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [a[0] + (b[0] - a[0]) / L * d, a[1] + (b[1] - a[1]) / L * d]; };
   const seg = (ctx, a, b) => { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); };

@@ -939,3 +939,7 @@ js/ctc-view.js の ensureHl が、RunRecord.get({policy, forceBig, X, hs}) の r
 index.html の railActual が、記録の実際の時刻で乗客の計算を回し直し、代行バス・特急料金の払い戻し・代行バスの費用を入れた「実際の1日」（minatoRail.actualD()）を作る。売店・港の店・リサーチ・経営・沿線だよりの記録・グループの収支の見込みは、これを読む（橋 rail-to-kiosk・rail-to-money を更新、rail-to-keiei・busnet-to-daiko を追加）。ダイヤを組む画面の成績は予定のまま。決まりは data/run-record.json（仮）。確かめは tools/rail-actual-check.cjs。
 残し：振替輸送の人数と精算・乗客の変化を次の日の遅れに返す・列車の情報の札と乗車体験を記録へ。
 
+
+## 2026-11-27 車庫の奥と手前
+
+朝の出庫で奥の編成が手前より先に出ていたのを直した（くわしくは docs/ctc-plan.md の同じ節）。あわせて、川辺の支線の場内が赤で止まらなかった（ななめの線の上の信号）・支線から入る列車と下りの出発の交差・単線の数え方・中央の回送の下がり方を直した。点検（30回）は列車・回送とも 0。残り：緑ヶ丘のポイントの向き変わり（前からのもの）。
