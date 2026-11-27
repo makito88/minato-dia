@@ -203,11 +203,22 @@
   /* 車庫・留置線・貨物ターミナルの形（2026-11-18・ユーザーの図）：はしご（ななめの線）から、どの線も止まるいちばん奥までつながる。
      y は画面の px、x は km（中央からのキロ。港・温泉は駅からのずれ dx）。ctc-view.js の線路・回送の通り道、ctc-signal.js の入換信号が使う */
   const PER = STEP / (2 * Y.lane);   /* 1px 下がるのに進む km（どの線も同じ傾き） */
+  /* 車庫・留置線の大きさ（2026-11-27）：組んだダイヤで同時に泊まる編成の数から決める。中央車庫は14本のまま、1本に置ける編成（奥行き）を2〜4に。
+     温泉留置線は1〜4本（1本に2編成）。yard() が、渡された編成から数えて決める */
+  const YCAP = { C: 2, O: 1 };
+  function yardCap() { return { C: { nt: 14, depth: YCAP.C, cap: 14 * YCAP.C }, P: { nt: 4, depth: 2, cap: 8 }, O: { nt: YCAP.O, depth: 2, cap: 2 * YCAP.O } }; }
+  /* 置き場所の番号 j → 線（t）と奥行き（k：0 がいちばん奥＝行き止まりの側） */
+  function slotTrk(h, j) { return h === 'C' ? j % 14 : h === 'P' ? j % 4 : (j / 2) | 0; }
+  function slotDep(h, j) { return h === 'C' ? (j / 14) | 0 : h === 'P' ? (j / 4) | 0 : j % 2; }
+  function setYardNeed(need) {
+    YCAP.C = Math.max(2, Math.min(4, Math.ceil((need.C || 0) / 14)));
+    YCAP.O = Math.max(1, Math.min(4, Math.ceil(((need.O || 0) - 1) / 2)));
+  }
   function yardGeo() {
     const M = Y.main, cy = k => M + Y.dep + 6 + k * 6;
     /* 中央車庫：14本。はしご2本（上の7本・下の7本）。はしご1は3番線から、はしご2は5番線から。はしご1と2のあいだに渡り線 */
     const XA = -0.85, XB = XA - 7 * 6 * PER + 0.08;
-    const C = { n: 14, tracks: [], park: [-2.15, -1.5], x0: -2.2 };
+    const CD = YCAP.C, C = { n: 14, tracks: [], park: CD <= 2 ? [-2.15, -1.5] : Array.from({ length: CD }, (_, k) => -2.15 + k * (0.81 / (CD - 1))), x0: -2.2 };   /* 奥行き3・4：西のはしから -1.34km まで等間かく（いちばん長い10両でも分かれ目にかからない） */
     for (let k = 0; k < 14; k++) C.tracks.push({ y: cy(k), jx: k < 7 ? XA - k * 6 * PER : XB - (k - 7) * 6 * PER, lad: k < 7 ? 0 : 1 });
     C.lead = [[[XA, cy(0)], [XA + (cy(0) - (M + Y.lane)) * PER, M + Y.lane]], [[XB, cy(7)], [XB + (cy(7) - (M + Y.l5)) * PER, M + Y.l5]]];
     C.ladder = [[[XA, cy(0)], [XA - 6 * 6 * PER, cy(6)]], [[XB, cy(7)], [XB - 6 * 6 * PER, cy(13)]]];
@@ -220,8 +231,9 @@
     /* 港貨物ターミナル：4本。臨港線が いちばん上の線になり、ななめに下りながら右へ分かれる */
     const QY = k => Y.freight - 14 + k * 9, Q = { n: 4, tracks: [0, 1, 2, 3].map(k => ({ y: QY(k), jx: LINK.frt[3] + k * 9 * PER })), x1: 0.3 };
     Q.lead = [[LINK.frt[3], QY(0)], [LINK.frt[3] + 27 * PER, QY(3)]];
-    /* 温泉留置線：1本（2編成）。単線から ななめに下りて西へ */
-    const g = GEO.O, oj = g.d0 + STEP / 2 + 0.12, O = { n: 1, tracks: [{ y: Y.br + 32, jx: -(oj + 32 * PER) }], park: [-1.5, -1.1], x0: -1.6, lead: [[-oj, Y.br], [-(oj + 32 * PER), Y.br + 32]] };
+    /* 温泉留置線：1〜4本（1本に2編成）。単線から ななめに下りて西へ。2本目からは、ななめの線をのばして 9px ずつ下に */
+    const g = GEO.O, oj = g.d0 + STEP / 2 + 0.12, ON = YCAP.O, oy = m => Y.br + 32 + m * 9;
+    const O = { n: ON, tracks: Array.from({ length: ON }, (_, m) => ({ y: oy(m), jx: -(oj + (oy(m) - Y.br) * PER) })), park: [-1.5, -1.1], x0: -1.6, lead: [[-oj, Y.br], [-(oj + (oy(ON - 1) - Y.br) * PER), oy(ON - 1)]] };
     return { C, P, Q, O };
   }
   const lin = u => Math.max(0, Math.min(1, u));
@@ -863,7 +875,14 @@
      見せ方の層だけ（ゲームの計算・乱れの計算は変えない）。ずらすのは、ふさがっていた分だけ。 */
   const BRSEG = new Set(['K|F', 'F|K', 'F|T', 'T|F', 'T|O', 'O|T']);
   function yard(sets, env) {
-    const hs = env.hs, YD = hs.yards || {}, REST = YD.rest || 16, EPS = 0.3, EIN = 0.6, TURN = 2, HW = 2.0;   /* EIN：番線に入る前から、その番線をおさえる分・HW：同じ線路へ続けて出るときの間かく */
+    /* 同時に泊まる編成の数（もとのダイヤ）から、車庫・留置線の大きさを決める */
+    { const need = {}; for (const at of ['C', 'O']) { const ev = []; for (const st of sets) { const tr = st.trips; if (!tr || !tr.length) continue;
+        if (st.home === at && tr[0].seq[0] === at) ev.push([-1e9, 1], [tr[0].dep[0], -1]);
+        for (let k = 0; k < tr.length; k++) { const t = tr[k], n = t.seq.length; if (t.seq[n - 1] !== at) continue; const nt = tr[k + 1]; ev.push([t.arr[n - 1], 1], [nt && nt.seq[0] === at ? nt.dep[0] : 1e9, -1]); } }
+        ev.sort((x, y) => x[0] - y[0] || x[1] - y[1]); let c = 0, mx = 0; for (const e of ev) { c += e[1]; mx = Math.max(mx, c); } need[at] = mx; }
+      setYardNeed(need); }
+    const YC = yardCap(), YD = Object.assign({}, env.hs.yards || {}); for (const h of ['C', 'P', 'O']) YD[h] = Object.assign({}, YD[h] || {}, { cap: YC[h].cap });
+    const hs = env.hs, REST = YD.rest || 16, EPS = 0.3, EIN = 0.6, TURN = 2, HW = 2.0;   /* EIN：番線に入る前から、その番線をおさえる分・HW：同じ線路へ続けて出るときの間かく */
     const occ = new Map(), segs = new Map(), single = new Map(), yuse = {}, out = new Map(), rests = new Map(), TH = new Map();
     const key = (s, o) => s + '|' + o, inHs = s => !!(hs.stations && hs.stations[s]);
     const busy = (k, t0, t1, me) => (occ.get(k) || []).find(r => r !== me && r[0] < t1 && t0 < r[1]);
@@ -1035,7 +1054,7 @@
   const lead0 = s => { const t = s.trips && s.trips[0]; return t && t.lead0 != null ? t.lead0 : 1; };   /* 始発が発車の何分前にホームに入るか */
   const inDepot = (s, T) => T < s.first - lead0(s) - 7 || T > s.last + 9;
 
-  const api = { lead0, bodyPts, segPt, yardGeo, PER, LINK, GEO, STEP, setPL, kPath, laneGeo, YK5, YK6, yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
+  const api = { lead0, bodyPts, segPt, yardGeo, yardCap, slotTrk, slotDep, setYardNeed, PER, LINK, GEO, STEP, setPL, kPath, laneGeo, YK5, YK6, yard, prefLanes, frontOff, LCODE, bigIncident, POLICY, requests, boats, policyStats, SYN_TYPES, extST, buildReg, fitTrip, synth, fee, synOnSiding, synDwell, synLate, extConns, synHighlights, LANES, SIGBOX, SHORT, Y, MAIN, BR, TYPE_COL, TYPE_BODY, REASON, RULE, disrupt, actual, layout, laneOff, trackNo, trainPos, reasons, highlights, inDepot, fmtMin, smooth };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CtcCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -12,6 +12,10 @@ const { spawn } = require('child_process');
   await p.addInitScript(sd => { let a = sd >>> 0; Math.random = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }, +(process.env.CTC_SEED || 1));
   /* CTC_DATE=2026-11-20 のように渡すと、その日の日付のつもりで動かす（日ごとの乱れの出方を、あとからでも同じに見るため。2026-11-21） */
   if (process.env.CTC_DATE) await p.addInitScript(d => { const D0 = Date, off = new D0(d + 'T05:00:00+09:00').getTime() - D0.now(); class FD extends D0 { constructor(...a) { if (a.length) super(...a); else super(D0.now() + off); } static now() { return D0.now() + off; } } window.Date = FD; }, process.env.CTC_DATE);
+  if (process.env.CTC_EXN) await p.addInitScript(n => { window.__EXN = n; }, +process.env.CTC_EXN);   /* 例をいくつまで書き出すか */
+  if (process.env.CTC_INIT) await p.addInitScript(require('fs').readFileSync(process.env.CTC_INIT, 'utf8'));   /* 調べもの用：ページより先に動かす JS */
+  /* CTC_SAVE=引き継ぎコードを解いた JSON のファイル：ユーザーのセーブ（組んだダイヤ）で動かす（2026-11-27） */
+  if (process.env.CTC_SAVE) await p.addInitScript(k => { try { if (sessionStorage.getItem('ctcSaveIn')) return; for (const [a, v] of Object.entries(k)) localStorage.setItem(a, v); sessionStorage.setItem('ctcSaveIn', '1'); } catch (e) { } }, JSON.parse(require('fs').readFileSync(process.env.CTC_SAVE, 'utf8')).keys);
   await p.goto('http://localhost:' + (+process.env.APORT || 8766) + '/index.html'); await p.waitForTimeout(2500);
   await p.evaluate(() => document.querySelectorAll('.rsv,.ksv,.topv').forEach(e => e.hidden = true));
   await p.evaluate(`setPlay(false); setPane('ctc');`); await p.waitForTimeout(800);
@@ -23,11 +27,13 @@ const { spawn } = require('child_process');
   /* データがそろうまで待つ（同時にいくつも回すと、計算が終わる前に点検が始まって、回ごとに結果が変わっていた。2026-11-21） */
   await p.evaluate(async () => { const sig = () => { try { CtcView.probe(300); const s = CtcView.syn(); const Y = s.YS; if (!Y) return ''; return Y.reg.length + ':' + Y.syn.length + ':' + Y.reg.reduce((a, x) => a + x.trips.length + x.trips.reduce((b, t) => b + t.dep[0] + t.arr[t.arr.length - 1], 0), 0).toFixed(3); } catch (e) { return ''; } };
     let last = '', same = 0; for (let k = 0; k < 120 && same < 4; k++) { await new Promise(r => setTimeout(r, 500)); const v = sig(); if (v && v === last) same++; else same = 0; last = v; } });
+  /* CTC_EVAL=ファイル：データがそろったところで、その中の JS を動かして結果を出し、終わる（調べもの用。2026-11-27） */
+  if (process.env.CTC_EVAL) { const out = await p.evaluate(require('fs').readFileSync(process.env.CTC_EVAL, 'utf8')); console.log(typeof out === 'string' ? out : JSON.stringify(out, null, 1)); await b.close(); srv.kill(); return; }
   /* CTC_TRACE=開始分-終了分:列車番号,列車番号[:駅] で、その時間の列車の位置と駅の信号を out.trace に書き出す（2026-11-21） */
   const TRS = process.env.CTC_TRACE ? (() => { const [ab, nums, st] = process.env.CTC_TRACE.split(':'); const [a, b] = ab.split('-').map(Number); return { a, b, nums: nums.split(','), st: st || null }; })() : null;
   const r = await p.evaluate(([step, TR]) => {
     const M = 300, out = { redK: {}, n: 0, overlap: [], overlapDead: [], ptLock: [], ptLeg: [], ptFoul: [], red: [], oneMiss: [], oneHead: [], count: [], slot: [], order: [], longDead: [], night: [], snap: {} };
-    const push = (a, v) => { a.n = (a.n || 0) + 1; if (a.length < 6) a.push(v); };
+    const push = (a, v) => { a.n = (a.n || 0) + 1; if (a.length < (window.__EXN || 6)) a.push(v); };
     const segd = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)); return Math.hypot(a[0] + u * dx - p[0], a[1] + u * dy - p[1]); };
     const near = (B, pt, d) => B.some((q, k) => k && segd(pt, B[k - 1], q) < d) || (B.length === 1 && Math.hypot(B[0][0] - pt[0], B[0][1] - pt[1]) < d);
     const bb = B => { const xs = B.map(q => q[0]), ys = B.map(q => q[1]); return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]; };
@@ -36,7 +42,7 @@ const { spawn } = require('child_process');
     let prev = null; const total = null;
     for (let T = 270; T <= 1560; T += step) {
       const P = CtcView.probe(T); if (!P) continue; out.n++;
-      if (TR && T >= TR.a && T <= TR.b) (out.trace = out.trace || []).push(T.toFixed(2) + ' ' + P.trains.filter(x => TR.nums.includes(String(x.num)) || (TR.nums[0] === '*' && x.x < 700 && x.x > 100)).map(x => `${x.num}${x.dead ? '回' : ''}${x.held ? '待' : ''}${x.moving ? '走' : '止'}@${Math.round(x.x)},${Math.round(x.y)}~${x.body.length ? Math.round(x.body[x.body.length - 1][0]) : ''}`).join(' ') + (TR.st ? ' | ' + P.sig.filter(z => z.st === TR.st && z.kind !== '閉塞').map(z => z.kind[0] + (z.dir > 0 ? '下' : '上') + Math.round(z.x) + '=' + z.asp).join(' ') : ''));
+      if (TR && T >= TR.a && T <= TR.b) (out.trace = out.trace || []).push(T.toFixed(2) + ' ' + P.trains.filter(x => TR.nums.includes(String(x.num)) || (TR.nums[0] === '*' && x.x < 700 && x.x > 100) || (TR.nums[0] === '*b' && x.y < 250) || (/^\*\d+-\d+$/.test(TR.nums[0]) && x.x >= +TR.nums[0].slice(1).split('-')[0] && x.x <= +TR.nums[0].split('-')[1])).map(x => `${x.num}${x.dead ? '回' : ''}${x.held ? '待' : ''}${x.moving ? '走' : '止'}@${Math.round(x.x)},${Math.round(x.y)}~${x.body.length ? Math.round(x.body[x.body.length - 1][0]) : ''}`).join(' ') + (TR.st ? ' | ' + P.sig.filter(z => z.st === TR.st && z.kind !== '閉塞').map(z => z.kind[0] + (z.dir > 0 ? '下' : '上') + Math.round(z.x) + '=' + z.asp).join(' ') : ''));
       const tr = P.trains, live = tr.filter(t => !t.dead);
       /* 1. 重なり（車体どうしが 4px より近い） */
       const box = tr.map(t => bb(t.body));
@@ -69,14 +75,14 @@ const { spawn } = require('child_process');
       const reg = P.sets, onMap = tr.filter(t => !t.synth).length, inDep = reg.filter(s => s.depot).length;
       if (onMap + inDep !== reg.length) push(out.count, `${fmt(T)} 地図${onMap}＋車庫${inDep}≠${reg.length}`);
       const used = {}; for (const s of reg) if (s.depot) { const k = (s.yard || s.home) + ':' + s.slot; if (used[k]) push(out.slot, `${fmt(T)} ${k} ${used[k]} と ${s.id}`); used[k] = s.id; }
-      const cap = { C: 28, P: 8, O: 2 }; for (const s of reg) if (s.depot && s.slot >= cap[s.yard || s.home]) push(out.slot, `${fmt(T)} ${s.yard || s.home} の ${s.slot}番（あふれ） over=${JSON.stringify(P.slotOver)}`);
+      const YC = window.CtcCore.yardCap(), cap = { C: YC.C.cap, P: YC.P.cap, O: YC.O.cap }; for (const s of reg) if (s.depot && s.slot >= cap[s.yard || s.home]) push(out.slot, `${fmt(T)} ${s.yard || s.home} の ${s.slot}番（あふれ） over=${JSON.stringify(P.slotOver)}`);
       /* 6. 行き止まりの線の奥と手前：奥の編成が出入りするとき、同じ線の手前に編成がいない（2026-11-27） */
-      { const trk = (h, j) => h === 'C' ? j % 14 : h === 'P' ? j % 4 : 0, deep = (h, j) => h === 'C' ? j < 14 : h === 'P' ? j < 4 : j % 2 === 0, shal = (h, j) => h === 'C' ? j + 14 : h === 'P' ? j + 4 : j + 1;
-        const occ = {}; for (const s of reg) if (s.depot) occ[(s.yard || s.home) + ':' + s.slot] = s.id;
+      { const CC = window.CtcCore, trk = CC.slotTrk, dep = CC.slotDep;   /* 置き場所の番号 → 線と奥行き（0 がいちばん奥） */
+        const at = (L, h, t) => L.filter(u => u.depot && (u.yard || u.home) === h && trk(h, u.slot) === t);
         if (prev) { const was = {}; for (const s of prev.sets) was[s.id] = s;
-          for (const s of reg) { const w = was[s.id]; if (!w || w.depot === s.depot) continue; const d = s.depot ? s : w, h = d.yard || d.home;
-            if (!deep(h, d.slot)) continue; const k2 = h + ':' + shal(h, d.slot), o1 = occ[k2], o0 = prev.sets.find(u => u.depot && (u.yard || u.home) + ':' + u.slot === k2);
-            if (o1 != null || o0) push(out.order, `${fmt(T)} ${s.depot ? '入る' : '出る'} ${s.id} ${h}:${d.slot}（奥）・手前 ${o1 != null ? o1 : o0.id}`); } } }
+          for (const s of reg) { const w = was[s.id]; if (!w || w.depot === s.depot) continue; const d = s.depot ? s : w, h = d.yard || d.home, t = trk(h, d.slot), k = dep(h, d.slot);
+            const fr = at(reg, h, t).concat(at(prev.sets, h, t)).find(u => u.id !== s.id && dep(h, u.slot) > k);
+            if (fr) push(out.order, `${fmt(T)} ${s.depot ? '入る' : '出る'} ${s.id} ${h}:${d.slot}（奥行き${k}）・手前 ${fr.id}`); } } }
       for (const t of tr) if (t.dead) { const xs = t.body.map(q => q[0]); if (Math.max(...xs) - Math.min(...xs) > 200 * 1.5) push(out.longDead, `${fmt(T)} 回送${t.num}`); }
       if ([270, 330, 420, 720, 1080, 1380, 1500, 1560].some(h => Math.abs(T - h) < step / 2)) out.snap[fmt(T)] = { 地図: tr.filter(t => !t.synth && !t.dead).length, 回送: tr.filter(t => t.dead).length, 車庫など: inDep, 全部: reg.length, 臨時貨物: tr.filter(t => t.synth).length, 赤以外の信号: P.sig.filter(s => s.asp != null && s.asp !== 0).length, 進路: P.routes.length, 鎖錠: P.pts.filter(p => p.lock).length, 反位: P.pts.filter(p => p.rev).length, 鳴る踏切: P.xings.filter(x => x.on).length };
       prev = P;

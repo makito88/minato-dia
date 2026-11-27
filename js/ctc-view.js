@@ -253,9 +253,10 @@
   /* 車庫・留置線の置き場所：編成ごとに決まった線（slot）。x は止まる編成の西のはし（km）、y は線の高さ */
   function depotPt(home, slot) {
     const YG = C.yardGeo();
-    if (home === 'C') { const t = slot % 14, k = Math.min(1, (slot / 14) | 0); return { t, x: L.xm(YG.C.park[k]), y: YG.C.tracks[t].y }; }
-    if (home === 'O') { const k = slot % 2; return { t: 0, x: L.xb(SX.O.bkm + YG.O.park[k]), y: YG.O.tracks[0].y }; }
-    const t = slot % 4, k = Math.min(1, (slot / 4) | 0); return { t, x: L.xm(SX.P.km + YG.P.park[k]), y: YG.P.tracks[t].y };
+    const t = C.slotTrk(home, slot), k = C.slotDep(home, slot);   /* 置き場所の番号 → 線と奥行き（2026-11-27：大きさはダイヤから） */
+    if (home === 'C') { const tt = Math.min(t, YG.C.tracks.length - 1); return { t: tt, x: L.xm(YG.C.park[Math.min(k, YG.C.park.length - 1)]), y: YG.C.tracks[tt].y }; }
+    if (home === 'O') { const tt = Math.min(t, YG.O.tracks.length - 1); return { t: tt, x: L.xb(SX.O.bkm + YG.O.park[Math.min(k, 1)]), y: YG.O.tracks[tt].y }; }
+    return { t, x: L.xm(SX.P.km + YG.P.park[Math.min(k, 1)]), y: YG.P.tracks[t].y };
   }
   /* 車庫・留置線から駅の番線（q）までの通り道（車庫の側から）。はしご・入出庫線・西のはしご・扇形に分かれる線の上だけを通る */
   function yardPath(at, dp, len, q) {
@@ -273,7 +274,7 @@
       if (Math.abs(q.y - base) > 1) { add(xm(k - g.d0 - Math.abs(q.y - base) / (2 * Y.lane) * C.STEP), base); add(xm(k - g.d0), q.y); }
     } else {
       const k = SX.O.bkm, O = YG.O, g = G.O;
-      add(xb(k + O.lead[1][0]), O.lead[1][1]); add(xb(k + O.lead[0][0]), O.lead[0][1]); add(xb(k - g.d0 - C.STEP / 2), Y.br); add(xb(k - g.d0), q.y);
+      const ot = O.tracks[dp.t] || O.tracks[0]; add(xb(k + ot.jx), ot.y); add(xb(k + O.lead[0][0]), O.lead[0][1]); add(xb(k - g.d0 - C.STEP / 2), Y.br); add(xb(k - g.d0), q.y);
     }
     P.push({ x: q.x, y: q.y });
     /* 折り返す入換（2026-11-19）：向きが逆になる所では、編成がポイントを通りこして全部ぬけてから、もどる（車体がポイントの上で折れ曲がらないように） */
@@ -293,17 +294,17 @@
       if (iv[h]) { iv[h].push({ s, t0: -1e9, t1: a.dep[0] - 1 }); iv[h].push({ s, t0: endOf(z) + 3, t1: 1e9 }); }
       (s.rests || []).forEach(r => iv[r.at] && iv[r.at].push({ s, t0: r.t0, t1: r.t1 })); });
     Y3.syn.forEach(s => { if (!s.rest || !iv[s.rest] || s.trips.length < 2) return; const a = s.trips[0], z = s.trips[s.trips.length - 1]; iv[s.rest].push({ s, t0: endOf(a), t1: z.dep[0] }); });
-    const cap = { C: 28, P: 8, O: 2 }; SLOTOVER = {};
+    const YC = C.yardCap(), cap = { C: YC.C.cap, P: YC.P.cap, O: YC.O.cap }; SLOTOVER = {};
     /* 置き場所の線は行き止まり（入口は一方だけ）。同じ線の奥と手前（2026-11-21）：奥の編成は、手前の編成より先に入って、あとに出る。
        それを守れる置き場所を選ぶ。守れる所がなければ、前と同じに空いている所 */
-    const trk = (h, j) => h === 'C' ? j % 14 : h === 'P' ? j % 4 : 0, deep = (h, j) => h === 'C' ? j < 14 : h === 'P' ? j < 4 : j % 2 === 0;
+    const trk = C.slotTrk, dep = C.slotDep;   /* 奥行き k：小さいほど奥 */
     /* 入る・出るの動きは、置いてある時間（t0〜t1）のまわりに数分かかる（入庫：着いてから・出庫：発車の十数分前から） */
     /* 夜から置いてある編成（入った時刻なし）・夜まで置く編成（出る時刻なし）には、その出入りの動きはない。夜から置いてある編成は、あとに出るものから奥へ（2026-11-27：朝、奥の編成が手前より先に出ていた） */
     const NO = [-2e9, -2e9], A = w => w.t0 < -1e8 ? NO : [w.t0 - 10, w.t0 + 2], Dp = w => w.t1 > 1e8 ? NO : [w.t1 - 12, w.t1 + 2], Pr = w => [w.t0 - 10, w.t1 + 2], ov = (a, b) => a[0] < b[1] && b[0] < a[1];
     for (const k in iv) { const L2 = iv[k].sort((x, y) => x.t0 - y.t0 || (x.t0 < -1e8 ? y.t1 - x.t1 : 0)), busy = [], got = [];
       for (const v of L2) {
-        const ok = j => (busy[j] == null || busy[j] < v.t0 - 0.01) && got.every(w => { if (w.slot === j || trk(k, w.slot) !== trk(k, j) || deep(k, w.slot) === deep(k, j)) return true;
-          return deep(k, j) ? !ov(A(v), Pr(w)) && !ov(Dp(v), Pr(w)) : !ov(Pr(v), A(w)) && !ov(Pr(v), Dp(w)); });   /* 奥なら：入る時・出る時に手前があいている。手前なら：いるあいだに奥が出入りしない */
+        const ok = j => (busy[j] == null || busy[j] < v.t0 - 0.01) && got.every(w => { if (w.slot === j || trk(k, w.slot) !== trk(k, j) || dep(k, w.slot) === dep(k, j)) return true;
+          return dep(k, j) < dep(k, w.slot) ? !ov(A(v), Pr(w)) && !ov(Dp(v), Pr(w)) : !ov(Pr(v), A(w)) && !ov(Pr(v), Dp(w)); });   /* 奥なら：入る時・出る時に手前があいている。手前なら：いるあいだに奥が出入りしない */
         let j = -1; for (let c = 0; c < cap[k]; c++) if (ok(c)) { j = c; break; }
         if (j < 0) { j = busy.findIndex(e => e == null || e < v.t0 - 0.01); if (j < 0) j = busy.length; }
         busy[j] = v.t1; v.slot = j; got.push(v); if (j >= cap[k]) SLOTOVER[k] = Math.max(SLOTOVER[k] || 0, j + 1); } }
@@ -384,7 +385,8 @@
       ctx.font = '11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#c9d6e2'; ctx.fillText('交換信号所', xb(k), Y.br + Y.brLoop + 60); }
     const ox = xb(ST.O.bkm);
     [-Y.lane, Y.lane].forEach(o => { line([[xb(ST.O.bkm - sg('O')), Y.br], [xb(ST.O.bkm - G.O.d0), Y.br + o], [ox + 6, Y.br + o]], TR, 3.2); buf(ox + 6, Y.br + o, 1); });
-    { const OB = d => xb(ST.O.bkm + d), Og = YG.O; line([[OB(Og.lead[0][0]), Og.lead[0][1]], [OB(Og.lead[1][0]), Og.lead[1][1]], [OB(Og.x0), Og.tracks[0].y]], '#b59a5a', 2.2, [6, 4]); buf(OB(Og.x0), Og.tracks[0].y, -1); }   /* 温泉留置線 */
+    { const OB = d => xb(ST.O.bkm + d), Og = YG.O; line([[OB(Og.lead[0][0]), Og.lead[0][1]], [OB(Og.lead[1][0]), Og.lead[1][1]]], '#b59a5a', 2.2, [6, 4]);
+      Og.tracks.forEach(t => { line([[OB(t.jx), t.y], [OB(Og.x0), t.y]], '#b59a5a', 2.2, [6, 4]); buf(OB(Og.x0), t.y, -1); }); }   /* 温泉留置線（ダイヤに合わせて1〜4本。2026-11-27） */
     /* ホーム（data/ctc-haisen.json）：島式・相対式・単式・千鳥 */
     if (HS && window.CtcSignal) for (const p of layOf().plats) {   /* 川辺の指令室と同じホーム：うすい青の板、左に ↑↓番線、右にホームの行き先 */
       const w = p.x1 - p.x0, h = p.y1 - p.y0;
@@ -403,7 +405,7 @@
     ctx.save(); ctx.translate((xm(0.75) + xm(1.3)) / 2 + 22, (k5 - 40 + 4) / 2 + 10); ctx.rotate(Math.atan2(4 - (k5 - 40), xm(1.3) - xm(0.75))); ctx.fillText('→ 北へ（県央北）', 0, 0); ctx.restore();
     ctx.fillStyle = '#c9b27a'; ctx.textAlign = 'left'; ctx.fillText('連絡線・入り（乗り入れ）', xm(-1.0), M - Y.side - 6); ctx.textAlign = 'right'; ctx.fillText('連絡線・出（乗り入れ）', xm(-1.05) - 6, M + Y.side + 32); ctx.textAlign = 'left'; ctx.fillText('県央北へ（乗り入れ）', xm(0.72) + 6, C.YK5 - 22);
     ctx.fillText('臨港線・港貨物ターミナル', xm(ST.P.km + C.LINK.frt[3]), YG.Q.tracks[3].y + 20);
-    ctx.fillText('温泉留置線（臨時列車用）', xb(ST.O.bkm - 1.55), Y.br + 50);
+    ctx.fillText('温泉留置線', xb(ST.O.bkm - 1.55), C.yardGeo().O.tracks[C.yardGeo().O.n - 1].y + 18);
     ctx.fillStyle = '#8aa0b4'; ctx.fillText('温泉支線（単線）', jx1 + 10, Y.br + 50);
     /* 川辺の分かれ道（もとの指令盤と同じ言葉）：⑥から来る上りが下りの本線を横切る所（平面交差）と、上りの本線に入る所（合流点） */
     { const u = (KG.LV - (-Y.lane)) / (KG.LV - Y.lane), xx = xm(kk + KG.X6 + (KG.X7 - KG.X6) * u);
