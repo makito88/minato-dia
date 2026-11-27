@@ -83,8 +83,10 @@
 .ctc-note{font-size:11px;color:#6f8597;padding:8px 12px 0}
 .ctc-gantt{margin:10px 12px 0;background:#0f1d2c;border-radius:10px;padding:8px 8px 6px}.ctc-gh{font-size:12.5px;color:#cfe0f2;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ctc-gh select{margin-left:auto;background:#0c1826;color:#dbe6f0;border:1px solid #35506c;border-radius:6px;padding:2px 6px}#ctcGantt{width:100%;height:230px;display:block}
 `;
-  const KCOL = { taihi: '#f0b44c', conn: '#5fc6e8', kokan: '#c59cf0', depot: '#9fb3c4' };
-  const KNAME = { taihi: '通過待ち', conn: '接続', kokan: '行き違い', depot: '車庫' };
+  const KCOL = { taihi: '#f0b44c', conn: '#5fc6e8', kokan: '#c59cf0', depot: '#9fb3c4', seiri: '#ff8f6b' };
+  const KNAME = { taihi: '通過待ち', conn: '接続', kokan: '行き違い', depot: '車庫', seiri: '運転整理' };
+  let CXLHL = [];   /* 指令の運転整理（支線の運休。C.yard が決める。2026-11-27） */
+  const hlNow = () => { const b = ran() ? ALLHL : hl; return CXLHL.length ? b.concat(CXLHL).sort((a, c) => a.t - c.t) : b; };
 
   function init(env) {
     E = env; SX = C.extST(E.ST); TY2 = Object.assign({}, E.TYPES, C.SYN_TYPES);
@@ -206,7 +208,9 @@
     const reg = r ? SETS2 : D.sets, syn = useRec ? RREC.raw.synSets : SYN.sets.map(s => Object.assign(Object.create(s), { trips: s.trips.map(t => (r && PX.get(t)) || t) }));
     if (!HS) { YS = { reg, syn }; YSKEY = k; return YS; }
     const Y2 = useRec ? RREC.raw.yard : C.yard(reg.concat(syn), { ST: SX, hs: HS, onSiding: onSid });
-    const wrap = s => Object.assign(Object.create(s), { trips: s.trips.map(t => Y2.map.get(t) || t), rests: (Y2.rests.get(s) || []).map(r => Object.assign({}, r, { after: Y2.map.get(r.after) || r.after })) });
+    const wrap = s => Object.assign(Object.create(s), { trips: s.trips.map(t => Y2.map.get(t) || t).filter(t => !t.cancel), rests: (Y2.rests.get(s) || []).map(r => Object.assign({}, r, { after: Y2.map.get(r.after) || r.after })) });
+    { const nm = t => TY2[t.type].name + t.num, seen = new Set(); CXLHL = (Y2.cancels || []).map(t => { const s0 = t.seq[0], s1 = t.seq[t.seq.length - 1]; return { t: t.dep[0], k: 'seiri', st: s0, tr: t,
+        txt: `運転整理：${nm(t)}（${SX[s0].name}→${SX[s1].name}）を運休`, radio: `指令から各列車、温泉の支線が詰まっているため、${nm(t)}は運休。編成は${SX[s0].name}で待機してください。` }; }).filter(h => !seen.has(h.txt) && seen.add(h.txt)); }
     YS = { reg: reg.map(wrap), syn: syn.map(wrap) }; YSKEY = k; YMAP = new Map(); Y2.map.forEach(v => YMAP.set(baseOf(v.yardOf), v)); return YS;
   }
   /* 発車標・列車の表の番線：配線の層で決めた番線（駅の形の番号） */
@@ -704,7 +708,7 @@
       if (selPos && host.querySelector('#ctcFollow').checked) { const want = selPos.x - w / 2; if (Math.abs(sc.scrollLeft - want) > 40) sc.scrollLeft += (want - sc.scrollLeft) * 0.15; }
       /* 見どころの前で1倍速に */
       if (host.querySelector('#ctcSlow').checked && E.speed() > 1.01) {
-        const h = (ran() ? ALLHL : hl).find(h => h.k !== 'depot' && h.t > T && h.t - T < 1.2);
+        const h = hlNow().find(h => h.k !== 'depot' && h.t > T && h.t - T < 1.2);
         if (h && slowedAt !== h.t) { slowedAt = h.t; E.setSpeed(1); }
       }
     }
@@ -716,7 +720,7 @@
   /* ---- 予告・無線・選んだもの ---- */
   const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
   function lists(D, T) {
-    const soon = [], past = [], src = ran() ? ALLHL : hl; LISTSRC = src;
+    const soon = [], past = [], src = hlNow(); LISTSRC = src;
     src.forEach((h, i) => { if (h.t > T && h.t <= T + 10) soon.push([h, i]); else if (h.t <= T && h.t > T - (h.k === 'depot' ? 6 : 60)) past.push([h, i]); });   /* 出入庫は多いので、無線には6分だけ残す */
     const k = h => `<span class="k" style="background:${KCOL[h.k] || (C.REASON[h.k] || {}).col || '#9fb3c4'}">${KNAME[h.k] || (h.k === 'incident' ? 'できごと' : (C.REASON[h.k] || {}).name || '')}</span>`;
     host.querySelector('#ctcSoon').innerHTML = soon.slice(0, 8).map(([h, i]) => `<li><span class="t">あと${Math.max(1, Math.ceil(h.t - T))}分</span>${k(h)}${esc(h.txt)}<button class="go" data-i="${i}">見る</button></li>`).join('') || '<li class="muted">10分以内の見どころはありません</li>';
@@ -797,7 +801,7 @@
     sc.scrollLeft = stX(h.st) - sc.clientWidth / 2;
     const D = data(); if (D) info(D, E.T()); draw(true);
   }
-  function nextHighlight() { const T = E.T(); const h = (ran() ? ALLHL : hl).find(h => h.k !== 'depot' && h.t > T); if (h) focusHl(h); }
+  function nextHighlight() { const T = E.T(); const h = hlNow().find(h => h.k !== 'depot' && h.t > T); if (h) focusHl(h); }
 
   /* 1分以上遅れて着いた列車の割合（経営のタブの満足度に使う）。指令パネルを開いていなくても計算する */
   function lateShare(D) { if (!E || !D || !D.trips) return null; ensureHl(D); const R = RUNF ? RUNF() : D2; let n = 0, late = 0;   /* 訓練の事故は、満足度には入れない。運休は遅れに数える */

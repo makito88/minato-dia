@@ -212,7 +212,7 @@
   function slotDep(h, j) { return h === 'C' ? (j / 14) | 0 : h === 'P' ? (j / 4) | 0 : j % 2; }
   function setYardNeed(need) {
     YCAP.C = Math.max(2, Math.min(4, Math.ceil((need.C || 0) / 14)));
-    YCAP.O = Math.max(1, Math.min(4, Math.ceil(((need.O || 0) - 1) / 2)));
+    YCAP.O = Math.max(2, Math.min(4, Math.ceil(((need.O || 0) - 1) / 2)));   /* 2本から（運転整理で温泉に残る編成が出るため） */
   }
   function yardGeo() {
     const M = Y.main, cy = k => M + Y.dep + 6 + k * 6;
@@ -944,6 +944,21 @@
       return { d, a: d + run, t0: d + run * fa, t1: d + run * fa };
     }
     const Q = [];   /* 出発のできごと（時刻の早いものから処理する） */
+    /* 運転整理（2026-11-27・ユーザーの頼み）：温泉の支線は単線で、川辺から入れるのは1番線だけ。組んだダイヤによっては足りず、遅れがどこまでも積もる。
+       支線に入る列車の遅れが LIM 分を超えているあいだは、これから出る支線の列車を、温泉からの折り返しと組で運休にする（編成は出た駅で待つ）。
+       決めるのは、その編成が前の列車で着いたとき（休むかどうかを決める前）。いちど決めたら変えない */
+    const CXL = new Map(), BRL = [], LIM = 20;
+    const isBr = t => t.seq.includes('O');
+    const pairOk = (L, j) => { const A = L[j], B = L[j + 1]; if (!A || !B) return false; const a0 = A.seq[0], a1 = A.seq[A.seq.length - 1];
+      return B.seq[0] === a1 && B.seq[B.seq.length - 1] === a0 && (!L[j + 2] || L[j + 2].seq[0] === a0); };
+    const congested = now => BRL.some(r => r[0] >= now - 60 && r[1] > LIM);   /* いまから60分のうちに支線に入った列車が LIM 分より遅れていた */
+    function nextK(ss, now) {
+      if (ss.nkAt === ss.k) return ss.nk;
+      const L = ss.st.trips; let j = ss.k + 1;
+      for (let g = 0; g < 20 && L[j] && isBr(L[j]) && pairOk(L, j) && congested(now); g++) {
+        const why = `温泉の支線が詰まっているため（支線に入る列車が${LIM}分より遅れている）`; CXL.set(L[j], why); CXL.set(L[j + 1], why); j += 2; }
+      ss.nkAt = ss.k; ss.nk = j; return j;
+    }
     function begin(ss, c) {
       const tr = ss.st.trips[ss.k]; if (!tr) return; const n = tr.seq.length, s = tr.seq[0];
       ss.tr = tr; ss.A = tr.arr.slice(); ss.D = tr.dep.slice(); ss.L = new Array(n).fill(null); ss.R = new Array(n).fill(null); ss.i = 0; ss.XW = {}; ss.lead0 = null;
@@ -961,14 +976,14 @@
     function finish(ss, plan) {
       const tr = ss.tr, n = tr.seq.length; ss.D[n - 1] = Math.max(ss.D[n - 1], ss.A[n - 1]);
       const cp = Object.create(tr); cp.arr = ss.A; cp.dep = ss.D; cp.lanes = ss.L; cp.yardOf = tr; cp.xw = ss.XW; if (ss.lead0 != null) cp.lead0 = ss.lead0; out.set(tr, cp);
-      ss.k++; begin(ss, plan);
+      ss.k = nextK(ss, ss.A[ss.tr.seq.length - 1]); begin(ss, plan);
     }
     sets.forEach(st => { if (st.trips.length) begin({ st, k: 0 }, null); });
     for (let guard = 0; Q.length && guard < 200000; guard++) {
       let m = 0; for (let q = 1; q < Q.length; q++) if (Q[q].t < Q[m].t) m = q;
       const ss = Q.splice(m, 1)[0].ss, tr = ss.tr, n = tr.seq.length, i = ss.i, s = tr.seq[i], nx = tr.seq[i + 1];
       const run = tr.arr[i + 1] - tr.dep[i], sk = s + '|' + nx, sd = sk + '|' + (tr.down ? 'd' : 'u'), last = i + 1 === n - 1;
-      const stopN = last || tr.stop[i + 1], nt = ss.st.trips[ss.k + 1], same = last && nt && nt.seq[0] === nx, at = nx === 'C' || nx === 'P' || nx === 'O' ? nx : null;
+      const stopN = last || tr.stop[i + 1], nt = ss.st.trips[nextK(ss, ss.D[i])], same = last && nt && nt.seq[0] === nx, at = nx === 'C' || nx === 'P' || nx === 'O' ? nx : null;
       let d = ss.D[i], a = 0, p = null, plan = null, win = null;
       for (let g = 0; g < 12; g++) {
         const d0 = d;
@@ -1025,6 +1040,7 @@
       ss.D[i] = d; ss.A[i + 1] = a;
       if (env.log) env.log({ num: tr.num, at: nx, d, a, lane: p && p.o, win, busyNow: p ? (occ.get(key(nx, p.o)) || []).map(r => r.slice()) : null });   /* 確かめ用 */
       if (!segs.has(sd)) segs.set(sd, []); segs.get(sd).push([d, a]);
+      if (sk === 'K|F' || sk === 'O|T') BRL.push([d, d - tr.dep[i]]);   /* 支線に入る列車の遅れ（運転整理を決めるため） */
       if (BRSEG.has(sk)) { const u = [s, nx].sort().join('|'); if (!single.has(u)) single.set(u, []); const rec = [d, a, tr.down];
         if (u === 'F|T') { xcross(d, run, tr.down, true); const fa = tr.down ? XF : 1 - XF, t0 = d + run * fa, t1 = Math.max(t0, a - run * (1 - fa)); rec.ti = t0; rec.to = t1; rec.ss = ss; rec.i = i; rec.k = ss.k; rec.seg = segs.get(sd)[segs.get(sd).length - 1]; if (t1 - t0 > 0.05) ss.XW[i] = [t0, t1]; }
         single.get(u).push(rec); }
@@ -1044,7 +1060,8 @@
       }
       { const rec = put(key(nx, o), a - EIN, nd + EPS); rec.own = [{ L: ss.L, j: i + 1, tr }]; finish(ss, { s: nx, lane: o, floor: nd, rec }); }
     }
-    return { map: out, rests };
+    CXL.forEach((why, t) => { const cp = Object.create(t); cp.cancel = true; cp.cxl = why; cp.yardOf = t; out.set(t, cp); });
+    return { map: out, rests, cancels: [...CXL.keys()] };
   }
 
   /* 実際の発着をもった列車（元の列車をうけつぐ。パネルの位置・札に使う） */
